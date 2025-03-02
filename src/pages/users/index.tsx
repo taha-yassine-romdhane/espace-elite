@@ -189,13 +189,13 @@ const UsersPage = () => {
     return (
       <div className="p-6">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Users</h1>
+          <h1 className="text-2xl font-bold">Utilisateurs</h1>
           <Button variant="default" onClick={() => setIsOpen(true)} disabled>
-            Add User
+            Ajouter un utilisateur
           </Button>
         </div>
         <div className="flex items-center justify-center h-64">
-          <div className="text-gray-500">Loading...</div>
+          <div className="text-gray-500">Chargement...</div>
         </div>
       </div>
     );
@@ -204,9 +204,9 @@ const UsersPage = () => {
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Users</h1>
+        <h1 className="text-2xl font-bold">Utilisateurs</h1>
         <Button onClick={() => { setIsOpen(true); setIsEditMode(false); resetForm(); }}>
-          Add User
+          Ajouter un utilisateur
         </Button>
       </div>
 
@@ -214,9 +214,9 @@ const UsersPage = () => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
+              <TableHead>Nom</TableHead>
               <TableHead>Email</TableHead>
-              <TableHead>Telephone</TableHead>
+              <TableHead>Téléphone</TableHead>
               <TableHead>Role</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>

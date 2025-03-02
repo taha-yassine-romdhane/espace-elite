@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { ProductStatus, StockLocation } from '@/types';
+import { ProductStatus, StockLocationType } from '@/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface ProductFormProps {
@@ -13,7 +13,7 @@ interface ProductFormProps {
     nom: string;
     type: string;
     marque: string;
-    stock: StockLocation;
+    stock: StockLocationType;
     ns?: string;
     prixAchat?: number;
     status: ProductStatus;
@@ -68,7 +68,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
     }
   };
 
-  const showRepairFields = formData.stock === StockLocation.HORS_SERVICE;
+  const showRepairFields = formData.stock === StockLocationType.HORS_SERVICE;
 
   return (
     <div className="space-y-4 p-4">
@@ -176,7 +176,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
             onValueChange={(value) => {
               handleSelectChange('stock', value);
               // Reset repair status when changing stock
-              if (value !== StockLocation.HORS_SERVICE) {
+              if (value !== StockLocationType.HORS_SERVICE) {
                 handleSelectChange('status', ProductStatus.FONCTIONNEL);
               }
             }}
@@ -185,9 +185,9 @@ const ProductForm: React.FC<ProductFormProps> = ({
               <SelectValue placeholder="Sélectionner un stock" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={StockLocation.VENTE}>Vente</SelectItem>
-              <SelectItem value={StockLocation.LOCATION}>Location</SelectItem>
-              <SelectItem value={StockLocation.HORS_SERVICE}>Hors Service</SelectItem>
+              <SelectItem value={StockLocationType.VENTE}>Vente</SelectItem>
+              <SelectItem value={StockLocationType.LOCATION}>Location</SelectItem>
+              <SelectItem value={StockLocationType.HORS_SERVICE}>Hors Service</SelectItem>
             </SelectContent>
           </Select>
         </div>
