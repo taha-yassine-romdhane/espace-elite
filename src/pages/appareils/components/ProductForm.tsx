@@ -185,7 +185,7 @@ export function ProductForm({ initialData, onSubmit, stockLocations, isEditMode 
                       <FormItem>
                         <FormLabel>Marque</FormLabel>
                         <FormControl>
-                          <Input {...field} />
+                          <Input {...field} value={field.value || ""}  />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -199,7 +199,7 @@ export function ProductForm({ initialData, onSubmit, stockLocations, isEditMode 
                       <FormItem>
                         <FormLabel>Modèle</FormLabel>
                         <FormControl>
-                          <Input {...field} />
+                          <Input {...field} value={field.value || ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -214,7 +214,7 @@ export function ProductForm({ initialData, onSubmit, stockLocations, isEditMode 
                     <FormItem>
                       <FormLabel>Numéro de Série</FormLabel>
                       <FormControl>
-                        <Input {...field} />
+                        <Input {...field} value={field.value || ""} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -233,7 +233,7 @@ export function ProductForm({ initialData, onSubmit, stockLocations, isEditMode 
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Emplacement</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Sélectionner l'emplacement" />
@@ -276,7 +276,7 @@ export function ProductForm({ initialData, onSubmit, stockLocations, isEditMode 
                           <FormItem>
                             <FormLabel>Stock Minimum</FormLabel>
                             <FormControl>
-                              <Input type="number" min="0" {...field} />
+                              <Input type="number" min="0" {...field} value={field.value || ""} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -290,7 +290,7 @@ export function ProductForm({ initialData, onSubmit, stockLocations, isEditMode 
                           <FormItem>
                             <FormLabel>Stock Maximum</FormLabel>
                             <FormControl>
-                              <Input type="number" min="0" {...field} />
+                              <Input type="number" min="0" {...field} value={field.value || ""} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -304,7 +304,7 @@ export function ProductForm({ initialData, onSubmit, stockLocations, isEditMode 
                           <FormItem>
                             <FormLabel>Seuil d'Alerte</FormLabel>
                             <FormControl>
-                              <Input type="number" min="0" {...field} />
+                              <Input type="number" min="0" {...field} value={field.value || ""} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -328,7 +328,7 @@ export function ProductForm({ initialData, onSubmit, stockLocations, isEditMode 
                       <FormItem>
                         <FormLabel>Prix d'Achat</FormLabel>
                         <FormControl>
-                          <Input type="number" step="0.01" min="0" {...field} />
+                          <Input type="number" step="0.01" min="0" {...field} value={field.value || ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -343,7 +343,7 @@ export function ProductForm({ initialData, onSubmit, stockLocations, isEditMode 
                         <FormItem>
                           <FormLabel>Coût Total</FormLabel>
                           <FormControl>
-                            <Input type="number" step="0.01" min="0" {...field} />
+                            <Input type="number" step="0.01" min="0" {...field} value={field.value || ""} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -359,7 +359,7 @@ export function ProductForm({ initialData, onSubmit, stockLocations, isEditMode 
                         <FormItem>
                           <FormLabel>Prix de Vente</FormLabel>
                           <FormControl>
-                            <Input type="number" step="0.01" min="0" {...field} />
+                            <Input type="number" step="0.01" min="0" {...field} value={field.value || ""}/>
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -383,7 +383,7 @@ export function ProductForm({ initialData, onSubmit, stockLocations, isEditMode 
                         <FormItem>
                           <FormLabel>Spécifications Techniques</FormLabel>
                           <FormControl>
-                            <Textarea {...field} />
+                            <Textarea {...field} value={field.value || ""}/>
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -397,7 +397,7 @@ export function ProductForm({ initialData, onSubmit, stockLocations, isEditMode 
                         <FormItem>
                           <FormLabel>Configuration</FormLabel>
                           <FormControl>
-                            <Textarea {...field} />
+                            <Textarea {...field} value={field.value || ""}/>
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -413,7 +413,7 @@ export function ProductForm({ initialData, onSubmit, stockLocations, isEditMode 
                     <FormItem>
                       <FormLabel>Garantie</FormLabel>
                       <FormControl>
-                        <Input {...field} />
+                        <Input {...field} value={field.value || ""} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

@@ -8,6 +8,16 @@ import {
   DialogDescription,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { TabSwitcher } from "./components/TabSwitcher";
@@ -23,6 +33,10 @@ import { StockLocationsTable } from "./components/StockLocationsTable";
 import { LocationForm } from "./components/LocationForm";
 import { Product, ProductType } from "./types";
 import { PlusCircle } from "lucide-react";
+import { Wrench , Trash2 ,Pencil } from "lucide-react";
+import { RepairForm } from "./components/forms/RepairForm";
+import { History } from "lucide-react";
+import { RepairHistoryDialog } from "./components/RepairHistoryDialog";
 
 export default function AppareilsPage() {
   const [activeTab, setActiveTab] = useState<string>("medical-devices");
@@ -30,6 +44,12 @@ export default function AppareilsPage() {
   const [isLocationFormOpen, setIsLocationFormOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [isRepairDialogOpen, setIsRepairDialogOpen] = useState(false);
+  const [productToRepair, setProductToRepair] = useState<Product | null>(null);
+  const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
+  const [productToViewHistory, setProductToViewHistory] = useState<Product | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -162,7 +182,13 @@ export default function AppareilsPage() {
 
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.error || "Failed to update device");
+          console.error("Update error:", errorData);
+          toast({
+            title: "Erreur",
+            description: errorData.error || "Une erreur est survenue lors de la modification",
+            variant: "destructive",
+          });
+          return;
         }
 
         await queryClient.invalidateQueries({ queryKey: ["medical-devices"] });
@@ -170,28 +196,41 @@ export default function AppareilsPage() {
           title: "Succès",
           description: "L'appareil a été modifié avec succès",
         });
+        setIsOpen(false);
+        setCurrentProduct(null);
+        setIsEditMode(false);
       } else {
         // Add new product
         await addDeviceMutation.mutateAsync(data);
+        setIsOpen(false);
+        setCurrentProduct(null);
+        setIsEditMode(false);
       }
-      
-      // Reset form state
-      setIsOpen(false);
-      setCurrentProduct(null);
-      setIsEditMode(false);
     } catch (error) {
-      console.error("Error submitting form:", error);
+      console.error("Submit error:", error);
       toast({
         title: "Erreur",
-        description: error instanceof Error ? error.message : "Une erreur est survenue",
+        description: "Une erreur est survenue lors de l'opération",
         variant: "destructive",
       });
     }
   };
 
   const handleDelete = (product: Product) => {
-    if (window.confirm("Êtes-vous sûr de vouloir supprimer cet appareil ?")) {
-      deleteDeviceMutation.mutate(product);
+    setProductToDelete(product);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleRepair = (product: Product) => {
+    setProductToRepair(product);
+    setIsRepairDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (productToDelete) {
+      deleteDeviceMutation.mutate(productToDelete);
+      setIsDeleteDialogOpen(false);
+      setProductToDelete(null);
     }
   };
 
@@ -231,6 +270,39 @@ export default function AppareilsPage() {
           return null;
       }
     }
+  };
+
+  const renderActionButtons = (product: Product) => {
+    const canRepair = product.type === ProductType.MEDICAL_DEVICE || 
+                     product.type === ProductType.DIAGNOSTIC_DEVICE;
+    
+    return (
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => handleEdit(product)}
+        >
+          <Pencil className="h-4 w-4" />
+        </Button>
+        {canRepair && (
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => handleRepair(product)}
+          >
+            <Wrench className="h-4 w-4" />
+          </Button>
+        )}
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => handleDelete(product)}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+    );
   };
 
   return (
@@ -281,6 +353,12 @@ export default function AppareilsPage() {
               products={products || []}
               onEdit={handleEdit}
               onDelete={handleDelete}
+              onRepair={handleRepair}
+              onViewHistory={(product) => {
+                setProductToViewHistory(product);
+                setIsHistoryDialogOpen(true);
+              }}
+              renderActionButtons={renderActionButtons}
             />
           </div>
         )}
@@ -323,6 +401,11 @@ export default function AppareilsPage() {
               products={products || []}
               onEdit={handleEdit}
               onDelete={handleDelete}
+              onViewHistory={(product) => {
+                setProductToViewHistory(product);
+                setIsHistoryDialogOpen(true);
+              }}
+              renderActionButtons={renderActionButtons}
             />
           </div>
         )}
@@ -365,6 +448,11 @@ export default function AppareilsPage() {
               products={products || []}
               onEdit={handleEdit}
               onDelete={handleDelete}
+              onViewHistory={(product) => {
+                setProductToViewHistory(product);
+                setIsHistoryDialogOpen(true);
+              }}
+              renderActionButtons={renderActionButtons}
             />
           </div>
         )}
@@ -407,6 +495,7 @@ export default function AppareilsPage() {
               products={products || []}
               onEdit={handleEdit}
               onDelete={handleDelete}
+              renderActionButtons={renderActionButtons}
             />
           </div>
         )}
@@ -438,6 +527,53 @@ export default function AppareilsPage() {
           </div>
         )}
       </div>
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Êtes-vous sûr de vouloir supprimer cet appareil ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette action ne peut pas être annulée. Cela supprimera définitivement l'appareil
+              {productToDelete && ` "${productToDelete.name}"`}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>Supprimer</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={isRepairDialogOpen} onOpenChange={setIsRepairDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enregistrer une réparation</DialogTitle>
+            <DialogDescription>
+              Remplissez les détails de la réparation pour cet appareil.
+            </DialogDescription>
+          </DialogHeader>
+          {productToRepair && (
+            <RepairForm
+              medicalDeviceId={productToRepair.id}
+              productName={productToRepair.name}
+              onSuccess={() => {
+                setIsRepairDialogOpen(false);
+                setProductToRepair(null);
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {productToViewHistory && (
+        <RepairHistoryDialog
+          isOpen={isHistoryDialogOpen}
+          onClose={() => {
+            setIsHistoryDialogOpen(false);
+            setProductToViewHistory(null);
+          }}
+          medicalDeviceId={productToViewHistory.id}
+        />
+      )}
     </div>
   );
 }

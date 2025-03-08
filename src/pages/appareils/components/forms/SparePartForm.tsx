@@ -23,17 +23,16 @@ import { Card, CardContent } from "@/components/ui/Card";
 
 // Form validation schema for spare parts
 const sparePartSchema = z.object({
-  name: z.string().min(2, "Le nom doit contenir au moins 2 caractères"),
-  type: z.literal("SPARE_PART"),
+  name: z.string().min(1, { message: "Le nom est requis" }),
   brand: z.string().optional().nullable(),
   model: z.string().optional().nullable(),
   serialNumber: z.string().optional().nullable(),
   stockLocationId: z.string().optional().nullable(),
-  stockQuantity: z.coerce.number().min(0).default(0),
-  minStock: z.coerce.number().min(0).nullable(),
-  maxStock: z.coerce.number().min(0).nullable(),
-  alertThreshold: z.coerce.number().min(0).nullable(),
+  stockQuantity: z.coerce.number().min(0),
+  status: z.string(),
+  type: z.literal("SPARE_PART"),  // Ensure type is always SPARE_PART
   purchasePrice: z.coerce.number().min(0).nullable(),
+  sellingPrice: z.coerce.number().min(0).nullable(),
   warranty: z.string().optional().nullable(),
 });
 
@@ -47,43 +46,46 @@ interface SparePartFormProps {
 }
 
 export function SparePartForm({ initialData, onSubmit, stockLocations, isEditMode = false }: SparePartFormProps) {
+  const defaultValues = {
+    name: initialData?.name || "",
+    brand: initialData?.brand || "",
+    model: initialData?.model || "",
+    serialNumber: initialData?.serialNumber || "",
+    purchasePrice: initialData?.purchasePrice || "",
+    sellingPrice: initialData?.sellingPrice || "",
+    stockLocationId: initialData?.stockLocationId || "",
+    stockQuantity: initialData?.stockQuantity || 0,
+    status: initialData?.status || "EN_VENTE",
+    type: "SPARE_PART" as const,  // Type assertion to ensure it's SPARE_PART
+    warranty: initialData?.warranty || ""
+  };
+
   const form = useForm<SparePartFormValues>({
     resolver: zodResolver(sparePartSchema),
-    defaultValues: {
-      ...initialData,
-      type: "SPARE_PART",
-      brand: initialData?.brand || '',
-      model: initialData?.model || '',
-      serialNumber: initialData?.serialNumber || '',
-      stockQuantity: initialData?.stockQuantity || 0,
-      minStock: initialData?.minStock || null,
-      maxStock: initialData?.maxStock || null,
-      alertThreshold: initialData?.alertThreshold || null,
-      purchasePrice: initialData?.purchasePrice || null,
-      warranty: initialData?.warranty || '',
-    },
+    defaultValues,
   });
 
   const handleSubmit = async (values: SparePartFormValues) => {
     try {
       const cleanedValues = Object.entries(values).reduce((acc, [key, value]) => {
+        acc[key] = value;
         // Handle empty strings
         if (value === "") {
           acc[key] = null;
-        } 
+        }
         // Handle numeric fields
-        else if (["purchasePrice"].includes(key)) {
+        else if (["purchasePrice", "sellingPrice"].includes(key)) {
           acc[key] = value ? parseFloat(value.toString()) : null;
         }
-        else if (["stockQuantity", "minStock", "maxStock", "alertThreshold"].includes(key)) {
-          acc[key] = value ? parseInt(value.toString()) : null;
-        }
-        // All other fields
-        else {
-          acc[key] = value;
+        // Handle stock quantity
+        else if (key === "stockQuantity") {
+          acc[key] = value ? parseInt(value.toString()) : 0;
         }
         return acc;
       }, {} as any);
+
+      // Ensure type is always SPARE_PART
+      cleanedValues.type = "SPARE_PART";
 
       await onSubmit(cleanedValues);
     } catch (error) {
@@ -148,20 +150,6 @@ export function SparePartForm({ initialData, onSubmit, stockLocations, isEditMod
                     )}
                   />
                 </div>
-
-                <FormField
-                  control={form.control}
-                  name="serialNumber"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Numéro de Série</FormLabel>
-                      <FormControl>
-                        <Input {...field} value={field.value || ""} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
               </CardContent>
             </Card>
           </TabsContent>
@@ -201,80 +189,18 @@ export function SparePartForm({ initialData, onSubmit, stockLocations, isEditMod
                     <FormItem>
                       <FormLabel>Quantité en Stock</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="number" 
-                          min="0" 
+                        <Input
+                          type="number"
+                          min="0"
                           {...field}
                           onChange={(e) => field.onChange(e.target.valueAsNumber)}
-                          value={field.value || 0} 
+                          value={field.value || 0}
                         />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-
-                <div className="grid grid-cols-3 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="minStock"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Stock Minimum</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="number" 
-                            min="0" 
-                            {...field}
-                            onChange={(e) => field.onChange(e.target.valueAsNumber)}
-                            value={field.value ?? ''} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="maxStock"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Stock Maximum</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="number" 
-                            min="0" 
-                            {...field}
-                            onChange={(e) => field.onChange(e.target.valueAsNumber)}
-                            value={field.value ?? ''} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="alertThreshold"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Seuil d'Alerte</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="number" 
-                            min="0" 
-                            {...field}
-                            onChange={(e) => field.onChange(e.target.valueAsNumber)}
-                            value={field.value ?? ''} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -296,17 +222,28 @@ export function SparePartForm({ initialData, onSubmit, stockLocations, isEditMod
                       </FormItem>
                     )}
                   />
+                  <FormField
+                    control={form.control}
+                    name="sellingPrice"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Prix de Vente</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="0.01" min="0" {...field} value={field.value || ''} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
-
-              
               </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
 
         <div className="flex justify-end space-x-4">
-          <Button 
-            type="submit" 
+          <Button
+            type="submit"
             disabled={form.formState.isSubmitting}
           >
             {form.formState.isSubmitting ? (

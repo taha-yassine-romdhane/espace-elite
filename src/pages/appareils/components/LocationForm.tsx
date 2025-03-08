@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
+import { User } from "@prisma/client";
 
 interface LocationFormProps {
   onSuccess?: () => void;
@@ -34,11 +35,11 @@ export function LocationForm({ onSuccess }: LocationFormProps) {
         throw new Error("Failed to fetch users");
       }
       const data = await response.json();
-      return data.filter((user: any) => user.isActive);
+      return data.filter((user: User) => user.isActive);
     },
   });
 
-  const sortedUsers = users?.sort((a, b) => {
+  const sortedUsers = users?.sort((a: any, b: any) => {
     return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
   }) || [];
 
@@ -104,9 +105,9 @@ export function LocationForm({ onSuccess }: LocationFormProps) {
             <SelectValue placeholder="Sélectionner un responsable" />
           </SelectTrigger>
           <SelectContent>
-            {sortedUsers.map((user) => (
+            {sortedUsers.map((user : User) => (
               <SelectItem key={user.id} value={user.id}>
-                {user.name}
+                {user.firstName} {user.lastName}
               </SelectItem>
             ))}
           </SelectContent>

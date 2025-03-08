@@ -73,10 +73,7 @@ export default async function handler(
           model: product.model,
           serialNumber: product.serialNumber,
           purchasePrice: product.purchasePrice,
-          totalCost: product.totalCost,
-          minStock: product.minStock,
-          maxStock: product.maxStock,
-          alertThreshold: product.alertThreshold,
+          sellingPrice: product.sellingPrice,
           stockLocation: product.stocks[0]?.location.name || 'Non assigné',
           stockLocationId: product.stocks[0]?.location.id,
           stockQuantity: product.stocks.reduce((acc, stock) => acc + stock.quantity, 0),
@@ -87,6 +84,10 @@ export default async function handler(
         try {
           const { type, ...data } = req.body;
           console.log("Updating device:", id, data);
+
+          if (!id) {
+            return res.status(400).json({ error: 'ID is required' });
+          }
 
           if (type === 'MEDICAL_DEVICE' || type === 'DIAGNOSTIC_DEVICE') {
             const updatedDevice = await prisma.medicalDevice.update({
@@ -143,67 +144,155 @@ export default async function handler(
             });
           } else {
             // Update product
-            const updatedProduct = await prisma.product.update({
-              where: { id: id as string },
-              data: {
-                name: data.name,
-                brand: data.brand || null,
-                model: data.model || null,
-                serialNumber: data.serialNumber || null,
-                purchasePrice: data.purchasePrice ? parseFloat(data.purchasePrice.toString()) : null,
-                minStock: data.minStock ? parseInt(data.minStock.toString()) : null,
-                maxStock: data.maxStock ? parseInt(data.maxStock.toString()) : null,
-                alertThreshold: data.alertThreshold ? parseInt(data.alertThreshold.toString()) : null
-              },
-              include: {
-                stocks: {
-                  include: {
-                    location: true
-                  }
-                }
-              }
-            });
-
-            // Get the stock for this product
-            const stock = await prisma.stock.findFirst({
-              where: { productId: id as string },
-              include: { location: true }
-            });
-
-            // Update stock quantity if provided
-            if (stock && data.stockQuantity) {
-              await prisma.stock.update({
-                where: { id: stock.id },
-                data: {
-                  quantity: parseInt(data.stockQuantity.toString())
+            try {
+              // First, find the existing stock if any
+              const existingStock = await prisma.stock.findFirst({
+                where: {
+                  productId: id as string,
+                  locationId: data.stockLocationId
                 }
               });
-            }
 
-            return res.status(200).json({
-              id: updatedProduct.id,
-              name: updatedProduct.name,
-              type: updatedProduct.type,
-              brand: updatedProduct.brand,
-              model: updatedProduct.model,
-              serialNumber: updatedProduct.serialNumber,
-              purchasePrice: updatedProduct.purchasePrice,
-              minStock: updatedProduct.minStock,
-              maxStock: updatedProduct.maxStock,
-              alertThreshold: updatedProduct.alertThreshold,
-              stockLocation: stock?.location?.name || 'Non assigné',
-              stockLocationId: stock?.location?.id,
-              stockQuantity: data.stockQuantity || stock?.quantity || 0,
-              status: stock?.status || 'EN_VENTE'
-            });
+              const updatedProduct = await prisma.product.update({
+                where: { id: id as string },
+                data: {
+                  name: data.name,
+                  brand: data.brand || null,
+                  model: data.model || null,
+                  serialNumber: data.serialNumber || null,
+                  purchasePrice: data.purchasePrice ? parseFloat(data.purchasePrice.toString()) : null,
+                  sellingPrice: data.sellingPrice ? parseFloat(data.sellingPrice.toString()) : null,
+                  type: data.type,
+                  status: data.status === 'EN_VENTE' ? 'ACTIVE' : 
+                         data.status === 'EN_REPARATION' ? 'MAINTENANCE' : 
+                         data.status === 'HORS_SERVICE' ? 'RETIRED' : 'ACTIVE',
+                  ...(data.stockLocationId ? {
+                    stocks: {
+                      upsert: {
+                        where: {
+                          id: existingStock?.id || 'new'
+                        },
+                        create: {
+                          quantity: parseInt(data.stockQuantity?.toString() || '1'),
+                          status: data.status || 'EN_VENTE',
+                          location: {
+                            connect: { id: data.stockLocationId }
+                          }
+                        },
+                        update: {
+                          quantity: parseInt(data.stockQuantity?.toString() || '1'),
+                          status: data.status || 'EN_VENTE'
+                        }
+                      }
+                    }
+                  } : {})
+                },
+                include: {
+                  stocks: {
+                    include: {
+                      location: true
+                    }
+                  }
+                }
+              });
+
+              // Map the status back to the frontend format
+              const mappedStatus = updatedProduct.status === 'ACTIVE' ? 'EN_VENTE' :
+                                 updatedProduct.status === 'MAINTENANCE' ? 'EN_REPARATION' :
+                                 updatedProduct.status === 'RETIRED' ? 'HORS_SERVICE' : 'EN_VENTE';
+
+              return res.status(200).json({
+                id: updatedProduct.id,
+                name: updatedProduct.name,
+                type: updatedProduct.type,
+                brand: updatedProduct.brand,
+                model: updatedProduct.model,
+                serialNumber: updatedProduct.serialNumber,
+                purchasePrice: updatedProduct.purchasePrice,
+                sellingPrice: updatedProduct.sellingPrice,
+                stockLocation: updatedProduct.stocks[0]?.location?.name || 'Non assigné',
+                stockLocationId: updatedProduct.stocks[0]?.location?.id,
+                stockQuantity: updatedProduct.stocks[0]?.quantity || 0,
+                status: mappedStatus
+              });
+            } catch (error) {
+              console.error("Product update error:", error);
+              return res.status(500).json({ error: "Failed to update product" });
+            }
           }
         } catch (error) {
           console.error("Update error:", error);
           return res.status(500).json({ error: "Failed to update device" });
         }
+        break;
+
+      case 'DELETE':
+        try {
+          // First check if it's a medical device
+          const device = await prisma.medicalDevice.findUnique({
+            where: { id: id as string },
+            include: {
+              Diagnostic: true,
+              Rental: true,
+            },
+          });
+
+          if (device) {
+            // Check if the device has any related records
+            if (device.Diagnostic.length > 0 || device.Rental.length > 0) {
+              return res.status(400).json({
+                error: 'Cannot delete device with existing diagnostics or rentals'
+              });
+            }
+
+            // Delete the medical device
+            await prisma.medicalDevice.delete({
+              where: { id: id as string },
+            });
+
+            return res.status(200).json({ message: 'Medical device deleted successfully' });
+          }
+
+          // If not a medical device, check if it's a product (accessory or spare part)
+          const product = await prisma.product.findUnique({
+            where: { id: id as string },
+            include: {
+              stocks: true,
+              transfers: true
+            }
+          });
+
+          if (!product) {
+            return res.status(404).json({ error: 'Product not found' });
+          }
+
+          // Delete related stocks first
+          if (product.stocks.length > 0) {
+            await prisma.stock.deleteMany({
+              where: { productId: id as string }
+            });
+          }
+
+          // Delete related transfers
+          if (product.transfers.length > 0) {
+            await prisma.stockTransfer.deleteMany({
+              where: { productId: id as string }
+            });
+          }
+
+          // Delete the product
+          await prisma.product.delete({
+            where: { id: id as string }
+          });
+
+          return res.status(200).json({ message: 'Product deleted successfully' });
+        } catch (error) {
+          console.error('Error deleting device/product:', error);
+          return res.status(500).json({ error: 'Error deleting device/product' });
+        }
 
       default:
-        res.setHeader('Allow', ['GET', 'PUT']);
+        res.setHeader('Allow', ['GET', 'PUT', 'DELETE']);
         return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
     }
   } catch (error) {

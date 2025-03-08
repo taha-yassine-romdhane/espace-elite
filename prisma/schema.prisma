@@ -63,6 +63,18 @@ enum ClientType {
   COMPANY
 }
 
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
 model User {
   id                  String          @id @default(cuid())
   email               String          @unique
@@ -92,8 +104,10 @@ model Task {
   id          String   @id @default(cuid())
   title       String
   description String?
-  status      String // TODO, IN_PROGRESS, COMPLETED
-  priority    String // LOW, MEDIUM, HIGH
+  status      TaskStatus
+  priority    TaskPriority
+  startDate   DateTime @default(now())
+  endDate     DateTime @default(now())
   assignedTo  User     @relation(fields: [userId], references: [id])
   userId      String
   createdAt   DateTime @default(now())
@@ -111,6 +125,7 @@ model StockLocation {
   outgoingTransfers StockTransfer[] @relation("FromLocation")
   incomingTransfers StockTransfer[] @relation("ToLocation")
   medicalDevices    MedicalDevice[]
+  products          Product[]
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 }
@@ -137,45 +152,41 @@ model StockTransfer {
   product        Product       @relation(fields: [productId], references: [id])
   quantity       Int
   newStatus      StockStatus?
-  
- transferredById String
+
+  transferredById String
   transferredBy   User   @relation(fields: [transferredById], references: [id])
-  
-  sentById      String?
-  sentBy        User?   @relation("SentTransfers", fields: [sentById], references: [id])
-  
-  receivedById  String?
-  receivedBy    User?   @relation("ReceivedTransfers", fields: [receivedById], references: [id])
-  
-  notes         String?
-  transferDate  DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+
+  sentById String?
+  sentBy   User?   @relation("SentTransfers", fields: [sentById], references: [id])
+
+  receivedById String?
+  receivedBy   User?   @relation("ReceivedTransfers", fields: [receivedById], references: [id])
+
+  notes        String?
+  transferDate DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 model Product {
-  id              String          @id @default(cuid())
-  name            String
-  type            ProductType
-  brand           String?
-  model           String?
-  serialNumber    String?         @unique
-  description     String?
-  specifications  String?         // Technical specifications
-  warranty        String?         // Warranty information
-  purchasePrice   Decimal?        @db.Decimal(10, 2)
-  totalCost       Decimal?        @db.Decimal(10, 2)
-  sellingPrice    Decimal?        @db.Decimal(10, 2)
-  rentalPrice     Decimal?        @db.Decimal(10, 2)
-  minStock        Int?
-  maxStock        Int?
-  alertThreshold  Int?
-  availableForRent Boolean        @default(false)
-  requiresMaintenance Boolean     @default(false)
-  stocks          Stock[]
-  transfers       StockTransfer[]
-  repairs         RepairLog[]
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  id                 String            @id @default(cuid())
+  name               String
+  type               ProductType
+  brand              String?
+  model              String?
+  purchasePrice      Float?
+  sellingPrice       Float?
+  serialNumber       String?           @unique
+  purchaseDate       DateTime?
+  warrantyExpiration DateTime?
+  status             DeviceStatus      @default(ACTIVE)
+  notes              String?
+  stocks             Stock[]
+  stockLocation      StockLocation?    @relation(fields: [stockLocationId], references: [id])
+  stockLocationId    String?
+  transfers          StockTransfer[]
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  RepairSparePart    RepairSparePart[]
 }
 
 model Patient {
@@ -238,18 +249,32 @@ model Company {
 }
 
 model RepairLog {
-  id           String      @id @default(cuid())
-  productId    String
-  product      Product     @relation(fields: [productId], references: [id])
-  repairCost   Decimal     @db.Decimal(10, 2)
-  locationId   String
-  location     Location    @relation(fields: [locationId], references: [id])
-  repairDate   DateTime
-  notes        String?
-  technicianId String?
-  technician   Technician? @relation(fields: [technicianId], references: [id])
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  id              String            @id @default(cuid())
+  medicalDeviceId String
+  medicalDevice   MedicalDevice     @relation(fields: [medicalDeviceId], references: [id])
+  repairCost      Decimal           @db.Decimal(10, 2)
+  locationId      String
+  location        Location          @relation(fields: [locationId], references: [id])
+  repairDate      DateTime
+  notes           String?
+  technicianId    String?
+  technician      Technician?       @relation(fields: [technicianId], references: [id])
+  spareParts      RepairSparePart[]
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+}
+
+model RepairSparePart {
+  id        String    @id @default(cuid())
+  repairId  String
+  repair    RepairLog @relation(fields: [repairId], references: [id])
+  productId String
+  product   Product   @relation(fields: [productId], references: [id])
+  quantity  Int
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([repairId, productId])
 }
 
 model Location {
@@ -295,28 +320,34 @@ model File {
 model MedicalDevice {
   id                  String         @id @default(cuid())
   name                String
-  type                String         // CPAP, DIAGNOSTIC_DEVICE, etc.
+  type                String // CPAP, DIAGNOSTIC_DEVICE, etc.
   brand               String?
   model               String?
   serialNumber        String?        @unique
   description         String?
-  technicalSpecs      String?        // Technical specifications
-  configuration       String?        // Device configuration
-  warranty            String?        // Warranty information
-  maintenanceInterval String?        // Maintenance interval
+  technicalSpecs      String? // Technical specifications
+  configuration       String? // Device configuration
+  warranty            String? // Warranty information
+  maintenanceInterval String? // Maintenance interval
   purchasePrice       Decimal?       @db.Decimal(10, 2)
   sellingPrice        Decimal?       @db.Decimal(10, 2)
   rentalPrice         Decimal?       @db.Decimal(10, 2)
   stockLocationId     String?
   stockLocation       StockLocation? @relation(fields: [stockLocationId], references: [id])
   stockQuantity       Int            @default(1)
-  status             String         @default("ACTIVE") // ACTIVE, MAINTENANCE, RETIRED
-  availableForRent   Boolean        @default(false)
+  status              String         @default("ACTIVE") // ACTIVE, MAINTENANCE, RETIRED
+  availableForRent    Boolean        @default(false)
   requiresMaintenance Boolean        @default(false)
   installationDate    DateTime?
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
   Rental              Rental[]
+  Patient             Patient?       @relation(fields: [patientId], references: [id])
+  patientId           String?
+  Company             Company?       @relation(fields: [companyId], references: [id])
+  companyId           String?
+  Diagnostic          Diagnostic[]
+  RepairLog           RepairLog[]
 }
 
 model Diagnostic {

@@ -1,5 +1,17 @@
-export type ProductType = "MEDICAL_DEVICE" | "DIAGNOSTIC_DEVICE" | "ACCESSORY" | "SPARE_PART";
+export enum ProductType {
+  MEDICAL_DEVICE = "MEDICAL_DEVICE",
+  DIAGNOSTIC_DEVICE = "DIAGNOSTIC_DEVICE",
+  ACCESSORY = "ACCESSORY",
+  SPARE_PART = "SPARE_PART"
+}
+
 export type StockStatus = "EN_VENTE" | "EN_LOCATION" | "EN_REPARATION" | "VENDU" | "ACTIVE";
+
+export interface StockLocation {
+  id: string;
+  name: string;
+  description?: string;
+}
 
 export interface Product {
   id: string;
@@ -14,7 +26,7 @@ export interface Product {
   warranty?: string;
   availableForRent?: boolean;
   requiresMaintenance?: boolean;
-  stockLocation: string;
+  stockLocation?: StockLocation | string | null;
   stockLocationId?: string;
   stockQuantity: number;
   status: StockStatus;

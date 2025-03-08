@@ -1,9 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]';
-
-const prisma = new PrismaClient();
 
 export default async function handler(
   req: NextApiRequest,
@@ -17,23 +15,58 @@ export default async function handler(
 
   if (req.method === 'GET') {
     try {
-      const technicians = await prisma.user.findMany({
+      // First, ensure all EMPLOYEE users have technician records
+      const employeeUsers = await prisma.user.findMany({
         where: {
           role: 'EMPLOYEE',
+          isActive: true,
           technician: {
-            isNot: null
+            none: {} // Only get users who don't have a technician record yet
           }
-        },
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          technician: true
         }
       });
+
+      // Create technician records for employees who don't have one
+      if (employeeUsers.length > 0) {
+        await prisma.$transaction(
+          employeeUsers.map((user) =>
+            prisma.technician.create({
+              data: {
+                user: {
+                  connect: {
+                    id: user.id
+                  }
+                }
+              }
+            })
+          )
+        );
+      }
+
+      // Now fetch all technicians
+      const technicians = await prisma.technician.findMany({
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              isActive: true
+            }
+          }
+        },
+        where: {
+          user: {
+            isActive: true
+          }
+        }
+      });
+      
       return res.status(200).json(technicians);
     } catch (error) {
-      return res.status(500).json({ error: 'Error fetching technicians' });
+      console.error('Error managing technicians:', error);
+      return res.status(500).json({ error: 'Error managing technicians' });
     }
   }
 

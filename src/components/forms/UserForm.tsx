@@ -3,20 +3,31 @@ import { Button } from "@/components/ui/button";
 import { Role } from '@prisma/client';
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Card } from "@/components/ui/Card";
+
+interface FormData {
+  id?: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  telephone?: string;
+  role: Role;
+  isActive: boolean;
+}
 
 interface UserFormProps {
-  formData: {
-    id?: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-    password: string;
-    telephone?: string;
-    role: Role;
-    isActive: boolean;
-  };
+  formData: FormData;
   isEditMode?: boolean;
-  onInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
+  onChange: (name: string, value: string | boolean) => void;
   onSubmit: () => void;
   onCancel: () => void;
 }
@@ -24,126 +35,138 @@ interface UserFormProps {
 const UserForm: React.FC<UserFormProps> = ({
   formData,
   isEditMode = false,
-  onInputChange,
+  onChange,
   onSubmit,
   onCancel
 }) => {
-  const handleSwitchChange = (checked: boolean) => {
-    onInputChange({
-      target: { name: 'isActive', value: checked }
-    } as React.ChangeEvent<HTMLInputElement>);
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onChange(e.target.name, e.target.value);
   };
 
   return (
-    <div className="space-y-4 p-4">
-      <h2 className="text-lg font-semibold mb-4">
-        {isEditMode ? 'Modifier Utilisateur' : 'Ajout d\'un Utilisateur'}
-      </h2>
-      
+    <Card className="p-6 space-y-6">
       <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Prénom</label>
-          <input
-            type="text"
-            name="firstName"
-            value={formData.firstName}
-            onChange={onInputChange}
-            placeholder="Prénom"
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-blue-500"
-            required
-          />
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="firstName" className="text-blue-900">Prénom</Label>
+            <Input
+              id="firstName"
+              type="text"
+              name="firstName"
+              value={formData.firstName}
+              onChange={handleInputChange}
+              placeholder="Prénom"
+              className="border-blue-100 focus:border-blue-200 focus:ring-blue-200"
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="lastName" className="text-blue-900">Nom</Label>
+            <Input
+              id="lastName"
+              type="text"
+              name="lastName"
+              value={formData.lastName}
+              onChange={handleInputChange}
+              placeholder="Nom"
+              className="border-blue-100 focus:border-blue-200 focus:ring-blue-200"
+              required
+            />
+          </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Nom</label>
-          <input
-            type="text"
-            name="lastName"
-            value={formData.lastName}
-            onChange={onInputChange}
-            placeholder="Nom"
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-blue-500"
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Email</label>
-          <input
+        <div className="space-y-2">
+          <Label htmlFor="email" className="text-blue-900">Email</Label>
+          <Input
+            id="email"
             type="email"
             name="email"
             value={formData.email}
-            onChange={onInputChange}
+            onChange={handleInputChange}
             placeholder="email@example.com"
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+            className="border-blue-100 focus:border-blue-200 focus:ring-blue-200"
             required
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
+        <div className="space-y-2">
+          <Label htmlFor="password" className="text-blue-900">
             {isEditMode ? 'Nouveau mot de passe (optionnel)' : 'Mot de passe'}
-          </label>
-          <input
+          </Label>
+          <Input
+            id="password"
             type="password"
             name="password"
             value={formData.password}
-            onChange={onInputChange}
+            onChange={handleInputChange}
             placeholder="••••••••"
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+            className="border-blue-100 focus:border-blue-200 focus:ring-blue-200"
             required={!isEditMode}
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Téléphone</label>
-          <input
+        <div className="space-y-2">
+          <Label htmlFor="telephone" className="text-blue-900">Téléphone</Label>
+          <Input
+            id="telephone"
             type="tel"
             name="telephone"
             value={formData.telephone}
-            onChange={onInputChange}
+            onChange={handleInputChange}
             placeholder="+216 XX XXX XXX"
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+            className="border-blue-100 focus:border-blue-200 focus:ring-blue-200"
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Role</label>
-          <select
-            name="role"
-            value={formData.role}
-            onChange={onInputChange}
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-blue-500"
-            required
+        <div className="space-y-2">
+          <Label htmlFor="role" className="text-blue-900">Rôle</Label>
+          <Select 
+            name="role" 
+            value={formData.role} 
+            onValueChange={(value) => onChange('role', value)}
           >
-            <option value="">Sélectionner un role</option>
-            <option value="ADMIN">Admin</option>
-            <option value="MANAGER">Manager</option>
-            <option value="DOCTOR">Docteur</option>
-            <option value="EMPLOYEE">Employé</option>
-          </select>
+            <SelectTrigger className="border-blue-100 focus:border-blue-200 focus:ring-blue-200">
+              <SelectValue placeholder="Sélectionner un rôle" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ADMIN">Administrateur</SelectItem>
+              <SelectItem value="MANAGER">Manager</SelectItem>
+              <SelectItem value="DOCTOR">Médecin</SelectItem>
+              <SelectItem value="EMPLOYEE">Employé</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
-        {isEditMode && (
-          <div className="flex items-center space-x-2">
-            <Switch
-              checked={formData.isActive}
-              onCheckedChange={handleSwitchChange}
-            />
-            <Label>Compte actif</Label>
-          </div>
-        )}
+        <div className="flex items-center space-x-2">
+          <Switch
+            id="isActive"
+            checked={formData.isActive}
+            onCheckedChange={(checked) => onChange('isActive', checked)}
+            className="data-[state=checked]:bg-blue-600"
+          />
+          <Label htmlFor="isActive" className="text-blue-900">Utilisateur actif</Label>
+        </div>
       </div>
 
-      <div className="flex justify-end space-x-2 pt-4">
-        <Button variant="outline" onClick={onCancel}>
+      <div className="flex justify-end space-x-3 pt-4">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onCancel}
+          className="border-blue-200 text-blue-700 hover:bg-blue-50"
+        >
           Annuler
         </Button>
-        <Button variant="default" onClick={onSubmit}>
-          {isEditMode ? 'Mettre à jour' : 'Sauvegarder'}
+        <Button
+          type="submit"
+          onClick={onSubmit}
+          className="bg-blue-600 hover:bg-blue-700"
+        >
+          {isEditMode ? 'Mettre à jour' : 'Créer'}
         </Button>
       </div>
-    </div>
+    </Card>
   );
 };
 

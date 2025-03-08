@@ -117,7 +117,7 @@ export function DiagnosticDeviceForm({ initialData, onSubmit, stockLocations, is
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
         <Tabs defaultValue="basic" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="basic">Information de Base</TabsTrigger>
             <TabsTrigger value="stock">Stock</TabsTrigger>
             <TabsTrigger value="financial">Finance</TabsTrigger>
@@ -182,20 +182,6 @@ export function DiagnosticDeviceForm({ initialData, onSubmit, stockLocations, is
                     </FormItem>
                   )}
                 />
-
-                <FormField
-                  control={form.control}
-                  name="technicalSpecs"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Spécifications techniques</FormLabel>
-                      <FormControl>
-                        <Input {...field} value={field.value || ''} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
               </CardContent>
             </Card>
           </TabsContent>
@@ -223,62 +209,6 @@ export function DiagnosticDeviceForm({ initialData, onSubmit, stockLocations, is
                           ))}
                         </SelectContent>
                       </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="stockQuantity"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Quantité en stock</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="1" min="0" {...field} value={field.value || ''} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="minStock"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Quantité minimale en stock</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="1" min="0" {...field} value={field.value || ''} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="maxStock"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Quantité maximale en stock</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="1" min="0" {...field} value={field.value || ''} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="alertThreshold"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Seuil d'alerte</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="1" min="0" {...field} value={field.value || ''} />
-                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -339,21 +269,6 @@ export function DiagnosticDeviceForm({ initialData, onSubmit, stockLocations, is
                     </FormItem>
                   )}
                 />
-
-                <FormField
-                  control={form.control}
-                  name="warranty"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Garantie</FormLabel>
-                      <FormControl>
-                        <Input {...field} value={field.value || ''} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
                 <FormField
                   control={form.control}
                   name="status"

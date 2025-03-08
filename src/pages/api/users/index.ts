@@ -66,7 +66,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         role: user.role,
         isActive: user.isActive,
       }));
-
+      
       return res.status(200).json(transformedUsers);
     }
 

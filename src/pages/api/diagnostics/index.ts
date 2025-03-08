@@ -18,12 +18,36 @@ export default async function handler(
   if (req.method === 'GET') {
     try {
       const diagnostics = await prisma.diagnostic.findMany({
+        include: {
+          medicalDevice: {
+            select: {
+              name: true,
+              brand: true,
+              model: true,
+            },
+          },
+          patient: {
+            select: {
+              firstName: true,
+              lastName: true,
+              telephone: true,
+            },
+          },
+          Company: {
+            select: {
+              companyName: true,
+              telephone: true,
+            },
+          },
+        },
         orderBy: {
-          createdAt: 'desc'
-        }
+          createdAt: 'desc',
+        },
       });
-      return res.status(200).json(diagnostics);
+
+      return res.status(200).json({ diagnostics });
     } catch (error) {
+      console.error('Error fetching diagnostics:', error);
       return res.status(500).json({ error: 'Error fetching diagnostics' });
     }
   }
@@ -31,33 +55,60 @@ export default async function handler(
   if (req.method === 'POST') {
     try {
       const {
-        patient,
-        telephone,
-        resultat,
-        technicien,
-        medecin,
-        dateInstallation,
-        dateFin,
-        remarque,
-        appareille
+        medicalDeviceId,
+        patientId,
+        companyId,
+        result,
+        notes,
+        diagnosticDate,
       } = req.body;
 
       const diagnostic = await prisma.diagnostic.create({
         data: {
-          patient,
-          telephone,
-          resultat,
-          technicien,
-          medecin,
-          dateInstallation: new Date(dateInstallation),
-          dateFin: new Date(dateFin),
-          remarque,
-          appareille
-        }
+          medicalDevice: {
+            connect: { id: medicalDeviceId },
+          },
+          patient: {
+            connect: { id: patientId },
+          },
+          ...(companyId && {
+            Company: {
+              connect: { id: companyId },
+            },
+          }),
+          result,
+          notes,
+          diagnosticDate: new Date(diagnosticDate),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+        include: {
+          medicalDevice: {
+            select: {
+              name: true,
+              brand: true,
+              model: true,
+            },
+          },
+          patient: {
+            select: {
+              firstName: true,
+              lastName: true,
+              telephone: true,
+            },
+          },
+          Company: {
+            select: {
+              companyName: true,
+              telephone: true,
+            },
+          },
+        },
       });
 
       return res.status(201).json(diagnostic);
     } catch (error) {
+      console.error('Error creating diagnostic:', error);
       return res.status(500).json({ error: 'Error creating diagnostic' });
     }
   }
@@ -70,13 +121,13 @@ export default async function handler(
         where: { id },
         data: {
           ...data,
-          dateInstallation: new Date(data.dateInstallation),
-          dateFin: new Date(data.dateFin),
+          diagnosticDate: new Date(data.diagnosticDate),
         }
       });
 
       return res.status(200).json(diagnostic);
     } catch (error) {
+      console.error('Error updating diagnostic:', error);
       return res.status(500).json({ error: 'Error updating diagnostic' });
     }
   }
@@ -91,6 +142,7 @@ export default async function handler(
 
       return res.status(200).json({ message: 'Diagnostic deleted successfully' });
     } catch (error) {
+      console.error('Error deleting diagnostic:', error);
       return res.status(500).json({ error: 'Error deleting diagnostic' });
     }
   }

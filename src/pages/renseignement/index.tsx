@@ -1,127 +1,79 @@
-import React, { useState, useEffect, Fragment } from 'react';
-import { Dialog, Transition } from '@headlessui/react';
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Settings2, FileText, ImageIcon, Paperclip } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 import PatientForm from '@/components/forms/PatientForm';
 import SocieteForm from '@/components/forms/SocieteForm';
-import { useToast } from "@/components/ui/use-toast";
-import { BeneficiaryType } from '@/types';
-import FileViewerModal from '@/components/FileViewerModal';
+import { RenseignementTable } from './components/RenseignementTable';
+import { FileViewer } from './components/FileViewer';
+import { TypeSelector } from './components/TypeSelector';
+import { z } from 'zod';
+import { BeneficiaryType } from '@prisma/client';
+import { CaisseAffiliation, Renseignement, RenseignementFormData, UploadedFile } from '@/types/renseignement';
 
-type RenseignementType = 'Patient' | 'Société';
+const renseignementSchema = z.object({
+  type: z.enum(['Patient', 'Société']),
+  // Patient fields
+  nomComplet: z.string().optional(),
+  telephonePrincipale: z.string().optional(),
+  telephoneSecondaire: z.string().optional(),
+  adresseComplete: z.string().optional(),
+  cin: z.string().optional(),
+  identifiantCNAM: z.string().optional(),
+  technicienResponsable: z.string().optional(),
+  antecedant: z.string().optional(),
+  taille: z.string().optional(),
+  poids: z.string().optional(),
+  medecin: z.string().optional(),
+  dateNaissance: z.string().optional(),
+  beneficiaire: z.nativeEnum(BeneficiaryType).optional(),
+  caisseAffiliation: z.enum(['CNSS', 'CNRPS']).optional(),
+  cnam: z.boolean().optional(),
+  descriptionNom: z.string().optional(),
+  descriptionTelephone: z.string().optional(),
+  descriptionAdresse: z.string().optional(),
+  // Societe fields
+  nomSociete: z.string().optional(),
+  matriculeFiscale: z.string().optional(),
+  // Common fields
+  images: z.array(z.any()).optional(),
+  files: z.array(z.any()).optional(),
+});
 
-interface FileRecord {
-  id: string;
-  url: string;
-  type: string;
-  createdAt: Date;
-}
-
-interface Person {
-  id: string;
-  name: string;
-  role: string;
-}
-
-type BaseFormData = {
-  id?: string;
-  step: number;
-  telephonePrincipale?: string;
-  telephoneSecondaire?: string;
-  adresseComplete?: string;
-  technicienResponsable?: string;
-  docteurId?: string;
-  img?: File;
-  imageUrl?: string;
-};
-
-type PatientFormData = BaseFormData & {
-  type: 'Patient';
-  nomComplet?: string;
-  cin?: string;
-  identifiantCNAM?: string;
-  cnam?: boolean;
-  dateNaissance?: string;
-  poids?: string;
-  taille?: string;
-  antecedant?: string;
-  description1?: string;
-  description2?: string;
-  beneficiaire?: BeneficiaryType | string;
-  caisseAffiliation?: 'CNSS' | 'CNRPS';
-};
-
-type SocieteFormData = BaseFormData & {
-  type: 'Société';
-  nomSociete?: string;
-  matriculeFiscale?: string;
-  descriptionNom?: string;
-  descriptionTelephone?: string;
-  descriptionAdresse?: string;
-};
-
-type FormData = PatientFormData | SocieteFormData;
-
-interface Renseignement {
-  id: string;
-  type: RenseignementType ;
-  nom: string;
-  adresse: string;
-  telephone: string;
-  telephoneSecondaire?: string;
-  doctor?: Person | null;
-  technician?: Person | null;
-  files: FileRecord[];
-  dateNaissance?: string;
-  cin?: string;
-  identifiantCNAM?: string;
-  cnam?: boolean;
-  taille?: number;
-  poids?: number;
-  imc?: number;
-  antecedant?: string;
-  description1?: string;
-  description2?: string;
-  caisseAffiliation?: string;
-  beneficiaire?: string;
-  matriculeFiscale?: string;
-  createdAt: string;
-}
-
-const FileIcon = ({ type }: { type: string }) => {
-  if (type.toUpperCase() === 'IMAGE') {
-    return <ImageIcon className="h-4 w-4 text-blue-500" />;
-  }
-  return <FileText className="h-4 w-4 text-gray-500" />;
-};
-
-const RenseignementPage = () => {
+export default function RenseignementPage() {
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
-  const [formData, setFormData] = useState<FormData>({
+  const [formData, setFormData] = useState<RenseignementFormData>({
     type: 'Patient',
-    step: 1,
+    nomComplet: '',
+    telephonePrincipale: '',
+    telephoneSecondaire: '',
+    adresseComplete: '',
+    cin: '',
+    identifiantCNAM: '',
+    technicienResponsable: '',
+    antecedant: '',
+    taille: '',
+    poids: '',
+    medecin: '',
+    dateNaissance: '',
+    beneficiaire: BeneficiaryType.ASSURE_SOCIAL,
+    caisseAffiliation: 'CNSS',
+    cnam: false,
+    descriptionNom: '',
+    descriptionTelephone: '',
+    descriptionAdresse: '',
+    nomSociete: '',
+    matriculeFiscale: '',
+    images: [],
+    files: [],
+    existingFiles: [],
   });
+
   const [renseignements, setRenseignements] = useState<Renseignement[]>([]);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
-  const [isFileModalOpen, setIsFileModalOpen] = useState(false);
-  const [selectedFiles, setSelectedFiles] = useState<FileRecord[]>([]);
+  const [showFilesDialog, setShowFilesDialog] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
 
   useEffect(() => {
     fetchRenseignements();
@@ -130,485 +82,341 @@ const RenseignementPage = () => {
   const fetchRenseignements = async () => {
     try {
       const response = await fetch('/api/renseignements');
-      if (!response.ok) throw new Error('Failed to fetch');
       const data = await response.json();
       setRenseignements(data);
     } catch (error) {
+      console.error('Error fetching renseignements:', error);
       toast({
-        title: "Error",
-        description: "Failed to load data",
+        title: "Erreur",
+        description: "Impossible de charger les renseignements",
         variant: "destructive",
       });
     }
   };
 
-  const handleTypeChange = (type: RenseignementType) => {
-    setFormData({ ...formData, type });
-  };
-  const openFileModal = (files: FileRecord[]) => {
-    setSelectedFiles(files);
-    setIsFileModalOpen(true);
-  };
-
-  const closeFileModal = () => {
-    setIsFileModalOpen(false);
-    setSelectedFiles([]);
+  const handleFileChange = (files: File[]) => {
+    setFormData(prev => ({
+      ...prev,
+      files: files,
+      images: files
+    }));
   };
 
-  const handleNext = async () => {
-    if (formData.step === 2) {
-      try {
-        console.log('Submitting form data:', formData);
-        const response = await fetch('/api/renseignements', {
-          method: isEdit ? 'PUT' : 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(formData),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          console.error('API Error:', errorData);
-          throw new Error(errorData.error || 'Failed to save');
-        }
-
-        const responseData = await response.json();
-        console.log('API Response:', responseData);
-
-        toast({
-          title: "Success",
-          description: `${isEdit ? 'Updated' : 'Created'} successfully`,
-        });
-
-        setIsOpen(false);
-        fetchRenseignements();
-        resetForm();
-      } catch (error) {
-        console.error('Form submission error:', error);
-        toast({
-          title: "Error",
-          description: error instanceof Error ? error.message : "Failed to save data",
-          variant: "destructive",
-        });
-      }
-    } else {
-      setFormData(prev => ({ ...prev, step: prev.step + 1 }));
-    }
-  };
-
-  const handleBack = () => {
-    setFormData({ ...formData, step: formData.step - 1 });
-  };
-
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setFormData(prev => ({
-        ...prev,
-        img: file
-      }));
-    }
+  const handleTypeChange = (type: 'Patient' | 'Société') => {
+    setFormData(prev => ({
+      ...prev,
+      type
+    }));
   };
 
   const handleEdit = (item: Renseignement) => {
-    setIsEdit(true);
-    
-    // Format the date to YYYY-MM-DD for the input field
-    const formatDate = (dateStr?: string) => {
-      if (!dateStr) return '';
-      const date = new Date(dateStr);
-      return date.toISOString().split('T')[0];
-    };
+    console.log('Editing item:', item); // Debug log
 
-    // Map beneficiary values from API to form values
-    const mapBeneficiary = (value?: string) => {
-      const mapping: { [key: string]: BeneficiaryType | string } = {
-        'Assure social': 'ASSURE_SOCIAL',
-        'Conjoint enfant': 'CONJOINT_ENFANT', 
-        'Assandant': 'ASSANDANT'
-      };
-      return value ? mapping[ value] : undefined;
-    };
-
-    const baseData = {
-      id: item.id,
-      type: item.type,
-      step: 2,
-      telephonePrincipale: item.telephone,
-      telephoneSecondaire: item.telephoneSecondaire,
-      adresseComplete: item.adresse,
-      technicienResponsable: item.technician?.id,
-      docteurId: item.doctor?.id,
-    };
-
-    if (item.type === 'Patient') {
-      // Get the first image file if it exists
-      const imageFile = item.files.find(f => f.type === 'IMAGE');
-      
-      setFormData({
-        ...baseData,
-        type: 'Patient',
-        nomComplet: item.nom,
-        cin: item.cin,
-        identifiantCNAM: item.identifiantCNAM,
-        cnam: !!item.identifiantCNAM,
-        dateNaissance: formatDate(item.dateNaissance),
-        poids: item.poids?.toString(),
-        taille: item.taille?.toString(),
-        antecedant: item.antecedant,
-        description1: item.description1,
-        description2: item.description2,
-        beneficiaire: mapBeneficiary(item.beneficiaire),
-        caisseAffiliation: item.caisseAffiliation as 'CNSS' | 'CNRPS',
-        imageUrl: imageFile?.url // Add the image URL if it exists
-      });
-    } else {
-      const imageFile = item.files.find(f => f.type === 'IMAGE');
-      
-      setFormData({
-        ...baseData,
-        type: 'Société',
+    if (item.type === 'Société') {
+      const formData: RenseignementFormData = {
+        id: item.id,
+        type: 'Société' as const,
+        // Empty patient fields
+        nomComplet: '',
+        cin: '',
+        identifiantCNAM: '',
+        antecedant: '',
+        taille: '',
+        poids: '',
+        medecin: '',
+        dateNaissance: '',
+        beneficiaire: undefined,
+        caisseAffiliation: undefined,
+        cnam: false,
+        // Société fields
         nomSociete: item.nom,
-        matriculeFiscale: item.matriculeFiscale,
-        descriptionNom: item.description1,
-        descriptionTelephone: item.description2,
-        descriptionAdresse: item.adresse,
-        imageUrl: imageFile?.url // Add the image URL if it exists
-      });
+        matriculeFiscale: item.matriculeFiscale || '',
+        telephonePrincipale: item.telephone,
+        telephoneSecondaire: item.telephoneSecondaire || '',
+        adresseComplete: item.adresse,
+        technicienResponsable: item.technician?.id || '',
+        descriptionNom: item.descriptionNom || '',
+        descriptionTelephone: item.descriptionTelephone || '',
+        descriptionAdresse: item.descriptionAdresse || '',
+        // Files
+        images: [],
+        files: [],
+        existingFiles: item.files || [],
+      };
+      
+      console.log('Setting société form data:', formData);
+      setFormData(formData);
+    } else {
+      // Map patient data to form fields
+      const formData: RenseignementFormData = {
+        id: item.id,
+        type: 'Patient',
+        // Map the fields using the correct names from the API
+        nomComplet: item.nom || '',
+        telephonePrincipale: item.telephone || '',
+        telephoneSecondaire: item.telephoneSecondaire || '',
+        adresseComplete: item.adresse || '',
+        cin: item.cin || '',
+        identifiantCNAM: item.identifiantCNAM || '',
+        technicienResponsable: item.technician?.id || '',
+        antecedant: item.antecedant || '',
+        taille: item.taille?.toString() || '',
+        poids: item.poids?.toString() || '',
+        medecin: item.doctor?.id || '',
+        dateNaissance: item.dateNaissance || '',
+        beneficiaire: item.beneficiaire || BeneficiaryType.ASSURE_SOCIAL,
+        caisseAffiliation: item.caisseAffiliation as CaisseAffiliation,
+        cnam: !!item.cnam,
+        descriptionNom: item.descriptionNom || '',
+        descriptionTelephone: item.descriptionTelephone || '',
+        descriptionAdresse: item.descriptionAdresse || '',
+        // Files
+        images: [],
+        files: [],
+        existingFiles: item.files || []
+      };
+      
+      console.log('Patient data from API:', item);
+      console.log('Transformed form data:', formData);
+      setFormData(formData);
     }
+    setIsEdit(true);
     setIsOpen(true);
   };
 
-  const handleDelete = async (id: string, type: RenseignementType) => {
+  const handleDelete = async (ids: string[]) => {
+    // Get the first ID's type since we're currently only handling single deletes
+    const itemToDelete = renseignements.find(item => item.id === ids[0]);
+    if (!itemToDelete) return;
+
     try {
-      const response = await fetch(`/api/renseignements?id=${id}`, {
+      const response = await fetch(`/api/renseignements/${itemToDelete.type === 'Patient' ? 'patients' : 'companies'}/${ids[0]}`, {
         method: 'DELETE',
       });
 
-      if (!response.ok) throw new Error('Failed to delete');
+      if (!response.ok) {
+        throw new Error('Failed to delete');
+      }
 
+      // Remove the deleted item from the state
+      setRenseignements(prev => prev.filter(item => !ids.includes(item.id)));
+      
       toast({
-        title: "Success",
-        description: "Deleted successfully",
+        title: "Supprimé avec succès",
+        description: `${itemToDelete.type} a été supprimé avec succès.`,
       });
-
-      fetchRenseignements();
     } catch (error) {
+      console.error('Error deleting:', error);
       toast({
-        title: "Error",
-        description: "Failed to delete",
+        title: "Erreur",
+        description: "Une erreur s'est produite lors de la suppression.",
         variant: "destructive",
       });
     }
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedItems(renseignements.map(item => item.id));
+    } else {
+      setSelectedItems([]);
+    }
+  };
+
+  const handleSelect = (id: string) => {
+    setSelectedItems(prev => {
+      if (prev.includes(id)) {
+        return prev.filter(item => item !== id);
+      } else {
+        return [...prev, id];
+      }
+    });
+  };
+
+  const handleViewFiles = (files: { url: string; type: string }[]) => {
+    if (!files || files.length === 0) {
+      toast({
+        title: "Aucun fichier",
+        description: "Aucun fichier n'est disponible pour cet élément.",
+      });
+      return;
+    }
+    setSelectedFiles(files.map(file => file.url));
+    setShowFilesDialog(true);
   };
 
   const resetForm = () => {
     setFormData({
       type: 'Patient',
-      step: 1,
+      nomComplet: '',
+      telephonePrincipale: '',
+      telephoneSecondaire: '',
+      adresseComplete: '',
+      cin: '',
+      identifiantCNAM: '',
+      technicienResponsable: '',
+      antecedant: '',
+      taille: '',
+      poids: '',
+      medecin: '',
+      dateNaissance: '',
+      beneficiaire: BeneficiaryType.ASSURE_SOCIAL,
+      caisseAffiliation: 'CNSS',
+      cnam: false,
+      descriptionNom: '',
+      descriptionTelephone: '',
+      descriptionAdresse: '',
+      nomSociete: '',
+      matriculeFiscale: '',
+      images: [],
+      files: [],
+      existingFiles: [],
     });
     setIsEdit(false);
   };
 
-  const handleCheckboxChange = (id: string, checked: boolean) => {
-    if (checked) {
-      setSelectedItems([...selectedItems, id]);
-    } else {
-      setSelectedItems(selectedItems.filter(item => item !== id));
+  const handleSubmit = async () => {
+    try {
+      // Determine which endpoint to use based on the type
+      const endpoint = formData.type === 'Patient' 
+        ? '/api/renseignements/patients'
+        : '/api/renseignements/companies';
+      
+      // Create FormData instance for file upload
+      const formDataObj = new FormData();
+      
+      // Add all form fields
+      Object.entries(formData).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && key !== 'files' && key !== 'images' && key !== 'existingFiles') {
+          formDataObj.append(key, value.toString());
+        }
+      });
+
+      // Add files if present
+      if (formData.files && formData.files.length > 0) {
+        formData.files.forEach((file: File) => {
+          formDataObj.append('files', file);
+        });
+      }
+
+      // Add existing files if editing
+      if (isEdit && formData.id) {
+        formDataObj.append('id', formData.id);
+        if (formData.existingFiles) {
+          formDataObj.append('existingFiles', JSON.stringify(formData.existingFiles));
+        }
+      }
+
+      console.log('Submitting form data:', {
+        ...formData,
+        files: formData.files?.length || 0,
+        existingFiles: formData.existingFiles?.length || 0
+      });
+
+      const response = await fetch(endpoint, {
+        method: isEdit ? 'PUT' : 'POST',
+        body: formDataObj,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || `Failed to ${isEdit ? 'update' : 'create'} renseignement`);
+      }
+
+      const result = await response.json();
+      console.log('Server response:', result);
+
+      toast({
+        title: "Succès",
+        description: `Renseignement ${isEdit ? 'mis à jour' : 'créé'} avec succès`,
+      });
+
+      setIsOpen(false);
+      await fetchRenseignements();
+    } catch (error) {
+      console.error('Error submitting form:', error);
+      toast({
+        title: "Erreur",
+        description: error instanceof Error ? error.message : "Une erreur est survenue lors de l'enregistrement",
+        variant: "destructive",
+      });
     }
   };
 
-  const TypeSelection = () => (
-    <div className="space-y-4">
-      <h2 className="text-xl font-semibold">Type de Renseignement</h2>
-      <div className="space-y-2">
-        <label className="flex items-center space-x-2">
-          <input
-            type="radio"
-            checked={formData.type === 'Patient'}
-            onChange={() => handleTypeChange('Patient')}
-            className="form-radio"
-          />
-          <span>Patient</span>
-        </label>
-        <label className="flex items-center space-x-2">
-          <input
-            type="radio"
-            checked={formData.type === 'Société'}
-            onChange={() => handleTypeChange('Société')}
-            className="form-radio"
-          />
-          <span>Société</span>
-        </label>
-      </div>
-      <div className="flex justify-end mt-4">
-        <Button variant="default" onClick={handleNext}>Continue</Button>
-      </div>
-    </div>
-  );
-
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
+    <div className="container mx-auto py-6 space-y-6">
+      <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Renseignements</h1>
-        <Button variant="default" onClick={() => {
-          resetForm();
-          setIsOpen(true);
-        }}>
-          Nouveau Renseignement
-        </Button>
+        <div className="space-x-2">
+          {selectedItems.length > 0 && (
+            <Button
+              variant="destructive"
+              onClick={() => handleDelete(selectedItems)}
+            >
+              Supprimer sélectionnés
+            </Button>
+          )}
+          <Button onClick={() => {
+            resetForm();
+            setIsOpen(true);
+          }}>
+            Ajouter
+          </Button>
+        </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-8">
-                <Checkbox
-                  checked={selectedItems.length === renseignements.length}
-                  onCheckedChange={(checked) => {
-                    if (checked) {
-                      setSelectedItems(renseignements.map(item => item.id));
-                    } else {
-                      setSelectedItems([]);
-                    }
-                  }}
-                />
-              </TableHead>
-              <TableHead className="w-24">Type</TableHead>
-              <TableHead>Nom</TableHead>
-              <TableHead>Téléphone</TableHead>
-              <TableHead>Adresse</TableHead>
-              <TableHead>Dr Responsable</TableHead>
-              <TableHead>Technicien Responsable</TableHead>
-              <TableHead>Détails</TableHead>
-              <TableHead>Fichiers</TableHead>
-              <TableHead className="w-24">Date</TableHead>
-              <TableHead className="w-8"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {renseignements.map((item) => (
-              <TableRow key={item.id}>
-                <TableCell>
-                  <Checkbox
-                    checked={selectedItems.includes(item.id)}
-                    onCheckedChange={(checked) => {
-                      handleCheckboxChange(item.id, !!checked);
-                    }}
-                  />
-                </TableCell>
-                <TableCell>
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    item.type === 'Patient' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
-                  }`}>
-                    {item.type}
-                  </span>
-                </TableCell>
-                <TableCell className="font-medium">
-                  {item.nom}
-                </TableCell>
-                <TableCell>
-                  <div className="space-y-1">
-                    <div>{item.telephone}</div>
-                    {item.type === 'Société' && item.telephoneSecondaire && (
-                      <div className="text-sm text-gray-500">{item.telephoneSecondaire}</div>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="max-w-xs truncate" title={item.adresse}>
-                    {item.adresse}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  {item.type === 'Patient' && item.doctor ? (
-                    <div className="flex items-center space-x-2">
-                      <div className="h-6 w-6 rounded-full bg-purple-100 flex items-center justify-center">
-                        <span className="text-purple-700 text-xs font-medium">Dr</span>
-                      </div>
-                      <div className="text-sm">
-                        <div className="font-medium">{item.doctor.name}</div>
-                        <div className="text-gray-500 text-xs">{item.doctor.role}</div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-sm text-gray-500">Non assigné</div>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {item.technician ? (
-                    <div className="flex items-center space-x-2">
-                      <div className="h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center">
-                        <span className="text-blue-700 text-xs">{item.technician.role.charAt(0)}</span>
-                      </div>
-                      <div className="text-sm">
-                        <div className="font-medium">{item.technician.name}</div>
-                        <div className="text-gray-500 text-xs">{item.technician.role}</div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-sm text-gray-500">Non assigné</div>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {item.type === 'Patient' ? (
-                    <div className="space-y-1 text-sm">
-                      {item.cin && <div>CIN: {item.cin}</div>}
-                      {item.identifiantCNAM && <div>CNAM: {item.identifiantCNAM}</div>}
-                      {item.taille && item.poids && (
-                        <div>
-                          {item.imc && <div>IMC: {item.imc}</div>}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="space-y-1 text-sm">
-                      {item.matriculeFiscale && (
-                        <div>MF: {item.matriculeFiscale}</div>
-                      )}
-                    </div>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {item.files.length > 0 ? (
-                    <div className="flex -space-x-2">
-                      {item.files.slice(0, 3).map((file) => (
-                        <div
-                          key={file.id}
-                          className="relative h-8 w-8 rounded-full border-2 border-white bg-gray-100 hover:z-10 cursor-pointer"
-                          onClick={() => openFileModal([file])}
-                          title={`${file.type.toLowerCase()} - ${new Date(file.createdAt).toLocaleDateString()}`}
-                        >
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <FileIcon type={file.type} />
-                          </div>
-                        </div>
-                      ))}
-                      {item.files.length > 3 && (
-                        <div 
-                          className="relative h-8 w-8 rounded-full border-2 border-white bg-gray-100 hover:z-10 flex items-center justify-center cursor-pointer"
-                          onClick={() => openFileModal(item.files)}
-                        >
-                          <span className="text-xs text-gray-600">+{item.files.length - 3}</span>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-sm text-gray-500">
-                      <Paperclip className="h-4 w-4" />
-                    </div>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <div className="text-sm text-gray-500">
-                    {new Date(item.createdAt).toLocaleDateString()}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0">
-                        <span className="sr-only">Open menu</span>
-                        <Settings2 className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleEdit(item)}>
-                        Modifier
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="text-red-600"
-                        onClick={() => handleDelete(item.id, item.type)}
-                      >
-                        Supprimer
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+      <RenseignementTable
+        data={renseignements}
+        selectedItems={selectedItems}
+        onSelect={handleSelect}
+        onSelectAll={handleSelectAll}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        onViewFiles={(files) => handleViewFiles(files)}
+      />
 
-      <Transition appear show={isOpen} as={Fragment}>
-        <Dialog
-          as="div"
-          className="fixed inset-0 z-50 overflow-y-auto"
-          onClose={() => setIsOpen(false)}
-        >
-          <Transition.Child
-            as={Fragment}
-            enter="ease-out duration-300"
-            enterFrom="opacity-0"
-            enterTo="opacity-100"
-            leave="ease-in duration-200"
-            leaveFrom="opacity-100"
-            leaveTo="opacity-0"
-          >
-            <div className="fixed inset-0 bg-black bg-opacity-25" />
-          </Transition.Child>
+      {isOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <TypeSelector
+              selectedType={formData.type}
+              onTypeChange={handleTypeChange}
+            />
 
-          <div className="fixed inset-0 overflow-y-auto">
-            <div className="flex min-h-full items-center justify-center p-4 text-center">
-              <Transition.Child
-                as={Fragment}
-                enter="ease-out duration-300"
-                enterFrom="opacity-0 scale-95"
-                enterTo="opacity-100 scale-100"
-                leave="ease-in duration-200"
-                leaveFrom="opacity-100 scale-100"
-                leaveTo="opacity-0 scale-95"
-              >
-                <Dialog.Panel className="w-full max-w-2xl transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
-                  <Dialog.Title
-                    as="h3"
-                    className="text-lg font-medium leading-6 text-gray-900 mb-4"
-                  >
-                    {isEdit ? 'Modifier Renseignement' : 'Nouveau Renseignement'}
-                  </Dialog.Title>
-                  {formData.step === 1 ? (
-                    <TypeSelection />
-                  ) : formData.type === 'Patient' ? (
-                    <PatientForm
-                      formData={formData}
-                      onInputChange={handleInputChange}
-                      onFileChange={handleFileChange}
-                      onBack={handleBack}
-                      onNext={handleNext}
-                    />
-                  ) : (
-                    <SocieteForm
-                      formData={formData}
-                      onInputChange={handleInputChange}
-                      onFileChange={handleFileChange}
-                      onBack={handleBack}
-                      onNext={handleNext}
-                    />
-                  )}
-                </Dialog.Panel>
-              </Transition.Child>
-            </div>
+            {formData.type === 'Patient' ? (
+              <PatientForm
+                formData={formData}
+                onInputChange={handleInputChange}
+                onFileChange={handleFileChange}
+                onBack={() => setIsOpen(false)}
+                onNext={handleSubmit}
+              />
+            ) : (
+              <SocieteForm
+                formData={formData}
+                onInputChange={handleInputChange}
+                onFileChange={handleFileChange}
+                onBack={() => setIsOpen(false)}
+                onNext={handleSubmit}
+              />
+            )}
           </div>
-        </Dialog>
-      </Transition>
+        </div>
+      )}
 
-      <FileViewerModal
-        isOpen={isFileModalOpen}
-        onClose={closeFileModal}
+      <FileViewer
         files={selectedFiles}
+        isOpen={showFilesDialog}
+        onClose={() => setShowFilesDialog(false)}
       />
     </div>
   );
-};
-
-export default RenseignementPage;
+}

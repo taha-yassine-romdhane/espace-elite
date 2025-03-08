@@ -28,14 +28,11 @@ const accessorySchema = z.object({
   brand: z.string().optional().nullable(),
   model: z.string().optional().nullable(),
   serialNumber: z.string().optional().nullable(),
-  
   stockLocationId: z.string().optional().nullable(),
-  stockQuantity: z.coerce.number().min(0).default(1),
-  minStock: z.coerce.number().min(0).nullable(),
-  maxStock: z.coerce.number().min(0).nullable(),
-  alertThreshold: z.coerce.number().min(0).nullable(),
-  
-  purchasePrice: z.coerce.number().min(0).nullable(),
+  stockQuantity: z.coerce.number().min(0).optional().default(1),
+  purchasePrice: z.coerce.number().min(0).optional().nullable(),
+  sellingPrice: z.coerce.number().min(0).optional().nullable(),
+  status: z.enum(['EN_VENTE', 'EN_LOCATION', 'EN_REPARATION', 'HORS_SERVICE']).default('EN_VENTE'),
 });
 
 type AccessoryFormValues = z.infer<typeof accessorySchema>;
@@ -51,51 +48,21 @@ export function AccessoryForm({ initialData, onSubmit, stockLocations, isEditMod
   const form = useForm<AccessoryFormValues>({
     resolver: zodResolver(accessorySchema),
     defaultValues: {
-      ...initialData,
       type: "ACCESSORY",
+      name: initialData?.name || "",
+      brand: initialData?.brand || "",
+      model: initialData?.model || "",
+      serialNumber: initialData?.serialNumber || "",
+      stockLocationId: initialData?.stockLocationId || "",
       stockQuantity: initialData?.stockQuantity || 1,
-      minStock: initialData?.minStock || null,
-      maxStock: initialData?.maxStock || null,
-      alertThreshold: initialData?.alertThreshold || null,
       purchasePrice: initialData?.purchasePrice || null,
+      sellingPrice: initialData?.sellingPrice || null,
+      status: initialData?.status || "EN_VENTE",
     },
   });
 
-  const handleSubmit = async (values: AccessoryFormValues) => {
-    try {
-      const cleanedValues = Object.entries(values).reduce((acc, [key, value]) => {
-        // Handle empty strings
-        if (value === "") {
-          acc[key] = null;
-        }
-        // Handle numeric fields
-        else if (["purchasePrice"].includes(key)) {
-          acc[key] = value ? parseFloat(value.toString()) : null;
-        }
-        else if (["stockQuantity", "minStock", "maxStock", "alertThreshold"].includes(key)) {
-          acc[key] = value ? parseInt(value.toString()) : null;
-        }
-        // Handle other fields
-        else {
-          acc[key] = value;
-        }
-        return acc;
-      }, {} as any);
-
-      // Ensure type is set
-      cleanedValues.type = "ACCESSORY";
-      
-      // Ensure stockQuantity has a default value
-      if (!cleanedValues.stockQuantity) {
-        cleanedValues.stockQuantity = 1;
-      }
-
-      console.log("Submitting accessory form:", cleanedValues);
-      await onSubmit(cleanedValues);
-    } catch (error) {
-      console.error("Error in accessory form submission:", error);
-      throw error;
-    }
+  const handleSubmit = (data: AccessoryFormValues) => {
+    onSubmit(data);
   };
 
   return (
@@ -118,7 +85,7 @@ export function AccessoryForm({ initialData, onSubmit, stockLocations, isEditMod
                     <FormItem>
                       <FormLabel>Nom*</FormLabel>
                       <FormControl>
-                        <Input {...field} />
+                        <Input {...field} value={field.value ?? ''} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -133,7 +100,7 @@ export function AccessoryForm({ initialData, onSubmit, stockLocations, isEditMod
                       <FormItem>
                         <FormLabel>Marque</FormLabel>
                         <FormControl>
-                          <Input {...field} />
+                          <Input {...field} value={field.value ?? ''} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -147,7 +114,7 @@ export function AccessoryForm({ initialData, onSubmit, stockLocations, isEditMod
                       <FormItem>
                         <FormLabel>Modèle</FormLabel>
                         <FormControl>
-                          <Input {...field} />
+                          <Input {...field} value={field.value ?? ''} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -162,7 +129,7 @@ export function AccessoryForm({ initialData, onSubmit, stockLocations, isEditMod
                     <FormItem>
                       <FormLabel>Numéro de Série</FormLabel>
                       <FormControl>
-                        <Input {...field} />
+                        <Input {...field} value={field.value ?? ''} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -181,7 +148,7 @@ export function AccessoryForm({ initialData, onSubmit, stockLocations, isEditMod
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Emplacement</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} defaultValue={field.value ?? ''}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Sélectionner l'emplacement" />
@@ -207,22 +174,28 @@ export function AccessoryForm({ initialData, onSubmit, stockLocations, isEditMod
                     <FormItem>
                       <FormLabel>Quantité en Stock</FormLabel>
                       <FormControl>
-                        <Input type="number" min="0" {...field} />
+                        <Input type="number" min="0" {...field} value={field.value ?? ''} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-                <div className="grid grid-cols-3 gap-4">
+          <TabsContent value="financial">
+            <Card>
+              <CardContent className="space-y-4 pt-4">
+                <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
-                    name="minStock"
+                    name="purchasePrice"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Stock Minimum</FormLabel>
+                        <FormLabel>Prix d'Achat</FormLabel>
                         <FormControl>
-                          <Input type="number" min="0" {...field} />
+                          <Input type="number" min="0" step="0.01" {...field} value={field.value ?? ''} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -231,26 +204,12 @@ export function AccessoryForm({ initialData, onSubmit, stockLocations, isEditMod
 
                   <FormField
                     control={form.control}
-                    name="maxStock"
+                    name="sellingPrice"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Stock Maximum</FormLabel>
+                        <FormLabel>Prix de Vente</FormLabel>
                         <FormControl>
-                          <Input type="number" min="0" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="alertThreshold"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Seuil d'Alerte</FormLabel>
-                        <FormControl>
-                          <Input type="number" min="0" {...field} />
+                          <Input type="number" min="0" step="0.01" {...field} value={field.value ?? ''} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -260,39 +219,10 @@ export function AccessoryForm({ initialData, onSubmit, stockLocations, isEditMod
               </CardContent>
             </Card>
           </TabsContent>
-
-          <TabsContent value="financial">
-            <Card>
-              <CardContent className="space-y-4 pt-4">
-                <FormField
-                  control={form.control}
-                  name="purchasePrice"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Prix d'achat</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="0.01" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-            </Card>
-          </TabsContent>
         </Tabs>
 
-        <div className="flex justify-end space-x-4">
-          <Button 
-            type="submit" 
-            disabled={form.formState.isSubmitting}
-          >
-            {form.formState.isSubmitting ? (
-              "Chargement..."
-            ) : (
-              isEditMode ? "Mettre à jour" : "Ajouter"
-            )}
-          </Button>
+        <div className="flex justify-end">
+          <Button type="submit">{isEditMode ? "Mettre à jour" : "Ajouter"}</Button>
         </div>
       </form>
     </Form>

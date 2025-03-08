@@ -20,7 +20,13 @@ export default async function handler(
         const [medicalDevices, products] = await Promise.all([
           prisma.medicalDevice.findMany({
             include: {
-              stockLocation: true,
+              stockLocation: {
+                select: {
+                  id: true,
+                  name: true,
+                  description: true,
+                }
+              }
             }
           }),
           prisma.product.findMany({
@@ -52,9 +58,9 @@ export default async function handler(
           technicalSpecs: device.technicalSpecs,
           availableForRent: device.availableForRent,
           requiresMaintenance: device.requiresMaintenance,
-          stockLocation: device.stockLocation?.name || 'Non assigné',
+          stockLocation: device.stockLocation,
           stockLocationId: device.stockLocationId,
-          stockQuantity: device.stockQuantity,
+          stockQuantity: device.stockQuantity || 1, // Default to 1 if not specified
           status: device.status,
           configuration: device.configuration,
           installationDate: device.installationDate
@@ -69,10 +75,7 @@ export default async function handler(
           model: product.model,
           serialNumber: product.serialNumber,
           purchasePrice: product.purchasePrice,
-          minStock: product.minStock,
-          maxStock: product.maxStock,
-          alertThreshold: product.alertThreshold,
-          sellingPrice: null,
+          sellingPrice: product.sellingPrice,
           technicalSpecs: null,
           stockLocation: product.stocks[0]?.location.name || 'Non assigné',
           stockLocationId: product.stocks[0]?.location.id,
@@ -104,14 +107,8 @@ export default async function handler(
                 requiresMaintenance: data.requiresMaintenance || false,
                 configuration: data.configuration,
                 status: 'ACTIVE',
-                ...(data.stockLocationId ? {
-                  stockLocation: {
-                    connect: {
-                      id: data.stockLocationId
-                    }
-                  }
-                } : {}),
-                stockQuantity: 1
+                stockLocationId: data.stockLocationId,
+                stockQuantity: data.stockQuantity ? parseInt(data.stockQuantity) : 1,
               },
               include: {
                 stockLocation: true
@@ -130,7 +127,7 @@ export default async function handler(
               technicalSpecs: newMedicalDevice.technicalSpecs,
               availableForRent: newMedicalDevice.availableForRent,
               requiresMaintenance: newMedicalDevice.requiresMaintenance,
-              stockLocation: newMedicalDevice.stockLocation?.name || 'Non assigné',
+              stockLocation: newMedicalDevice.stockLocation,
               stockLocationId: newMedicalDevice.stockLocationId,
               stockQuantity: newMedicalDevice.stockQuantity,
               status: newMedicalDevice.status,
@@ -148,9 +145,7 @@ export default async function handler(
                 model: data.model || null,
                 serialNumber: data.serialNumber || null,
                 purchasePrice: data.purchasePrice ? parseFloat(data.purchasePrice.toString()) : null,
-                minStock: data.minStock ? parseInt(data.minStock.toString()) : null,
-                maxStock: data.maxStock ? parseInt(data.maxStock.toString()) : null,
-                alertThreshold: data.alertThreshold ? parseInt(data.alertThreshold.toString()) : null,
+                sellingPrice: data.sellingPrice ? parseFloat(data.sellingPrice.toString()) : null,
               },
             });
 
@@ -183,9 +178,7 @@ export default async function handler(
               model: newProduct.model,
               serialNumber: newProduct.serialNumber,
               purchasePrice: newProduct.purchasePrice,
-              minStock: newProduct.minStock,
-              maxStock: newProduct.maxStock,
-              alertThreshold: newProduct.alertThreshold,
+              sellingPrice: newProduct.sellingPrice,
               stockLocation: stock.location.name,
               stockLocationId: stock.location.id,
               stockQuantity: stock.quantity,
@@ -220,11 +213,8 @@ export default async function handler(
               requiresMaintenance: updateData.requiresMaintenance,
               configuration: updateData.specifications,
               status: updateData.status || 'ACTIVE',
-              stockLocation: {
-                connect: {
-                  id: updateData.stockLocation
-                }
-              }
+              stockLocationId: updateData.stockLocation,
+              stockQuantity: updateData.stockQuantity ? parseInt(updateData.stockQuantity) : 1,
             },
             include: {
               stockLocation: true
@@ -243,9 +233,9 @@ export default async function handler(
             technicalSpecs: updatedMedicalDevice.technicalSpecs,
             availableForRent: updatedMedicalDevice.availableForRent,
             requiresMaintenance: updatedMedicalDevice.requiresMaintenance,
-            stockLocation: updatedMedicalDevice.stockLocation.name,
+            stockLocation: updatedMedicalDevice.stockLocation,
             stockLocationId: updatedMedicalDevice.stockLocationId,
-            stockQuantity: 1,
+            stockQuantity: updatedMedicalDevice.stockQuantity,
             status: updatedMedicalDevice.status
           });
         }
@@ -259,9 +249,7 @@ export default async function handler(
               brand: updateData.brand,
               serialNumber: updateData.serialNumber,
               purchasePrice: updateData.purchasePrice ? parseFloat(updateData.purchasePrice) : null,
-              minStock: updateData.minStock ? parseInt(updateData.minStock) : null,
-              maxStock: updateData.maxStock ? parseInt(updateData.maxStock) : null,
-              alertThreshold: updateData.alertThreshold ? parseInt(updateData.alertThreshold) : null,
+              sellingPrice: updateData.sellingPrice ? parseFloat(updateData.sellingPrice) : null,
             },
           });
 

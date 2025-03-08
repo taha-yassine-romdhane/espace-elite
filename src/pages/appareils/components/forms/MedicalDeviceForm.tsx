@@ -116,7 +116,7 @@ export function MedicalDeviceForm({ initialData, onSubmit, stockLocations, isEdi
                       <FormItem>
                         <FormLabel>Marque</FormLabel>
                         <FormControl>
-                          <Input {...field} />
+                          <Input {...field} value={field.value || ''} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -130,7 +130,7 @@ export function MedicalDeviceForm({ initialData, onSubmit, stockLocations, isEdi
                       <FormItem>
                         <FormLabel>Modèle</FormLabel>
                         <FormControl>
-                          <Input {...field} />
+                          <Input {...field} value={field.value || ''} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -145,7 +145,7 @@ export function MedicalDeviceForm({ initialData, onSubmit, stockLocations, isEdi
                     <FormItem>
                       <FormLabel>Numéro de Série</FormLabel>
                       <FormControl>
-                        <Input {...field} />
+                        <Input {...field} value={field.value || ''} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -200,7 +200,7 @@ export function MedicalDeviceForm({ initialData, onSubmit, stockLocations, isEdi
                       <FormItem>
                         <FormLabel>Prix d'Achat</FormLabel>
                         <FormControl>
-                          <Input type="number" step="0.01" min="0" {...field} />
+                          <Input type="number" step="0.01" min="0" {...field}value={field.value || ''} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -214,7 +214,7 @@ export function MedicalDeviceForm({ initialData, onSubmit, stockLocations, isEdi
                       <FormItem>
                         <FormLabel>Prix de Vente</FormLabel>
                         <FormControl>
-                          <Input type="number" step="0.01" min="0" {...field} />
+                          <Input type="number" step="0.01" min="0" {...field} value={field.value || ''} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -235,7 +235,7 @@ export function MedicalDeviceForm({ initialData, onSubmit, stockLocations, isEdi
                     <FormItem>
                       <FormLabel>Spécifications Techniques</FormLabel>
                       <FormControl>
-                        <Textarea {...field} />
+                        <Textarea {...field} value={field.value || ''} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -249,7 +249,7 @@ export function MedicalDeviceForm({ initialData, onSubmit, stockLocations, isEdi
                     <FormItem>
                       <FormLabel>Configuration</FormLabel>
                       <FormControl>
-                        <Textarea {...field} />
+                        <Textarea {...field} value={field.value || ''} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -263,7 +263,7 @@ export function MedicalDeviceForm({ initialData, onSubmit, stockLocations, isEdi
                     <FormItem>
                       <FormLabel>Garantie</FormLabel>
                       <FormControl>
-                        <Input {...field} />
+                        <Input {...field} value={field.value || ''} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

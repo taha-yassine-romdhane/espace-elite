@@ -1,7 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
-import { Product } from '@/types';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!prisma) {
@@ -11,24 +10,39 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     // CREATE product
     if (req.method === 'POST') {
-      const { nom, type, marque, stock, ns, prixAchat, status, montantReparation, pieceRechange } = req.body;
+      const { name, model, brand, serialNumber, purchasePrice, sellingPrice, stockLocationId, quantity = 1 } = req.body;
 
-      if (!nom || !type || !marque || !stock) {
+      if (!name || !model || !brand) {
         return res.status(400).json({ error: 'Missing required fields' });
       }
 
       const product = await prisma.product.create({
         data: {
-          nom,
-          type,
-          marque,
-          stock,
-          ns,
-          prixAchat: prixAchat ? parseFloat(prixAchat) : null,
-          status,
-          montantReparation: montantReparation ? parseFloat(montantReparation) : null,
-          pieceRechange,
+          name,
+          model,
+          brand,
+          serialNumber,
+          purchasePrice: purchasePrice ? new Prisma.Decimal(purchasePrice) : null,
+          sellingPrice: sellingPrice ? new Prisma.Decimal(sellingPrice) : null,
+          // Create the initial stock entry if stockLocationId is provided
+          stocks: stockLocationId ? {
+            create: {
+              quantity,
+              location: {
+                connect: {
+                  id: stockLocationId
+                }
+              }
+            }
+          } : undefined
         },
+        include: {
+          stocks: {
+            include: {
+              location: true
+            }
+          }
+        }
       });
 
       return res.status(201).json(product);
@@ -36,51 +50,129 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // GET products
     if (req.method === 'GET') {
+      const type = req.query.type as string;
+      
       const products = await prisma.product.findMany({
+        where: type ? {
+          type: type
+        } : {},
+        include: {
+          stocks: {
+            include: {
+              location: true
+            }
+          }
+        },
         orderBy: {
           createdAt: 'desc',
         },
       });
 
-      return res.status(200).json(products);
+      const transformedProducts = products.map(product => {
+        const primaryStock = product.stocks?.[0];
+        
+        return {
+          id: product.id,
+          name: product.name,
+          brand: product.brand,
+          model: product.model,
+          serialNumber: product.serialNumber,
+          purchasePrice: product.purchasePrice,
+          sellingPrice: product.sellingPrice,
+          stockLocation: primaryStock?.location || null,
+          stockLocationId: primaryStock?.locationId || null,
+          stockQuantity: product.stocks?.reduce((total, stock) => total + stock.quantity, 0) || 0,
+          status: primaryStock?.status || 'EN_VENTE'
+        };
+      });
+
+      return res.status(200).json(transformedProducts);
     }
 
     // UPDATE product
     if (req.method === 'PUT') {
-      const { id, nom, type, marque, stock, ns, prixAchat, status, montantReparation, pieceRechange } = req.body;
+      const { id, name, model, brand, serialNumber, purchasePrice, sellingPrice, stockLocationId, quantity = 1 } = req.body;
 
-      if (!id || !nom || !type || !marque || !stock) {
+      if (!id || !name || !model || !brand) {
         return res.status(400).json({ error: 'Missing required fields' });
       }
 
-      const product = await prisma.product.update({
+      // First update the product
+      const updatedProduct = await prisma.product.update({
         where: { id },
         data: {
-          nom,
-          type,
-          marque,
-          stock,
-          ns,
-          prixAchat: prixAchat ? parseFloat(prixAchat) : null,
-          status,
-          montantReparation: montantReparation ? parseFloat(montantReparation) : null,
-          pieceRechange,
-        },
+          name,
+          model,
+          brand,
+          serialNumber,
+          purchasePrice: purchasePrice ? new Prisma.Decimal(purchasePrice) : null,
+          sellingPrice: sellingPrice ? new Prisma.Decimal(sellingPrice) : null,
+        }
       });
 
-      return res.status(200).json(product);
+      // Then handle stock location update if provided
+      if (stockLocationId) {
+        // Get existing stock for this location
+        const existingStock = await prisma.stock.findFirst({
+          where: {
+            productId: id,
+            locationId: stockLocationId
+          }
+        });
+
+        if (existingStock) {
+          // Update existing stock
+          await prisma.stock.update({
+            where: { id: existingStock.id },
+            data: { quantity }
+          });
+        } else {
+          // Create new stock entry
+          await prisma.stock.create({
+            data: {
+              quantity,
+              product: {
+                connect: { id }
+              },
+              location: {
+                connect: { id: stockLocationId }
+              }
+            }
+          });
+        }
+      }
+
+      // Fetch the updated product with its stocks
+      const finalProduct = await prisma.product.findUnique({
+        where: { id },
+        include: {
+          stocks: {
+            include: {
+              location: true
+            }
+          }
+        }
+      });
+
+      return res.status(200).json(finalProduct);
     }
 
     // DELETE product
     if (req.method === 'DELETE') {
       const { id } = req.query;
 
-      if (!id || typeof id !== 'string') {
+      if (!id) {
         return res.status(400).json({ error: 'Missing product ID' });
       }
 
+      // Delete associated stocks first
+      await prisma.stock.deleteMany({
+        where: { productId: id as string }
+      });
+
+      // Then delete the product
       await prisma.product.delete({
-        where: { id },
+        where: { id: id as string }
       });
 
       return res.status(200).json({ message: 'Product deleted successfully' });
@@ -88,29 +180,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const errorDetails = error instanceof Prisma.PrismaClientKnownRequestError ? error.code : undefined;
-    
-    console.log('Error in products API:', errorMessage, errorDetails);
-
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      if (error.code === 'P2002') {
-        return res.status(400).json({ error: 'Product with this name already exists' });
-      }
-      if (error.code === 'P2025') {
-        return res.status(404).json({ error: 'Product not found' });
-      }
-      if (error.code === 'P2021') {
-        return res.status(500).json({ error: 'Database table not found. Did you run prisma migrate?' });
-      }
-      if (error.code === 'P1001') {
-        return res.status(500).json({ error: 'Cannot reach database server. Check your database connection.' });
-      }
-    }
-
-    return res.status(500).json({ 
-      error: 'Internal server error',
-      details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
-    });
+    console.error('Error in products API:', error);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 }

@@ -1,37 +1,49 @@
 import React from 'react';
-import Link from 'next/link';
-import { useSession, signOut } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { User } from 'lucide-react';
 
 const Navbar: React.FC = () => {
     const { data: session } = useSession();
 
+    // Get user initials for avatar fallback
+    const getInitials = (name: string) => {
+        return name
+            .split(' ')
+            .map(part => part[0])
+            .join('')
+            .toUpperCase();
+    };
+
     return (
-        <div className="bg-white  rounded-sm shadow-md p-2">
+        <div className="bg-white shadow-md">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between h-16">
                     <div className="flex items-center">
-                        <h1 className="text-xl font-semibold text-gray-900">
-                            Elite Santé Dashboard
+                        <h1 className="text-xl font-semibold text-[#1e3a8a]">
+                            Elite Medicale Services
                         </h1>
                     </div>
-                    <div className="flex items-center space-x-4">
-                        {session?.user && (
-                            <>
-                                <Link
-                                    href="/profile"
-                                    className="text-gray-700 hover:text-gray-900"
-                                >
-                                    Profile
-                                </Link>
-                                <button
-                                    onClick={() => signOut()}
-                                    className="text-gray-700 hover:text-gray-900"
-                                >
-                                    Logout
-                                </button>
-                            </>
-                        )}
-                    </div>
+                    {session?.user && (
+                        <div className="flex items-center space-x-4">
+                            <div className="flex items-center space-x-3">
+                                <Avatar className="h-8 w-8">
+                                    <AvatarImage src={session.user.image || ''} />
+                                    <AvatarFallback className="bg-[#1e3a8a] text-white">
+                                        {session.user.name ? getInitials(session.user.name) : <User className="h-4 w-4" />}
+                                    </AvatarFallback>
+                                </Avatar>
+                                <div className="flex flex-col">
+                                    <span className="text-sm font-medium text-[#1e3a8a]">
+                                        {session.user.name}
+                                    </span>
+                                    <span className="text-xs text-gray-500">
+                                        {session.user.email}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

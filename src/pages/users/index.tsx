@@ -13,6 +13,8 @@ import {
 import UserForm from '@/components/forms/UserForm';
 import { useToast } from "@/components/ui/use-toast";
 import { Badge } from "@/components/ui/badge";
+import { UserPlus, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Card } from '@/components/ui/Card';
 
 interface User {
   id: string;
@@ -150,8 +152,7 @@ const UsersPage = () => {
     resetForm();
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
+  const handleInputChange = (name: string, value: string | boolean) => {
     setFormData(prev => ({
       ...prev,
       [name]: value
@@ -187,128 +188,141 @@ const UsersPage = () => {
 
   if (loading) {
     return (
-      <div className="p-6">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Utilisateurs</h1>
-          <Button variant="default" onClick={() => setIsOpen(true)} disabled>
-            Ajouter un utilisateur
-          </Button>
-        </div>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-gray-500">Chargement...</div>
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+        <div className="container mx-auto p-6">
+          <div className="flex justify-between items-center mb-8">
+            <h1 className="text-3xl font-bold text-blue-900">Utilisateurs</h1>
+            <Button variant="default" className="bg-blue-600 hover:bg-blue-700" disabled>
+              <UserPlus className="w-5 h-5 mr-2" />
+              Ajouter un utilisateur
+            </Button>
+          </div>
+          <Card className="p-8">
+            <div className="flex items-center justify-center h-64">
+              <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+              <span className="ml-2 text-blue-600">Chargement...</span>
+            </div>
+          </Card>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Utilisateurs</h1>
-        <Button onClick={() => { setIsOpen(true); setIsEditMode(false); resetForm(); }}>
-          Ajouter un utilisateur
-        </Button>
-      </div>
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+      <div className="container mx-auto p-6">
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold text-blue-900">Utilisateurs</h1>
+          <Button 
+            variant="default" 
+            onClick={() => setIsOpen(true)}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            <UserPlus className="w-5 h-5 mr-2" />
+            Ajouter un utilisateur
+          </Button>
+        </div>
 
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nom</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Téléphone</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {users.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-4">
-                  Aucun utilisateur trouvé
-                </TableCell>
-              </TableRow>
-            ) : (
-              users.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell>{user.name}</TableCell>
-                  <TableCell>{user.email}</TableCell>
-                  <TableCell>{user.telephone}</TableCell>
-                  <TableCell>{user.role}</TableCell>
-                  <TableCell>
-                    <Badge variant={user.isActive ? "default" : "secondary"}>
-                      {user.isActive ? "Active" : "Inactive"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEdit(user)}
-                    >
-                      Edit
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => handleDelete(user.id)}
-                    >
-                      Delete
-                    </Button>
-                  </TableCell>
+        <Card className="overflow-hidden border-blue-100">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-blue-50">
+                <TableRow>
+                  <TableHead className="text-blue-900">Nom</TableHead>
+                  <TableHead className="text-blue-900">Email</TableHead>
+                  <TableHead className="text-blue-900">Téléphone</TableHead>
+                  <TableHead className="text-blue-900">Rôle</TableHead>
+                  <TableHead className="text-blue-900">Statut</TableHead>
+                  <TableHead className="text-blue-900 text-right">Actions</TableHead>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              </TableHeader>
+              <TableBody>
+                {users.map((user) => (
+                  <TableRow key={user.id} className="hover:bg-blue-50/50">
+                    <TableCell className="font-medium">{user.name}</TableCell>
+                    <TableCell>{user.email}</TableCell>
+                    <TableCell>{user.telephone}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="border-blue-200 text-blue-700 bg-blue-50">
+                        {user.role}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge 
+                        variant={user.isActive ? "default" : "secondary"}
+                        className={user.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}
+                      >
+                        {user.isActive ? 'Actif' : 'Inactif'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEdit(user)}
+                        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 mr-2"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(user.id)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </Card>
       </div>
 
       <Transition appear show={isOpen} as={Fragment}>
-        <Dialog
-          as="div"
-          className="fixed inset-0 z-10 overflow-y-auto"
-          onClose={() => setIsOpen(false)}
-        >
-          <div className="min-h-screen px-4 text-center">
-            <Transition.Child
-              as={Fragment}
-              enter="ease-out duration-300"
-              enterFrom="opacity-0"
-              enterTo="opacity-100"
-              leave="ease-in duration-200"
-              leaveFrom="opacity-100"
-              leaveTo="opacity-0"
-            >
-              <div className="fixed inset-0 bg-black/25" />
-            </Transition.Child>
+        <Dialog as="div" className="relative z-10" onClose={handleCancel}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black bg-opacity-25" />
+          </Transition.Child>
 
-            <span
-              className="inline-block h-screen align-middle"
-              aria-hidden="true"
-            >
-              &#8203;
-            </span>
-
-            <Transition.Child
-              as={Fragment}
-              enter="ease-out duration-300"
-              enterFrom="opacity-0 scale-95"
-              enterTo="opacity-100 scale-100"
-              leave="ease-in duration-200"
-              leaveFrom="opacity-100 scale-100"
-              leaveTo="opacity-0 scale-95"
-            >
-              <Dialog.Panel className="inline-block w-full max-w-md p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-2xl">
-                <UserForm
-                  formData={formData}
-                  onInputChange={handleInputChange}
-                  onSubmit={handleSubmit}
-                  onCancel={handleCancel}
-                  isEditMode={isEditMode}
-                />
-              </Dialog.Panel>
-            </Transition.Child>
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4 text-center">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 scale-95"
+                enterTo="opacity-100 scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 scale-100"
+                leaveTo="opacity-0 scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+                  <Dialog.Title
+                    as="h3"
+                    className="text-lg font-medium leading-6 text-blue-900 mb-4"
+                  >
+                    {isEditMode ? 'Modifier l\'utilisateur' : 'Ajouter un utilisateur'}
+                  </Dialog.Title>
+                  <UserForm
+                    formData={formData}
+                    onChange={handleInputChange}
+                    onSubmit={handleSubmit}
+                    onCancel={handleCancel}
+                    isEditMode={isEditMode}
+                  />
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
           </div>
         </Dialog>
       </Transition>
