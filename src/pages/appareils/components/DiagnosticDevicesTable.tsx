@@ -9,13 +9,14 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Product, ProductType } from "../types";
-import { History } from "lucide-react";
+import { History, Sliders } from "lucide-react";
 
 interface DiagnosticDevicesTableProps {
   products: Product[];
   onEdit: (product: Product) => void;
   onDelete: (product: Product) => void;
   onViewHistory: (product: Product) => void;
+  onViewParameters?: (product: Product) => void;
   renderActionButtons: (product: Product) => React.ReactNode;
 }
 
@@ -24,6 +25,7 @@ export function DiagnosticDevicesTable({
   onEdit, 
   onDelete,
   onViewHistory,
+  onViewParameters,
   renderActionButtons 
 }: DiagnosticDevicesTableProps) {
   const diagnosticDevices = products.filter(p => p.type === ProductType.DIAGNOSTIC_DEVICE);
@@ -89,6 +91,17 @@ export function DiagnosticDevicesTable({
                 >
                   <History className="h-3 w-3" />
                 </Button>
+                {onViewParameters && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onViewParameters(device)}
+                    title="Voir les paramètres"
+                    className="h-6 w-6"
+                  >
+                    <Sliders className="h-3 w-3" />
+                  </Button>
+                )}
                 {renderActionButtons(device)}
               </TableCell>
             </TableRow>

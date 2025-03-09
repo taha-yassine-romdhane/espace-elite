@@ -31,6 +31,7 @@ import { AccessoriesTable } from "./components/AccessoriesTable";
 import { SparePartsTable } from "./components/SparePartsTable";
 import { StockLocationsTable } from "./components/StockLocationsTable";
 import { LocationForm } from "./components/LocationForm";
+import { ParametersViewDialog } from "./components/ParametersViewDialog";
 import { Product, ProductType } from "./types";
 import { PlusCircle } from "lucide-react";
 import { Wrench , Trash2 ,Pencil } from "lucide-react";
@@ -50,6 +51,8 @@ export default function AppareilsPage() {
   const [productToRepair, setProductToRepair] = useState<Product | null>(null);
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
   const [productToViewHistory, setProductToViewHistory] = useState<Product | null>(null);
+  const [isParametersDialogOpen, setIsParametersDialogOpen] = useState(false);
+  const [productToViewParameters, setProductToViewParameters] = useState<Product | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -152,6 +155,20 @@ export default function AppareilsPage() {
         sellingPrice: completeProduct.sellingPrice?.toString() || "",
       };
       
+      // If it's a diagnostic device, fetch its parameters
+      if (product.type === 'DIAGNOSTIC_DEVICE') {
+        try {
+          const parametersResponse = await fetch(`/api/diagnostic-parameters/${product.id}`);
+          if (parametersResponse.ok) {
+            const parametersData = await parametersResponse.json();
+            formattedProduct.parameters = parametersData;
+          }
+        } catch (paramError) {
+          console.error("Error fetching parameters:", paramError);
+          // Continue even if parameters fetch fails
+        }
+      }
+      
       setCurrentProduct(formattedProduct);
       setIsEditMode(true);
       setIsOpen(true);
@@ -224,6 +241,11 @@ export default function AppareilsPage() {
   const handleRepair = (product: Product) => {
     setProductToRepair(product);
     setIsRepairDialogOpen(true);
+  };
+
+  const handleViewParameters = (product: Product) => {
+    setProductToViewParameters(product);
+    setIsParametersDialogOpen(true);
   };
 
   const confirmDelete = () => {
@@ -405,6 +427,7 @@ export default function AppareilsPage() {
                 setProductToViewHistory(product);
                 setIsHistoryDialogOpen(true);
               }}
+              onViewParameters={handleViewParameters}
               renderActionButtons={renderActionButtons}
             />
           </div>
@@ -495,6 +518,10 @@ export default function AppareilsPage() {
               products={products || []}
               onEdit={handleEdit}
               onDelete={handleDelete}
+              onViewHistory={(product) => {
+                setProductToViewHistory(product);
+                setIsHistoryDialogOpen(true);
+              }}
               renderActionButtons={renderActionButtons}
             />
           </div>
@@ -574,6 +601,15 @@ export default function AppareilsPage() {
           medicalDeviceId={productToViewHistory.id}
         />
       )}
+
+      <ParametersViewDialog
+        isOpen={isParametersDialogOpen}
+        onClose={() => {
+          setIsParametersDialogOpen(false);
+          setProductToViewParameters(null);
+        }}
+        product={productToViewParameters}
+      />
     </div>
   );
 }
