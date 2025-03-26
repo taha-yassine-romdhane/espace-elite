@@ -196,6 +196,7 @@ export function NewStepperDialog({ isOpen, onClose, action }: StepperDialogProps
                 clients={clients}
                 isLoading={isLoading}
                 error={error}
+                action={action}
               />
             )}
 

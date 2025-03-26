@@ -220,6 +220,7 @@ model Patient {
   diagnostics       Diagnostic[]
   appointments      Appointment[]
   rentals           Rental[]
+  notifications     Notification[]
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
 }
@@ -238,12 +239,13 @@ model Company {
   technician          User?           @relation("TechnicianCompanies", fields: [technicianId], references: [id])
   assignedTo          User            @relation("AssignedCompanies", fields: [userId], references: [id])
   userId              String
-  files               File[]
+  files               File[]          @relation("CompanyFiles")
   medicalDevices      MedicalDevice[]
   payments            Payment[]
   diagnostics         Diagnostic[]
   appointments        Appointment[]
   rentals             Rental[]
+  notifications       Notification[]
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
 }
@@ -312,7 +314,7 @@ model File {
   patientId String?
   patient   Patient? @relation(fields: [patientId], references: [id])
   companyId String?
-  company   Company? @relation(fields: [companyId], references: [id])
+  company   Company? @relation("CompanyFiles", fields: [companyId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -356,6 +358,7 @@ model MedicalDevice {
   availableForRent    Boolean               @default(false)
   requiresMaintenance Boolean               @default(false)
   installationDate    DateTime?
+  location            String? // Physical location of the device (e.g., patient's home)
   parameters          DiagnosticParameter[]
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt
@@ -445,4 +448,33 @@ model ParameterValue {
   updatedAt       DateTime            @updatedAt
 
   @@unique([parameterId, medicalDeviceId])
+}
+
+enum NotificationType {
+  FOLLOW_UP
+  MAINTENANCE
+  APPOINTMENT
+  PAYMENT_DUE
+  OTHER
+}
+
+enum NotificationStatus {
+  PENDING
+  COMPLETED
+  DISMISSED
+}
+
+model Notification {
+  id        String             @id @default(cuid())
+  title     String
+  message   String
+  type      NotificationType
+  status    NotificationStatus @default(PENDING)
+  dueDate   DateTime?
+  patientId String?
+  patient   Patient?           @relation(fields: [patientId], references: [id])
+  companyId String?
+  company   Company?           @relation(fields: [companyId], references: [id])
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
 }

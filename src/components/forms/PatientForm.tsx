@@ -70,7 +70,7 @@ const formSchema = z.object({
   descriptionNom: z.string().optional(),
   descriptionTelephone: z.string().optional(),
   descriptionAdresse: z.string().optional(),
-  files: z.array(z.instanceof(File)).optional(),
+  files: z.array(z.any()).optional(),
   existingFiles: z.array(z.object({
     url: z.string(),
     type: z.string()
@@ -85,7 +85,6 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
   const [files, setFiles] = useState<File[]>(formData.files || []);
 
   // Debug log for form data
@@ -123,37 +122,41 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
     }
   });
 
-  // Update form values when formData changes
   useEffect(() => {
-    console.log('Updating form values with:', formData);
-    const validFields = [
-      'nomComplet',
-      'telephonePrincipale',
-      'telephoneSecondaire',
-      'adresseComplete',
-      'cin',
-      'identifiantCNAM',
-      'technicienResponsable',
-      'antecedant',
-      'taille',
-      'poids',
-      'medecin',
-      'dateNaissance',
-      'beneficiaire',
-      'caisseAffiliation',
-      'cnam',
-      'descriptionNom',
-      'descriptionTelephone',
-      'descriptionAdresse',
-      'files',
-      'existingFiles'
-    ] as const;
-
-    validFields.forEach((key) => {
-      if (key in formData) {
-        form.setValue(key, formData[key]);
+    // Initialize form with defaultValues if they exist
+    if (formData) {
+      console.log('Setting default values:', formData);
+      
+      // Format date if it exists (could be in various formats)
+      let formattedDate = formData.dateNaissance || '';
+      if (formattedDate) {
+        // Try to parse and format the date
+        try {
+          // Handle string format
+          if (typeof formattedDate === 'string') {
+            // Check if it's already in YYYY-MM-DD format
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(formattedDate)) {
+              const date = new Date(formattedDate);
+              if (!isNaN(date.getTime())) {
+                formattedDate = date.toISOString().split('T')[0];
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error formatting date:', error);
+        }
       }
-    });
+      
+      // Set all form values
+      Object.entries(formData).forEach(([key, value]) => {
+        if (key === 'dateNaissance') {
+          form.setValue('dateNaissance', formattedDate);
+        } else if (value !== undefined && value !== null) {
+          // Use type assertion to handle the dynamic key
+          form.setValue(key as any, value);
+        }
+      });
+    }
   }, [formData, form]);
 
   useEffect(() => {
@@ -222,8 +225,18 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
   const handleFileChange = (uploadedFiles: File[]) => {
     console.log('Files selected:', uploadedFiles);
     setFiles(uploadedFiles);
-    // Update parent component
+    // Update parent component without losing other form data
     onFileChange(uploadedFiles);
+    
+    // Ensure form values are preserved after file upload
+    const currentFormValues = form.getValues();
+    setTimeout(() => {
+      Object.keys(currentFormValues).forEach(key => {
+        if (key !== 'files' && key !== 'images') {
+          form.setValue(key as any, currentFormValues[key as keyof typeof currentFormValues]);
+        }
+      });
+    }, 0);
   };
 
   const handleRemoveFile = (fileUrl: string) => {
@@ -247,21 +260,63 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const validation = form.formState.isValid;
-    if (!validation) {
+    
+    // Trigger validation manually
+    await form.trigger();
+    
+    // Check for validation errors
+    if (Object.keys(form.formState.errors).length > 0) {
       console.log('Form validation errors:', form.formState.errors);
+      
+      // Show toast with validation errors
+      const errorMessages = Object.entries(form.formState.errors)
+        .map(([field, error]) => `${field}: ${error?.message || 'Champ invalide'}`)
+        .join('\n');
+      
+      toast({
+        title: "Erreur de validation",
+        description: errorMessages || "Veuillez vérifier les champs du formulaire",
+        variant: "destructive",
+      });
+      
       return;
     }
 
     try {
       setIsLoading(true);
-      // Include files in the form data
-      const formData = {
-        ...form.getValues(),
-        files: files,
-        images: files
-      };
-      await onNext();
+      
+      // Get current form values
+      const formValues = form.getValues();
+      console.log('Form values before submission:', formValues);
+      
+      // Update all form values in parent component
+      Object.entries(formValues).forEach(([key, value]) => {
+        if (key !== 'files' && key !== 'images' && key !== 'existingFiles') {
+          console.log(`Updating parent with: ${key} = ${value}`);
+          // Create a synthetic event
+          const syntheticEvent = {
+            target: {
+              name: key,
+              value: value
+            }
+          };
+          // Call the parent's onInputChange with our synthetic event
+          onInputChange(syntheticEvent as any);
+        }
+      });
+      
+      // Handle files separately
+      if (files.length > 0) {
+        console.log(`Updating parent with ${files.length} files`);
+        onFileChange(files);
+      }
+      
+      // Small delay to ensure state updates are processed
+      setTimeout(async () => {
+        // Proceed to next step
+        await onNext();
+        setIsLoading(false);
+      }, 100);
     } catch (error) {
       console.error('Error submitting form:', error);
       toast({
@@ -269,31 +324,8 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
         description: "Failed to submit form",
         variant: "destructive",
       });
-    } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleImageChange = (newFiles: File[]) => {
-    const updatedFiles = [...files, ...newFiles];
-    setFiles(updatedFiles);
-    onFileChange(updatedFiles);
-
-    // Create preview URLs for new files
-    const newPreviewUrls = newFiles.map(file => URL.createObjectURL(file));
-    setImagePreviews(prev => [...prev, ...newPreviewUrls]);
-  };
-
-  const removeImage = (index: number) => {
-    const updatedFiles = files.filter((_, i) => i !== index);
-    setFiles(updatedFiles);
-    onFileChange(updatedFiles);
-
-    setImagePreviews(prev => {
-      // Revoke the URL to free up memory
-      URL.revokeObjectURL(prev[index]);
-      return prev.filter((_, i) => i !== index);
-    });
   };
 
   // Radio button handlers
@@ -329,7 +361,10 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
               type="text"
               name="nomComplet"
               value={form.watch('nomComplet')}
-              onChange={(e) => form.setValue('nomComplet', e.target.value)}
+              onChange={(e) => {
+                form.setValue('nomComplet', e.target.value);
+                onInputChange(e);
+              }}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-blue-500"
               placeholder="Nom complet"
             />
@@ -348,6 +383,14 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
                 // Only allow numbers and limit to 8 digits
                 const value = e.target.value.replace(/\D/g, '').slice(0, 8);
                 form.setValue('telephonePrincipale', value);
+                // Update parent component
+                const syntheticEvent = {
+                  target: {
+                    name: 'telephonePrincipale',
+                    value: value
+                  }
+                };
+                onInputChange(syntheticEvent as any);
               }}
               placeholder="Numéro de téléphone"
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-blue-500"
@@ -364,6 +407,14 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
                 // Only allow numbers and limit to 8 digits
                 const value = e.target.value.replace(/\D/g, '').slice(0, 8);
                 form.setValue('telephoneSecondaire', value);
+                // Update parent component
+                const syntheticEvent = {
+                  target: {
+                    name: 'telephoneSecondaire',
+                    value: value
+                  }
+                };
+                onInputChange(syntheticEvent as any);
               }}
               placeholder="Numéro de téléphone secondaire"
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-blue-500"
@@ -377,7 +428,10 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
                 type="text"
                 name="adresseComplete"
                 value={form.watch('adresseComplete')}
-                onChange={(e) => form.setValue('adresseComplete', e.target.value)}
+                onChange={(e) => {
+                  form.setValue('adresseComplete', e.target.value);
+                  onInputChange(e);
+                }}
                 placeholder="Adresse"
                 className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 pr-10 focus:border-blue-500 focus:outline-none focus:ring-blue-500"
               />
@@ -395,6 +449,14 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
                 // Only allow numbers and limit to 8 digits
                 const value = e.target.value.replace(/\D/g, '').slice(0, 8);
                 form.setValue('cin', value);
+                // Update parent component
+                const syntheticEvent = {
+                  target: {
+                    name: 'cin',
+                    value: value
+                  }
+                };
+                onInputChange(syntheticEvent as any);
               }}
               placeholder="Numéro CIN (8 chiffres)"
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-blue-500"
@@ -436,6 +498,7 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
                     // Only allow numbers and uppercase letters
                     const value = e.target.value.replace(/[^0-9A-Z]/g, '').slice(0, 12);
                     form.setValue('identifiantCNAM', value.toUpperCase());
+                    onInputChange(e);
                   }}
                   placeholder="Identifiant CNAM"
                   className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-blue-500"
@@ -450,8 +513,21 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
             <input
               type="date"
               name="dateNaissance"
-              value={form.watch('dateNaissance')}
-              onChange={(e) => form.setValue('dateNaissance', e.target.value)}
+              value={form.watch('dateNaissance') || ''}
+              onChange={(e) => {
+                const value = e.target.value;
+                console.log('Date changed to:', value);
+                form.setValue('dateNaissance', value);
+                
+                // Create a synthetic event to update the parent component
+                const syntheticEvent = {
+                  target: {
+                    name: 'dateNaissance',
+                    value: value
+                  }
+                };
+                onInputChange(syntheticEvent as any);
+              }}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-blue-500"
             />
           </div>
@@ -461,7 +537,10 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
             <select
               name="medecin"
               value={form.watch('medecin')}
-              onChange={(e) => form.setValue('medecin', e.target.value)}
+              onChange={(e) => {
+                form.setValue('medecin', e.target.value);
+                onInputChange(e);
+              }}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-blue-500"
             >
               <option value="">Sélectionnez un médecin</option>
@@ -483,7 +562,7 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
                 form.setValue('antecedant', e.target.value);
                 onInputChange(e);
               }}
-              placeholder="Antécédents médicaux du patient"
+              placeholder="Antécédants médicaux"
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-blue-500"
               rows={3}
             />
@@ -497,7 +576,10 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
             <textarea
               name="descriptionNom"
               value={form.watch('descriptionNom')}
-              onChange={(e) => form.setValue('descriptionNom', e.target.value)}
+              onChange={(e) => {
+                form.setValue('descriptionNom', e.target.value);
+                onInputChange(e);
+              }}
               placeholder="Description supplémentaire du nom"
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-blue-500"
               rows={3}
@@ -509,7 +591,10 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
             <textarea
               name="descriptionTelephone"
               value={form.watch('descriptionTelephone')}
-              onChange={(e) => form.setValue('descriptionTelephone', e.target.value)}
+              onChange={(e) => {
+                form.setValue('descriptionTelephone', e.target.value);
+                onInputChange(e);
+              }}
               placeholder="Description supplémentaire du téléphone"
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-blue-500"
               rows={3}
@@ -557,7 +642,7 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
                   onChange={() => handleBeneficiaireChange(BeneficiaryType.ASSURE_SOCIAL)}
                   className="h-4 w-4 text-blue-600"
                 />
-                <span className="ml-2">Assuré Social</span>
+                <span>Oui</span>
               </label>
               <label className="flex items-center">
                 <input
@@ -568,18 +653,18 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
                   onChange={() => handleBeneficiaireChange(BeneficiaryType.CONJOINT_ENFANT)}
                   className="h-4 w-4 text-blue-600"
                 />
-                <span className="ml-2">Conjoint/Enfant</span>
+                <span>Conjoint/Enfant</span>
               </label>
               <label className="flex items-center">
                 <input
                   type="radio"
                   name="beneficiaire"
                   value={BeneficiaryType.ASSANDANT}
-                  checked={formData.beneficiaire === BeneficiaryType.ASSANDANT}
+                  checked={form.watch('beneficiaire') === BeneficiaryType.ASSANDANT}
                   onChange={() => handleBeneficiaireChange(BeneficiaryType.ASSANDANT)}
                   className="h-4 w-4 text-blue-600"
                 />
-                <span className="ml-2">Ascendant</span>
+                <span>Ascendant</span>
               </label>
             </div>
           </div>
@@ -588,13 +673,16 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
             <select
               name="technicienResponsable"
               value={form.watch('technicienResponsable')}
-              onChange={(e) => form.setValue('technicienResponsable', e.target.value)}
+              onChange={(e) => {
+                form.setValue('technicienResponsable', e.target.value);
+                onInputChange(e);
+              }}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-blue-500"
             >
-              <option value="">Sélectionnez un technicien</option>
-              {technicians.map(tech => (
+              <option value="">Sélectionner un technicien</option>
+              {technicians.map((tech) => (
                 <option key={tech.id} value={tech.id}>
-                  {tech.name} ({tech.role})
+                  {tech.name}
                 </option>
               ))}
             </select>
@@ -615,6 +703,7 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
                     // Only allow values between 0 and 250
                     if (!value || (parseFloat(value) >= 0 && parseFloat(value) <= 250)) {
                       form.setValue('taille', value);
+                      onInputChange(e);
                     }
                   }}
                   placeholder="Taille en cm"
@@ -641,6 +730,7 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
                     // Only allow values between 0 and 500
                     if (!value || (parseFloat(value) >= 0 && parseFloat(value) <= 500)) {
                       form.setValue('poids', value);
+                      onInputChange(e);
                     }
                   }}
                   placeholder="Poids en kg"
@@ -722,13 +812,13 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
           variant="outline"
           onClick={onBack}
         >
-          Back
+          Retour
         </Button>
         <Button
           type="submit"
           loading={isLoading}
         >
-          Next
+          Sauvegarder
         </Button>
       </div>
     </form>

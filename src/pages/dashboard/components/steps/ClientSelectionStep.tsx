@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -20,6 +20,7 @@ interface ClientSelectionStepProps {
   clients: any[];
   isLoading: boolean;
   error: string | null;
+  action: "location" | "vente" | "diagnostique" | null;
 }
 
 export function ClientSelectionStep({
@@ -32,6 +33,7 @@ export function ClientSelectionStep({
   clients,
   isLoading,
   error,
+  action,
 }: ClientSelectionStepProps) {
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
   
@@ -49,7 +51,7 @@ export function ClientSelectionStep({
     poids: "",
     medecin: "",
     dateNaissance: "",
-    beneficiaire: "" as BeneficiaryType | string,
+    beneficiaire: "" as BeneficiaryType,
     caisseAffiliation: "CNSS" as "CNSS" | "CNRPS",
     cnam: false,
     description1: "",
@@ -79,13 +81,15 @@ export function ClientSelectionStep({
     setSocieteFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      if (clientType === "patient") {
-        setPatientFormData(prev => ({ ...prev, img: e.target.files![0] }));
-      } else {
-        setSocieteFormData(prev => ({ ...prev, img: e.target.files![0] }));
-      }
+  const handlePatientFileChange = (files: File[]) => {
+    if (files && files.length > 0) {
+      setPatientFormData(prev => ({ ...prev, img: files[0] }));
+    }
+  };
+
+  const handleSocieteFileChange = (files: File[]) => {
+    if (files && files.length > 0) {
+      setSocieteFormData(prev => ({ ...prev, img: files[0] }));
     }
   };
 
@@ -108,7 +112,7 @@ export function ClientSelectionStep({
         poids: "",
         medecin: "",
         dateNaissance: "",
-        beneficiaire: "",
+        beneficiaire: "" as BeneficiaryType,
         caisseAffiliation: "CNSS",
         cnam: false,
         description1: "",
@@ -129,50 +133,81 @@ export function ClientSelectionStep({
     }
   };
 
+  // Determine if we should show the client type selection
+  // For location and diagnostic, we only allow patient selection
+  const showClientTypeSelection = action === "vente";
+
+  // If it's a location or diagnostic, automatically select patient type
+  useEffect(() => {
+    if ((action === "location" || action === "diagnostique") && clientType !== "patient") {
+      onClientTypeChange("patient");
+    }
+  }, [action, clientType, onClientTypeChange]);
+
   return (
     <>
       <div className="space-y-6">
-        <div>
-          <Label className="text-base font-semibold text-[#1e3a8a]">Type de Client</Label>
-          <RadioGroup
-            className="grid grid-cols-2 gap-4 mt-4"
-            value={clientType || ""}
-            onValueChange={(value) => onClientTypeChange(value as "patient" | "societe")}
-          >
-            <div className={cn(
-              "flex items-center space-x-3 border rounded-lg p-4 cursor-pointer transition-all",
-              "hover:border-[#1e3a8a] hover:bg-blue-50",
-              clientType === "patient" ? "border-[#1e3a8a] bg-blue-50" : "border-gray-200"
-            )}>
-              <RadioGroupItem value="patient" id="patient" className="text-[#1e3a8a]" />
-              <Label htmlFor="patient" className="flex-1 cursor-pointer">
-                <div className="flex items-center gap-2">
-                  <User className="h-5 w-5 text-[#1e3a8a]" />
-                  <div>
-                    <div className="font-medium text-[#1e3a8a]">Patient</div>
-                    <div className="text-sm text-gray-500">Particulier</div>
+        {showClientTypeSelection ? (
+          <div>
+            <Label className="text-base font-semibold text-[#1e3a8a]">Type de Client</Label>
+            <RadioGroup
+              className="grid grid-cols-2 gap-4 mt-4"
+              value={clientType || ""}
+              onValueChange={(value) => onClientTypeChange(value as "patient" | "societe")}
+            >
+              <div className={cn(
+                "flex items-center space-x-3 border rounded-lg p-4 cursor-pointer transition-all",
+                "hover:border-[#1e3a8a] hover:bg-blue-50",
+                clientType === "patient" ? "border-[#1e3a8a] bg-blue-50" : "border-gray-200"
+              )}>
+                <RadioGroupItem value="patient" id="patient" className="text-[#1e3a8a]" />
+                <Label htmlFor="patient" className="flex-1 cursor-pointer">
+                  <div className="flex items-center gap-2">
+                    <User className="h-5 w-5 text-[#1e3a8a]" />
+                    <div>
+                      <div className="font-medium text-[#1e3a8a]">Patient</div>
+                      <div className="text-sm text-gray-500">Particulier</div>
+                    </div>
+                  </div>
+                </Label>
+              </div>
+              <div className={cn(
+                "flex items-center space-x-3 border rounded-lg p-4 cursor-pointer transition-all",
+                "hover:border-[#1e3a8a] hover:bg-blue-50",
+                clientType === "societe" ? "border-[#1e3a8a] bg-blue-50" : "border-gray-200"
+              )}>
+                <RadioGroupItem value="societe" id="societe" className="text-[#1e3a8a]" />
+                <Label htmlFor="societe" className="flex-1 cursor-pointer">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-5 w-5 text-[#1e3a8a]" />
+                    <div>
+                      <div className="font-medium text-[#1e3a8a]">Société</div>
+                      <div className="text-sm text-gray-500">Entreprise</div>
+                    </div>
+                  </div>
+                </Label>
+              </div>
+            </RadioGroup>
+          </div>
+        ) : (
+          // For location and diagnostic, just show a message indicating patient selection
+          <div>
+            <Label className="text-base font-semibold text-[#1e3a8a]">Type de Client</Label>
+            <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
+              <div className="flex items-center gap-2">
+                <User className="h-5 w-5 text-[#1e3a8a]" />
+                <div>
+                  <div className="font-medium text-[#1e3a8a]">Patient</div>
+                  <div className="text-sm text-gray-600">
+                    {action === "location" ? 
+                      "Les locations sont uniquement disponibles pour les patients" : 
+                      "Les services de diagnostic sont uniquement disponibles pour les patients"}
                   </div>
                 </div>
-              </Label>
+              </div>
             </div>
-            <div className={cn(
-              "flex items-center space-x-3 border rounded-lg p-4 cursor-pointer transition-all",
-              "hover:border-[#1e3a8a] hover:bg-blue-50",
-              clientType === "societe" ? "border-[#1e3a8a] bg-blue-50" : "border-gray-200"
-            )}>
-              <RadioGroupItem value="societe" id="societe" className="text-[#1e3a8a]" />
-              <Label htmlFor="societe" className="flex-1 cursor-pointer">
-                <div className="flex items-center gap-2">
-                  <Building2 className="h-5 w-5 text-[#1e3a8a]" />
-                  <div>
-                    <div className="font-medium text-[#1e3a8a]">Société</div>
-                    <div className="text-sm text-gray-500">Entreprise</div>
-                  </div>
-                </div>
-              </Label>
-            </div>
-          </RadioGroup>
-        </div>
+          </div>
+        )}
 
         {clientType && (
           <div className="space-y-4">
@@ -270,7 +305,7 @@ export function ClientSelectionStep({
               <PatientForm 
                 formData={patientFormData}
                 onInputChange={handlePatientInputChange}
-                onFileChange={handleFileChange}
+                onFileChange={handlePatientFileChange}
                 onBack={() => setIsCreateFormOpen(false)}
                 onNext={() => {
                   handleCreateSuccess({ id: Date.now().toString(), name: patientFormData.nomComplet });
@@ -280,7 +315,7 @@ export function ClientSelectionStep({
               <SocieteForm 
                 formData={societeFormData}
                 onInputChange={handleSocieteInputChange}
-                onFileChange={handleFileChange}
+                onFileChange={handleSocieteFileChange}
                 onBack={() => setIsCreateFormOpen(false)}
                 onNext={() => {
                   handleCreateSuccess({ id: Date.now().toString(), name: societeFormData.nomSociete });

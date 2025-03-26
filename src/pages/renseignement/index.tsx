@@ -5,39 +5,14 @@ import PatientForm from '@/components/forms/PatientForm';
 import SocieteForm from '@/components/forms/SocieteForm';
 import { RenseignementTable } from './components/RenseignementTable';
 import { FileViewer } from './components/FileViewer';
-import { TypeSelector } from './components/TypeSelector';
 import { z } from 'zod';
 import { BeneficiaryType } from '@prisma/client';
-import { CaisseAffiliation, Renseignement, RenseignementFormData, UploadedFile } from '@/types/renseignement';
-
-const renseignementSchema = z.object({
-  type: z.enum(['Patient', 'Société']),
-  // Patient fields
-  nomComplet: z.string().optional(),
-  telephonePrincipale: z.string().optional(),
-  telephoneSecondaire: z.string().optional(),
-  adresseComplete: z.string().optional(),
-  cin: z.string().optional(),
-  identifiantCNAM: z.string().optional(),
-  technicienResponsable: z.string().optional(),
-  antecedant: z.string().optional(),
-  taille: z.string().optional(),
-  poids: z.string().optional(),
-  medecin: z.string().optional(),
-  dateNaissance: z.string().optional(),
-  beneficiaire: z.nativeEnum(BeneficiaryType).optional(),
-  caisseAffiliation: z.enum(['CNSS', 'CNRPS']).optional(),
-  cnam: z.boolean().optional(),
-  descriptionNom: z.string().optional(),
-  descriptionTelephone: z.string().optional(),
-  descriptionAdresse: z.string().optional(),
-  // Societe fields
-  nomSociete: z.string().optional(),
-  matriculeFiscale: z.string().optional(),
-  // Common fields
-  images: z.array(z.any()).optional(),
-  files: z.array(z.any()).optional(),
-});
+import { CaisseAffiliation, Renseignement, RenseignementFormData } from '@/types/renseignement';
+import { Building, Filter, Search, User, X } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 export default function RenseignementPage() {
   const { toast } = useToast();
@@ -71,32 +46,140 @@ export default function RenseignementPage() {
   });
 
   const [renseignements, setRenseignements] = useState<Renseignement[]>([]);
+  const [filteredRenseignements, setFilteredRenseignements] = useState<Renseignement[]>([]);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [showFilesDialog, setShowFilesDialog] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
+  
+  // Search and filter states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filters, setFilters] = useState({
+    doctor: 'all',
+    technician: 'all',
+    type: 'all'
+  });
+  const [activeFilters, setActiveFilters] = useState<string[]>([]);
+  const [availableDoctors, setAvailableDoctors] = useState<{id: string, name: string}[]>([]);
+  const [availableTechnicians, setAvailableTechnicians] = useState<{id: string, name: string}[]>([]);
 
   useEffect(() => {
     fetchRenseignements();
   }, []);
 
-  const fetchRenseignements = async () => {
-    try {
-      const response = await fetch('/api/renseignements');
-      const data = await response.json();
-      setRenseignements(data);
-    } catch (error) {
-      console.error('Error fetching renseignements:', error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de charger les renseignements",
-        variant: "destructive",
-      });
+  // Apply filters and search whenever renseignements, searchQuery, or filters change
+  useEffect(() => {
+    applyFiltersAndSearch();
+  }, [renseignements, searchQuery, filters]);
+
+  // Extract unique doctors and technicians from renseignements
+  useEffect(() => {
+    if (renseignements.length > 0) {
+      const doctors = renseignements
+        .filter(item => item.doctor)
+        .map(item => item.doctor!)
+        .filter((doctor, index, self) => 
+          index === self.findIndex(d => d.id === doctor.id)
+        );
+      
+      const technicians = renseignements
+        .filter(item => item.technician)
+        .map(item => item.technician!)
+        .filter((technician, index, self) => 
+          index === self.findIndex(t => t.id === technician.id)
+        );
+      
+      setAvailableDoctors(doctors);
+      setAvailableTechnicians(technicians);
+    }
+  }, [renseignements]);
+
+  const applyFiltersAndSearch = () => {
+    let filtered = [...renseignements];
+    
+    // Apply search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(item => 
+        item.nom.toLowerCase().includes(query) || 
+        item.telephone.toLowerCase().includes(query) ||
+        (item.adresse && item.adresse.toLowerCase().includes(query)) ||
+        (item.type === 'Patient' && item.cin && item.cin.toLowerCase().includes(query)) ||
+        (item.type === 'Société' && item.matriculeFiscale && item.matriculeFiscale.toLowerCase().includes(query))
+      );
+    }
+    
+    // Apply doctor filter
+    if (filters.doctor && filters.doctor !== 'all') {
+      filtered = filtered.filter(item => 
+        item.doctor && item.doctor.id === filters.doctor
+      );
+    }
+    
+    // Apply technician filter
+    if (filters.technician && filters.technician !== 'all') {
+      filtered = filtered.filter(item => 
+        item.technician && item.technician.id === filters.technician
+      );
+    }
+    
+    // Apply type filter
+    if (filters.type && filters.type !== 'all') {
+      filtered = filtered.filter(item => item.type === filters.type);
+    }
+    
+    // Update active filters for display
+    const newActiveFilters: string[] = [];
+    if (filters.doctor && filters.doctor !== 'all') {
+      const doctor = availableDoctors.find(d => d.id === filters.doctor);
+      if (doctor) newActiveFilters.push(`Dr: ${doctor.name}`);
+    }
+    if (filters.technician && filters.technician !== 'all') {
+      const technician = availableTechnicians.find(t => t.id === filters.technician);
+      if (technician) newActiveFilters.push(`Tech: ${technician.name}`);
+    }
+    if (filters.type && filters.type !== 'all') {
+      newActiveFilters.push(`Type: ${filters.type}`);
+    }
+    
+    setActiveFilters(newActiveFilters);
+    setFilteredRenseignements(filtered);
+  };
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+  };
+
+  const handleFilterChange = (key: keyof typeof filters, value: string) => {
+    setFilters(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
+  const clearFilter = (filter: string) => {
+    const filterKey = filter.split(':')[0].trim().toLowerCase();
+    
+    if (filterKey === 'dr') {
+      setFilters(prev => ({ ...prev, doctor: 'all' }));
+    } else if (filterKey === 'tech') {
+      setFilters(prev => ({ ...prev, technician: 'all' }));
+    } else if (filterKey === 'type') {
+      setFilters(prev => ({ ...prev, type: 'all' }));
     }
   };
 
+  const clearAllFilters = () => {
+    setFilters({
+      doctor: 'all',
+      technician: 'all',
+      type: 'all'
+    });
+    setSearchQuery('');
+  };
+
   const handleFileChange = (files: File[]) => {
-    setFormData(prev => ({
-      ...prev,
+    setFormData(prevFormData => ({
+      ...prevFormData,
       files: files,
       images: files
     }));
@@ -104,16 +187,10 @@ export default function RenseignementPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+    console.log(`Updating form field: ${name} = ${value}`);
     setFormData(prev => ({
       ...prev,
       [name]: value
-    }));
-  };
-
-  const handleTypeChange = (type: 'Patient' | 'Société') => {
-    setFormData(prev => ({
-      ...prev,
-      type
     }));
   };
 
@@ -225,7 +302,7 @@ export default function RenseignementPage() {
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedItems(renseignements.map(item => item.id));
+      setSelectedItems(filteredRenseignements.map(item => item.id));
     } else {
       setSelectedItems([]);
     }
@@ -351,6 +428,21 @@ export default function RenseignementPage() {
     }
   };
 
+  const fetchRenseignements = async () => {
+    try {
+      const response = await fetch('/api/renseignements');
+      const data = await response.json();
+      setRenseignements(data);
+    } catch (error) {
+      console.error('Error fetching renseignements:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger les renseignements",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex justify-between items-center">
@@ -364,17 +456,136 @@ export default function RenseignementPage() {
               Supprimer sélectionnés
             </Button>
           )}
-          <Button onClick={() => {
-            resetForm();
-            setIsOpen(true);
-          }}>
-            Ajouter
+          <Button 
+            onClick={() => {
+              resetForm();
+              setFormData(prev => ({ ...prev, type: 'Patient' }));
+              setIsOpen(true);
+            }}
+            className="bg-blue-900 hover:bg-blue-700"
+          >
+            <User className="mr-2 h-4 w-4" />
+            Ajouter Patient
+          </Button>
+          <Button 
+            onClick={() => {
+              resetForm();
+              setFormData(prev => ({ ...prev, type: 'Société' }));
+              setIsOpen(true);
+            }}
+            className="bg-blue-900 hover:bg-blue-700"
+          >
+            <Building className="mr-2 h-4 w-4" />
+            Ajouter Société
           </Button>
         </div>
       </div>
 
+      <div className="flex justify-between items-center mb-4">
+        <div className="flex items-center space-x-2">
+          <div className="relative w-full max-w-sm">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              type="search"
+              value={searchQuery}
+              onChange={handleSearchChange}
+              placeholder="Rechercher..."
+              className="w-full pl-10"
+            />
+          </div>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="h-10">
+                <Filter className="h-4 w-4 mr-2" />
+                Filtres
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <h4 className="font-medium">Type</h4>
+                  <Select
+                    value={filters.type}
+                    onValueChange={(value) => handleFilterChange('type', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionner un type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tous</SelectItem>
+                      <SelectItem value="Patient">Patient</SelectItem>
+                      <SelectItem value="Société">Société</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <h4 className="font-medium">Médecin responsable</h4>
+                  <Select
+                    value={filters.doctor}
+                    onValueChange={(value) => handleFilterChange('doctor', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionner un médecin" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tous</SelectItem>
+                      {availableDoctors.map(doctor => (
+                        <SelectItem key={doctor.id} value={doctor.id}>
+                          {doctor.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <h4 className="font-medium">Technicien responsable</h4>
+                  <Select
+                    value={filters.technician}
+                    onValueChange={(value) => handleFilterChange('technician', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionner un technicien" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tous</SelectItem>
+                      {availableTechnicians.map(technician => (
+                        <SelectItem key={technician.id} value={technician.id}>
+                          {technician.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="flex justify-end">
+                  <Button variant="outline" size="sm" onClick={clearAllFilters}>
+                    Réinitialiser
+                  </Button>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
+        
+        <div className="flex flex-wrap gap-2">
+          {activeFilters.map(filter => (
+            <Badge key={filter} variant="secondary" className="cursor-pointer flex items-center gap-1">
+              {filter} 
+              <X className="h-3 w-3" onClick={() => clearFilter(filter)} />
+            </Badge>
+          ))}
+          {activeFilters.length > 0 && (
+            <Button variant="ghost" size="sm" onClick={clearAllFilters}>
+              Effacer tous
+            </Button>
+          )}
+        </div>
+      </div>
+
       <RenseignementTable
-        data={renseignements}
+        data={filteredRenseignements}
         selectedItems={selectedItems}
         onSelect={handleSelect}
         onSelectAll={handleSelectAll}
@@ -386,10 +597,6 @@ export default function RenseignementPage() {
       {isOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <TypeSelector
-              selectedType={formData.type}
-              onTypeChange={handleTypeChange}
-            />
 
             {formData.type === 'Patient' ? (
               <PatientForm

@@ -58,7 +58,6 @@ export default async function handler(
         if (processedFiles.length > 0) {
           fileData = {
             files: {
-              deleteMany: {}, // Remove existing files if updating
               create: processedFiles
             }
           };
@@ -66,6 +65,9 @@ export default async function handler(
       }
 
       const names = data.nomComplet?.split(' ') || [];
+      
+      // Debug log to see what data is being received
+      console.log('Form data received:', data);
 
       // First verify the doctor exists if one is specified
       let doctorId = null;
@@ -84,21 +86,21 @@ export default async function handler(
 
       const patient = await prisma.patient.create({
         data: {
-          firstName: names[0],
-          lastName: names.slice(1).join(' '),
+          firstName: names[0] || '',
+          lastName: names.length > 1 ? names.slice(1).join(' ') : '',
           telephone: data.telephonePrincipale || '',
-          telephoneTwo: data.telephoneSecondaire,
-          address: data.adresseComplete,
-          dateOfBirth: data.dateNaissance,
-          cin: data.cin,
-          cnamId: data.identifiantCNAM,
+          telephoneTwo: data.telephoneSecondaire || '',
+          address: data.adresseComplete || '',
+          dateOfBirth: data.dateNaissance ? new Date(data.dateNaissance) : null,
+          cin: data.cin || '',
+          cnamId: data.identifiantCNAM || '',
           height: data.taille ? parseFloat(data.taille) : null,
           weight: data.poids ? parseFloat(data.poids) : null,
-          medicalHistory: data.antecedant,
-          descriptionNumOne: data.descriptionNom,
-          descriptionNumTwo: data.descriptionTelephone,
-          affiliation: data.caisseAffiliation as Affiliation || null,
-          beneficiaryType: data.beneficiaire as BeneficiaryType || null,
+          medicalHistory: data.antecedant || '',
+          descriptionNumOne: data.descriptionNom || '',
+          descriptionNumTwo: data.descriptionTelephone || '',
+          affiliation: (data.caisseAffiliation as Affiliation) || 'CNSS',
+          beneficiaryType: (data.beneficiaire as BeneficiaryType) || 'ASSURE_SOCIAL',
           doctorId: doctorId,
           technicianId: data.technicienResponsable || null,
           userId: session.user.id,
@@ -199,24 +201,28 @@ export default async function handler(
       }
 
       const names = data.nomComplet?.split(' ') || [];
+      
+      // Debug log to see what data is being received
+      console.log('Form data received:', data);
+
       const patient = await prisma.patient.update({
         where: { id: data.id },
         data: {
-          firstName: names[0],
-          lastName: names.slice(1).join(' '),
-          telephone: data.telephonePrincipale,
-          telephoneTwo: data.telephoneSecondaire,
-          address: data.adresseComplete,
-          dateOfBirth: data.dateNaissance,
-          cin: data.cin,
-          cnamId: data.identifiantCNAM,
+          firstName: names[0] || '',
+          lastName: names.length > 1 ? names.slice(1).join(' ') : '',
+          telephone: data.telephonePrincipale || '',
+          telephoneTwo: data.telephoneSecondaire || '',
+          address: data.adresseComplete || '',
+          dateOfBirth: data.dateNaissance ? new Date(data.dateNaissance) : null,
+          cin: data.cin || '',
+          cnamId: data.identifiantCNAM || '',
           height: data.taille ? parseFloat(data.taille) : null,
           weight: data.poids ? parseFloat(data.poids) : null,
-          medicalHistory: data.antecedant,
-          descriptionNumOne: data.descriptionNom,
-          descriptionNumTwo: data.descriptionTelephone,
-          affiliation: data.caisseAffiliation as Affiliation || null,
-          beneficiaryType: data.beneficiaire as BeneficiaryType || null,
+          medicalHistory: data.antecedant || '',
+          descriptionNumOne: data.descriptionNom || '',
+          descriptionNumTwo: data.descriptionTelephone || '',
+          affiliation: (data.caisseAffiliation as Affiliation) || 'CNSS',
+          beneficiaryType: (data.beneficiaire as BeneficiaryType) || 'ASSURE_SOCIAL',
           doctorId: doctorId,
           technicianId: data.technicienResponsable || null,
           ...updateFileData

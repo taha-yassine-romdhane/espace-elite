@@ -56,12 +56,11 @@ export default function SettingsPage() {
                 className="w-full justify-start text-left px-3 py-2 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700"
               >
                 <Database className="h-4 w-4 mr-2" />
-                Sauvegarde et Restauration
+                Restauration
               </TabsTrigger>
             </TabsList>
           </Tabs>
         </Card>
-        
         <div className="flex-1">
           {activeTab === "users" && <UserManagement />}
           {activeTab === "roles" && <RolePermissions />}

@@ -18,6 +18,7 @@ import {
     Building,
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
+import { redirect } from 'next/navigation';
 
 type MenuItem = {
     icon: React.ReactNode;
@@ -81,7 +82,7 @@ const Sidebar: React.FC = () => {
             {/* Footer */}
             <div className="p-4 border-t border-gray-100">
                 <button
-                    onClick={() => signOut()}
+                    onClick={() => signOut().then(() => redirect('/welcome'))}
                     className="flex items-center w-full px-4 py-3 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 hover:text-[#1e3a8a] transition-colors"
                 >
                     <span className="mr-3"><Power size={20} /></span>
