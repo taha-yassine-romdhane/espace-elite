@@ -1,0 +1,70 @@
+import { NextApiRequest, NextApiResponse } from 'next';
+import { prisma } from '@/lib/prisma';
+import { Role } from '@prisma/client';
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  try {
+    if (req.method === 'POST') {
+      const { name, email, telephone, role } = req.body;
+
+      if (!name || !email || !role) {
+        return res.status(400).json({ error: 'Missing required fields' });
+      }
+
+      const user = await prisma.user.create({
+        data: {
+          firstName: name.split(' ')[0],
+          lastName: name.split(' ').slice(1).join(' '),
+          email,
+          telephone: telephone || '',
+          role: role as Role,
+          password: '', // You should implement proper password handling
+          isActive: true,
+        },
+      });
+
+      return res.status(201).json({
+        id: user.id,
+        name: `${user.firstName} ${user.lastName}`.trim(),
+        email: user.email,
+        telephone: user.telephone || '',
+        role: user.role,
+        isActive: user.isActive,
+      });
+    }
+
+    if (req.method === 'GET') {
+      const users = await prisma.user.findMany({
+        orderBy: {
+          createdAt: 'desc',
+        },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          telephone: true,
+          role: true,
+          isActive: true,
+        },
+      });
+
+      // Transform the data to match the frontend expectations
+      const transformedUsers = users.map(user => ({
+        id: user.id,
+        name: `${user.firstName} ${user.lastName}`.trim(),
+        email: user.email,
+        telephone: user.telephone || '',
+        role: user.role,
+        isActive: user.isActive,
+      }));
+
+      return res.status(200).json(transformedUsers);
+    }
+
+    return res.status(405).json({ error: 'Method not allowed' });
+  } catch (error) {
+    console.error('Error in users API:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}

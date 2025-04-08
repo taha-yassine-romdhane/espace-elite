@@ -1,0 +1,480 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  EMPLOYEE
+  MANAGER
+  DOCTOR
+}
+
+enum PaymentMethod {
+  CNAM
+  CHEQUE
+  CASH
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  GUARANTEE
+  PARTIAL
+}
+
+enum BeneficiaryType {
+  ASSURE_SOCIAL
+  CONJOINT_ENFANT
+  ASSANDANT
+}
+
+enum Affiliation {
+  CNSS
+  CNRPS
+}
+
+enum DeviceStatus {
+  ACTIVE
+  MAINTENANCE
+  RETIRED
+}
+
+enum ProductType {
+  ACCESSORY
+  SPARE_PART
+  DIAGNOSTIC_DEVICE
+  MEDICAL_DEVICE
+}
+
+enum StockStatus {
+  EN_VENTE
+  EN_LOCATION
+  EN_REPARATION
+  HORS_SERVICE
+}
+
+enum ClientType {
+  PATIENT
+  COMPANY
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model User {
+  id                  String          @id @default(cuid())
+  email               String          @unique
+  password            String
+  role                Role            @default(EMPLOYEE)
+  firstName           String
+  lastName            String
+  telephone           String?
+  speciality          String?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  isActive            Boolean         @default(true)
+  doctor              Doctor?
+  technician          Technician[]
+  assignedPatients    Patient[]       @relation("AssignedPatients")
+  assignedCompanies   Company[]       @relation("AssignedCompanies")
+  technicianPatients  Patient[]       @relation("TechnicianPatients")
+  technicianCompanies Company[]       @relation("TechnicianCompanies")
+  tasks               Task[]
+  stockLocation       StockLocation?
+  stockTransfers      StockTransfer[] // No fields/references here
+  sentTransfers       StockTransfer[] @relation("SentTransfers")
+  receivedTransfers   StockTransfer[] @relation("ReceivedTransfers")
+}
+
+model Task {
+  id          String       @id @default(cuid())
+  title       String
+  description String?
+  status      TaskStatus
+  priority    TaskPriority
+  startDate   DateTime     @default(now())
+  endDate     DateTime     @default(now())
+  assignedTo  User         @relation(fields: [userId], references: [id])
+  userId      String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model StockLocation {
+  id                String          @id @default(cuid())
+  name              String          @unique
+  userId            String?         @unique
+  user              User?           @relation(fields: [userId], references: [id])
+  description       String?
+  isActive          Boolean         @default(true)
+  stocks            Stock[]
+  outgoingTransfers StockTransfer[] @relation("FromLocation")
+  incomingTransfers StockTransfer[] @relation("ToLocation")
+  medicalDevices    MedicalDevice[]
+  products          Product[]
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+}
+
+model Stock {
+  id         String        @id @default(cuid())
+  locationId String // The stock location
+  location   StockLocation @relation(fields: [locationId], references: [id])
+  productId  String // The product in stock
+  product    Product       @relation(fields: [productId], references: [id])
+  quantity   Int // Quantity in this location
+  status     StockStatus   @default(EN_VENTE)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+}
+
+model StockTransfer {
+  id             String        @id @default(cuid())
+  fromLocationId String
+  fromLocation   StockLocation @relation("FromLocation", fields: [fromLocationId], references: [id])
+  toLocationId   String
+  toLocation     StockLocation @relation("ToLocation", fields: [toLocationId], references: [id])
+  productId      String
+  product        Product       @relation(fields: [productId], references: [id])
+  quantity       Int
+  newStatus      StockStatus?
+
+  transferredById String
+  transferredBy   User   @relation(fields: [transferredById], references: [id])
+
+  sentById String?
+  sentBy   User?   @relation("SentTransfers", fields: [sentById], references: [id])
+
+  receivedById String?
+  receivedBy   User?   @relation("ReceivedTransfers", fields: [receivedById], references: [id])
+
+  notes        String?
+  transferDate DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Product {
+  id                 String            @id @default(cuid())
+  name               String
+  type               ProductType
+  brand              String?
+  model              String?
+  purchasePrice      Float?
+  sellingPrice       Float?
+  serialNumber       String?           @unique
+  purchaseDate       DateTime?
+  warrantyExpiration DateTime?
+  status             DeviceStatus      @default(ACTIVE)
+  notes              String?
+  stocks             Stock[]
+  stockLocation      StockLocation?    @relation(fields: [stockLocationId], references: [id])
+  stockLocationId    String?
+  transfers          StockTransfer[]
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  RepairSparePart    RepairSparePart[]
+}
+
+model Patient {
+  id                String           @id @default(cuid())
+  firstName         String
+  lastName          String
+  telephone         String           @unique
+  telephoneTwo      String?
+  descriptionNumOne String?
+  descriptionNumTwo String?
+  affiliation       Affiliation? // Added: CNSS or CNRPS
+  antecedant        String?
+  beneficiaryType   BeneficiaryType? // Added: assureSocial, conjointEnfant, ascendant
+  address           String?
+  dateOfBirth       DateTime?
+  cin               String? // CIN
+  cnamId            String? // CNAM ID
+  weight            Float? // Weight in kg
+  height            Float? // Height in meters
+  imc               Float? // Calculated field
+  medicalHistory    String?
+  doctorId          String?
+  doctor            Doctor?          @relation(fields: [doctorId], references: [id])
+  technicianId      String?
+  technician        User?            @relation("TechnicianPatients", fields: [technicianId], references: [id])
+  assignedTo        User             @relation("AssignedPatients", fields: [userId], references: [id])
+  userId            String
+  files             File[]
+  medicalDevices    MedicalDevice[]
+  payments          Payment[]
+  diagnostics       Diagnostic[]
+  appointments      Appointment[]
+  rentals           Rental[]
+  notifications     Notification[]
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+}
+
+model Company {
+  id                  String          @id @default(cuid())
+  companyName         String
+  telephone           String          @unique
+  telephoneSecondaire String?
+  address             String?
+  taxId               String? // Matricule Fiscale
+  nameDescription     String?
+  phoneDescription    String?
+  addressDescription  String?
+  technicianId        String?
+  technician          User?           @relation("TechnicianCompanies", fields: [technicianId], references: [id])
+  assignedTo          User            @relation("AssignedCompanies", fields: [userId], references: [id])
+  userId              String
+  files               File[]          @relation("CompanyFiles")
+  medicalDevices      MedicalDevice[]
+  payments            Payment[]
+  diagnostics         Diagnostic[]
+  appointments        Appointment[]
+  rentals             Rental[]
+  notifications       Notification[]
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+}
+
+model RepairLog {
+  id              String            @id @default(cuid())
+  medicalDeviceId String
+  medicalDevice   MedicalDevice     @relation(fields: [medicalDeviceId], references: [id])
+  repairCost      Decimal           @db.Decimal(10, 2)
+  locationId      String
+  location        Location          @relation(fields: [locationId], references: [id])
+  repairDate      DateTime
+  notes           String?
+  technicianId    String?
+  technician      Technician?       @relation(fields: [technicianId], references: [id])
+  spareParts      RepairSparePart[]
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+}
+
+model RepairSparePart {
+  id        String    @id @default(cuid())
+  repairId  String
+  repair    RepairLog @relation(fields: [repairId], references: [id])
+  productId String
+  product   Product   @relation(fields: [productId], references: [id])
+  quantity  Int
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([repairId, productId])
+}
+
+model Location {
+  id        String      @id @default(cuid())
+  name      String // Name of the location (e.g., "Workshop A")
+  address   String? // Address of the location
+  type      String // Type of location (e.g., "Workshop", "Vendor")
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  repairs   RepairLog[] // Repairs performed at this location
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  amount          Decimal       @db.Decimal(10, 2)
+  method          PaymentMethod
+  status          PaymentStatus @default(PENDING)
+  chequeNumber    String?
+  bankName        String?
+  guaranteeAmount Decimal?      @db.Decimal(10, 2)
+  companyId       String?
+  company         Company?      @relation(fields: [companyId], references: [id])
+  patientId       String?
+  patient         Patient?      @relation(fields: [patientId], references: [id])
+  rentalId        String?       @unique
+  rental          Rental?       @relation(fields: [rentalId], references: [id])
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+model File {
+  id        String   @id @default(cuid())
+  url       String
+  type      String // IMAGE, DOCUMENT, etc.
+  patientId String?
+  patient   Patient? @relation(fields: [patientId], references: [id])
+  companyId String?
+  company   Company? @relation("CompanyFiles", fields: [companyId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model DiagnosticParameter {
+  id             String           @id @default(cuid())
+  title          String // User-defined parameter name
+  type           String // INPUT, CHECKBOX, NUMBER
+  unit           String? // Optional unit for numeric values
+  minValue       Float? // For numeric parameters
+  maxValue       Float? // For numeric parameters
+  isRequired     Boolean          @default(false)
+  isAutomatic    Boolean          @default(false)
+  deviceId       String // The specific device this parameter belongs to
+  device         MedicalDevice    @relation(fields: [deviceId], references: [id])
+  value          String? // The actual value stored as string
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  ParameterValue ParameterValue[]
+}
+
+model MedicalDevice {
+  id                  String                @id @default(cuid())
+  name                String
+  type                String // CPAP, DIAGNOSTIC_DEVICE, etc.
+  brand               String?
+  model               String?
+  serialNumber        String?               @unique
+  description         String?
+  technicalSpecs      String? // Technical specifications
+  configuration       String? // Device configuration
+  warranty            String? // Warranty information
+  maintenanceInterval String? // Maintenance interval
+  purchasePrice       Decimal?              @db.Decimal(10, 2)
+  sellingPrice        Decimal?              @db.Decimal(10, 2)
+  rentalPrice         Decimal?              @db.Decimal(10, 2)
+  stockLocationId     String?
+  stockLocation       StockLocation?        @relation(fields: [stockLocationId], references: [id])
+  stockQuantity       Int                   @default(1)
+  status              String                @default("ACTIVE") // ACTIVE, MAINTENANCE, RETIRED
+  availableForRent    Boolean               @default(false)
+  requiresMaintenance Boolean               @default(false)
+  installationDate    DateTime?
+  location            String? // Physical location of the device (e.g., patient's home)
+  parameters          DiagnosticParameter[]
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  Rental              Rental[]
+  Patient             Patient?              @relation(fields: [patientId], references: [id])
+  patientId           String?
+  Company             Company?              @relation(fields: [companyId], references: [id])
+  companyId           String?
+  Diagnostic          Diagnostic[]
+  RepairLog           RepairLog[]
+  ParameterValue      ParameterValue[]
+}
+
+model Diagnostic {
+  id              String        @id @default(cuid())
+  medicalDeviceId String // The diagnostic device used
+  medicalDevice   MedicalDevice @relation(fields: [medicalDeviceId], references: [id])
+  patientId       String // The patient being diagnosed
+  patient         Patient       @relation(fields: [patientId], references: [id])
+  result          String // Diagnostic result
+  notes           String? // Additional notes about the diagnostic
+  diagnosticDate  DateTime // Date of the diagnostic
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  Company         Company?      @relation(fields: [companyId], references: [id])
+  companyId       String?
+}
+
+model Doctor {
+  id           String        @id @default(cuid())
+  userId       String        @unique // Add @unique
+  user         User          @relation(fields: [userId], references: [id])
+  patients     Patient[]
+  appointments Appointment[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Technician {
+  id        String      @id @default(cuid())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id])
+  repairs   RepairLog[]
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+}
+
+model Appointment {
+  id        String   @id @default(cuid())
+  doctorId  String
+  doctor    Doctor   @relation(fields: [doctorId], references: [id])
+  patientId String
+  patient   Patient  @relation(fields: [patientId], references: [id])
+  date      DateTime
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  Company   Company? @relation(fields: [companyId], references: [id])
+  companyId String?
+}
+
+model Rental {
+  id              String        @id @default(cuid())
+  medicalDeviceId String
+  medicalDevice   MedicalDevice @relation(fields: [medicalDeviceId], references: [id])
+  patientId       String
+  patient         Patient       @relation(fields: [patientId], references: [id])
+  startDate       DateTime
+  endDate         DateTime
+  notes           String?
+  paymentId       String?
+  payment         Payment?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  Company         Company?      @relation(fields: [companyId], references: [id])
+  companyId       String?
+}
+
+model ParameterValue {
+  id              String              @id @default(cuid())
+  value           String // Stored as string, converted based on type
+  parameter       DiagnosticParameter @relation(fields: [parameterId], references: [id])
+  parameterId     String
+  medicalDevice   MedicalDevice       @relation(fields: [medicalDeviceId], references: [id])
+  medicalDeviceId String
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@unique([parameterId, medicalDeviceId])
+}
+
+enum NotificationType {
+  FOLLOW_UP
+  MAINTENANCE
+  APPOINTMENT
+  PAYMENT_DUE
+  OTHER
+}
+
+enum NotificationStatus {
+  PENDING
+  COMPLETED
+  DISMISSED
+}
+
+model Notification {
+  id        String             @id @default(cuid())
+  title     String
+  message   String
+  type      NotificationType
+  status    NotificationStatus @default(PENDING)
+  dueDate   DateTime?
+  patientId String?
+  patient   Patient?           @relation(fields: [patientId], references: [id])
+  companyId String?
+  company   Company?           @relation(fields: [companyId], references: [id])
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+}
