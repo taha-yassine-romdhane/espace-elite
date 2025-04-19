@@ -34,6 +34,16 @@ export default function SignUp() {
     }
 
     try {
+      setLoading(true);
+      
+      // Log the request for debugging
+      console.log('Signup request payload:', {
+        email: formData.email,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        // password is sensitive, don't log it
+      });
+      
       const res = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: {
@@ -48,14 +58,21 @@ export default function SignUp() {
       });
 
       const data = await res.json();
-
+      
       if (!res.ok) {
+        console.error('Signup error response:', data);
         throw new Error(data.message || 'Something went wrong');
       }
-
+      
+      console.log('Signup successful');
+      // Show success message
+      setError('');
+      alert('Compte créé avec succès! Vous pouvez maintenant vous connecter.');
+      
       // Redirect to signin page after successful signup
       router.push('/auth/signin');
     } catch (err: any) {
+      console.error('Signup error:', err);
       setError(err.message || 'An error occurred during sign up');
     } finally {
       setLoading(false);

@@ -16,9 +16,9 @@ import {
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { DiagnosticDeviceForm } from "@/pages/appareils/components/forms/DiagnosticDeviceForm";
+import { DiagnosticDeviceForm } from "@/pages/roles/admin/appareils/components/forms/DiagnosticDeviceForm";
 import { useQuery } from "@tanstack/react-query";
-import { ParameterConsumer } from "@/pages/appareils/components/forms/ParameterConsumer";
+import { ParameterConsumer } from "@/pages/roles/admin/appareils/components/forms/ParameterConsumer";
 
 interface DiagnosticProductStepProps {
   onBack: () => void;

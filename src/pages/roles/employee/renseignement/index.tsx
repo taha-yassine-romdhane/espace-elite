@@ -13,6 +13,8 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import EmployeeLayout from '../EmployeeLayout';
+
 
 export default function RenseignementPage() {
   const { toast } = useToast();
@@ -441,7 +443,7 @@ export default function RenseignementPage() {
   };
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="container mx-auto py-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Renseignements</h1>
         <div className="space-x-2">
@@ -459,7 +461,7 @@ export default function RenseignementPage() {
               setFormData(prev => ({ ...prev, type: 'Patient' }));
               setIsOpen(true);
             }}
-            className="bg-blue-900 hover:bg-blue-700"
+            className="bg-green-900 hover:bg-green-700"
           >
             <User className="mr-2 h-4 w-4" />
             Ajouter Patient
@@ -470,7 +472,7 @@ export default function RenseignementPage() {
               setFormData(prev => ({ ...prev, type: 'Société' }));
               setIsOpen(true);
             }}
-            className="bg-blue-900 hover:bg-blue-700"
+            className="bg-green-900  hover:bg-green-700"
           >
             <Building className="mr-2 h-4 w-4" />
             Ajouter Société
@@ -646,3 +648,7 @@ export default function RenseignementPage() {
     </div>
   );
 }
+
+RenseignementPage.getLayout = function getLayout(page: React.ReactElement) {
+  return <EmployeeLayout>{page}</EmployeeLayout>;
+};

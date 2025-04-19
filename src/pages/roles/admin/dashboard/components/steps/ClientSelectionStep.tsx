@@ -1,12 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, User, Building2, Users, Building, ChevronRight, X, UserPlus, BuildingIcon } from "lucide-react";
-import PatientForm from "../../../../components/forms/PatientForm";
-import SocieteForm from "../../../../components/forms/SocieteForm";
+import { Plus, User, Building2, Users, Building, ChevronRight, X, UserPlus, BuildingIcon, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import PatientForm from "../../../../../../components/forms/PatientForm";
+import SocieteForm from "../../../../../../components/forms/SocieteForm";
 import { BeneficiaryType } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +37,7 @@ export function ClientSelectionStep({
   action,
 }: ClientSelectionStepProps) {
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   
   // Patient form state
   const [patientFormData, setPatientFormData] = useState({
@@ -96,6 +98,7 @@ export function ClientSelectionStep({
   const handleCreateSuccess = (newClient: any) => {
     onClientSelect(newClient.id);
     setIsCreateFormOpen(false);
+    setSearchQuery(""); // Reset search query
     
     // Reset form data
     if (clientType === "patient") {
@@ -132,6 +135,15 @@ export function ClientSelectionStep({
       });
     }
   };
+
+  // Filter clients based on search query
+  const filteredClients = useMemo(() => {
+    if (!searchQuery.trim() || !clients.length) return clients;
+    
+    return clients.filter(client => 
+      client.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [clients, searchQuery]);
 
   // Determine if we should show the client type selection
   // For location and diagnostic, we only allow patient selection
@@ -236,25 +248,48 @@ export function ClientSelectionStep({
               </Button>
             </div>
 
-            <Select
-              value={selectedClient || ""}
-              onValueChange={onClientSelect}
-            >
-              <SelectTrigger className="border-[#1e3a8a] focus:ring-[#1e3a8a]">
-                <SelectValue placeholder={
-                  clientType === "patient" 
-                    ? "Sélectionner un patient" 
-                    : "Sélectionner une société"
-                } />
-              </SelectTrigger>
-              <SelectContent>
-                {clients.map((client) => (
-                  <SelectItem key={client.id} value={client.id}>
-                    {client.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="relative">
+              <Select
+                value={selectedClient || ""}
+                onValueChange={onClientSelect}
+              >
+                <SelectTrigger className="border-[#1e3a8a] focus:ring-[#1e3a8a]">
+                  <SelectValue placeholder={
+                    clientType === "patient" 
+                      ? "Sélectionner un patient" 
+                      : "Sélectionner une société"
+                  } />
+                </SelectTrigger>
+                <SelectContent className="p-0">
+                  <div className="sticky top-0 z-10 bg-white px-3 py-2 border-b">
+                    <div className="relative">
+                      <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-500" />
+                      <Input
+                        type="text"
+                        placeholder={clientType === "patient" ? "Rechercher un patient..." : "Rechercher une société..."}
+                        className="pl-8 h-9 w-full border-[#1e3a8a] focus:ring-[#1e3a8a]"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onClick={(e) => e.stopPropagation()} // Prevent closing dropdown when clicking input
+                      />
+                    </div>
+                  </div>
+                  <div className="max-h-[200px] overflow-y-auto py-1">
+                    {filteredClients.length > 0 ? (
+                      filteredClients.map((client) => (
+                        <SelectItem key={client.id} value={client.id}>
+                          {client.name}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <div className="px-2 py-4 text-center text-sm text-gray-500">
+                        {searchQuery ? "Aucun résultat trouvé" : "Aucun client disponible"}
+                      </div>
+                    )}
+                  </div>
+                </SelectContent>
+              </Select>
+            </div>
 
             {error && (
               <p className="text-sm text-red-500">{error}</p>

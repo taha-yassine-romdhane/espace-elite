@@ -2,7 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
-import { useSession, signOut } from 'next-auth/react';
+import { signOut } from 'next-auth/react';
 import {
     LayoutDashboard,
     Clipboard,
@@ -15,11 +15,8 @@ import {
     Settings,
     HelpCircle,
     Power,
-    UserCog,
-    Building,
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
-import { redirect } from 'next/navigation';
 
 type MenuItem = {
     icon: React.ReactNode;
@@ -29,21 +26,19 @@ type MenuItem = {
 
 const Sidebar: React.FC = () => {
     const router = useRouter();
-    const { data: session } = useSession();
+
 
     const menuItems: MenuItem[] = [
-        { icon: <LayoutDashboard size={20} />, label: "Accueil", path: "/dashboard" },
-        { icon: <Clipboard size={20} />, label: "Gestion des taches", path: "/tasks" },
-        { icon: <Box size={20} />, label: "Gestion des Stock", path: "/stock" },
-        { icon: <Bell size={20} />, label: "Gestion des Notifications", path: "/notifications" },
-        { icon: <Users size={20} />, label: "Utilisateurs", path: "/users" },
-        { icon: <UserCog size={20} />, label: "Espace Technicien", path: "/espace-technicien" },
-        { icon: <User size={20} />, label: "Renseignement", path: "/renseignement" },
-        { icon: <BriefcaseMedical size={20} />, label: "Gestion des Produits", path: "/appareils" },
-        { icon: <SquareActivity size={20} />, label: "Diagnostique", path: "/diagnostic" },
-        { icon: <Building size={20} />, label: "Gestion des Reparateurs", path: "/reparateur" },
-        { icon: <HelpCircle size={20} />, label: "Help", path: "/help" },
-        { icon: <Settings size={20} />, label: "Settings", path: "/settings" },
+        { icon: <LayoutDashboard size={20} />, label: "Tableau de Bord", path: "/roles/employee" },
+        { icon: <Clipboard size={20} />, label: "Tâches", path: "/roles/employee/tasks" },
+        { icon: <Box size={20} />, label: "Inventaire", path: "/roles/employee/inventory" },
+        { icon: <Bell size={20} />, label: "Notifications", path: "/roles/employee/notifications" },
+        { icon: <Users size={20} />, label: "Renseignement", path: "/roles/employee/renseignement" },
+        { icon: <BriefcaseMedical size={20} />, label: "Appareils", path: "/roles/employee/appareils" },
+        { icon: <SquareActivity size={20} />, label: "Diagnostique", path: "/roles/employee/diagnostic" },
+        { icon: <User size={20} />, label: "Profil", path: "/roles/employee/profile" },
+        { icon: <HelpCircle size={20} />, label: "Aide", path: "/roles/employee/help" },
+        { icon: <Settings size={20} />, label: "Paramètres", path: "/roles/employee/settings" },
     ];
 
     return (
@@ -69,8 +64,8 @@ const Sidebar: React.FC = () => {
                                 <div className={cn(
                                     "flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors cursor-pointer",
                                     router.pathname === item.path
-                                        ? "bg-[#1e3a8a] text-white"
-                                        : "text-gray-700 hover:bg-gray-50 hover:text-[#1e3a8a]"
+                                        ? "bg-[#16a34a] text-white"
+                                        : "text-gray-700 hover:bg-gray-50 hover:text-[#16a34a]"
                                 )}>
                                     <span className="mr-3">{item.icon}</span>
                                     <span>{item.label}</span>
@@ -84,8 +79,8 @@ const Sidebar: React.FC = () => {
             {/* Footer */}
             <div className="p-4 border-t border-gray-100">
                 <button
-                    onClick={() => signOut().then(() => redirect('/welcome'))}
-                    className="flex items-center w-full px-4 py-3 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 hover:text-[#1e3a8a] transition-colors"
+                    onClick={() => signOut({ callbackUrl: '/welcome' })}
+                    className="flex items-center w-full px-4 py-3 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 hover:text-[#16a34a] transition-colors"
                 >
                     <span className="mr-3"><Power size={20} /></span>
                     <span>Logout</span>

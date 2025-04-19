@@ -5,10 +5,10 @@ import { ClientSelectionStep } from "./steps/ClientSelectionStep";
 import { ProductSelectionStep } from "./steps/ProductSelectionStep";
 import { ProductDialog } from "./dialogs/ProductDialog";
 import { useQuery } from "@tanstack/react-query";
-import { MedicalDeviceForm } from "@/pages/appareils/components/forms/MedicalDeviceForm";
-import { AccessoryForm } from "@/pages/appareils/components/forms/AccessoryForm";
-import { SparePartForm } from "@/pages/appareils/components/forms/SparePartForm";
-import { DiagnosticDeviceForm } from "@/pages/appareils/components/forms/DiagnosticDeviceForm";
+import { MedicalDeviceForm } from "@/pages/roles/admin/appareils/components/forms/MedicalDeviceForm";
+import { AccessoryForm } from "@/pages/roles/admin/appareils/components/forms/AccessoryForm";
+import { SparePartForm } from "@/pages/roles/admin/appareils/components/forms/SparePartForm";
+import { DiagnosticDeviceForm } from "@/pages/roles/admin/appareils/components/forms/DiagnosticDeviceForm";
 import { Button } from "@/components/ui";
 
 interface StepperDialogProps {

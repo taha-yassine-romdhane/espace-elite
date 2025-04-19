@@ -1,6 +1,6 @@
 import React from 'react';
-import Sidebar from './Sidebar';
-import Navbar from './Navbar';
+import Sidebar from './AdminSidebar';
+import Navbar from './AdminNavbar';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
 

@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
+import { Role } from '@prisma/client';
 
 export default async function handler(
   req: NextApiRequest,
@@ -37,7 +38,7 @@ export default async function handler(
         password: hashedPassword,
         firstName,
         lastName,
-        role: 'EMPLOYEE', // Default role
+        role: Role.EMPLOYEE, // Default role as enum
       },
     });
 

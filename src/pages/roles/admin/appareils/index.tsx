@@ -37,7 +37,6 @@ import { PlusCircle } from "lucide-react";
 import { Wrench , Trash2 ,Pencil } from "lucide-react";
 import { RepairForm } from "./components/forms/RepairForm";
 import { RepairHistoryDialog } from "./components/RepairHistoryDialog";
-import { DiagnosticResultsNotification } from "./components/DiagnosticResultsNotification";
 
 export default function AppareilsPage() {
   const [activeTab, setActiveTab] = useState<string>("medical-devices");

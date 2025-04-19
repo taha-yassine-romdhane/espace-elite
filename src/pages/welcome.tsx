@@ -8,10 +8,16 @@ export default function Welcome() {
   const router = useRouter();
 
   useEffect(() => {
-    if (status === 'authenticated') {
-      router.push('/dashboard');
+    console.log('Welcome page - Auth Status:', status);
+    console.log('Welcome page - Session:', session);
+    
+    if (status === 'authenticated' && session?.user?.role) {
+      const role = (session.user.role as string).toLowerCase();
+      console.log('Role detected:', role);
+      console.log('Redirecting to:', `/roles/${role}`);
+      router.push(`/roles/${role}`);
     }
-  }, [status, router]);
+  }, [status, router, session]);
 
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-b from-blue-100 to-white">

@@ -31,6 +31,7 @@ interface Parameter {
   isAutomatic?: boolean;
   value?: string;
   parameterType: 'PARAMETER' | 'RESULT'; // New field to distinguish between parameters and results
+  
   resultDueDate?: string; // Optional date when the result is expected
 }
 
@@ -297,25 +298,20 @@ export function DynamicParameterBuilder({
                 </SelectContent>
               </Select>
             </div>
-
             {newParameter.parameterType === 'RESULT' && (
-              <div className="space-y-4">
-                <Label className="text-base">Délai prévu pour le résultat (jours)</Label>
+              <div className="space-y-2">
+                <Label htmlFor='resultDueDate' >Délai prévu pour le résultat (jours)</Label>
                 <Input
-                  type="number"
-                  value={newParameter.resultDueDate || ''}
-                  onChange={(e) => 
-                    setNewParameter({ 
-                      ...newParameter, 
-                      resultDueDate: e.target.value 
-                    })
-                  }
-                  placeholder="Ex: 7"
-                  className="h-12"
+                  id="resultDueDate"
+                  type="date"
+                  value={newParameter.resultDueDate}
+                  onChange={(e) => setNewParameter({ ...newParameter, resultDueDate: e.target.value })}
+                  required
                 />
-                <p className="text-sm text-gray-500">Nombre de jours après l'installation pour obtenir ce résultat</p>
               </div>
             )}
+
+
 
             <div className="flex items-center gap-3 pt-2">
               <Switch

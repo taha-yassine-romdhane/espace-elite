@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -13,7 +14,7 @@ import {
 import UserForm from '@/components/forms/UserForm';
 import { useToast } from "@/components/ui/use-toast";
 import { Badge } from "@/components/ui/badge";
-import { UserPlus, Pencil, Trash2, Loader2 } from "lucide-react";
+import { UserPlus, Pencil, Trash2, Loader2, Search } from "lucide-react";
 import { Card } from '@/components/ui/Card';
 
 interface User {
@@ -32,6 +33,7 @@ const UsersPage = () => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
@@ -163,6 +165,19 @@ const UsersPage = () => {
     fetchUsers();
   }, []);
 
+  // Filter users based on search query
+  const filteredUsers = useMemo(() => {
+    if (!searchQuery.trim()) return users;
+    
+    const query = searchQuery.toLowerCase();
+    return users.filter(user => 
+      user.name.toLowerCase().includes(query) || 
+      user.email.toLowerCase().includes(query) || 
+      user.role.toLowerCase().includes(query) ||
+      user.telephone.toLowerCase().includes(query)
+    );
+  }, [users, searchQuery]);
+
   const fetchUsers = async () => {
     try {
       setLoading(true);
@@ -223,6 +238,20 @@ const UsersPage = () => {
           </Button>
         </div>
 
+        {/* Search Bar */}
+        <div className="relative mb-6">
+          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+            <Search className="h-4 w-4 text-gray-500" />
+          </div>
+          <Input
+            type="text"
+            placeholder="Rechercher par nom, email, rôle ou téléphone..."
+            className="pl-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+
         <Card className="overflow-hidden border-blue-100">
           <div className="overflow-x-auto">
             <Table>
@@ -237,44 +266,65 @@ const UsersPage = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {users.map((user) => (
-                  <TableRow key={user.id} className="hover:bg-blue-50/50">
-                    <TableCell className="font-medium">{user.name}</TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>{user.telephone}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="border-blue-200 text-blue-700 bg-blue-50">
-                        {user.role}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge 
-                        variant={user.isActive ? "default" : "secondary"}
-                        className={user.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}
-                      >
-                        {user.isActive ? 'Actif' : 'Inactif'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEdit(user)}
-                        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 mr-2"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(user.id)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-10">
+                      <div className="flex justify-center">
+                        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                      </div>
+                      <p className="mt-2 text-sm text-gray-500">Chargement des utilisateurs...</p>
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : filteredUsers.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-10">
+                      {searchQuery ? (
+                        <p className="text-gray-500">Aucun utilisateur ne correspond à votre recherche</p>
+                      ) : (
+                        <p className="text-gray-500">Aucun utilisateur disponible</p>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredUsers.map((user) => (
+                    <TableRow key={user.id} className="hover:bg-blue-50/50">
+                      <TableCell className="font-medium">{user.name}</TableCell>
+                      <TableCell>{user.email}</TableCell>
+                      <TableCell>{user.telephone}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="border-blue-200 text-blue-700 bg-blue-50">
+                          {user.role}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant={user.isActive ? "default" : "secondary"}
+                          className={user.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}
+                        >
+                          {user.isActive ? 'Actif' : 'Inactif'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(user)}
+                          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 mr-2"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(user.id)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </div>

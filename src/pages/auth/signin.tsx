@@ -12,10 +12,11 @@ export default function SignIn() {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (status === 'authenticated') {
-      router.push('/dashboard');
+    if (status === 'authenticated' && session?.user?.role) {
+      const role = (session.user.role as string).toLowerCase();
+      router.push(`/roles/${role}`);
     }
-  }, [status, router]);
+  }, [status, router, session]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

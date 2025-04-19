@@ -7,12 +7,13 @@ export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    if (status === 'authenticated') {
-      router.push('/dashboard');
+    if (status === 'authenticated' && session?.user?.role) {
+      const role = (session.user.role as string).toLowerCase();
+      router.push(`/roles/${role}`);
     } else if (status === 'unauthenticated') {
       router.push('/welcome');
     }
-  }, [status, router]);
+  }, [status, router, session]);
 
   // Show loading state while checking authentication
   if (status === 'loading') {
