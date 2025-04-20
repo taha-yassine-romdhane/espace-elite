@@ -22,6 +22,8 @@ interface FormData {
   telephone?: string;
   role: Role;
   isActive: boolean;
+  address?: string;
+  speciality?: string;
 }
 
 interface UserFormProps {
@@ -137,6 +139,37 @@ const UserForm: React.FC<UserFormProps> = ({
             </SelectContent>
           </Select>
         </div>
+
+        {/* Additional fields for Doctor role */}
+        {formData.role === 'DOCTOR' && (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="speciality" className="text-blue-900">Spécialité</Label>
+              <Input
+                id="speciality"
+                type="text"
+                name="speciality"
+                value={formData.speciality || ''}
+                onChange={handleInputChange}
+                placeholder="Cardiologie, Neurologie, etc."
+                className="border-blue-100 focus:border-blue-200 focus:ring-blue-200"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="address" className="text-blue-900">Adresse</Label>
+              <Input
+                id="address"
+                type="text"
+                name="address"
+                value={formData.address || ''}
+                onChange={handleInputChange}
+                placeholder="Adresse complète"
+                className="border-blue-100 focus:border-blue-200 focus:ring-blue-200"
+              />
+            </div>
+          </>
+        )}
 
         <div className="flex items-center space-x-2">
           <Switch

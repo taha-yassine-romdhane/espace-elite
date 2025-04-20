@@ -274,7 +274,6 @@ export default async function handler(
         if (processedFiles.length > 0) {
           updateFileData = {
             files: {
-              deleteMany: {}, // Remove existing files
               create: processedFiles
             }
           };

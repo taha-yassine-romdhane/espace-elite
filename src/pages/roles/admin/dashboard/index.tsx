@@ -16,7 +16,7 @@ export default function DashboardPage() {
         {/* Action Buttons Row */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <Button 
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-start gap-2"
+            className="w-full bg-blue-900 hover:bg-blue-700 text-white flex items-center justify-start gap-2"
             onClick={() => setSelectedAction("location")}
           >
             <Building2 className="h-5 w-5" />
@@ -24,7 +24,7 @@ export default function DashboardPage() {
           </Button>
           
           <Button 
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-start gap-2"
+            className="w-full bg-blue-900 hover:bg-blue-700 text-white flex items-center justify-start gap-2"
             onClick={() => setSelectedAction("vente")}
           >
             <ShoppingCart className="h-5 w-5" />
@@ -32,7 +32,7 @@ export default function DashboardPage() {
           </Button>
           
           <Button 
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-start gap-2"
+            className="w-full bg-blue-900 hover:bg-blue-700 text-white flex items-center justify-start gap-2"
             onClick={() => setSelectedAction("diagnostique")}
           >
             <Stethoscope className="h-5 w-5" />

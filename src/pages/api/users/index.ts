@@ -11,7 +11,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     // CREATE user
     if (req.method === 'POST') {
-      const { firstName, lastName, email, password, telephone, role } = req.body;
+      const { firstName, lastName, email, password, telephone, role, address, speciality } = req.body;
 
       if (!firstName || !lastName || !email || !password || !role) {
         return res.status(400).json({ error: 'Missing required fields' });
@@ -26,6 +26,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           email,
           password: hashedPassword,
           telephone: telephone || null, // Ensure optional field is handled correctly
+          address: address || null, // Handle address field for doctors
+          speciality: speciality || null, // Handle speciality field for doctors
           role: role as Role,
           isActive: true,
         },
@@ -36,6 +38,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         name: `${user.firstName} ${user.lastName}`.trim(),
         email: user.email,
         telephone: user.telephone || '',
+        address: user.address || '',
+        speciality: user.speciality || '',
         role: user.role,
         isActive: user.isActive,
       });
@@ -53,6 +57,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           lastName: true,
           email: true,
           telephone: true,
+          address: true,
+          speciality: true,
           role: true,
           isActive: true,
         },
@@ -63,6 +69,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         name: `${user.firstName} ${user.lastName}`.trim(),
         email: user.email,
         telephone: user.telephone || '',
+        address: user.address || '',
+        speciality: user.speciality || '',
         role: user.role,
         isActive: user.isActive,
       }));
@@ -72,7 +80,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // UPDATE user
     if (req.method === 'PUT') {
-      const { id, firstName, lastName, email, password, telephone, role, isActive } = req.body;
+      const { id, firstName, lastName, email, password, telephone, address, speciality, role, isActive } = req.body;
 
       if (!id || !firstName || !lastName || !email || !role) {
         return res.status(400).json({ error: 'Missing required fields' });
@@ -83,6 +91,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         lastName,
         email,
         telephone: telephone || null, // Ensure optional field is handled correctly
+        address: address || null, // Handle address field for doctors
+        speciality: speciality || null, // Handle speciality field for doctors
         role: role as Role,
         isActive,
       };
@@ -102,6 +112,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         name: `${user.firstName} ${user.lastName}`.trim(),
         email: user.email,
         telephone: user.telephone || '',
+        address: user.address || '',
+        speciality: user.speciality || '',
         role: user.role,
         isActive: user.isActive,
       });

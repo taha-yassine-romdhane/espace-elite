@@ -24,6 +24,8 @@ interface User {
   telephone: string;
   role: string;
   isActive: boolean;
+  address?: string;
+  speciality?: string;
 }
 
 type Role = 'ADMIN' | 'MANAGER' | 'DOCTOR' | 'EMPLOYEE';
@@ -45,6 +47,8 @@ const UsersPage = () => {
     telephone: '',
     role: '' as Role,
     isActive: true,
+    address: '',
+    speciality: '',
   });
 
   const resetForm = () => {
@@ -57,6 +61,8 @@ const UsersPage = () => {
       telephone: '',
       role: '' as Role,
       isActive: true,
+      address: '',
+      speciality: '',
     });
     setIsEditMode(false);
   };
@@ -75,6 +81,8 @@ const UsersPage = () => {
       telephone: user.telephone,
       role: user.role as Role,
       isActive: user.isActive,
+      address: user.address || '',
+      speciality: user.speciality || '',
     });
     setIsEditMode(true);
     setIsOpen(true);

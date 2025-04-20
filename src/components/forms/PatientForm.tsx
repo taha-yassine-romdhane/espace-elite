@@ -101,13 +101,21 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
     console.log('PatientForm received formData:', formData);
   }, [formData]);
 
+  // Initialize files from formData and maintain persistence
   useEffect(() => {
-    setFiles(formData.files || []);
+    if (formData.files && formData.files.length > 0) {
+      setFiles(formData.files);
+      // Also set in form
+      form?.setValue?.('files', formData.files);
+    }
   }, [formData.files]);
 
+  // Initialize existing files from formData and maintain persistence
   useEffect(() => {
-    if (formData.existingFiles) {
+    if (formData.existingFiles && formData.existingFiles.length > 0) {
       setExistingFiles(formData.existingFiles);
+      // Also set in form
+      form?.setValue?.('existingFiles', formData.existingFiles);
     }
   }, [formData.existingFiles]);
 
@@ -213,9 +221,15 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
 
   const handleFileChange = (uploadedFiles: File[]) => {
     console.log('Files selected:', uploadedFiles);
+    
+    // Update local state with the combined files from FileManager
     setFiles(uploadedFiles);
+    
     // Update parent component without losing other form data
     onFileChange(uploadedFiles);
+    
+    // Set the files in the form
+    form.setValue('files', uploadedFiles);
     
     // Ensure form values are preserved after file upload
     const currentFormValues = form.getValues();

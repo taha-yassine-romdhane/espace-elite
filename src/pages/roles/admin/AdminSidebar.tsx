@@ -5,21 +5,20 @@ import { useRouter } from 'next/router';
 import { useSession, signOut } from 'next-auth/react';
 import {
     LayoutDashboard,
-    Clipboard,
-    Box,
-    Users,
-    User,
     BriefcaseMedical,
     SquareActivity,
-    Bell,
     Settings,
     HelpCircle,
     Power,
     UserCog,
-    Building,
     ChevronLeft,
     ChevronRight,
-    Menu,
+    ContactRound,
+    CalendarCheck,
+    ClipboardCheck,
+    Database,
+    Wrench,
+    Users,
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 // import { redirect } from 'next/navigation'; // Not needed, using router instead
@@ -51,15 +50,15 @@ const Sidebar: React.FC = () => {
 
     const menuItems: MenuItem[] = [
         { icon: <LayoutDashboard size={20} />, label: "Accueil", path: "/roles/admin/dashboard" },
-        { icon: <Clipboard size={20} />, label: "Gestion des taches", path: "/roles/admin/tasks" },
-        { icon: <Box size={20} />, label: "Gestion des Stock", path: "/roles/admin/stock" },
-        { icon: <Bell size={20} />, label: "Gestion des Notifications", path: "/roles/admin/notifications" },
-        { icon: <Users size={20} />, label: "Utilisateurs", path: "/roles/admin/users" },
+        { icon: <CalendarCheck size={20} />, label: "Gestion des taches", path: "/roles/admin/tasks" },
+        { icon: <Database size={20} />, label: "Gestion des Stock", path: "/roles/admin/stock" },
+        { icon: <ClipboardCheck size={20} />, label: "Gestion des Notifications", path: "/roles/admin/notifications" },
+        { icon: <ContactRound size={20} />, label: "Utilisateurs", path: "/roles/admin/users" },
         { icon: <UserCog size={20} />, label: "Espace Technicien", path: "/roles/admin/espace-technicien" },
-        { icon: <User size={20} />, label: "Renseignement", path: "/roles/admin/renseignement" },
+        { icon: <Users size={20} />, label: "Renseignement", path: "/roles/admin/renseignement" },
         { icon: <BriefcaseMedical size={20} />, label: "Gestion des Produits", path: "/roles/admin/appareils" },
         { icon: <SquareActivity size={20} />, label: "Diagnostique", path: "/roles/admin/diagnostic" },
-        { icon: <Building size={20} />, label: "Gestion des Reparateurs", path: "/roles/admin/reparateur" },
+        { icon: <Wrench size={20} />, label: "Gestion des Reparateurs", path: "/roles/admin/reparateur" },
         { icon: <HelpCircle size={20} />, label: "Help", path: "/roles/admin/help" },
         { icon: <Settings size={20} />, label: "Settings", path: "/roles/admin/settings" },
     ];

@@ -296,7 +296,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               technicianId: data.technicienResponsable || null,
               ...(files.files ? {
                 files: {
-                  deleteMany: {},
+                  // Don't delete existing files, just add new ones
                   create: await Promise.all(
                     (Array.isArray(files.files) ? files.files : [files.files]).map(async (file) => {
                       const bytes = await fs.readFile(file.filepath);
@@ -397,7 +397,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               technicianId: data.technicienResponsable || null,
               ...(files.files ? {
                 files: {
-                  deleteMany: {},
+                  // Don't delete existing files, just add new ones
                   create: await Promise.all(
                     (Array.isArray(files.files) ? files.files : [files.files]).map(async (file) => {
                       const bytes = await fs.readFile(file.filepath);

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { FileUpload } from "@/components/ui/file-upload";
 import { UseFormReturn } from 'react-hook-form';
@@ -31,9 +31,25 @@ export default function FileManager({
   onRemoveExistingFile,
   className,
 }: FileManagerProps) {
+  // Local state to track files between renders
+  const [localFiles, setLocalFiles] = useState<File[]>(files || []);
+  
+  // Update local state when props change
+  useEffect(() => {
+    if (files && files.length > 0) {
+      setLocalFiles(files);
+    }
+  }, [files]);
+  
   const handleFileChange = (uploadedFiles: File[]) => {
     console.log('Files selected:', uploadedFiles);
-    onFileChange(uploadedFiles);
+    
+    // Combine existing files with new files
+    const combinedFiles = [...localFiles, ...uploadedFiles];
+    setLocalFiles(combinedFiles);
+    
+    // Notify parent component
+    onFileChange(combinedFiles);
     
     // Ensure form values are preserved after file upload
     const currentFormValues = form.getValues();
@@ -76,7 +92,7 @@ export default function FileManager({
 
       {/* File Upload component */}
       <FileUpload
-        value={files}
+        value={localFiles}
         onChange={handleFileChange}
         maxFiles={maxFiles}
         maxSize={maxSize}
