@@ -110,18 +110,29 @@ export default function InsuranceDetailsBlock({ form, onInputChange }: Insurance
                 onChange={() => handleBeneficiaireChange(BeneficiaryType.ASSURE_SOCIAL)}
                 className="h-4 w-4 text-blue-600"
               />
-              <span className="ml-2">Oui</span>
+              <span className="ml-2">Assure Social</span>
             </label>
             <label className="flex items-center">
               <input
                 type="radio"
                 name="beneficiaire"
-                value={BeneficiaryType.CONJOINT_ENFANT}
-                checked={form.watch('beneficiaire') === BeneficiaryType.CONJOINT_ENFANT}
-                onChange={() => handleBeneficiaireChange(BeneficiaryType.CONJOINT_ENFANT)}
+                value={BeneficiaryType.CONJOINT}
+                checked={form.watch('beneficiaire') === BeneficiaryType.CONJOINT}
+                onChange={() => handleBeneficiaireChange(BeneficiaryType.CONJOINT)}
                 className="h-4 w-4 text-blue-600"
               />
-              <span className="ml-2">Conjoint/Enfant</span>
+              <span className="ml-2">Conjoint</span>
+            </label>
+            <label className="flex items-center">
+              <input
+                type="radio"
+                name="beneficiaire"
+                value={BeneficiaryType.ENFANT}
+                checked={form.watch('beneficiaire') === BeneficiaryType.ENFANT}
+                onChange={() => handleBeneficiaireChange(BeneficiaryType.ENFANT)}
+                className="h-4 w-4 text-blue-600"
+              />
+              <span className="ml-2">Enfant</span>
             </label>
             <label className="flex items-center">
               <input

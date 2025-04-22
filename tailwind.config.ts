@@ -1,10 +1,12 @@
 import type { Config } from "tailwindcss";
+import { withUt } from "uploadthing/tw";
 
-export default {
+export default withUt({
     darkMode: ["class"],
     content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/utils/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
   	extend: {
@@ -61,4 +63,4 @@ export default {
     require("tailwindcss-animate"),
     require('tailwind-scrollbar')
   ],
-} satisfies Config;
+}) satisfies Config;

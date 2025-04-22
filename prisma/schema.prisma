@@ -29,7 +29,8 @@ enum PaymentStatus {
 
 enum BeneficiaryType {
   ASSURE_SOCIAL
-  CONJOINT_ENFANT
+  CONJOINT
+  ENFANT
   ASSANDANT
 }
 
@@ -42,6 +43,7 @@ enum DeviceStatus {
   ACTIVE
   MAINTENANCE
   RETIRED
+  RESERVED
 }
 
 enum ProductType {
@@ -75,30 +77,45 @@ enum TaskPriority {
   HIGH
 }
 
+enum ActionType {
+  CREATE
+  UPDATE
+  DELETE
+  DIAGNOSTIC
+  RENTAL
+  PAYMENT
+  MAINTENANCE
+  APPOINTMENT
+  TASK
+}
+
 model User {
-  id                  String          @id @default(cuid())
-  email               String          @unique
-  password            String
-  role                Role            @default(EMPLOYEE)
-  firstName           String
-  lastName            String
-  telephone           String?
-  address             String?
-  speciality          String?
-  createdAt           DateTime        @default(now())
-  updatedAt           DateTime        @updatedAt
-  isActive            Boolean         @default(true)
-  doctor              Doctor?
-  technician          Technician[]
-  assignedPatients    Patient[]       @relation("AssignedPatients")
-  assignedCompanies   Company[]       @relation("AssignedCompanies")
-  technicianPatients  Patient[]       @relation("TechnicianPatients")
-  technicianCompanies Company[]       @relation("TechnicianCompanies")
-  tasks               Task[]
-  stockLocation       StockLocation?
-  stockTransfers      StockTransfer[] // No fields/references here
-  sentTransfers       StockTransfer[] @relation("SentTransfers")
-  receivedTransfers   StockTransfer[] @relation("ReceivedTransfers")
+  id                   String              @id @default(cuid())
+  email                String              @unique
+  password             String
+  role                 Role                @default(EMPLOYEE)
+  firstName            String
+  lastName             String
+  telephone            String?
+  address              String?
+  speciality           String?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  isActive             Boolean             @default(true)
+  doctor               Doctor?
+  technician           Technician[]
+  assignedPatients     Patient[]           @relation("AssignedPatients")
+  assignedCompanies    Company[]           @relation("AssignedCompanies")
+  technicianPatients   Patient[]           @relation("TechnicianPatients")
+  technicianCompanies  Company[]           @relation("TechnicianCompanies")
+  tasks                Task[]
+  stockLocation        StockLocation?
+  stockTransfers       StockTransfer[] // No fields/references here
+  sentTransfers        StockTransfer[]     @relation("SentTransfers")
+  receivedTransfers    StockTransfer[]     @relation("ReceivedTransfers")
+  patientHistories     PatientHistory[] // Records of actions performed on patients
+  userActions          UserActionHistory[] // History of user actions
+  performedDiagnostics Diagnostic[]        @relation("PerformedDiagnostics") // User who performed diagnostics
 }
 
 model Task {
@@ -200,8 +217,9 @@ model Patient {
   descriptionNumTwo String?
   affiliation       Affiliation? // Added: CNSS or CNRPS
   antecedant        String?
-  beneficiaryType   BeneficiaryType? // Added: assureSocial, conjointEnfant, ascendant
+  beneficiaryType   BeneficiaryType? // Added: assureSocial, conjoint, Enfant, ascendant
   address           String?
+  addressCoordinates Json?    // Store coordinates as {lat: number, lng: number}
   dateOfBirth       DateTime?
   cin               String? // CIN
   cnamId            String? // CNAM ID
@@ -222,6 +240,7 @@ model Patient {
   appointments      Appointment[]
   rentals           Rental[]
   notifications     Notification[]
+  history          PatientHistory[] // History of all operations for this patient
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
 }
@@ -329,6 +348,8 @@ model DiagnosticParameter {
   maxValue       Float? // For numeric parameters
   isRequired     Boolean          @default(false)
   isAutomatic    Boolean          @default(false)
+  parameterType  String           @default("PARAMETER") // PARAMETER or RESULT
+  resultDueDate  String? // Optional date when the result is expected (for RESULT type)
   deviceId       String // The specific device this parameter belongs to
   device         MedicalDevice    @relation(fields: [deviceId], references: [id])
   value          String? // The actual value stored as string
@@ -359,6 +380,7 @@ model MedicalDevice {
   availableForRent    Boolean               @default(false)
   requiresMaintenance Boolean               @default(false)
   installationDate    DateTime?
+  reservedUntil       DateTime? // Date until which the device is reserved for a patient
   location            String? // Physical location of the device (e.g., patient's home)
   parameters          DiagnosticParameter[]
   createdAt           DateTime              @default(now())
@@ -374,18 +396,23 @@ model MedicalDevice {
 }
 
 model Diagnostic {
-  id              String        @id @default(cuid())
-  medicalDeviceId String // The diagnostic device used
-  medicalDevice   MedicalDevice @relation(fields: [medicalDeviceId], references: [id])
-  patientId       String // The patient being diagnosed
-  patient         Patient       @relation(fields: [patientId], references: [id])
-  result          String // Diagnostic result
-  notes           String? // Additional notes about the diagnostic
-  diagnosticDate  DateTime // Date of the diagnostic
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  Company         Company?      @relation(fields: [companyId], references: [id])
-  companyId       String?
+  id               String           @id @default(cuid())
+  medicalDeviceId  String // The diagnostic device used
+  medicalDevice    MedicalDevice    @relation(fields: [medicalDeviceId], references: [id])
+  patientId        String // The patient being diagnosed
+  patient          Patient          @relation(fields: [patientId], references: [id])
+  result           String // Diagnostic result
+  notes            String? // Additional notes about the diagnostic
+  diagnosticDate   DateTime // Date of the diagnostic
+  performedById    String? // The user who performed the diagnostic
+  performedBy      User?             @relation(fields: [performedById], references: [id], name: "PerformedDiagnostics")
+  followUpRequired Boolean          @default(false)
+  followUpDate     DateTime?
+  parameterValues  ParameterValue[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  Company          Company?         @relation(fields: [companyId], references: [id])
+  companyId        String?
 }
 
 model Doctor {
@@ -402,9 +429,35 @@ model Technician {
   id        String      @id @default(cuid())
   userId    String
   user      User        @relation(fields: [userId], references: [id])
-  repairs   RepairLog[]
+  specialty String?
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
+  RepairLog RepairLog[]
+}
+
+model PatientHistory {
+  id              String     @id @default(cuid())
+  patientId       String
+  patient         Patient    @relation(fields: [patientId], references: [id])
+  actionType      ActionType
+  details         Json // Stores detailed information about the action
+  relatedItemId   String? // ID of the related item (diagnostic, device, etc.)
+  relatedItemType String? // Type of the related item ("diagnostic", "device", etc.)
+  performedById   String
+  performedBy     User       @relation(fields: [performedById], references: [id])
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+}
+
+model UserActionHistory {
+  id              String     @id @default(cuid())
+  userId          String
+  user            User       @relation(fields: [userId], references: [id])
+  actionType      ActionType
+  details         Json // Stores detailed information about the action
+  relatedItemId   String? // ID of the related item (patient, device, etc.)
+  relatedItemType String? // Type of the related item ("patient", "device", etc.)
+  performedAt     DateTime   @default(now())
 }
 
 model Appointment {
@@ -440,11 +493,13 @@ model Rental {
 
 model ParameterValue {
   id              String              @id @default(cuid())
-  value           String // Stored as string, converted based on type
+  value           String
   parameter       DiagnosticParameter @relation(fields: [parameterId], references: [id])
   parameterId     String
   medicalDevice   MedicalDevice       @relation(fields: [medicalDeviceId], references: [id])
   medicalDeviceId String
+  diagnostic      Diagnostic?         @relation(fields: [diagnosticId], references: [id])
+  diagnosticId    String?
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
 

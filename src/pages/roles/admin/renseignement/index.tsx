@@ -5,7 +5,6 @@ import PatientForm from '@/components/forms/PatientForm';
 import SocieteForm from '@/components/forms/SocieteForm';
 import { RenseignementTable } from './components/RenseignementTable';
 import { FileViewer } from './components/FileViewer';
-import { z } from 'zod';
 import { BeneficiaryType } from '@prisma/client';
 import { CaisseAffiliation, Renseignement, RenseignementFormData } from '@/types/renseignement';
 import { Building, Filter, Search, User, X } from 'lucide-react';

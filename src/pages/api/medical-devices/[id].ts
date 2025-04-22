@@ -92,6 +92,40 @@ export default async function handler(
           if (!id) {
             return res.status(400).json({ error: 'ID is required' });
           }
+            
+          // Check if this is a simple update without type (e.g., just updating reservation status)
+          // If so, update the medical device directly
+          if (!type && (data.patientId || data.location || data.reservedUntil)) {
+            try {
+              const updatedDevice = await prisma.medicalDevice.update({
+                where: { id: id as string },
+                data: {
+                  ...(data.patientId ? { patientId: data.patientId } : {}),
+                  ...(data.location ? { location: data.location } : {}),
+                  ...(data.status ? { status: data.status } : {}),
+                  ...(data.reservedUntil ? { reservedUntil: new Date(data.reservedUntil) } : {})
+                },
+                include: {
+                  stockLocation: true,
+                  parameters: true
+                }
+              });
+              
+              console.log('Device reservation updated successfully:', updatedDevice.id);
+              
+              return res.status(200).json({
+                id: updatedDevice.id,
+                name: updatedDevice.name,
+                patientId: updatedDevice.patientId,
+                location: updatedDevice.location,
+                reservedUntil: updatedDevice.reservedUntil,
+                status: updatedDevice.status
+              });
+            } catch (error) {
+              console.error("Error updating device reservation:", error);
+              return res.status(500).json({ error: "Failed to update device reservation" });
+            }
+          }
 
           if (type === 'MEDICAL_DEVICE' || type === 'DIAGNOSTIC_DEVICE') {
             // Handle parameters for diagnostic devices
@@ -131,13 +165,21 @@ export default async function handler(
                 // Create new parameters
                 parametersData = {
                   parameters: {
-                    create: data.parameters.map((param: any) => ({
-                      title: param.name || param.title || 'Parameter',
-                      type: param.type || 'INPUT',
-                      unit: param.unit,
-                      isRequired: param.isRequired || false,
-                      isAutomatic: false
-                    }))
+                    create: data.parameters.map((param: any) => {
+                      console.log('Processing parameter for creation:', param.title || param.name, 'with type:', param.parameterType);
+                      return {
+                        title: param.name || param.title || 'Parameter',
+                        type: param.type || 'INPUT',
+                        unit: param.unit,
+                        minValue: param.minValue,
+                        maxValue: param.maxValue,
+                        isRequired: param.isRequired || false,
+                        isAutomatic: param.isAutomatic || false,
+                        parameterType: param.parameterType || 'PARAMETER',
+                        resultDueDate: param.resultDueDate,
+                        value: param.value
+                      };
+                    })
                   }
                 };
                 console.log('Parameters data prepared:', JSON.stringify(parametersData, null, 2));
@@ -178,6 +220,15 @@ export default async function handler(
                   requiresMaintenance: data.requiresMaintenance || false,
                   configuration: data.configuration,
                   status: data.status || 'ACTIVE',
+                  // Handle patient assignment and reservation
+                  ...(data.patientId ? {
+                    patientId: data.patientId,
+                    location: data.location || 'PATIENT_HOME'
+                  } : {}),
+                  // Handle reservation date if provided
+                  ...(data.reservedUntil ? {
+                    reservedUntil: new Date(data.reservedUntil)
+                  } : {}),
                   ...(data.stockLocationId ? {
                     stockLocation: {
                       connect: {

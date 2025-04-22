@@ -29,7 +29,7 @@ interface Patient {
   cnam?: boolean;
   beneficiaire?: string;
   caisseAffiliation?: string;
-  identifiantCNAM?: string;
+  cnamId?: string;
   descriptionNom?: string;
   descriptionTelephone?: string;
   descriptionAdresse?: string;
@@ -102,7 +102,8 @@ export default function PersonalInfoBlock({
     form.setValue('adresseComplete', patient.adresseComplete || '');
     if (patient.adresseCoordinates) {
       setCoordinates(patient.adresseCoordinates);
-      form.setValue('adresseCoordinates', patient.adresseCoordinates);
+      // Serialize the coordinates to JSON string to prevent [object Object] in form submission
+      form.setValue('adresseCoordinates', JSON.stringify(patient.adresseCoordinates));
     } else {
       setCoordinates(null);
       form.setValue('adresseCoordinates', null);
@@ -278,7 +279,13 @@ export default function PersonalInfoBlock({
             }}
             onCoordinatesChange={(coords) => {
               setCoordinates(coords);
-              form.setValue('adresseCoordinates', coords);
+              // Instead of setting raw object, serialize coordinates to JSON string
+              // This prevents the [object Object] issue during form submission
+              if (coords) {
+                form.setValue('adresseCoordinates', JSON.stringify(coords));
+              } else {
+                form.setValue('adresseCoordinates', null);
+              }
             }}
           />
         </div>

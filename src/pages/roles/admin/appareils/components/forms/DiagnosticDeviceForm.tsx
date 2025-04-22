@@ -24,6 +24,24 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { Switch } from "@/components/ui/switch";
 import { DynamicParameterBuilder } from "./DynamicParameterBuilder";
 import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { CircleAlert, CheckCircle2 } from "lucide-react";
+
+// Define Parameter interface for type safety
+interface Parameter {
+  id?: string;
+  title: string;
+  type: 'INPUT' | 'CHECKBOX' | 'NUMBER' | 'RANGE' | 'DATE'; // Added DATE type to match DynamicParameterBuilder
+  unit?: string;
+  minValue?: number;
+  maxValue?: number;
+  isRequired: boolean;
+  isAutomatic?: boolean;
+  value?: string;
+  parameterType: 'PARAMETER' | 'RESULT'; // Made required to match DynamicParameterBuilder
+  resultDueDate?: string;
+  resultDueDays?: number; // Added to match DynamicParameterBuilder
+}
 
 // Form validation schema for diagnostic devices
 const diagnosticDeviceSchema = z.object({
@@ -55,7 +73,7 @@ type DiagnosticDeviceFormValues = z.infer<typeof diagnosticDeviceSchema>;
 
 interface DiagnosticDeviceFormProps {
   initialData?: any;
-  onSubmit: (data: DiagnosticDeviceFormValues) => void;
+  onSubmit: (data: DiagnosticDeviceFormValues) => Promise<any>;
   stockLocations: Array<{ id: string; name: string }>;
   isEditMode?: boolean;
 }
@@ -85,7 +103,7 @@ export function DiagnosticDeviceForm({ initialData, onSubmit, stockLocations, is
     },
   });
 
-  const [parameters, setParameters] = useState(initialData?.parameters || []);
+  const [parameters, setParameters] = useState<Parameter[]>(initialData?.parameters || []);
 
   const handleSubmit = async (values: DiagnosticDeviceFormValues) => {
     try {
@@ -121,25 +139,71 @@ export function DiagnosticDeviceForm({ initialData, onSubmit, stockLocations, is
 
       console.log('Cleaned values:', cleanedValues);
       
+      // Create a properly structured parameters array with all necessary fields
+      const formattedParameters = parameters.map(param => ({
+        id: param.id,
+        title: param.title,
+        type: param.type,
+        unit: param.unit || null,
+        minValue: param.minValue || null,
+        maxValue: param.maxValue || null,
+        isRequired: param.isRequired || false,
+        isAutomatic: param.isAutomatic || false,
+        value: param.value || null,
+        parameterType: param.parameterType, // Ensure this is included
+        resultDueDate: param.resultDueDate || null
+      }));
+      
+      // Log the formatted parameters to verify they're correctly structured
+      console.log('Formatted parameters:', formattedParameters);
+      
       const formData = {
         ...cleanedValues,
-        parameters: parameters,
+        parameters: formattedParameters,
         type: "DIAGNOSTIC_DEVICE" // Ensure type is explicitly set
       };
 
       console.log('Final form data being submitted:', formData);
       console.log('Calling onSubmit function...');
       
-      await onSubmit(formData);
+      // First save the device to get its ID
+      const savedDevice: { id: string } = await onSubmit(formData) || {};
+      console.log('Device saved successfully:', savedDevice);
+      
+      // If we have parameters and a device ID, explicitly save parameters via the dedicated API
+      if (formattedParameters.length > 0 && savedDevice && savedDevice.id) {
+        console.log('Saving parameters separately via API for device ID:', savedDevice.id);
+        try {
+          const paramResponse = await fetch('/api/diagnostic-parameters', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              deviceId: savedDevice.id,
+              parameters: formattedParameters
+            }),
+          });
+          
+          if (!paramResponse.ok) {
+            console.error('Failed to save parameters:', await paramResponse.text());
+          } else {
+            console.log('Parameters saved successfully via dedicated API');
+          }
+        } catch (paramError) {
+          console.error('Error saving parameters via API:', paramError);
+        }
+      }
       
       console.log('onSubmit completed successfully');
+      return savedDevice;
     } catch (error) {
       console.error("Error in diagnostic device form submission:", error);
       throw error;
     }
   };
 
-  const handleParameterSave = async (newParameters: any[]) => {
+  const handleParameterSave = async (newParameters: Parameter[]) => {
     setParameters(newParameters);
     
     if (form.getValues('id')) {
@@ -440,11 +504,63 @@ export function DiagnosticDeviceForm({ initialData, onSubmit, stockLocations, is
 
         {form.getValues('type') === 'DIAGNOSTIC_DEVICE' && (
           <div className="w-full lg:w-2/5 border-l pl-6">
+            {/* Parameter Summary Section */}
+            {parameters && parameters.length > 0 && (
+              <div className="mb-6 border rounded-md p-4 bg-gray-50">
+                <h3 className="text-lg font-medium mb-3">Paramètres configurés</h3>
+                
+                {/* Parameter Type Summary */}
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {parameters.filter((p: Parameter) => p.parameterType === 'PARAMETER').length > 0 && (
+                    <Badge variant="outline" className="bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200">
+                      Configuration: {parameters.filter((p: Parameter) => p.parameterType === 'PARAMETER').length}
+                    </Badge>
+                  )}
+                  {parameters.filter((p: Parameter) => p.parameterType === 'RESULT').length > 0 && (
+                    <Badge variant="outline" className="bg-purple-100 text-purple-800 hover:bg-purple-100 border-purple-200">
+                      Résultats: {parameters.filter((p: Parameter) => p.parameterType === 'RESULT').length}
+                    </Badge>
+                  )}
+                </div>
+                
+                {/* Log parameters to console for debugging */}
+                <div className="hidden">
+                  {parameters.map((p: Parameter) => p.title).join(', ')}
+                </div>
+                
+                {/* Parameter List */}
+                <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2">
+                  {parameters.map((param: Parameter, index: number) => (
+                    <div key={index} className={`p-2 rounded-md text-sm flex justify-between items-center ${
+                      param.parameterType === 'PARAMETER' 
+                        ? 'bg-blue-50 border border-blue-200' 
+                        : 'bg-purple-50 border border-purple-200'
+                    }`}>
+                      <div>
+                        <div className="font-medium">{param.title}</div>
+                        {param.unit && <div className="text-xs text-gray-500">Unité: {param.unit}</div>}
+                        {param.parameterType === 'RESULT' && param.resultDueDate && (
+                          <div className="text-xs text-purple-700">Date prévue: {param.resultDueDate}</div>
+                        )}
+                      </div>
+                      <Badge variant="outline" className={`text-xs ${
+                        param.parameterType === 'PARAMETER'
+                          ? 'bg-blue-100 text-blue-800 border-blue-200'
+                          : 'bg-purple-100 text-purple-800 border-purple-200'
+                      }`}>
+                        {param.parameterType === 'PARAMETER' ? 'Config' : 'Résultat'}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
             <DynamicParameterBuilder
               deviceId={form.getValues('id')}
               onParameterSave={handleParameterSave}
               initialParameters={parameters}
-            />
+            />  
           </div>
         )}
       </div>

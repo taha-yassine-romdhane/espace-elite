@@ -19,18 +19,45 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const hashedPassword = await hash(password, 12);
 
-      const user = await prisma.user.create({
-        data: {
-          firstName,
-          lastName,
-          email,
-          password: hashedPassword,
-          telephone: telephone || null, // Ensure optional field is handled correctly
-          address: address || null, // Handle address field for doctors
-          speciality: speciality || null, // Handle speciality field for doctors
-          role: role as Role,
-          isActive: true,
-        },
+      // Create user with transaction to ensure both user and role-specific records are created
+      const user = await prisma.$transaction(async (tx) => {
+        // Create the user first
+        const newUser = await tx.user.create({
+          data: {
+            firstName,
+            lastName,
+            email,
+            password: hashedPassword,
+            telephone: telephone || null, // Ensure optional field is handled correctly
+            address: address || null, // Handle address field for doctors
+            speciality: speciality || null, // Handle speciality field for doctors
+            role: role as Role,
+            isActive: true,
+          },
+        });
+        
+        // If user is a doctor, create a doctor record
+        if (newUser.role === 'DOCTOR') {
+          console.log('Creating doctor record for user:', newUser.id);
+          await tx.doctor.create({
+            data: {
+              userId: newUser.id,
+            },
+          });
+        }
+        
+        // If user is a technician, create a technician record
+        if (newUser.role === 'EMPLOYEE') {
+          console.log('Creating technician record for user:', newUser.id);
+          await tx.technician.create({
+            data: {
+              userId: newUser.id,
+              specialty: speciality || null,
+            },
+          });
+        }
+        
+        return newUser;
       });
 
       return res.status(201).json({
@@ -102,9 +129,57 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         updateData.password = await hash(password, 12);
       }
 
-      const user = await prisma.user.update({
-        where: { id },
-        data: updateData,
+      // Use transaction to handle role changes and related records
+      const user = await prisma.$transaction(async (tx) => {
+        // Get current user to check if role has changed
+        const currentUser = await tx.user.findUnique({
+          where: { id },
+          select: { role: true }
+        });
+
+        // Update the user
+        const updatedUser = await tx.user.update({
+          where: { id },
+          data: updateData,
+        });
+
+        // Handle role changes
+        if (currentUser && currentUser.role !== updatedUser.role) {
+          console.log(`User role changed from ${currentUser.role} to ${updatedUser.role}`);
+          
+          // If new role is DOCTOR, create doctor record if it doesn't exist
+          if (updatedUser.role === 'DOCTOR') {
+            const existingDoctor = await tx.doctor.findUnique({
+              where: { userId: updatedUser.id }
+            });
+            
+            if (!existingDoctor) {
+              console.log('Creating doctor record for user:', updatedUser.id);
+              await tx.doctor.create({
+                data: { userId: updatedUser.id }
+              });
+            }
+          }
+          
+          // If new role is EMPLOYEE, create technician record if it doesn't exist
+          if (updatedUser.role === 'EMPLOYEE') {
+            const existingTechnician = await tx.technician.findFirst({
+              where: { userId: updatedUser.id }
+            });
+            
+            if (!existingTechnician) {
+              console.log('Creating technician record for user:', updatedUser.id);
+              await tx.technician.create({
+                data: {
+                  userId: updatedUser.id,
+                  specialty: speciality || null
+                }
+              });
+            }
+          }
+        }
+        
+        return updatedUser;
       });
 
       return res.status(200).json({

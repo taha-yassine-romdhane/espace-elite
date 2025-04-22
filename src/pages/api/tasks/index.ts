@@ -12,11 +12,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === 'GET') {
     try {
-      const { startDate, endDate, assignedTo } = req.query;
+      const { startDate, endDate, assignedTo, diagnosticId, patientId } = req.query;
       
       const tasks = await prisma.task.findMany({
         where: {
           ...(assignedTo ? { userId: assignedTo as string } : {}),
+          ...(diagnosticId ? { diagnosticId: diagnosticId as string } : {}),
+          ...(patientId ? { patientId: patientId as string } : {}),
           ...(startDate && endDate ? {
             createdAt: {
               gte: new Date(startDate as string),

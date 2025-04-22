@@ -32,56 +32,29 @@ export default async function handler(
 
     try {
       // Handle file upload if present
-      let fileData = {};
-      if (files.files) {
-        const filesToUpload = Array.isArray(files.files) ? files.files : [files.files];
-        console.log('Processing files:', filesToUpload.length, 'files');
-        
-        const uploadPromises = filesToUpload.map(async (file) => {
-          console.log('Processing file:', file.originalFilename);
-          const bytes = await fs.readFile(file.filepath);
-          const uploadDir = path.join(process.cwd(), 'public', 'uploads');
-          await fs.mkdir(uploadDir, { recursive: true });
-          const fileName = `${Date.now()}-${file.originalFilename}`;
-          const filePath = path.join(uploadDir, fileName);
-          await fs.writeFile(filePath, bytes);
-          console.log('File saved to:', filePath);
-          return {
-            url: `/uploads/${fileName}`,
-            type: 'IMAGE'
-          };
-        });
-
-        const processedFiles = await Promise.all(uploadPromises);
-        console.log('Uploaded files:', processedFiles);
-
-        if (processedFiles.length > 0) {
-          fileData = {
-            files: {
-              create: processedFiles
-            }
-          };
-        }
-      }
-
       const names = data.nomComplet?.split(' ') || [];
       
       // Debug log to see what data is being received
       console.log('Form data received:', data);
-
+      
+      // Log all form data fields to see what's being received
+      console.log('All form data fields:', Object.keys(data));
+      
       // First verify the doctor exists if one is specified
       let doctorId = null;
       if (data.medecin) {
+        // Look up doctor by userId (which is the user.id)
         const doctor = await prisma.doctor.findFirst({
           where: {
             userId: data.medecin
           }
         });
-        if (!doctor) {
-          res.status(400).json({ error: 'Doctor not found' });
-          return;
+        if (doctor) {
+          doctorId = doctor.id;
+          console.log('Doctor found with ID:', doctorId, 'for user ID:', data.medecin);
+        } else {
+          console.log('No doctor record found for user ID:', data.medecin);
         }
-        doctorId = doctor.id;
       }
 
       // Check if a patient with this phone number already exists before attempting to create
@@ -117,10 +90,17 @@ export default async function handler(
           descriptionNumTwo: data.descriptionTelephone || '',
           affiliation: (data.caisseAffiliation as Affiliation) || 'CNSS',
           beneficiaryType: (data.beneficiaire as BeneficiaryType) || 'ASSURE_SOCIAL',
-          doctorId: doctorId,
-          technicianId: data.technicienResponsable || null,
-          userId: session.user.id,
-          ...fileData
+          doctor: doctorId ? {
+            connect: { id: doctorId }
+          } : undefined, // Properly handle doctor connection/disconnection
+          technician: data.technicienResponsable ? {
+            connect: { id: data.technicienResponsable }
+          } : undefined, // Properly handle technician connection/disconnection
+          assignedTo: {
+            connect: {
+              id: session.user.id
+            }
+          }
         },
         include: {
           doctor: {
@@ -133,8 +113,23 @@ export default async function handler(
           files: true
         }
       });
-
-      res.status(200).json(patient);
+      
+      // Get the updated patient record with files included
+      const updatedPatient = await prisma.patient.findUnique({
+        where: { id: patient.id },
+        include: {
+          doctor: {
+            include: {
+              user: true
+            }
+          },
+          technician: true,
+          assignedTo: true,
+          files: true
+        }
+      });
+        
+      return res.status(200).json(updatedPatient);
     } catch (error) {
       console.error('Error creating patient:', error);
       
@@ -184,16 +179,18 @@ export default async function handler(
       // First verify the doctor exists if one is specified
       let doctorId = null;
       if (data.medecin) {
+        // Look up doctor by userId (which is the user.id)
         const doctor = await prisma.doctor.findFirst({
           where: {
             userId: data.medecin
           }
         });
-        if (!doctor) {
-          res.status(400).json({ error: 'Doctor not found' });
-          return;
+        if (doctor) {
+          doctorId = doctor.id;
+          console.log('Doctor found with ID:', doctorId, 'for user ID:', data.medecin);
+        } else {
+          console.log('No doctor record found for user ID:', data.medecin);
         }
-        doctorId = doctor.id;
       }
 
       // Check if telephone number is being changed and if it's already in use by another patient
@@ -218,102 +215,67 @@ export default async function handler(
       }
 
       // Get existing files if this is an update
-      let existingFiles = [];
       const currentPatient = await prisma.patient.findUnique({
         where: { id: data.id },
         include: { files: true }
       });
       
-      // Parse existingFiles from the form data if provided
-      let existingFileIds = [];
-      if (data.existingFiles) {
+      // Log all form data fields to see what's being received
+      console.log('All form data fields (update):', Object.keys(data));
+      console.log('existingFilesData (update):', data.existingFilesData);
+      console.log('existingFiles (update):', data.existingFiles);
+      console.log('Hidden input value (update):', data.existingFilesData);
+      
+      // Check for files in the hidden input field first
+      let existingFilesData = [];
+      
+      if (data.existingFilesData) {
         try {
-          existingFileIds = JSON.parse(data.existingFiles).map((file: { id: string }) => file.id);
-          console.log('Existing file IDs from form:', existingFileIds);
-        } catch (e) {
-          console.error('Error parsing existingFiles JSON:', e);
+          // Parse the JSON string from the hidden field
+          existingFilesData = JSON.parse(data.existingFilesData);
+          console.log('Found files in hidden field (update):', existingFilesData);
+        } catch (error) {
+          console.error('Error parsing existingFilesData (update):', error);
+        }
+      } else if (data.existingFiles) {
+        try {
+          // Try the regular field as fallback
+          existingFilesData = typeof data.existingFiles === 'string'
+            ? JSON.parse(data.existingFiles)
+            : data.existingFiles;
+          console.log('Found files in regular field (update):', existingFilesData);
+        } catch (error) {
+          console.error('Error parsing existingFiles (update):', error);
         }
       }
+
       
-      // If we have the current patient's files, filter to only keep those in existingFileIds
-      existingFiles = currentPatient?.files.filter(file => existingFileIds.includes(file.id)) || [];
-
-      // Handle file upload if present
-      // Define the type for our updateFileData to include possible files property
-      interface UpdateFileData {
-        files?: {
-          deleteMany?: any;
-          create?: any[];
-          connect?: any[];
-        }
-      }
+      // Files are now handled by the dedicated /api/files endpoint
       
-      let updateFileData: UpdateFileData = {};
-      if (files.files) {
-        const filesToUpload = Array.isArray(files.files) ? files.files : [files.files];
-        console.log('Processing files for update:', filesToUpload.length, 'files');
-        
-        const uploadPromises = filesToUpload.map(async (file) => {
-          console.log('Processing file:', file.originalFilename);
-          const bytes = await fs.readFile(file.filepath);
-          const uploadDir = path.join(process.cwd(), 'public', 'uploads');
-          await fs.mkdir(uploadDir, { recursive: true });
-          const fileName = `${Date.now()}-${file.originalFilename}`;
-          const filePath = path.join(uploadDir, fileName);
-          await fs.writeFile(filePath, bytes);
-          console.log('File saved to:', filePath);
-          return {
-            url: `/uploads/${fileName}`,
-            type: 'IMAGE'
-          };
-        });
-
-        const processedFiles = await Promise.all(uploadPromises);
-        console.log('Uploaded files:', processedFiles);
-
-        if (processedFiles.length > 0) {
-          updateFileData = {
-            files: {
-              create: processedFiles
-            }
-          };
-        }
-      } else {
-        // No new files uploaded
-        // First delete any files that were removed (not in existingFiles)
-        if (currentPatient?.files) {
-          const filesToDelete = currentPatient.files
-            .filter(file => !existingFileIds.includes(file.id))
-            .map(file => file.id);
-          
-          if (filesToDelete.length > 0) {
-            console.log('Files to delete:', filesToDelete);
-            updateFileData = {
-              files: {
-                deleteMany: {
-                  id: { in: filesToDelete }
-                }
-              }
-            };
-          }
-        }
-        
-        // If there are still existing files to keep, connect them
-        if (existingFiles.length > 0) {
-          updateFileData = {
-            ...updateFileData,
-            files: {
-              ...(updateFileData.files || {}),
-              connect: existingFiles.map(file => ({ id: file.id }))
-            }
-          };
-        }
-      }
+      // File handling has been moved to the dedicated /api/files endpoint
+      
 
       const names = data.nomComplet?.split(' ') || [];
       
       // Debug log to see what data is being received
       console.log('Form data received:', data);
+
+      // Verify the doctor exists if one is specified
+      let updateDoctorId = null;
+      if (data.medecin) {
+        // Look up doctor by userId (which is the user.id)
+        const doctor = await prisma.doctor.findFirst({
+          where: {
+            userId: data.medecin
+          }
+        });
+        if (doctor) {
+          updateDoctorId = doctor.id;
+          console.log('Doctor found with ID:', updateDoctorId, 'for user ID:', data.medecin);
+        } else {
+          console.log('No doctor record found for user ID:', data.medecin);
+        }
+      }
 
       const patient = await prisma.patient.update({
         where: { id: data.id },
@@ -333,9 +295,13 @@ export default async function handler(
           descriptionNumTwo: data.descriptionTelephone || '',
           affiliation: (data.caisseAffiliation as Affiliation) || 'CNSS',
           beneficiaryType: (data.beneficiaire as BeneficiaryType) || 'ASSURE_SOCIAL',
-          doctorId: doctorId,
-          technicianId: data.technicienResponsable || null,
-          ...updateFileData
+          doctor: doctorId ? {
+            connect: { id: doctorId }
+          } : undefined, // Properly handle doctor connection/disconnection
+          technician: data.technicienResponsable ? {
+            connect: { id: data.technicienResponsable }
+          } : undefined
+          // Removed updateFileData from here
         },
         include: {
           doctor: {
@@ -348,7 +314,9 @@ export default async function handler(
           files: true
         }
       });
-
+      
+      // Files are now handled by the dedicated /api/files endpoint
+      
       res.status(200).json(patient);
     } catch (error) {
       console.error('Error updating patient:', error);
@@ -383,6 +351,7 @@ export default async function handler(
       
       res.status(500).json({ error: 'Failed to update patient' });
     }
+
   } else if (req.method === 'DELETE') {
     try {
       const { id } = req.query;

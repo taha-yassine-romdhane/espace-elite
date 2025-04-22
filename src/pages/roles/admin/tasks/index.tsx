@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -12,8 +12,9 @@ import { Button } from '@/components/ui/button';
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, addDays, addWeeks, subWeeks } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useToast } from '@/components/ui/use-toast';
-import { TaskModal } from '@/components/tasks/TaskModal';
 import { DayTasksModal } from '@/components/tasks/DayTasksModal';
+import { AddTaskButton } from '@/components/tasks/AddTaskButton';
+import { TaskFormDialog } from '@/components/tasks/TaskFormDialog';
 import {
   Tooltip,
   TooltipContent,
@@ -21,7 +22,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface Task {
   id: string;
@@ -39,6 +40,21 @@ interface Task {
     email: string;
     role: string;
   };
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface Notification {
+  id: string;
+  title: string;
+  description: string;
+  type: 'FOLLOW_UP' | 'MAINTENANCE' | 'PAYMENT_DUE' | 'OTHER' | 'APPOINTMENT';
+  status: 'PENDING' | 'COMPLETED' | 'DISMISSED';
+  dueDate: string;
+  patientId?: string;
+  patientName?: string;
+  companyId?: string;
+  companyName?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -65,7 +81,7 @@ export default function TasksPage() {
   const { data: users } = useQuery<User[]>({
     queryKey: ['users'],
     queryFn: async () => {
-      const response = await fetch('/api/users');
+      const response = await fetch('/api/users/formatted');
       if (!response.ok) throw new Error('Failed to fetch users');
       return response.json();
     }
@@ -109,6 +125,21 @@ export default function TasksPage() {
 
       const response = await fetch(`/api/tasks?${params}`);
       if (!response.ok) throw new Error('Failed to fetch tasks');
+      return response.json();
+    }
+  });
+  
+  // Fetch notifications
+  const { data: notifications, refetch: refetchNotifications } = useQuery<Notification[]>({
+    queryKey: ['notifications', selectedDate, viewMode],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        startDate: dateRange.start.toISOString(),
+        endDate: dateRange.end.toISOString(),
+      });
+
+      const response = await fetch(`/api/notifications?${params}`);
+      if (!response.ok) throw new Error('Failed to fetch notifications');
       return response.json();
     }
   });
@@ -161,27 +192,13 @@ export default function TasksPage() {
     <TooltipProvider key={task.id}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <div
-            className={cn(
-              "p-2 rounded-md text-xs cursor-pointer transition-colors",
-              {
-                'bg-red-100 text-red-800 hover:bg-red-200': task.priority === 'HIGH',
-                'bg-yellow-100 text-yellow-800 hover:bg-yellow-200': task.priority === 'MEDIUM',
-                'bg-blue-100 text-blue-800 hover:bg-blue-200': task.priority === 'LOW'
-              }
-            )}
-          >
-            <div className="font-semibold">{task.title}</div>
-            <div className="flex items-center justify-between mt-1">
-              <div className="text-xs opacity-75">
-                {format(new Date(task.startDate), 'HH:mm')} - {format(new Date(task.endDate), 'HH:mm')}
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800">
-                  {task.assignedTo.firstName.charAt(0)}{task.assignedTo.lastName.charAt(0)}
-                </span>
-              </div>
-            </div>
+          <div className={cn(
+            "text-xs p-1 rounded truncate",
+            task.priority === 'HIGH' ? "bg-red-100 text-red-800" :
+            task.priority === 'MEDIUM' ? "bg-yellow-100 text-yellow-800" :
+            "bg-green-100 text-green-800"
+          )}>
+            {task.title}
           </div>
         </TooltipTrigger>
         <TooltipContent className="w-64 p-2">
@@ -200,11 +217,61 @@ export default function TasksPage() {
       </Tooltip>
     </TooltipProvider>
   );
+  
+  const renderNotificationCard = (notification: Notification) => (
+    <TooltipProvider key={notification.id}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className={cn(
+            "text-xs p-1 rounded truncate mt-1 border-l-2",
+            notification.type === 'FOLLOW_UP' ? "bg-blue-50 text-blue-800 border-blue-600" :
+            notification.type === 'MAINTENANCE' ? "bg-purple-50 text-purple-800 border-purple-600" :
+            notification.type === 'PAYMENT_DUE' ? "bg-amber-50 text-amber-800 border-amber-600" :
+            notification.type === 'APPOINTMENT' ? "bg-emerald-50 text-emerald-800 border-emerald-600" :
+            "bg-gray-50 text-gray-800 border-gray-500"
+          )}>
+            {notification.title}
+          </div>
+        </TooltipTrigger>
+        <TooltipContent className="w-64 p-2">
+          <div className="space-y-2">
+            <div className="font-semibold">{notification.title}</div>
+            <div className="text-sm">{notification.description}</div>
+            {notification.patientName && (
+              <div className="text-xs">
+                <div>Patient: {notification.patientName}</div>
+              </div>
+            )}
+            {notification.companyName && (
+              <div className="text-xs">
+                <div>Société: {notification.companyName}</div>
+              </div>
+            )}
+            {notification.dueDate && (
+              <div className="text-xs">
+                <div>Date d'échéance: {format(new Date(notification.dueDate), 'dd/MM/yyyy')}</div>
+              </div>
+            )}
+            <div className="text-xs">
+              <div>Statut: {notification.status}</div>
+              <div>Type: {notification.type}</div>
+            </div>
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
 
   const renderDayView = () => {
     const dayTasks = tasks?.filter(task => {
       const taskDate = new Date(task.startDate);
       return format(taskDate, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd');
+    }) || [];
+    
+    const dayNotifications = notifications?.filter(notification => {
+      if (!notification.dueDate) return false;
+      const notificationDate = new Date(notification.dueDate);
+      return format(notificationDate, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd');
     }) || [];
 
     return (
@@ -212,9 +279,28 @@ export default function TasksPage() {
         <div className="text-xl font-semibold mb-4">
           {format(selectedDate, 'EEEE d MMMM yyyy', { locale: fr })}
         </div>
-        <div className="space-y-2">
-          {dayTasks.map(task => renderTaskCard(task))}
-        </div>
+        
+        {dayTasks.length > 0 && (
+          <div className="mb-4">
+            <h3 className="text-sm font-medium text-gray-700 mb-2">Tâches</h3>
+            <div className="space-y-2">
+              {dayTasks.map(task => renderTaskCard(task))}
+            </div>
+          </div>
+        )}
+        
+        {dayNotifications.length > 0 && (
+          <div>
+            <h3 className="text-sm font-medium text-gray-700 mb-2">Notifications</h3>
+            <div className="space-y-2">
+              {dayNotifications.map(notification => renderNotificationCard(notification))}
+            </div>
+          </div>
+        )}
+        
+        {dayTasks.length === 0 && dayNotifications.length === 0 && (
+          <div className="text-gray-500 italic">Aucune tâche ou notification pour ce jour</div>
+        )}
       </div>
     );
   };
@@ -233,15 +319,41 @@ export default function TasksPage() {
             const taskDate = new Date(task.startDate);
             return format(taskDate, 'yyyy-MM-dd') === format(day, 'yyyy-MM-dd');
           }) || [];
+          
+          const dayNotifications = notifications?.filter(notification => {
+            if (!notification.dueDate) return false;
+            const notificationDate = new Date(notification.dueDate);
+            return format(notificationDate, 'yyyy-MM-dd') === format(day, 'yyyy-MM-dd');
+          }) || [];
 
           return (
-            <div key={day.toISOString()} className="bg-white rounded-lg shadow p-2">
+            <div 
+              key={day.toISOString()} 
+              className="bg-white rounded-lg shadow p-2 overflow-y-auto"
+              style={{ maxHeight: '200px' }}
+              onClick={() => handleDayClick(day)}
+            >
               <div className="text-sm font-semibold mb-2">
                 {format(day, 'EEEE d', { locale: fr })}
               </div>
-              <div className="space-y-1">
-                {dayTasks.map(task => renderTaskCard(task))}
-              </div>
+              
+              {dayTasks.length > 0 && (
+                <div className="mb-2">
+                  {dayTasks.map(task => renderTaskCard(task))}
+                </div>
+              )}
+              
+              {dayNotifications.length > 0 && (
+                <div>
+                  {dayNotifications.map(notification => renderNotificationCard(notification))}
+                </div>
+              )}
+              
+              {dayTasks.length + dayNotifications.length > 0 && (
+                <div className="text-xs text-right mt-1 text-blue-600 hover:underline cursor-pointer">
+                  Voir tout ({dayTasks.length + dayNotifications.length})
+                </div>
+              )}
             </div>
           );
         })}
@@ -270,17 +382,26 @@ export default function TasksPage() {
           const dayTasks = tasks?.filter(task => 
             format(new Date(task.startDate), 'yyyy-MM-dd') === dateStr
           ) || [];
+          
+          const dayNotifications = notifications?.filter(notification => {
+            if (!notification.dueDate) return false;
+            const notificationDate = new Date(notification.dueDate);
+            return format(notificationDate, 'yyyy-MM-dd') === dateStr;
+          }) || [];
+          
+          const totalItems = dayTasks.length + dayNotifications.length;
 
           return (
             <div
               key={dateStr}
               onClick={() => handleDayClick(date)}
               className={cn(
-                "min-h-[120px] p-2 rounded-lg transition-colors cursor-pointer",
+                "min-h-[120px] p-2 rounded-lg transition-colors cursor-pointer overflow-y-auto",
                 isCurrentMonth 
                   ? "bg-white shadow hover:shadow-md" 
                   : "bg-gray-50"
               )}
+              style={{ maxHeight: '150px' }}
             >
               <div className="flex justify-between items-center mb-2">
                 <span className={cn(
@@ -289,15 +410,32 @@ export default function TasksPage() {
                 )}>
                   {format(date, 'd')}
                 </span>
-                {dayTasks.length > 0 && (
+                {totalItems > 0 && (
                   <span className="text-xs bg-blue-100 text-blue-800 px-2 rounded-full">
-                    {dayTasks.length}
+                    {totalItems}
                   </span>
                 )}
               </div>
-              <div className="space-y-1">
-                {dayTasks.map(task => renderTaskCard(task))}
-              </div>
+              
+              {/* Display tasks first */}
+              {dayTasks.length > 0 && (
+                <div className="space-y-1 mb-1">
+                  {dayTasks.slice(0, 2).map(task => renderTaskCard(task))}
+                  {dayTasks.length > 2 && (
+                    <div className="text-xs text-gray-500">+{dayTasks.length - 2} tâches</div>
+                  )}
+                </div>
+              )}
+              
+              {/* Display notifications */}
+              {dayNotifications.length > 0 && (
+                <div className="space-y-1">
+                  {dayNotifications.slice(0, 2).map(notification => renderNotificationCard(notification))}
+                  {dayNotifications.length > 2 && (
+                    <div className="text-xs text-gray-500">+{dayNotifications.length - 2} notifications</div>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}
@@ -368,9 +506,7 @@ export default function TasksPage() {
             </SelectContent>
           </Select>
 
-          <Button onClick={() => setIsTaskModalOpen(true)}>
-            Ajout tâche
-          </Button>
+          <AddTaskButton onClick={() => setIsTaskModalOpen(true)} />
         </div>
       </div>
 
@@ -378,10 +514,11 @@ export default function TasksPage() {
       {viewMode === 'week' && renderWeekView()}
       {viewMode === 'day' && renderDayView()}
 
-      <TaskModal
+      <TaskFormDialog
         open={isTaskModalOpen}
         onClose={() => setIsTaskModalOpen(false)}
         onSubmit={handleTaskSubmit}
+        initialDate={selectedDate}
       />
       {selectedDayDate && (
         <DayTasksModal

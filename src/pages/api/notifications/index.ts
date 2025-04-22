@@ -7,97 +7,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // Handle GET request to fetch notifications
   if (req.method === 'GET') {
     try {
-      const { type = 'all' } = req.query;
+      const { type = 'all', status, startDate, endDate } = req.query;
       
-      // Mock data for now - in a real implementation, this would query the database
-      const allNotifications = [
-        {
-          id: '1',
-          title: 'Résultat d\'échographie en attente',
-          description: 'Le résultat d\'échographie pour Mohamed Ben Ali est attendu',
-          createdAt: new Date(Date.now() - 2 * 86400000).toISOString(),
-          status: 'PENDING',
-          priority: 'MEDIUM',
-          type: 'DIAGNOSTIC_RESULT',
-          deviceId: 'dev-001',
-          deviceName: 'Scanner à ultrasons XYZ',
-          patientId: 'pat-001',
-          patientName: 'Mohamed Ben Ali',
-          parameterId: 'param-001',
-          parameterName: 'Résultat d\'échographie',
-          dueDate: new Date(Date.now() + 86400000).toISOString(), // Tomorrow
-        },
-        {
-          id: '2',
-          title: 'Résultat d\'électrocardiogramme en retard',
-          description: 'Le résultat d\'électrocardiogramme pour Fatima Trabelsi est en retard',
-          createdAt: new Date(Date.now() - 5 * 86400000).toISOString(),
-          status: 'PENDING',
-          priority: 'HIGH',
-          type: 'DIAGNOSTIC_RESULT',
-          deviceId: 'dev-002',
-          deviceName: 'Appareil ECG CardioPlus',
-          patientId: 'pat-002',
-          patientName: 'Fatima Trabelsi',
-          parameterId: 'param-002',
-          parameterName: 'Résultat d\'électrocardiogramme',
-          dueDate: new Date(Date.now() - 86400000).toISOString(), // Yesterday (overdue)
-        },
-        {
-          id: '3',
-          title: 'Maintenance du respirateur artificiel',
-          description: 'Tâche de maintenance programmée pour le respirateur artificiel',
-          createdAt: new Date(Date.now() - 1 * 86400000).toISOString(),
-          status: 'PENDING',
-          priority: 'HIGH',
-          type: 'TASK',
-          taskId: 'task-001',
-          assigneeId: 'tech-001',
-          assigneeName: 'Ahmed Technicien',
-          dueDate: new Date(Date.now() + 2 * 86400000).toISOString(), // In 2 days
-        },
-        {
-          id: '4',
-          title: 'Réparation du moniteur cardiaque',
-          description: 'Réparation en cours pour le moniteur cardiaque de la chambre 203',
-          createdAt: new Date(Date.now() - 3 * 86400000).toISOString(),
-          status: 'IN_PROGRESS',
-          priority: 'MEDIUM',
-          type: 'REPAIR',
-          deviceId: 'dev-003',
-          deviceName: 'Moniteur cardiaque BedSide',
-          repairId: 'rep-001',
-          technicianId: 'tech-002',
-          technicianName: 'Sami Réparateur',
-        },
-      ];
-
-      // Filter notifications based on type
-      let filteredNotifications = allNotifications;
-      if (type !== 'all') {
-        const typeMap: Record<string, string> = {
-          'diagnostic': 'DIAGNOSTIC_RESULT',
-          'task': 'TASK',
-          'repair': 'REPAIR'
-        };
-        
-        const notificationType = typeMap[type as string];
-        if (notificationType) {
-          filteredNotifications = allNotifications.filter(
-            notification => notification.type === notificationType
-          );
-        }
-      }
-
-      // In a real implementation, this would be something like:
-      /*
+      // Build query conditions
       const where: any = {};
       
+      // Filter by type if specified
       if (type !== 'all') {
         const typeMap: Record<string, string> = {
-          'diagnostic': 'DIAGNOSTIC_RESULT',
-          'task': 'TASK',
-          'repair': 'REPAIR'
+          'diagnostic': 'FOLLOW_UP',  // Map diagnostic to FOLLOW_UP type
+          'task': 'MAINTENANCE',
+          'repair': 'MAINTENANCE',
+          'payment': 'PAYMENT_DUE',
+          'other': 'OTHER',
+          'appointment': 'APPOINTMENT'
         };
         
         const notificationType = typeMap[type as string];
@@ -106,18 +29,65 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       }
       
+      // Filter by status if specified
+      if (status) {
+        where.status = status;
+      }
+      
+      // Filter by date range if specified
+      if (startDate && endDate) {
+        where.dueDate = {
+          gte: new Date(startDate as string),
+          lte: new Date(endDate as string)
+        };
+      }
+      
+      // Query notifications from database
       const notifications = await prisma.notification.findMany({
         where,
-        orderBy: {
-          createdAt: 'desc'
-        },
+        orderBy: [
+          { dueDate: 'asc' },
+          { createdAt: 'desc' }
+        ],
         include: {
-          // Include related data based on notification type
+          patient: true,
+          company: true
         }
       });
-      */
+      
+      // Format the response
+      const formattedNotifications = notifications.map(notification => {
+        // Parse the message field if it contains JSON data
+        let additionalData = {};
+        try {
+          if (notification.message) {
+            const parsedMessage = JSON.parse(notification.message);
+            if (typeof parsedMessage === 'object') {
+              additionalData = parsedMessage;
+            }
+          }
+        } catch (e) {
+          // If parsing fails, just use the message as is
+        }
+        
+        return {
+          id: notification.id,
+          title: notification.title,
+          description: notification.message,
+          type: notification.type,
+          status: notification.status,
+          dueDate: notification.dueDate,
+          createdAt: notification.createdAt,
+          updatedAt: notification.updatedAt,
+          patientId: notification.patientId,
+          patientName: notification.patient ? `${notification.patient.firstName} ${notification.patient.lastName}` : null,
+          companyId: notification.companyId,
+          companyName: notification.company ? notification.company.companyName : null,
+          ...additionalData
+        };
+      });
 
-      return res.status(200).json(filteredNotifications);
+      return res.status(200).json(formattedNotifications);
     } catch (error) {
       console.error('Error fetching notifications:', error);
       return res.status(500).json({ message: 'Error fetching notifications' });
@@ -127,41 +97,80 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // Handle POST request to create a new notification
   if (req.method === 'POST') {
     try {
-      const { title, description, type, priority, ...additionalData } = req.body;
+      const { 
+        title, 
+        message, 
+        type, 
+        status = 'PENDING',
+        dueDate,
+        patientId,
+        companyId,
+        // For diagnostic result parameters
+        deviceId,
+        deviceName,
+        parameterId,
+        parameterName,
+        resultDueDate,
+        ...additionalData 
+      } = req.body;
 
-      if (!title || !description || !type) {
-        return res.status(400).json({ message: 'Missing required fields' });
+      if (!title || !type) {
+        return res.status(400).json({ message: 'Missing required fields: title and type are required' });
       }
 
-      // In a real implementation, this would create a notification in the database
-      /*
+      // Store additional data as JSON in the message field if needed
+      let messageContent = message || '';
+      
+      // If we have additional data for diagnostic results, store it in the message field
+      if (type === 'DIAGNOSTIC_RESULT' && (deviceId || parameterId)) {
+        const diagnosticData = {
+          deviceId,
+          deviceName,
+          parameterId,
+          parameterName,
+          resultDueDate
+        };
+        messageContent = JSON.stringify(diagnosticData);
+      }
+
+      // Create notification in the database
       const notification = await prisma.notification.create({
         data: {
           title,
-          description,
+          message: messageContent,
           type,
-          priority: priority || 'MEDIUM',
-          status: 'PENDING',
-          ...additionalData
+          status,
+          dueDate: dueDate ? new Date(dueDate) : undefined,
+          patientId,
+          companyId,
         }
       });
-      */
-
-      const notification = {
-        id: Math.random().toString(36).substring(2, 9),
-        title,
-        description,
-        type,
-        priority: priority || 'MEDIUM',
-        status: 'PENDING',
-        createdAt: new Date().toISOString(),
-        ...additionalData
-      };
 
       return res.status(201).json(notification);
     } catch (error) {
       console.error('Error creating notification:', error);
-      return res.status(500).json({ message: 'Error creating notification' });
+      return res.status(500).json({ message: 'Error creating notification', error: error instanceof Error ? error.message : String(error) });
+    }
+  }
+  
+  // Handle PUT request to update a notification status
+  if (req.method === 'PUT') {
+    try {
+      const { id, status } = req.body;
+      
+      if (!id || !status) {
+        return res.status(400).json({ message: 'Missing required fields: id and status are required' });
+      }
+      
+      const notification = await prisma.notification.update({
+        where: { id },
+        data: { status }
+      });
+      
+      return res.status(200).json(notification);
+    } catch (error) {
+      console.error('Error updating notification:', error);
+      return res.status(500).json({ message: 'Error updating notification' });
     }
   }
 

@@ -26,22 +26,20 @@ export function LocationForm({ onSuccess }: LocationFormProps) {
     userId: "",
   });
 
-  // Fetch users
-  const { data: users } = useQuery({
-    queryKey: ["users"],
+  // Fetch users from the new formatted API endpoint
+  const { data: users, isLoading } = useQuery({
+    queryKey: ["formatted-users"],
     queryFn: async () => {
-      const response = await fetch("/api/users");
+      const response = await fetch("/api/users/formatted");
       if (!response.ok) {
         throw new Error("Failed to fetch users");
       }
-      const data = await response.json();
-      return data.filter((user: User) => user.isActive);
+      return response.json();
     },
   });
 
-  const sortedUsers = users?.sort((a: any, b: any) => {
-    return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
-  }) || [];
+  // Users are already sorted by the API
+  const formattedUsers = users || [];
 
   const addLocationMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
@@ -105,11 +103,21 @@ export function LocationForm({ onSuccess }: LocationFormProps) {
             <SelectValue placeholder="Sélectionner un responsable" />
           </SelectTrigger>
           <SelectContent>
-            {sortedUsers.map((user : User) => (
-              <SelectItem key={user.id} value={user.id}>
-                {user.firstName} {user.lastName}
+            {isLoading ? (
+              <SelectItem value="loading" disabled>
+                Chargement...
               </SelectItem>
-            ))}
+            ) : formattedUsers.length > 0 ? (
+              formattedUsers.map((user: any) => (
+                <SelectItem key={user.id} value={user.id}>
+                  {user.name}
+                </SelectItem>
+              ))
+            ) : (
+              <SelectItem value="no-users" disabled>
+                Aucun utilisateur disponible
+              </SelectItem>
+            )}
           </SelectContent>
         </Select>
       </div>

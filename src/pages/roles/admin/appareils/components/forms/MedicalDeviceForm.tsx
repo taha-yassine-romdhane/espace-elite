@@ -37,7 +37,6 @@ const medicalDeviceSchema = z.object({
   sellingPrice: z.string().transform(val => val ? parseFloat(val) : null).nullable(),
   
   technicalSpecs: z.string().optional().nullable(),
-  warranty: z.string().optional().nullable(),
   configuration: z.string().optional().nullable(),
   
   status: z.enum(["ACTIVE", "MAINTENANCE", "RETIRED"]).default("ACTIVE"),
@@ -256,19 +255,6 @@ export function MedicalDeviceForm({ initialData, onSubmit, stockLocations, isEdi
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="warranty"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Garantie</FormLabel>
-                      <FormControl>
-                        <Input {...field} value={field.value || ''} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
 
                 <FormField
                   control={form.control}

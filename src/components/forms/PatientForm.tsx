@@ -47,6 +47,7 @@ interface PatientFormProps {
     descriptionNom?: string;
     descriptionTelephone?: string;
     descriptionAdresse?: string;
+    adresseCoordinates?: { lat: number; lng: number };
     files?: File[];
     existingFiles?: { url: string; type: string }[];
   };
@@ -77,10 +78,13 @@ const formSchema = z.object({
   descriptionTelephone: z.string().optional(),
   descriptionAdresse: z.string().optional(),
   files: z.array(z.any()).optional(),
-  existingFiles: z.array(z.object({
-    url: z.string(),
-    type: z.string()
-  })).optional()
+  existingFiles: z.union([
+    z.array(z.object({
+      url: z.string(),
+      type: z.string()
+    })),
+    z.string()
+  ]).optional()
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -303,6 +307,16 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Explicitly handle file data before form validation
+    console.log('Files before form submission:', existingFiles);
+    if (existingFiles && existingFiles.length > 0) {
+      form.setValue('existingFiles', JSON.stringify(existingFiles));
+      console.log('Set existingFiles in form:', JSON.stringify(existingFiles));
+    } else {
+      form.setValue('existingFiles', '[]');
+      console.log('Set empty existingFiles in form');
+    }
+    
     // Clear any previous validation errors
     setValidationErrors({});
     
@@ -457,6 +471,23 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Hidden inputs to pass files data - multiple approaches for reliability */}
+      <input 
+        type="hidden" 
+        name="existingFilesData" 
+        value={JSON.stringify(existingFiles)} 
+      />
+      <input 
+        type="hidden" 
+        name="existingFiles" 
+        value={JSON.stringify(existingFiles)} 
+      />
+      {/* Backup field */}
+      <input 
+        type="hidden" 
+        name="_uploadedFiles" 
+        value={JSON.stringify(existingFiles)} 
+      />
       <div className="bg-white rounded-lg">
         <div className="p-5">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -498,9 +529,8 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
               {/* File Upload Section */}
               <FileManager 
                 form={form}
-                files={files}
                 existingFiles={existingFiles}
-                onFileChange={handleFileChange}
+                onFileChange={setExistingFiles}
                 onRemoveExistingFile={handleRemoveFile}
               />
             </div>

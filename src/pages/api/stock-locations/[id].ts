@@ -64,8 +64,18 @@ export default async function handler(
 
         return res.status(200).json(updatedLocation);
 
+      case 'DELETE':
+        // Delete stock location
+        const deletedLocation = await prisma.stockLocation.delete({
+          where: {
+            id,
+          },
+        });
+
+        return res.status(200).json({ message: 'Stock location deleted successfully', id });
+
       default:
-        res.setHeader('Allow', ['PUT']);
+        res.setHeader('Allow', ['PUT', 'DELETE']);
         return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
     }
   } catch (error) {

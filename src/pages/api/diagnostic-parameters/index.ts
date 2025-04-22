@@ -5,8 +5,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method === 'POST') {
     try {
       const { deviceId, parameters } = req.body;
+      
+      // Debug log to see what parameter types are being received
+      console.log('Received parameters with types:', parameters.map((p: any) => ({
+        title: p.title,
+        parameterType: p.parameterType
+      })));
 
-      // First, delete any existing parameters for this device
+      // First, find all existing parameters for this device
+      const existingParameters = await prisma.diagnosticParameter.findMany({
+        where: {
+          deviceId: deviceId
+        },
+        include: {
+          ParameterValue: true
+        }
+      });
+      
+      // Delete all parameter values first to avoid foreign key constraint violations
+      for (const param of existingParameters) {
+        if (param.ParameterValue && param.ParameterValue.length > 0) {
+          await prisma.parameterValue.deleteMany({
+            where: {
+              parameterId: param.id
+            }
+          });
+        }
+      }
+
+      // Then delete the parameters
       await prisma.diagnosticParameter.deleteMany({
         where: {
           deviceId: deviceId
@@ -15,6 +42,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       // Then create the new parameters
       const parameterPromises = parameters.map(async (param: any) => {
+        // Ensure parameterType is explicitly set and not lost
+        const parameterType = param.parameterType || 'PARAMETER';
+        console.log(`Creating parameter ${param.title} with type: ${parameterType}`);
+        
+        // Use the resultDueDate directly if provided
+        // For RESULT parameters, this will be filled in when the device is actually used
+        const resultDueDate = param.resultDueDate;
+        
+        if (resultDueDate) {
+          console.log(`Parameter ${param.title} has resultDueDate: ${resultDueDate}`);
+        }
+        
         return prisma.diagnosticParameter.create({
           data: {
             title: param.title,
@@ -23,13 +62,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             minValue: param.minValue,
             maxValue: param.maxValue,
             isRequired: param.isRequired,
+            isAutomatic: param.isAutomatic || false,
+            parameterType: parameterType, // Use the explicit variable
+            resultDueDate: resultDueDate,
             value: param.value,
             deviceId: deviceId
           }
         });
       });
 
-      await Promise.all(parameterPromises);
+      const createdParameters = await Promise.all(parameterPromises);
+      
+      // Log created parameters to verify types were saved correctly
+      console.log('Created parameters with types:', createdParameters.map(p => ({
+        title: p.title,
+        parameterType: p.parameterType
+      })));
 
       res.status(200).json({ message: 'Parameters saved successfully' });
     } catch (error) {

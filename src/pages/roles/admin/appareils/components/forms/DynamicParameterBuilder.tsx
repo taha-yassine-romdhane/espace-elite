@@ -23,16 +23,17 @@ import { PlusCircle, X } from "lucide-react";
 interface Parameter {
   id?: string;
   title: string;
-  type: 'INPUT' | 'CHECKBOX' | 'NUMBER' | 'RANGE';
+  type: 'INPUT' | 'CHECKBOX' | 'NUMBER' | 'RANGE' | 'DATE'; // Added DATE type
   unit?: string;
   minValue?: number;
   maxValue?: number;
   isRequired: boolean;
   isAutomatic?: boolean;
   value?: string;
-  parameterType: 'PARAMETER' | 'RESULT'; // New field to distinguish between parameters and results
+  parameterType: 'PARAMETER' | 'RESULT'; // Field to distinguish between parameters and results
   
-  resultDueDate?: string; // Optional date when the result is expected
+  resultDueDays?: number; // Number of days after which the result is expected
+  resultDueDate?: string; // Calculated date when the result is expected (not directly input by user)
 }
 
 interface DynamicParameterBuilderProps {
@@ -57,15 +58,20 @@ export function DynamicParameterBuilder({
 
   const handleAddParameter = () => {
     if (newParameter.title) {
-      setParameters([...parameters, { 
+      // Create the parameter with explicit parameter type
+      const paramToAdd = { 
         ...newParameter, 
         title: newParameter.title,
         type: newParameter.type as Parameter['type'],
         isRequired: newParameter.isRequired || false,
         isAutomatic: newParameter.isAutomatic || false,
-        parameterType: newParameter.parameterType as 'PARAMETER' | 'RESULT',
-        resultDueDate: newParameter.resultDueDate
-      }]);
+        parameterType: newParameter.parameterType as 'PARAMETER' | 'RESULT'
+        // No resultDueDate or resultDueDays - these will be filled in when the device is used
+      };
+      
+      console.log('Adding parameter with type:', paramToAdd.parameterType);
+      
+      setParameters([...parameters, paramToAdd]);
       setNewParameter({ 
         type: 'INPUT', 
         isRequired: false, 
@@ -132,6 +138,15 @@ export function DynamicParameterBuilder({
             )}
           </div>
         );
+      case 'DATE':
+        return (
+          <Input
+            type="date"
+            value={parameter.value || ''}
+            onChange={(e) => handleParameterValueChange(index, e.target.value)}
+            className="h-12"
+          />
+        );
       default:
         return (
           <Input
@@ -151,7 +166,10 @@ export function DynamicParameterBuilder({
         <Button 
           variant="outline" 
           size="lg"
-          onClick={() => setIsAddingParameter(true)}
+          onClick={() => {
+            console.log('Current parameters:', parameters);
+            setIsAddingParameter(true);
+          }}
           className="flex items-center gap-2"
         >
           <PlusCircle className="h-5 w-5" />
@@ -233,6 +251,7 @@ export function DynamicParameterBuilder({
                   <SelectItem value="NUMBER">Nombre</SelectItem>
                   <SelectItem value="RANGE">Plage de valeurs</SelectItem>
                   <SelectItem value="CHECKBOX">Case à cocher</SelectItem>
+                  <SelectItem value="DATE">Date</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -298,18 +317,7 @@ export function DynamicParameterBuilder({
                 </SelectContent>
               </Select>
             </div>
-            {newParameter.parameterType === 'RESULT' && (
-              <div className="space-y-2">
-                <Label htmlFor='resultDueDate' >Délai prévu pour le résultat (jours)</Label>
-                <Input
-                  id="resultDueDate"
-                  type="date"
-                  value={newParameter.resultDueDate}
-                  onChange={(e) => setNewParameter({ ...newParameter, resultDueDate: e.target.value })}
-                  required
-                />
-              </div>
-            )}
+            {/* Removed the resultDueDays input field since users will fill in dates when they use the device */}
 
 
 
@@ -348,7 +356,18 @@ export function DynamicParameterBuilder({
       {parameters.length > 0 && (
         <Button 
           className="w-full h-12 text-base"
-          onClick={() => onParameterSave(parameters)}
+          onClick={() => {
+            // Log parameters before saving to verify types
+            console.log('Saving parameters with types:', parameters.map((p) => ({ 
+              title: p.title, 
+              parameterType: p.parameterType,
+              type: p.type
+            })));
+            
+            // Save the parameters directly - no need to calculate resultDueDate
+            // as it will be filled in when the device is used
+            onParameterSave(parameters);
+          }}
         >
           Sauvegarder les paramètres
         </Button>

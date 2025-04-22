@@ -4,9 +4,14 @@ import { useState } from "react";
 import { NewStepperDialog } from "./components/NewStepperDialog";
 import { DiagnosticStepperDialog } from "./components/DiagnosticStepperDialog";
 import { Building2, ShoppingCart, Stethoscope } from "lucide-react";
+import { useRouter } from "next/router";
+
+// Import the new DiagnosticTable component
+import { DiagnosticTable } from "./components/tables/DiagnosticTable";
 
 export default function DashboardPage() {
   const [selectedAction, setSelectedAction] = useState<"location" | "vente" | "diagnostique" | null>(null);
+  const router = useRouter();
 
   return (
     <div className="min-h-screen bg-white">
@@ -40,16 +45,11 @@ export default function DashboardPage() {
           </Button>
         </div>
 
-        {/* Table Section - Add your table component here */}
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm mt-8">
-          <div className="p-6">
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">Tableau Global</h2>
-            {/* Replace this with your actual table component */}
-            <div className="border border-gray-200 rounded-lg p-4 text-center text-gray-500">
-              Tableau devien ici
-            </div>
-          </div>
-        </div>
+        {/* Diagnostic Operations Table */}
+        <DiagnosticTable 
+          onViewDetails={(id) => router.push(`/roles/admin/diagnostics/${id}`)} 
+          onEnterResults={(id) => router.push(`/roles/admin/diagnostics/${id}/results`)}
+        />
 
         {/* Stepper Dialogs */}
         {selectedAction && selectedAction !== "diagnostique" && (

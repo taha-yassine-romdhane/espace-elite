@@ -38,7 +38,7 @@ export default async function handler(
         password: hashedPassword,
         firstName,
         lastName,
-        role: Role.EMPLOYEE, // Default role as enum
+        role: Role.ADMIN, // Default role as enum
       },
     });
 

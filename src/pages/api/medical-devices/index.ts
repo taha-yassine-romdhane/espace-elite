@@ -45,26 +45,59 @@ export default async function handler(
           })
         ]);
 
+        // Get query parameters
+        const { type = 'all', showReserved = 'true' } = req.query;
+        
+        // Filter medical devices based on type and reservation status
+        let filteredMedicalDevices = medicalDevices;
+        
+        // Filter by device type if specified
+        if (type !== 'all' && type !== '') {
+          filteredMedicalDevices = filteredMedicalDevices.filter(device => device.type === type);
+        }
+        
+        // Filter out reserved devices if showReserved is false
+        if (showReserved === 'false') {
+          const now = new Date();
+          filteredMedicalDevices = filteredMedicalDevices.filter(device => 
+            !device.patientId || 
+            !device.reservedUntil || 
+            new Date(device.reservedUntil) < now
+          );
+        }
+        
         // Transform medical devices
-        const transformedMedicalDevices = medicalDevices.map(device => ({
-          id: device.id,
-          name: device.name,
-          type: device.type,
-          brand: device.brand,
-          model: device.model,
-          serialNumber: device.serialNumber,
-          purchasePrice: device.purchasePrice,
-          sellingPrice: device.sellingPrice,
-          technicalSpecs: device.technicalSpecs,
-          availableForRent: device.availableForRent,
-          requiresMaintenance: device.requiresMaintenance,
-          stockLocation: device.stockLocation,
-          stockLocationId: device.stockLocationId,
-          stockQuantity: device.stockQuantity || 1, // Default to 1 if not specified
-          status: device.status,
-          configuration: device.configuration,
-          installationDate: device.installationDate
-        }));
+        const transformedMedicalDevices = filteredMedicalDevices.map(device => {
+          // Check if device is currently reserved
+          const now = new Date();
+          const isReserved = device.patientId && 
+                            device.reservedUntil && 
+                            new Date(device.reservedUntil) >= now;
+          
+          return {
+            id: device.id,
+            name: device.name,
+            type: device.type,
+            brand: device.brand,
+            model: device.model,
+            serialNumber: device.serialNumber,
+            purchasePrice: device.purchasePrice,
+            sellingPrice: device.sellingPrice,
+            technicalSpecs: device.technicalSpecs,
+            availableForRent: device.availableForRent,
+            requiresMaintenance: device.requiresMaintenance,
+            stockLocation: device.stockLocation,
+            stockLocationId: device.stockLocationId,
+            stockQuantity: device.stockQuantity || 1, // Default to 1 if not specified
+            status: device.status,
+            configuration: device.configuration,
+            installationDate: device.installationDate,
+            patientId: device.patientId,
+            reservedUntil: device.reservedUntil,
+            location: device.location,
+            isReserved: isReserved
+          };
+        });
 
         // Transform products
         const transformedProducts = products.map(product => ({
@@ -88,8 +121,8 @@ export default async function handler(
 
       case 'POST':
         try {
-          const { type, ...data } = req.body;
-          console.log('Received data:', { type, ...data });
+          const { type, parameters, ...data } = req.body;
+          console.log('Received data:', { type, parameters, ...data });
 
           // Handle medical devices
           if (type === 'MEDICAL_DEVICE' || type === 'DIAGNOSTIC_DEVICE') {
@@ -114,6 +147,36 @@ export default async function handler(
                 stockLocation: true
               }
             });
+            
+            // If this is a diagnostic device and has parameters, save them separately
+            if (type === 'DIAGNOSTIC_DEVICE' && parameters && Array.isArray(parameters) && parameters.length > 0) {
+              console.log(`Saving ${parameters.length} parameters for device ID ${newMedicalDevice.id}`);
+              
+              try {
+                // Save parameters using the diagnostic-parameters API
+                const parameterResponse = await fetch(`${process.env.NEXTAUTH_URL}/api/diagnostic-parameters`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    // Include the session cookie to maintain authentication
+                    'Cookie': req.headers.cookie || '',
+                  },
+                  body: JSON.stringify({
+                    deviceId: newMedicalDevice.id,
+                    parameters: parameters
+                  }),
+                });
+                
+                if (!parameterResponse.ok) {
+                  console.error('Failed to save parameters:', await parameterResponse.text());
+                } else {
+                  console.log('Parameters saved successfully via API');
+                }
+              } catch (paramError) {
+                console.error('Error saving parameters via API:', paramError);
+                // Continue execution even if parameter saving fails
+              }
+            }
 
             return res.status(201).json({
               id: newMedicalDevice.id,
@@ -191,7 +254,7 @@ export default async function handler(
         }
 
       case 'PUT':
-        const { id, ...updateData } = req.body;
+        const { id, parameters, ...updateData } = req.body;
 
         // Check if it's a medical device
         const existingMedicalDevice = await prisma.medicalDevice.findUnique({
@@ -220,6 +283,36 @@ export default async function handler(
               stockLocation: true
             }
           });
+          
+          // If this is a diagnostic device and has parameters, update them separately
+          if (existingMedicalDevice.type === 'DIAGNOSTIC_DEVICE' && parameters && Array.isArray(parameters) && parameters.length > 0) {
+            console.log(`Updating ${parameters.length} parameters for device ID ${id}`);
+            
+            try {
+              // Save parameters using the diagnostic-parameters API
+              const parameterResponse = await fetch(`${process.env.NEXTAUTH_URL}/api/diagnostic-parameters`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  // Include the session cookie to maintain authentication
+                  'Cookie': req.headers.cookie || '',
+                },
+                body: JSON.stringify({
+                  deviceId: id,
+                  parameters: parameters
+                }),
+              });
+              
+              if (!parameterResponse.ok) {
+                console.error('Failed to update parameters:', await parameterResponse.text());
+              } else {
+                console.log('Parameters updated successfully via API');
+              }
+            } catch (paramError) {
+              console.error('Error updating parameters via API:', paramError);
+              // Continue execution even if parameter updating fails
+            }
+          }
 
           return res.status(200).json({
             id: updatedMedicalDevice.id,
