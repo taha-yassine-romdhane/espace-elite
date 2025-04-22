@@ -1,0 +1,21 @@
+version: '3.8'
+services:
+  espace-elite-app:
+    build: .
+    container_name: espace-elite-app
+    restart: always
+    ports:
+      - "3001:3001"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+    volumes:
+      - ./:/app
+    networks:
+      - espace-elite-net
+
+networks:
+  espace-elite-net:
+    driver: bridge
