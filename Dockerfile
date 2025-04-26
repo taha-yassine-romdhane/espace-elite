@@ -9,6 +9,9 @@ RUN yarn install --frozen-lockfile --production=false
 # Copy application code
 COPY . .
 
+# Generate Prisma client
+RUN yarn prisma generate
+
 # Build the Next.js app
 RUN yarn build
 
