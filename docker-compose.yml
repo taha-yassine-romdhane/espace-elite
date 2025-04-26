@@ -1,7 +1,11 @@
 version: '3.8'
+
 services:
+  # Next.js application
   espace-elite-app:
-    build: .
+    build: 
+      context: .
+      dockerfile: Dockerfile
     container_name: espace-elite-app
     restart: always
     ports:
@@ -11,10 +15,48 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3001
-    volumes:
-      - ./:/app
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@espace-elite-db:5432/espace_elite
+    depends_on:
+      - espace-elite-db
     networks:
       - espace-elite-net
+
+  # PostgreSQL Database
+  espace-elite-db:
+    image: postgres:14-alpine
+    container_name: espace-elite-db
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=espace_elite
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - espace-elite-net
+
+  # Backup service (optional)
+  backup:
+    image: postgres:14-alpine
+    container_name: espace-elite-backup
+    command: |
+      sh -c 'exec pg_dump -h espace-elite-db -U postgres espace_elite > /backups/espace_elite_`date +"%Y-%m-%d"`.sql'
+    environment:
+      - PGPASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - backup_data:/backups
+    depends_on:
+      - espace-elite-db
+    networks:
+      - espace-elite-net
+
+volumes:
+  postgres_data:
+    name: espace-elite-postgres-data
+  backup_data:
+    name: espace-elite-backups
 
 networks:
   espace-elite-net:
