@@ -28,7 +28,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       include: {
         diagnostic: {
           select: {
-            id: true,
             parameterId: true
           }
         },
@@ -65,38 +64,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           connect: { id: session.user.id },
         },
       },
-      include: {
-        assignedTo: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-        completedBy: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-      },
     });
 
     // If this task is related to a diagnostic parameter, update the notification as well
-    if (task.diagnostic?.id && task.diagnostic.parameterId) {
+    if (task.diagnostic?.parameterId) {
       await prisma.notification.updateMany({
         where: {
           type: 'FOLLOW_UP',
-          relatedId: task.diagnostic?.id,
-          parameterId: task.diagnostic?.parameterId
+          relatedId: task.id,
+          parameterId: task.diagnostic.parameterId,
         },
         data: {
           status: 'READ',
-          readAt: new Date()
-        }
+          readAt: new Date(),
+        },
       });
     }
 
