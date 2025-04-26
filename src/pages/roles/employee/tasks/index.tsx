@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { useSession } from 'next-auth/react';
+import {  useState } from 'react';
+
 import { useQuery } from '@tanstack/react-query';
 import EmployeeLayout from '../EmployeeLayout';
 import {
@@ -22,59 +22,20 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar as  ChevronLeft, ChevronRight } from 'lucide-react';
+import { TaskFormData } from '@/components/tasks/TaskFormDialog';
+import { Task } from '@/types';
 
-interface Task {
-  id: string;
-  title: string;
-  description?: string;
-  status: 'TODO' | 'IN_PROGRESS' | 'COMPLETED';
-  priority: 'LOW' | 'MEDIUM' | 'HIGH';
-  userId: string;
-  startDate: string;
-  endDate: string;
-  assignedTo: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-    role: string;
-  };
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface User {
-  id: string;
-  firstName: string;
-  lastName: string;
-  role: string;
-}
 
 type ViewMode = 'month' | 'week' | 'day';
 
 function TasksPage() {
-  const { data: session } = useSession();
   const { toast } = useToast();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isDayModalOpen, setIsDayModalOpen] = useState(false);
   const [selectedDayDate, setSelectedDayDate] = useState<Date | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('month');
-
-  // Fetch users for filters
-  const { data: users } = useQuery<User[]>({
-    queryKey: ['users'],
-    queryFn: async () => {
-      const response = await fetch('/api/users');
-      if (!response.ok) throw new Error('Failed to fetch users');
-      return response.json();
-    }
-  });
-
-  // Filter users by role
-  const managers = users?.filter(user => user.role === 'MANAGER') || [];
-  const technicians = users?.filter(user => user.role === 'TECHNICIAN') || [];
 
   // Calculate date range based on view mode
   const getDateRange = () => {
@@ -114,7 +75,7 @@ function TasksPage() {
     }
   });
 
-  const handleTaskSubmit = async (data: any) => {
+  const handleTaskSubmit = async (data: TaskFormData) => {
     try {
       const response = await fetch('/api/tasks', {
         method: 'POST',
@@ -137,7 +98,7 @@ function TasksPage() {
       });
 
       refetchTasks();
-    } catch (error) {
+    } catch  {
       toast({
         title: "Erreur",
         description: "Une erreur est survenue lors de la création de la tâche",
@@ -389,7 +350,11 @@ function TasksPage() {
           open={isDayModalOpen}
           onClose={() => setIsDayModalOpen(false)}
           date={selectedDayDate}
-          tasks={getSelectedDayTasks()}
+          tasks={getSelectedDayTasks().map(task => ({
+            ...task,
+            startDate: typeof task.startDate === 'string' ? task.startDate : task.startDate.toISOString(),
+            endDate: typeof task.endDate === 'string' ? task.endDate : task.endDate.toISOString(),
+          }))}
         />
       )}
     </div>

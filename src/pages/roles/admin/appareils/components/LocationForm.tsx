@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
-import { User } from "@prisma/client";
 
 interface LocationFormProps {
   onSuccess?: () => void;
@@ -131,3 +130,5 @@ export function LocationForm({ onSuccess }: LocationFormProps) {
     </div>
   );
 }
+
+export default LocationForm;

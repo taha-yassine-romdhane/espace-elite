@@ -88,7 +88,7 @@ export function ParameterConsumer({
       
       return response.json();
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       // Call the onSubmit callback with updated parameters
       onSubmit(parameters);
     },
@@ -519,3 +519,6 @@ export function ParameterConsumer({
     </div>
   );
 }
+
+export default ParameterConsumer;
+

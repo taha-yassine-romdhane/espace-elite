@@ -25,7 +25,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Separator } from "@/components/ui/separator";
-import { Info, Save } from "lucide-react";
+import { Save } from "lucide-react";
 
 // Form validation schema
 const generalSettingsSchema = z.object({
@@ -76,7 +76,7 @@ export function GeneralSettings() {
           return defaultSettings;
         }
         return await response.json();
-      } catch (error) {
+      } catch {
         // If there's an error, use default settings
         return defaultSettings;
       }
@@ -107,7 +107,7 @@ export function GeneralSettings() {
         }
         
         return await response.json();
-      } catch (error) {
+      } catch  {
         // If the API doesn't exist yet, just simulate success
         return data;
       }
@@ -119,7 +119,7 @@ export function GeneralSettings() {
         description: "Les paramètres généraux ont été mis à jour avec succès",
       });
     },
-    onError: (error) => {
+    onError: () => {
       toast({
         title: "Erreur",
         description: "Une erreur est survenue lors de la mise à jour des paramètres",
@@ -148,16 +148,16 @@ export function GeneralSettings() {
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <div className="space-y-4">
-                <h3 className="text-lg font-medium">Informations de l'entreprise</h3>
+                <h3 className="text-lg font-medium">Informations de l&apos;entreprise</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="companyName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Nom de l'entreprise</FormLabel>
+                        <FormLabel>Nom de l&apos;entreprise</FormLabel>
                         <FormControl>
-                          <Input placeholder="Nom de l'entreprise" {...field} />
+                          <Input placeholder="Nom de l&apos;entreprise" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -355,7 +355,7 @@ export function GeneralSettings() {
                         <div className="space-y-0.5">
                           <FormLabel className="text-base">Mode maintenance</FormLabel>
                           <div className="text-sm text-gray-500">
-                            Activer le mode maintenance pour bloquer l'accès au système
+                            Activer le mode maintenance pour bloquer l&apos;accès au système
                           </div>
                         </div>
                         <FormControl>
@@ -383,3 +383,5 @@ export function GeneralSettings() {
     </div>
   );
 }
+
+export default GeneralSettings;

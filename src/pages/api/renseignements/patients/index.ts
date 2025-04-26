@@ -4,8 +4,6 @@ import { authOptions } from '../../auth/[...nextauth]';
 import { prisma } from '@/lib/prisma';
 import { Affiliation, BeneficiaryType, Prisma } from '@prisma/client';
 import formidable from 'formidable';
-import fs from 'fs/promises';
-import path from 'path';
 
 export const config = {
   api: {
@@ -25,7 +23,7 @@ export default async function handler(
 
   if (req.method === 'POST') {
     const form = formidable({});
-    const [fields, files] = await form.parse(req);
+    const [fields, ] = await form.parse(req);
     const data = Object.fromEntries(
       Object.entries(fields).map(([key, value]) => [key, value?.[0]])
     );
@@ -165,7 +163,7 @@ export default async function handler(
     }
   } else if (req.method === 'PUT') {
     const form = formidable({});
-    const [fields, files] = await form.parse(req);
+    const [fields, ] = await form.parse(req);
     const data = Object.fromEntries(
       Object.entries(fields).map(([key, value]) => [key, value?.[0]])
     );
@@ -215,11 +213,7 @@ export default async function handler(
       }
 
       // Get existing files if this is an update
-      const currentPatient = await prisma.patient.findUnique({
-        where: { id: data.id },
-        include: { files: true }
-      });
-      
+
       // Log all form data fields to see what's being received
       console.log('All form data fields (update):', Object.keys(data));
       console.log('existingFilesData (update):', data.existingFilesData);

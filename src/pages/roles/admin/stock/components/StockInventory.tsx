@@ -96,7 +96,7 @@ export default function StockInventory() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tous les emplacements</SelectItem>
-              {locations?.map((location: any) => (
+              {locations?.map((location: { id: string; name: string }) => (
                 <SelectItem key={location.id} value={location.id}>
                   {location.name}
                 </SelectItem>

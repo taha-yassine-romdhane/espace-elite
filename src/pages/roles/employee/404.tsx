@@ -15,7 +15,7 @@ export default function Custom404() {
       </div>
       <h1 className="text-3xl font-bold text-gray-900 mb-2">Page introuvable</h1>
       <p className="text-gray-600 mb-8 max-w-md">
-        La page que vous recherchez n'existe pas ou n'est pas encore disponible dans l'espace employé.
+        La page que vous recherchez n&apos;existe pas ou n&apos;est pas encore disponible dans l&apos;espace employé.
       </p>
       <div className="flex flex-col sm:flex-row gap-4">
         <Button 

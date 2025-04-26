@@ -118,7 +118,7 @@ export function TransfersHistory({ technicianId }: TransfersHistoryProps) {
           Historique des Transferts de Machines
         </CardTitle>
         <p className="text-sm text-muted-foreground">
-          Suivi des déplacements d'appareils entre différents lieux
+          Suivi des déplacements d&apos;appareils entre différents lieux
         </p>
       </CardHeader>
       <CardContent>
@@ -130,7 +130,7 @@ export function TransfersHistory({ technicianId }: TransfersHistoryProps) {
                 <TableHead>Appareil</TableHead>
                 <TableHead>Numéro de série</TableHead>
                 <TableHead>Lieu de départ</TableHead>
-                <TableHead>Lieu d'arrivée</TableHead>
+                <TableHead>Lieu d&apos;arrivée</TableHead>
                 <TableHead>Raison</TableHead>
               </TableRow>
             </TableHeader>
@@ -156,3 +156,5 @@ export function TransfersHistory({ technicianId }: TransfersHistoryProps) {
     </Card>
   );
 }
+
+export default TransfersHistory;

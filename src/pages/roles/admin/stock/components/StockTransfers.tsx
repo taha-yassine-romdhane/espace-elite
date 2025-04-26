@@ -138,10 +138,10 @@ export default function StockTransfers() {
                   onValueChange={(value) => setFormData({ ...formData, fromLocationId: value })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner l'emplacement source" />
+                    <SelectValue placeholder="Sélectionner l&apos;emplacement source" />
                   </SelectTrigger>
                   <SelectContent>
-                    {locations?.map((location: any) => (
+                    {locations?.map((location: { id: string; name: string }) => (
                       <SelectItem key={location.id} value={location.id}>
                         {location.name}
                       </SelectItem>
@@ -157,14 +157,14 @@ export default function StockTransfers() {
                   onValueChange={(value) => setFormData({ ...formData, toLocationId: value })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner l'emplacement destination" />
+                    <SelectValue placeholder="Sélectionner l&apos;emplacement destination" />
                   </SelectTrigger>
                   <SelectContent>
-                    {locations?.map((location: any) => (
+                    {locations?.map((location: { id: string; name: string }) => (
                       location.id !== formData.fromLocationId && (
                         <SelectItem key={location.id} value={location.id}>
                           {location.name}
-                        </SelectItem>
+                        </SelectItem> 
                       )
                     ))}
                   </SelectContent>
@@ -204,7 +204,7 @@ export default function StockTransfers() {
                 <label className="text-sm font-medium">Nouveau statut (optionnel)</label>
                 <Select
                   value={formData.newStatus}
-                  onValueChange={(value: any) => setFormData({ ...formData, newStatus: value })}
+                  onValueChange={(value: "EN_VENTE" | "RESERVE" | "DEFECTUEUX") => setFormData({ ...formData, newStatus: value })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Sélectionner le nouveau statut" />

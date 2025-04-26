@@ -32,9 +32,9 @@ import { SparePartsTable } from "./components/SparePartsTable";
 import { StockLocationsTable } from "./components/StockLocationsTable";
 import { LocationForm } from "./components/LocationForm";
 import { ParametersViewDialog } from "./components/ParametersViewDialog";
-import { Product, ProductType } from "./types";
+import { Product, ProductType } from "@/types";
 import { PlusCircle } from "lucide-react";
-import { Wrench , Trash2 ,Pencil } from "lucide-react";
+import { Wrench, Trash2, Pencil } from "lucide-react";
 import { RepairForm } from "./components/forms/RepairForm";
 import { RepairHistoryDialog } from "./components/RepairHistoryDialog";
 
@@ -81,7 +81,7 @@ export default function AppareilsPage() {
 
   // Add device mutation
   const addDeviceMutation = useMutation({
-    mutationFn: async (newProduct: any) => {
+    mutationFn: async (newProduct: Product) => {
       const response = await fetch("/api/medical-devices", {
         method: "POST",
         headers: {
@@ -104,7 +104,7 @@ export default function AppareilsPage() {
         description: "L'appareil a été ajouté avec succès",
       });
     },
-    onError: (error) => {
+    onError: () => {
       toast({
         title: "Erreur",
         description: "Une erreur est survenue lors de l'ajout de l'appareil",
@@ -146,14 +146,14 @@ export default function AppareilsPage() {
         return;
       }
       const completeProduct = await response.json();
-      
+
       // Transform numeric values to strings for form
       const formattedProduct = {
         ...completeProduct,
         purchasePrice: completeProduct.purchasePrice?.toString() || "",
         sellingPrice: completeProduct.sellingPrice?.toString() || "",
       };
-      
+
       // If it's a diagnostic device, fetch its parameters
       if (product.type === 'DIAGNOSTIC_DEVICE') {
         try {
@@ -167,7 +167,7 @@ export default function AppareilsPage() {
           // Continue even if parameters fetch fails
         }
       }
-      
+
       setCurrentProduct(formattedProduct);
       setIsEditMode(true);
       setIsOpen(true);
@@ -186,13 +186,13 @@ export default function AppareilsPage() {
       if (isEditMode && currentProduct) {
         // Use the medical-devices endpoint for all device types
         const apiEndpoint = '/api/medical-devices';
-        
+
         console.log(`Updating ${currentProduct.type} with ID ${currentProduct.id} using endpoint: ${apiEndpoint}`);
         console.log('Form data being sent:', JSON.stringify({
           ...data,
           type: currentProduct.type,
         }, null, 2));
-        
+
         // Update existing product
         console.log(`Sending PUT request to ${apiEndpoint}/${currentProduct.id}`);
         const response = await fetch(`${apiEndpoint}/${currentProduct.id}`, {
@@ -205,9 +205,9 @@ export default function AppareilsPage() {
             type: currentProduct.type,
           }),
         });
-        
+
         console.log('Response status:', response.status);
-        
+
         const responseData = await response.json();
         console.log('Response data:', responseData);
 
@@ -308,9 +308,9 @@ export default function AppareilsPage() {
   };
 
   const renderActionButtons = (product: Product) => {
-    const canRepair = product.type === ProductType.MEDICAL_DEVICE || 
-                      product.type === ProductType.DIAGNOSTIC_DEVICE;
-    
+    const canRepair = product.type === ProductType.MEDICAL_DEVICE ||
+      product.type === ProductType.DIAGNOSTIC_DEVICE;
+
     return (
       <div className="flex items-center gap-2">
         <Button
@@ -353,8 +353,8 @@ export default function AppareilsPage() {
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-semibold">Appareils Médicaux</h2>
-              <Dialog 
-                open={isOpen} 
+              <Dialog
+                open={isOpen}
                 onOpenChange={(open) => {
                   if (!open) {
                     setCurrentProduct(null);
@@ -386,9 +386,6 @@ export default function AppareilsPage() {
             </div>
             <MedicalDevicesTable
               products={products || []}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              onRepair={handleRepair}
               onViewHistory={(product) => {
                 setProductToViewHistory(product);
                 setIsHistoryDialogOpen(true);
@@ -401,8 +398,8 @@ export default function AppareilsPage() {
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-semibold">Appareils de Diagnostic</h2>
-              <Dialog 
-                open={isOpen} 
+              <Dialog
+                open={isOpen}
                 onOpenChange={(open) => {
                   if (!open) {
                     setCurrentProduct(null);
@@ -449,8 +446,8 @@ export default function AppareilsPage() {
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-semibold">Accessoires</h2>
-              <Dialog 
-                open={isOpen} 
+              <Dialog
+                open={isOpen}
                 onOpenChange={(open) => {
                   if (!open) {
                     setCurrentProduct(null);
@@ -496,8 +493,8 @@ export default function AppareilsPage() {
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-semibold">Pièces de Rechange</h2>
-              <Dialog 
-                open={isOpen} 
+              <Dialog
+                open={isOpen}
                 onOpenChange={(open) => {
                   if (!open) {
                     setCurrentProduct(null);
@@ -529,8 +526,6 @@ export default function AppareilsPage() {
             </div>
             <SparePartsTable
               products={products || []}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
               onViewHistory={(product) => {
                 setProductToViewHistory(product);
                 setIsHistoryDialogOpen(true);
@@ -559,10 +554,6 @@ export default function AppareilsPage() {
               </Dialog>
             </div>
             <StockLocationsTable
-              onEdit={(location) => {
-                // Handle location edit
-                console.log("Edit location:", location);
-              }}
             />
           </div>
         )}
@@ -572,7 +563,7 @@ export default function AppareilsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Êtes-vous sûr de vouloir supprimer cet appareil ?</AlertDialogTitle>
             <AlertDialogDescription>
-              Cette action ne peut pas être annulée. Cela supprimera définitivement l'appareil
+              Cette action ne peut pas être annulée. Cela supprimera définitivement l&apos;appareil
               {productToDelete && ` "${productToDelete.name}"`}.
             </AlertDialogDescription>
           </AlertDialogHeader>

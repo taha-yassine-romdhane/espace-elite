@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { AlertCircle, Check } from 'lucide-react';
 import SmartInput from '../components/SmartInput';
@@ -6,47 +6,22 @@ import FormSection from '../components/FormSection';
 import LocationPicker from '../components/LocationPicker';
 import axios from 'axios';
 import { debounce } from 'lodash';
+import { Patient } from '@/types';
 
-interface Patient {
-  id: string;
-  nomComplet: string;
-  telephonePrincipale?: string;
-  telephoneSecondaire?: string;
-  adresseComplete?: string;
-  adresseCoordinates?: {
-    lat: number;
-    lng: number;
-  };
-  cin?: string;
-  dateNaissance?: string;
-  antecedant?: string;
-  medecin?: string;
-  medecinNom?: string;
-  technicienResponsable?: string;
-  technicienResponsableNom?: string;
-  taille?: string;
-  poids?: string;
-  cnam?: boolean;
-  beneficiaire?: string;
-  caisseAffiliation?: string;
-  cnamId?: string;
-  descriptionNom?: string;
-  descriptionTelephone?: string;
-  descriptionAdresse?: string;
-  existingFiles?: { url: string; type: string }[];
-  [key: string]: any;
-}
 
 interface PersonalInfoBlockProps {
+  // Use a more flexible form type
+  // eslint-disable-next-line no-unused-vars
   form: UseFormReturn<any>;
-  onInputChange: (e: any) => void;
+  onInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
   validationErrors?: Record<string, string>;
-  onPatientSelect?: (patient: Patient) => void;
+  // eslint-disable-next-line no-unused-vars
+  onPatientSelect?: (patient: any) => void;
 }
 
-export default function PersonalInfoBlock({ 
-  form, 
-  onInputChange, 
+export default function PersonalInfoBlock({
+  form,
+  onInputChange,
   validationErrors = {},
   onPatientSelect
 }: PersonalInfoBlockProps) {
@@ -54,7 +29,7 @@ export default function PersonalInfoBlock({
   const [isSearching, setIsSearching] = useState(false);
   const [showPatientSelector, setShowPatientSelector] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
-  const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
+  const [, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
 
   // Debounced search function
   const searchPatients = debounce(async (name: string) => {
@@ -63,7 +38,7 @@ export default function PersonalInfoBlock({
       setShowPatientSelector(false);
       return;
     }
-    
+
     setIsSearching(true);
     try {
       const response = await axios.get(`/api/renseignements/patients/search?query=${encodeURIComponent(name)}`);
@@ -82,53 +57,61 @@ export default function PersonalInfoBlock({
     const name = e.target.value;
     form.setValue('nomComplet', name);
     onInputChange(e);
-    
+
     // Only search if we don't have a selected patient already
     if (!selectedPatient) {
       searchPatients(name);
     }
   };
 
-  const selectPatient = (patient: Patient) => {
+  const selectPatient = (patient: Patient | null) => {
+    if (!patient) {
+      console.warn('No patient selected');
+      return;
+    }
+
+
     console.log('Selecting patient:', patient);
     setSelectedPatient(patient);
     setShowPatientSelector(false);
-    
+
     // Populate the form with the selected patient's data
     // Start with basic fields
-    form.setValue('nomComplet', patient.nomComplet);
-    form.setValue('telephonePrincipale', patient.telephonePrincipale || '');
-    form.setValue('telephoneSecondaire', patient.telephoneSecondaire || '');
-    form.setValue('adresseComplete', patient.adresseComplete || '');
-    if (patient.adresseCoordinates) {
-      setCoordinates(patient.adresseCoordinates);
+    form.setValue('nomComplet', `${patient.firstName || ''} ${patient.lastName || ''}`);
+    form.setValue('telephonePrincipale', patient.telephone || '');
+    form.setValue('telephoneSecondaire', patient.telephoneTwo || '');
+    form.setValue('adresseComplete', patient.address || '');
+
+    if (patient.addressCoordinates) {
+      setCoordinates(patient.addressCoordinates);
       // Serialize the coordinates to JSON string to prevent [object Object] in form submission
-      form.setValue('adresseCoordinates', JSON.stringify(patient.adresseCoordinates));
+      form.setValue('addressCoordinates', JSON.stringify(patient.addressCoordinates));
     } else {
       setCoordinates(null);
-      form.setValue('adresseCoordinates', null);
+      form.setValue('addressCoordinates', null);
     }
+
     form.setValue('cin', patient.cin || '');
-    form.setValue('dateNaissance', patient.dateNaissance || '');
+    form.setValue('dateNaissance', patient.dateOfBirth ? new Date(patient.dateOfBirth).toISOString().split('T')[0] : '');
     form.setValue('antecedant', patient.antecedant || '');
-    form.setValue('taille', patient.taille || '');
-    form.setValue('poids', patient.poids || '');
-    
+    form.setValue('taille', patient.height ? patient.height.toString() : '');
+    form.setValue('poids', patient.weight ? patient.weight.toString() : '');
+
     // Form descriptions
-    form.setValue('descriptionNom', patient.descriptionNom || '');
-    form.setValue('descriptionTelephone', patient.descriptionTelephone || '');
-    form.setValue('descriptionAdresse', patient.descriptionAdresse || '');
-    
+    form.setValue('descriptionNom', patient.descriptionNumOne || '');
+    form.setValue('descriptionTelephone', patient.descriptionNumTwo || '');
+    form.setValue('descriptionAdresse', '');
+
     // Handle insurance fields
-    form.setValue('cnam', patient.cnam || false);
-    form.setValue('identifiantCNAM', patient.identifiantCNAM || '');
-    form.setValue('beneficiaire', patient.beneficiaire || '');
-    form.setValue('caisseAffiliation', patient.caisseAffiliation || 'CNSS');
-    
+    form.setValue('cnam', !!patient.cnamId);
+    form.setValue('identifiantCNAM', patient.cnamId || '');
+    form.setValue('beneficiaire', patient.beneficiaryType || undefined);
+    form.setValue('caisseAffiliation', patient.affiliation || 'CNSS');
+
     // Handle doctor and technician
-    form.setValue('medecin', patient.medecin || '');
-    form.setValue('technicienResponsable', patient.technicienResponsable || '');
-    
+    form.setValue('medecin', patient.doctorId || '');
+    form.setValue('technicienResponsable', patient.technicianId || '');
+
     // Convert synthetic events to update parent component state
     Object.entries(patient).forEach(([key, value]) => {
       if (value !== null && value !== undefined && key !== 'id' && key !== 'existingFiles') {
@@ -138,25 +121,25 @@ export default function PersonalInfoBlock({
             value: value
           }
         };
-        onInputChange(syntheticEvent as any);
+        onInputChange(syntheticEvent as React.ChangeEvent<HTMLInputElement>);
       }
     });
-    
+
     // If we have existing files, update them separately
-    if (patient.existingFiles && patient.existingFiles.length > 0) {
-      console.log('Setting existing files:', patient.existingFiles);
-      form.setValue('existingFiles', patient.existingFiles);
-      
+    if (patient.files && patient.files.length > 0) {
+      console.log('Setting existing files:', patient.files);
+      form.setValue('existingFiles', patient.files);
+
       // Notify parent about existing files
       const syntheticEvent = {
         target: {
           name: 'existingFiles',
-          value: patient.existingFiles
+          value: patient.files
         }
       };
-      onInputChange(syntheticEvent as any);
+      onInputChange(syntheticEvent as unknown as React.ChangeEvent<HTMLInputElement>);
     }
-    
+
     // Call the optional callback if provided
     if (onPatientSelect) {
       onPatientSelect(patient);
@@ -182,12 +165,16 @@ export default function PersonalInfoBlock({
             onParentChange={handleNameChange}
             required
           />
-          
+
           {selectedPatient && (
             <div className="mt-2 flex items-center gap-2 rounded-md bg-green-50 p-2 text-sm text-green-700">
               <Check size={16} className="text-green-500" />
-              <span>Patient existant sélectionné: {selectedPatient.nomComplet}</span>
-              <button 
+              <span>
+                Patient existant sélectionné: {selectedPatient?.firstName || ''} {selectedPatient?.lastName || ''}
+                {selectedPatient?.cin ? ` - CIN: ${selectedPatient.cin}` : ''}
+                {selectedPatient?.telephone ? ` - Tél: ${selectedPatient.telephone}` : ''}
+              </span>
+              <button
                 onClick={resetPatientSelection}
                 className="ml-auto rounded bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100"
               >
@@ -195,7 +182,7 @@ export default function PersonalInfoBlock({
               </button>
             </div>
           )}
-          
+
           {showPatientSelector && !selectedPatient && (
             <div className="absolute z-10 mt-1 w-full rounded-md border border-gray-200 bg-white shadow-lg">
               <div className="p-2 text-sm text-orange-700 bg-orange-50 rounded-t-md flex items-center gap-2">
@@ -203,20 +190,22 @@ export default function PersonalInfoBlock({
                 <span>Patients existants avec des noms similaires:</span>
               </div>
               <ul className="max-h-60 overflow-auto">
-                {matchingPatients.map((patient) => (
-                  <li 
+                {/* Log matchingPatients for debugging */}
+                {(() => { console.log('matchingPatients:', matchingPatients); return null; })()}
+                {matchingPatients.filter(p => p && p.firstName && p.lastName).map((patient) => (
+                  <li
                     key={patient.id}
                     onClick={() => selectPatient(patient)}
                     className="border-t border-gray-100 p-2 hover:bg-gray-50 cursor-pointer"
                   >
-                    <div className="font-medium">{patient.nomComplet}</div>
-                    {patient.telephonePrincipale && <div className="text-sm text-gray-600">Tél: {patient.telephonePrincipale}</div>}
+                    <div className="font-medium">{`${patient.firstName} ${patient.lastName}`}</div>
+                    {patient.telephone && <div className="text-sm text-gray-600">Tél: {patient.telephone}</div>}
                     {patient.cin && <div className="text-sm text-gray-600">CIN: {patient.cin}</div>}
-                    {patient.dateNaissance && <div className="text-sm text-gray-600">Né(e) le: {new Date(patient.dateNaissance).toLocaleDateString()}</div>}
+                    {patient.dateOfBirth && <div className="text-sm text-gray-600">Né(e) le: {new Date(patient.dateOfBirth).toLocaleDateString()}</div>}
                   </li>
                 ))}
                 <li className="border-t border-gray-100 p-2 bg-gray-50">
-                  <button 
+                  <button
                     onClick={() => setShowPatientSelector(false)}
                     className="w-full rounded bg-white px-2 py-1 text-sm font-medium text-gray-700 hover:bg-gray-100 border border-gray-200"
                   >
@@ -226,7 +215,7 @@ export default function PersonalInfoBlock({
               </ul>
             </div>
           )}
-          
+
           {isSearching && (
             <div className="absolute top-0 right-2 h-full flex items-center">
               <div className="animate-spin h-4 w-4 border-2 border-blue-500 rounded-full border-t-transparent"></div>
@@ -275,6 +264,7 @@ export default function PersonalInfoBlock({
                   value: address
                 }
               };
+              // eslint-disable-next-line no-unused-vars
               onInputChange(syntheticEvent as any);
             }}
             onCoordinatesChange={(coords) => {
@@ -282,9 +272,9 @@ export default function PersonalInfoBlock({
               // Instead of setting raw object, serialize coordinates to JSON string
               // This prevents the [object Object] issue during form submission
               if (coords) {
-                form.setValue('adresseCoordinates', JSON.stringify(coords));
+                form.setValue('addressCoordinates', JSON.stringify(coords));
               } else {
-                form.setValue('adresseCoordinates', null);
+                form.setValue('addressCoordinates', null);
               }
             }}
           />

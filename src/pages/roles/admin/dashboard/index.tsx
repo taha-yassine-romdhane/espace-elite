@@ -1,5 +1,4 @@
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/Card";
 import { useState } from "react";
 import { NewStepperDialog } from "./components/NewStepperDialog";
 import { DiagnosticStepperDialog } from "./components/DiagnosticStepperDialog";

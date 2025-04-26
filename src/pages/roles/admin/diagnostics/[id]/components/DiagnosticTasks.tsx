@@ -1,7 +1,7 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/button";
-import { CheckSquare, Plus, Calendar, Clock, User, AlertCircle, CheckCircle } from "lucide-react";
+import { CheckSquare, Calendar, Clock, User, AlertCircle, CheckCircle } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -123,6 +123,7 @@ export function DiagnosticTasks({ diagnosticId, resultDueDate, patientId }: Diag
         </CardTitle>
         
         <AddTaskButton 
+          onClick={() => {}}
           variant="outline"
           size="sm"
           preselectedPatientId={patientId}
@@ -244,3 +245,5 @@ export function DiagnosticTasks({ diagnosticId, resultDueDate, patientId }: Diag
     </Card>
   );
 }
+
+export default DiagnosticTasks;

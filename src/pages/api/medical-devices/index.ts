@@ -346,16 +346,7 @@ export default async function handler(
             },
           });
 
-          // Update stock
-          const updatedStock = await prisma.stock.updateMany({
-            where: {
-              productId: id,
-              locationId: updateData.stockLocation
-            },
-            data: {
-              quantity: parseInt(updateData.stockQuantity)
-            }
-          });
+    
 
           const stock = await prisma.stock.findFirst({
             where: {

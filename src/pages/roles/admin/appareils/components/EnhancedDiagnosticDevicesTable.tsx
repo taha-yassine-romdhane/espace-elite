@@ -1,29 +1,24 @@
-import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Product, ProductType } from "../types";
+import { Product, ProductType } from "@/types";
 import { History, Sliders } from "lucide-react";
 import { EnhancedTable } from "@/components/ui/enhanced-table";
 
 interface EnhancedDiagnosticDevicesTableProps {
   products: Product[];
-  onEdit: (product: Product) => void;
-  onDelete: (product: Product) => void;
   onViewHistory: (product: Product) => void;
   onViewParameters?: (product: Product) => void;
   renderActionButtons: (product: Product) => React.ReactNode;
 }
 
 export function EnhancedDiagnosticDevicesTable({ 
-  products, 
-  onEdit, 
-  onDelete,
+  products = [], 
   onViewHistory,
   onViewParameters,
   renderActionButtons 
 }: EnhancedDiagnosticDevicesTableProps) {
   // Filter to only show diagnostic devices
-  const diagnosticDevices = products.filter(p => p.type === ProductType.DIAGNOSTIC_DEVICE);
+  const diagnosticDevices = products?.filter(p => p?.type === ProductType.DIAGNOSTIC_DEVICE) || [];
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
@@ -39,11 +34,19 @@ export function EnhancedDiagnosticDevicesTable({
   };
 
   const getLocationName = (device: Product) => {
-    if (!device.stockLocation) return "Non assigné";
+    if (!device?.stockLocation) return "Non assigné";
     return typeof device.stockLocation === 'string' 
       ? device.stockLocation 
       : device.stockLocation.name || "Non assigné";
   };
+
+  if (diagnosticDevices.length === 0) {
+    return (
+      <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
+        <p className="text-gray-500">Aucun appareil de diagnostic trouvé</p>
+      </div>
+    );
+  }
 
   // Define columns for the enhanced table
   const columns = [
@@ -136,3 +139,5 @@ export function EnhancedDiagnosticDevicesTable({
     />
   );
 }
+
+export default EnhancedDiagnosticDevicesTable;

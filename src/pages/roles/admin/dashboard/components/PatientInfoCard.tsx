@@ -1,4 +1,4 @@
-import { User, Phone, Calendar, MapPin, FileText, Heart, Activity } from "lucide-react";
+import { User, Phone, Calendar, MapPin, FileText, Activity } from "lucide-react";
 
 interface PatientInfoCardProps {
   patient: {
@@ -72,3 +72,5 @@ export function PatientInfoCard({ patient }: PatientInfoCardProps) {
     </div>
   );
 }
+
+export default PatientInfoCard;

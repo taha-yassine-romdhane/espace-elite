@@ -128,3 +128,5 @@ export function TechnicianSelector({ onSelect }: TechnicianSelectorProps) {
     </Card>
   );
 }
+
+export default TechnicianSelector;

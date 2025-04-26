@@ -4,18 +4,18 @@ import { UseFormReturn } from 'react-hook-form';
 interface Option {
   id: string;
   name: string;
-  [key: string]: any;
+  [key: string]: string;
 }
 
 interface SearchSelectProps {
   name: string;
   label: string;
-  form: UseFormReturn<any>;
+  form: UseFormReturn<Option>;
   options: Option[];
   placeholder?: string;
   emptyOptionLabel?: string;
   onChange?: (e: React.ChangeEvent<HTMLSelectElement>) => void;
-  onParentChange?: (e: any) => void;
+  onParentChange?: (e: React.ChangeEvent<HTMLSelectElement>) => void;
   required?: boolean;
   className?: string;
 }

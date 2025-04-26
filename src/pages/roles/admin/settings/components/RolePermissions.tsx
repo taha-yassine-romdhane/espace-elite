@@ -15,21 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/use-toast";
 import { Separator } from "@/components/ui/separator";
 import { Info, Shield } from "lucide-react";
-// Define the permission structure
-interface Permission {
-  id: string;
-  name: string;
-  description: string;
-  module: string;
-}
 
-// Define the role structure
-interface Role {
-  id: string;
-  name: string;
-  description: string;
-  permissions: string[]; // Array of permission IDs
-}
 
 // Define modules and their permissions
 const modules = [
@@ -129,7 +115,7 @@ export function RolePermissions() {
   const [hasChanges, setHasChanges] = useState<boolean>(false);
 
   // Fetch role permissions
-  const { data: fetchedRolePermissions, isLoading } = useQuery({
+  const { data: fetchedRolePermissions } = useQuery({
     queryKey: ["role-permissions"],
     queryFn: async () => {
       try {
@@ -139,7 +125,7 @@ export function RolePermissions() {
           return defaultRolePermissions;
         }
         return await response.json();
-      } catch (error) {
+      } catch  {
         // If there's an error, use default permissions
         return defaultRolePermissions;
       }
@@ -170,7 +156,7 @@ export function RolePermissions() {
         }
         
         return await response.json();
-      } catch (error) {
+      } catch  {
         // If the API doesn't exist yet, just simulate success
         return data;
       }
@@ -183,7 +169,7 @@ export function RolePermissions() {
         description: "Les permissions des rôles ont été mises à jour avec succès",
       });
     },
-    onError: (error) => {
+    onError: () => {
       toast({
         title: "Erreur",
         description: "Une erreur est survenue lors de la mise à jour des permissions",
@@ -323,3 +309,5 @@ export function RolePermissions() {
     </div>
   );
 }
+
+export default RolePermissions;

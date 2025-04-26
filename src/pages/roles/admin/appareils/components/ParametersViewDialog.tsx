@@ -4,7 +4,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Product } from "../types";
+import { Product } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { useState, useEffect } from "react";
 import { useToast } from "@/components/ui/use-toast";
@@ -122,3 +122,5 @@ export function ParametersViewDialog({
     </Dialog>
   );
 }
+
+export default ParametersViewDialog;

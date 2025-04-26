@@ -8,27 +8,23 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Product, ProductType } from "../types";
-import { Edit, Trash, History } from "lucide-react";
+import { Product, ProductType } from "@/types";
+import { History, Sliders } from "lucide-react";
 
 interface MedicalDevicesTableProps {
   products: Product[];
-  onEdit: (product: Product) => void;
-  onDelete: (product: Product) => void;
-  onRepair: (product: Product) => void;
   onViewHistory: (product: Product) => void;
+  onViewParameters?: (product: Product) => void;
   renderActionButtons: (product: Product) => React.ReactNode;
 }
 
 export function MedicalDevicesTable({ 
-  products, 
-  onEdit, 
-  onDelete,
-  onRepair,
+  products = [], 
   onViewHistory,
+  onViewParameters,
   renderActionButtons 
 }: MedicalDevicesTableProps) {
-  const medicalDevices = products.filter(p => p.type === ProductType.MEDICAL_DEVICE);
+  const medicalDevices = products?.filter(p => p?.type === ProductType.MEDICAL_DEVICE) || [];
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
@@ -44,43 +40,46 @@ export function MedicalDevicesTable({
   };
 
   const getLocationName = (device: Product) => {
-    if (!device.stockLocation) return "Non assigné";
-    return typeof device.stockLocation === 'string' 
-      ? device.stockLocation 
-      : device.stockLocation.name || "Non assigné";
+    if (!device?.stockLocation) return "Non assigné";
+    return device.stockLocation.name;
   };
 
+  if (medicalDevices.length === 0) {
+    return (
+      <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
+        <p className="text-gray-500">Aucun appareil médical trouvé</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="rounded-md border">
+    <div className="border rounded-lg overflow-hidden">
       <Table>
         <TableHeader>
-          <TableRow className="h-8">
-            <TableHead className="py-1">Nom</TableHead>
-            <TableHead className="py-1">Marque</TableHead>
-            <TableHead className="py-1">Modèle</TableHead>
-            <TableHead className="py-1">N° Série</TableHead>
-            <TableHead className="py-1">Emplacement</TableHead>
-            <TableHead className="py-1">État</TableHead>
-            <TableHead className="py-1">Prix d'achat</TableHead>
-            <TableHead className="py-1">Prix de vente</TableHead>
-            <TableHead className="py-1 text-right">Actions</TableHead>
+          <TableRow>
+            <TableHead>Nom</TableHead>
+            <TableHead>Marque/Modèle</TableHead>
+            <TableHead>Emplacement</TableHead>
+            <TableHead>Statut</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {medicalDevices.map((device) => (
-            <TableRow key={device.id} className="h-8">
-              <TableCell className="py-1">{device.name}</TableCell>
-              <TableCell className="py-1">{device.brand || '-'}</TableCell>
-              <TableCell className="py-1">{device.model || '-'}</TableCell>
-              <TableCell className="py-1">{device.serialNumber || '-'}</TableCell>
-              <TableCell className="py-1">{getLocationName(device)}</TableCell>
-              <TableCell className="py-1">
+            <TableRow key={device.id}>
+              <TableCell className="font-medium">{device.name}</TableCell>
+              <TableCell>
+                <div className="text-sm text-gray-600">
+                  {device.brand && <span>{device.brand}</span>}
+                  {device.model && <span> / {device.model}</span>}
+                </div>
+              </TableCell>
+              <TableCell>{getLocationName(device)}</TableCell>
+              <TableCell>
                 <Badge variant={getStatusBadgeVariant(device.status)}>
                   {device.status}
                 </Badge>
               </TableCell>
-              <TableCell className="py-1">{device.purchasePrice ? `${device.purchasePrice} DT` : '-'}</TableCell>
-              <TableCell className="py-1">{device.sellingPrice ? `${device.sellingPrice} DT` : '-'}</TableCell>
               <TableCell className="py-1 text-right">
                 <Button
                   variant="ghost"
@@ -91,6 +90,17 @@ export function MedicalDevicesTable({
                 >
                   <History className="h-3 w-3" />
                 </Button>
+                {onViewParameters && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onViewParameters(device)}
+                    title="Voir les paramètres"
+                    className="h-6 w-6"
+                  >
+                    <Sliders className="h-3 w-3" />
+                  </Button>
+                )}
                 {renderActionButtons(device)}
               </TableCell>
             </TableRow>
@@ -100,3 +110,5 @@ export function MedicalDevicesTable({
     </div>
   );
 }
+
+export default MedicalDevicesTable;

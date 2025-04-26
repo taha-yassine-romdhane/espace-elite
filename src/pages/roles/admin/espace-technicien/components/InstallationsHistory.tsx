@@ -135,3 +135,5 @@ export function InstallationsHistory({ technicianId }: InstallationsHistoryProps
     </Card>
   );
 }
+
+export default InstallationsHistory;

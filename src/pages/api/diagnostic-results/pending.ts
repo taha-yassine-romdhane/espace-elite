@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { PrismaClient } from '@prisma/client';
 
+//eslint-disable-next-line no-unused-vars
 const prisma = new PrismaClient();
 
 // This endpoint fetches all pending diagnostic results

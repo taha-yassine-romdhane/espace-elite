@@ -192,3 +192,5 @@ export function ProductDialog({ isOpen, onClose, type, onSelect }: ProductDialog
     </Dialog>
   );
 }
+
+export default ProductDialog;

@@ -5,7 +5,7 @@ import * as z from 'zod';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { FileUpload } from '@/components/ui/file-upload';
+import FileManager from './components/FileManager';
 import { useToast } from "@/components/ui/use-toast";
 import {
   Form,
@@ -17,8 +17,7 @@ import {
 } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MapPin } from 'lucide-react';
-import Image from 'next/image';
-import { X } from 'lucide-react';
+import { ExistingFile } from '@/types/forms/PatientFormData';
 
 interface Technician {
   id: string;
@@ -26,7 +25,10 @@ interface Technician {
   role: string;
 }
 
+// Define a type for file data if not already defined in the project
+
 const formSchema = z.object({
+  id: z.string().optional(), // Add ID field for entity identification
   nomSociete: z.string().min(1, "Le nom de la société est requis"),
   telephonePrincipale: z.string().min(8, "Le numéro de téléphone doit contenir au moins 8 chiffres"),
   adresseComplete: z.string().min(1, "L'adresse est requise"),
@@ -36,7 +38,10 @@ const formSchema = z.object({
   descriptionNom: z.string().optional(),
   descriptionTelephone: z.string().optional(),
   descriptionAdresse: z.string().optional(),
-});
+  // Add file fields to the schema
+  files: z.any().optional(),
+  existingFiles: z.any().optional(),
+}).passthrough(); // Allow additional properties
 
 export interface SocieteFormProps {
   formData: {
@@ -49,12 +54,12 @@ export interface SocieteFormProps {
     descriptionNom?: string;
     descriptionTelephone?: string;
     descriptionAdresse?: string;
-    images?: File[];
     files?: File[];
-    existingFiles?: { url: string; type: string }[];
+    existingFiles?: ExistingFile[];
+    id?: string; // Include ID if available for the entity
   };
   onInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
-  onFileChange: (files: File[]) => void;
+  onFileChange: (files: ExistingFile[] | File[]) => void;
   onBack: () => void;
   onNext: () => void;
 }
@@ -62,8 +67,20 @@ export interface SocieteFormProps {
 export default function SocieteForm({ formData, onInputChange, onFileChange, onBack, onNext }: SocieteFormProps) {
   const { toast } = useToast();
   const [technicians, setTechnicians] = useState<Technician[]>([]);
-  const [files, setFiles] = useState<File[]>(formData.images || []);
+  const [existingFiles, setExistingFiles] = useState<ExistingFile[]>(
+    (formData.existingFiles as ExistingFile[]) || []
+  );
 
+  // Initialize existing files from formData and maintain persistence
+  useEffect(() => {
+    if (formData.existingFiles && formData.existingFiles.length > 0) {
+      setExistingFiles(formData.existingFiles);
+      // Also set in form
+      form?.setValue?.('existingFiles', formData.existingFiles);
+    }
+  }, [formData.existingFiles]);
+
+  // eslint-disable-next-line no-unused-vars
   useEffect(() => {
     const fetchTechnicians = async () => {
       try {
@@ -87,6 +104,7 @@ export default function SocieteForm({ formData, onInputChange, onFileChange, onB
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      id: formData.id || '', // Include ID for file association
       nomSociete: formData.nomSociete || '',
       telephonePrincipale: formData.telephonePrincipale || '',
       adresseComplete: formData.adresseComplete || '',
@@ -96,34 +114,35 @@ export default function SocieteForm({ formData, onInputChange, onFileChange, onB
       descriptionNom: formData.descriptionNom || '',
       descriptionTelephone: formData.descriptionTelephone || '',
       descriptionAdresse: formData.descriptionAdresse || '',
+      existingFiles: formData.existingFiles || [],
     },
   });
+  
+  // Debug log to check if ID is available
+  useEffect(() => {
+    console.log('SocieteForm ID:', formData.id);
+  }, [formData.id]);
 
+  // eslint-disable-next-line no-unused-vars
   const onSubmit = useCallback(async (data: z.infer<typeof formSchema>) => {
     try {
+      // Update the parent component with the latest file data
+      onFileChange(existingFiles);
+      
       // Handle form submission
       onNext();
     } catch (error) {
       console.error('Form submission error:', error);
     }
-  }, [onNext]);
-
-  const handleFileChange = (uploadedFiles: File[]) => {
-    console.log('Files selected:', uploadedFiles);
-    setFiles(uploadedFiles);
-    // Update parent component
-    onFileChange(uploadedFiles);
-  };
+  }, [onNext, existingFiles, onFileChange]);
 
   const handleRemoveFile = (fileUrl: string) => {
     // Remove from existing files
     const updatedExistingFiles = formData.existingFiles?.filter(file => file.url !== fileUrl) || [];
+    setExistingFiles(updatedExistingFiles);
     
-    // Update form data
-    const updatedFormData = {
-      ...formData,
-      existingFiles: updatedExistingFiles
-    };
+    // Always store as array in form state
+    form.setValue('existingFiles', updatedExistingFiles);
     
     // Update parent component
     onInputChange({
@@ -131,28 +150,40 @@ export default function SocieteForm({ formData, onInputChange, onFileChange, onB
         name: 'existingFiles',
         value: updatedExistingFiles
       }
-    } as any);
+    } as unknown as React.ChangeEvent<HTMLInputElement>);
   };
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 p-5">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-6">
-            <FormField
-              control={form.control}
-              name="nomSociete"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nom Société</FormLabel>
-                  <FormControl>
-                    <Input {...field} onChange={(e) => {
-                      field.onChange(e);
-                      onInputChange(e);
-                    }} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+        {/* Hidden inputs to pass files data */}
+        <input 
+          type="hidden" 
+          name="existingFilesData" 
+          value={JSON.stringify(existingFiles)} 
+        />
+        <input 
+          type="hidden" 
+          name="existingFiles" 
+          value={JSON.stringify(existingFiles)} 
+        />
+        <div className="space-y-8 p-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-6">
+              <FormField
+                control={form.control}
+                name="nomSociete"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nom Société</FormLabel>
+                    <FormControl>
+                      <Input {...field} onChange={(e) => {
+                        field.onChange(e);
+                        onInputChange(e);
+                      }} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
               )}
             />
 
@@ -315,37 +346,20 @@ export default function SocieteForm({ formData, onInputChange, onFileChange, onB
               <label className="block text-sm font-medium text-gray-700">
                 Documents
               </label>
-              {formData.existingFiles && formData.existingFiles.length > 0 && (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-                  {formData.existingFiles.map((file, index) => (
-                    <div key={index} className="relative group">
-                      <img
-                        src={file.url}
-                        alt={`Document ${index + 1}`}
-                        className="w-full h-32 object-cover rounded-lg"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveFile(file.url)}
-                        className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <FileUpload
-                value={files}
-                onChange={handleFileChange}
+              {/* File Upload Section */}
+              <FileManager 
+                form={form} 
+                existingFiles={existingFiles}
+                onFileChange={setExistingFiles}
+                onRemoveExistingFile={handleRemoveFile}
+                endpoint="documentUploader"
                 maxFiles={5}
-                maxSize={5 * 1024 * 1024} // 5MB
-                accept="image/jpeg,image/png,image/gif,application/pdf"
-                multiple={true}
               />
             </div>
           </div>
         </div>
+      </div>
+        
 
         <div className="flex justify-between mt-8">
           <Button type="button" variant="outline" onClick={onBack}>

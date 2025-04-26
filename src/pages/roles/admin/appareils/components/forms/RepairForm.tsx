@@ -382,7 +382,7 @@ export function RepairForm({ medicalDeviceId, productName, onSuccess }: RepairFo
       </div>
 
       <div>
-        <Label htmlFor="deviceStatus">État de l'appareil après réparation</Label>
+        <Label htmlFor="deviceStatus">État de l&apos;appareil après réparation</Label>
         <Select onValueChange={(value) => setValue("deviceStatus", value)} defaultValue="ACTIVE">
           <SelectTrigger>
             <SelectValue placeholder="Sélectionner l'état" />
@@ -404,3 +404,6 @@ export function RepairForm({ medicalDeviceId, productName, onSuccess }: RepairFo
     </form>
   );
 }
+
+
+export default RepairForm;

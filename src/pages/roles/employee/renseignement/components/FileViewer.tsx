@@ -57,3 +57,5 @@ export function FileViewer({ files, isOpen, onClose }: FileViewerProps) {
     </Dialog>
   );
 }
+
+export default FileViewer;

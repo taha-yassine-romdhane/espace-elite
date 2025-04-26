@@ -159,7 +159,7 @@ export function DiagnosticResultsNotification() {
                 </div>
               </div>
               <div className="text-sm text-gray-700 mb-3">
-                <span className="font-medium">Date d'échéance: </span>
+                <span className="font-medium">Date d&apos;échéance: </span>
                 {new Date(result.dueDate).toLocaleDateString()}
               </div>
               <Button
@@ -223,3 +223,5 @@ export function DiagnosticResultsNotification() {
     </div>
   );
 }
+
+export default DiagnosticResultsNotification;

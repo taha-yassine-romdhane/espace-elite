@@ -82,7 +82,7 @@ export default async function handler(
 
     console.log("Found patients:", JSON.stringify(patients.slice(0, 1), null, 2));
 
-    // Transform the data to match the format expected by the frontend
+    // Return the data in a format that matches our Patient type
     const transformedPatients = patients.map(patient => {
       // For debugging
       console.log(`Patient: ${patient.firstName} ${patient.lastName}`);
@@ -95,34 +95,51 @@ export default async function handler(
         console.log(`Technician details: ${patient.technician.firstName} ${patient.technician.lastName} (${patient.technician.role})`);
       }
 
+      // Return patient data in the format that matches our Patient type
       return {
         id: patient.id,
-        nomComplet: `${patient.firstName} ${patient.lastName}`.trim(),
-        telephonePrincipale: patient.telephone,
-        telephoneSecondaire: patient.telephoneTwo,
-        adresseComplete: patient.address,
+        firstName: patient.firstName,
+        lastName: patient.lastName,
+        telephone: patient.telephone,
+        telephoneTwo: patient.telephoneTwo,
+        address: patient.address,
+        addressCoordinates: null, // We don't have this in the database query
         cin: patient.cin,
-        identifiantCNAM: patient.cnamId,
-        // For technician, use the direct technicianId which references User.id
-        technicienResponsable: patient.technicianId || '',
-        technicienResponsableNom: patient.technician 
-          ? `${patient.technician.firstName} ${patient.technician.lastName}`.trim() 
-          : '',
+        cnamId: patient.cnamId,
+        technicianId: patient.technicianId || '',
+        technician: patient.technician ? {
+          id: patient.technician.id,
+          firstName: patient.technician.firstName,
+          lastName: patient.technician.lastName,
+          role: patient.technician.role
+        } : undefined,
         antecedant: patient.antecedant || '',
-        taille: patient.height ? patient.height.toString() : '',
-        poids: patient.weight ? patient.weight.toString() : '',
-        // For doctor, use doctorId which references Doctor.id
-        medecin: patient.doctorId || '',
-        medecinNom: patient.doctor && patient.doctor.user 
-          ? `${patient.doctor.user.firstName} ${patient.doctor.user.lastName}`.trim() 
-          : '',
-        dateNaissance: patient.dateOfBirth ? patient.dateOfBirth.toISOString().split('T')[0] : '',
-        beneficiaire: patient.beneficiaryType || '',
-        caisseAffiliation: patient.affiliation || 'CNSS',
-        // Convert file paths to format expected by front-end
+        height: patient.height,
+        weight: patient.weight,
+        doctorId: patient.doctorId || '',
+        doctor: patient.doctor && patient.doctor.user ? {
+          id: patient.doctor.id,
+          user: {
+            firstName: patient.doctor.user.firstName,
+            lastName: patient.doctor.user.lastName,
+            role: patient.doctor.user.role
+          }
+        } : undefined,
+        dateOfBirth: patient.dateOfBirth,
+        beneficiaryType: patient.beneficiaryType,
+        affiliation: patient.affiliation,
+        descriptionNumOne: patient.descriptionNumOne,
+        descriptionNumTwo: patient.descriptionNumTwo,
+        // Include files in the expected format
+        files: patient.files ? patient.files.map((file: any) => ({
+          id: file.id || '',
+          url: file.url,
+          type: file.type || 'document'
+        })) : [],
+        // Add these properties for compatibility with the existing code
         existingFiles: patient.files ? patient.files.map((file: any) => ({
           url: file.url,
-          type: file.fileType || 'document'
+          type: file.type || 'document'
         })) : []
       };
     });

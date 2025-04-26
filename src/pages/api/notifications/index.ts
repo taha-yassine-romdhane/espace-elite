@@ -66,7 +66,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               additionalData = parsedMessage;
             }
           }
-        } catch (e) {
+        } catch  {
           // If parsing fails, just use the message as is
         }
         

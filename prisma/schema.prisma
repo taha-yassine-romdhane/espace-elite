@@ -116,20 +116,26 @@ model User {
   patientHistories     PatientHistory[] // Records of actions performed on patients
   userActions          UserActionHistory[] // History of user actions
   performedDiagnostics Diagnostic[]        @relation("PerformedDiagnostics") // User who performed diagnostics
+  completedTasks       Task[]              @relation("CompletedTasks")
 }
 
 model Task {
-  id          String       @id @default(cuid())
-  title       String
-  description String?
-  status      TaskStatus
-  priority    TaskPriority
-  startDate   DateTime     @default(now())
-  endDate     DateTime     @default(now())
-  assignedTo  User         @relation(fields: [userId], references: [id])
-  userId      String
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  id            String       @id @default(cuid())
+  title         String
+  description   String?
+  status        TaskStatus
+  priority      TaskPriority
+  startDate     DateTime     @default(now())
+  endDate       DateTime     @default(now())
+  assignedTo    User         @relation(fields: [userId], references: [id])
+  userId        String
+  completedAt   DateTime? // When task was completed
+  completedBy   User?        @relation("CompletedTasks", fields: [completedById], references: [id])
+  completedById String? // Who completed the task
+  diagnostic    Diagnostic?  @relation(fields: [diagnosticId], references: [id])
+  diagnosticId  String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 }
 
 model StockLocation {
@@ -208,41 +214,41 @@ model Product {
 }
 
 model Patient {
-  id                String           @id @default(cuid())
-  firstName         String
-  lastName          String
-  telephone         String           @unique
-  telephoneTwo      String?
-  descriptionNumOne String?
-  descriptionNumTwo String?
-  affiliation       Affiliation? // Added: CNSS or CNRPS
-  antecedant        String?
-  beneficiaryType   BeneficiaryType? // Added: assureSocial, conjoint, Enfant, ascendant
-  address           String?
-  addressCoordinates Json?    // Store coordinates as {lat: number, lng: number}
-  dateOfBirth       DateTime?
-  cin               String? // CIN
-  cnamId            String? // CNAM ID
-  weight            Float? // Weight in kg
-  height            Float? // Height in meters
-  imc               Float? // Calculated field
-  medicalHistory    String?
-  doctorId          String?
-  doctor            Doctor?          @relation(fields: [doctorId], references: [id])
-  technicianId      String?
-  technician        User?            @relation("TechnicianPatients", fields: [technicianId], references: [id])
-  assignedTo        User             @relation("AssignedPatients", fields: [userId], references: [id])
-  userId            String
-  files             File[]
-  medicalDevices    MedicalDevice[]
-  payments          Payment[]
-  diagnostics       Diagnostic[]
-  appointments      Appointment[]
-  rentals           Rental[]
-  notifications     Notification[]
-  history          PatientHistory[] // History of all operations for this patient
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
+  id                 String           @id @default(cuid())
+  firstName          String
+  lastName           String
+  telephone          String           @unique
+  telephoneTwo       String?
+  descriptionNumOne  String?
+  descriptionNumTwo  String?
+  affiliation        Affiliation? // Added: CNSS or CNRPS
+  antecedant         String?
+  beneficiaryType    BeneficiaryType? // Added: assureSocial, conjoint, Enfant, ascendant
+  address            String?
+  addressCoordinates Json? // Store coordinates as {lat: number, lng: number}
+  dateOfBirth        DateTime?
+  cin                String? // CIN
+  cnamId             String? // CNAM ID
+  weight             Float? // Weight in kg
+  height             Float? // Height in meters
+  imc                Float? // Calculated field
+  medicalHistory     String?
+  doctorId           String?
+  doctor             Doctor?          @relation(fields: [doctorId], references: [id])
+  technicianId       String?
+  technician         User?            @relation("TechnicianPatients", fields: [technicianId], references: [id])
+  assignedTo         User             @relation("AssignedPatients", fields: [userId], references: [id])
+  userId             String
+  files              File[]
+  medicalDevices     MedicalDevice[]
+  payments           Payment[]
+  diagnostics        Diagnostic[]
+  appointments       Appointment[]
+  rentals            Rental[]
+  notifications      Notification[]
+  history            PatientHistory[] // History of all operations for this patient
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
 }
 
 model Company {
@@ -356,6 +362,8 @@ model DiagnosticParameter {
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
   ParameterValue ParameterValue[]
+  Diagnostic     Diagnostic[]
+  Notification   Notification[]
 }
 
 model MedicalDevice {
@@ -396,23 +404,26 @@ model MedicalDevice {
 }
 
 model Diagnostic {
-  id               String           @id @default(cuid())
+  id               String               @id @default(cuid())
   medicalDeviceId  String // The diagnostic device used
-  medicalDevice    MedicalDevice    @relation(fields: [medicalDeviceId], references: [id])
+  medicalDevice    MedicalDevice        @relation(fields: [medicalDeviceId], references: [id])
   patientId        String // The patient being diagnosed
-  patient          Patient          @relation(fields: [patientId], references: [id])
+  patient          Patient              @relation(fields: [patientId], references: [id])
   result           String // Diagnostic result
   notes            String? // Additional notes about the diagnostic
   diagnosticDate   DateTime // Date of the diagnostic
   performedById    String? // The user who performed the diagnostic
-  performedBy      User?             @relation(fields: [performedById], references: [id], name: "PerformedDiagnostics")
-  followUpRequired Boolean          @default(false)
+  performedBy      User?                @relation(fields: [performedById], references: [id], name: "PerformedDiagnostics")
+  followUpRequired Boolean              @default(false)
   followUpDate     DateTime?
+  parameterId      String? // Add this line
+  parameter        DiagnosticParameter? @relation(fields: [parameterId], references: [id])
   parameterValues  ParameterValue[]
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
-  Company          Company?         @relation(fields: [companyId], references: [id])
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  Company          Company?             @relation(fields: [companyId], references: [id])
   companyId        String?
+  Task             Task[]
 }
 
 model Doctor {
@@ -518,19 +529,24 @@ enum NotificationStatus {
   PENDING
   COMPLETED
   DISMISSED
+  READ
 }
 
 model Notification {
-  id        String             @id @default(cuid())
-  title     String
-  message   String
-  type      NotificationType
-  status    NotificationStatus @default(PENDING)
-  dueDate   DateTime?
-  patientId String?
-  patient   Patient?           @relation(fields: [patientId], references: [id])
-  companyId String?
-  company   Company?           @relation(fields: [companyId], references: [id])
-  createdAt DateTime           @default(now())
-  updatedAt DateTime           @updatedAt
+  id          String               @id @default(cuid())
+  title       String
+  message     String
+  type        NotificationType
+  status      NotificationStatus   @default(PENDING)
+  dueDate     DateTime?
+  relatedId   String?
+  parameterId String?
+  parameter   DiagnosticParameter? @relation(fields: [parameterId], references: [id])
+  patientId   String?
+  patient     Patient?             @relation(fields: [patientId], references: [id])
+  companyId   String?
+  company     Company?             @relation(fields: [companyId], references: [id])
+  readAt      DateTime?            // Add this line
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
 }

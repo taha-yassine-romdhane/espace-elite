@@ -5,23 +5,15 @@ import FormSection from '../components/FormSection';
 import UserForm from '../UserForm';
 import { Role } from '@prisma/client';
 import { Plus, X } from 'lucide-react';
-
-interface Doctor {
-  id: string;
-  name: string;
-}
-
-interface Technician {
-  id: string;
-  name: string;
-  role: string;
-}
+import { Doctor } from '@/types/models/Doctor';
+import { Technician } from '@/types/models/Technician';
 
 interface ResponsiblePersonBlockProps {
+  // eslint-disable-next-line no-unused-vars
   form: UseFormReturn<any>;
   doctors: Doctor[];
   technicians: Technician[];
-  onInputChange: (e: any) => void;
+  onInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
 }
 
 export default function ResponsiblePersonBlock({ 
@@ -100,7 +92,7 @@ export default function ResponsiblePersonBlock({
               name="medecin"
               label="Médecin"
               form={form}
-              options={doctors}
+              options={doctors.map(d => ({ id: d.id, name: d.user ? `${d.user.firstName || ''} ${d.user.lastName || ''}` : 'Unknown Doctor' }))}
               emptyOptionLabel="Sélectionnez un médecin"
               onParentChange={onInputChange}
             />
@@ -123,8 +115,8 @@ export default function ResponsiblePersonBlock({
               name="technicienResponsable"
               label="Technicien Responsable"
               form={form}
-              options={technicians}
-              emptyOptionLabel="Sélectionner un technicien"
+              options={technicians.map(t => ({ id: t.id, name: t.user ? `${t.user.firstName || ''} ${t.user.lastName || ''}` : 'Unknown Technician' }))}
+              emptyOptionLabel="Sélectionnez un technicien"
               onParentChange={onInputChange}
             />
           </div>

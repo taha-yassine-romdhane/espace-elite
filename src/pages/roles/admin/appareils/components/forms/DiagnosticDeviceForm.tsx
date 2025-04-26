@@ -25,7 +25,6 @@ import { Switch } from "@/components/ui/switch";
 import { DynamicParameterBuilder } from "./DynamicParameterBuilder";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { CircleAlert, CheckCircle2 } from "lucide-react";
 
 // Define Parameter interface for type safety
 interface Parameter {
@@ -344,7 +343,7 @@ export function DiagnosticDeviceForm({ initialData, onSubmit, stockLocations, is
                           name="purchasePrice"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel className="text-base">Prix d'achat</FormLabel>
+                              <FormLabel className="text-base">Prix d&apos;achat</FormLabel>
                               <FormControl>
                                 <Input type="number" step="0.01" min="0" {...field} value={field.value || ''} className="h-12" />
                               </FormControl>
@@ -557,7 +556,6 @@ export function DiagnosticDeviceForm({ initialData, onSubmit, stockLocations, is
             )}
             
             <DynamicParameterBuilder
-              deviceId={form.getValues('id')}
               onParameterSave={handleParameterSave}
               initialParameters={parameters}
             />  
@@ -567,3 +565,4 @@ export function DiagnosticDeviceForm({ initialData, onSubmit, stockLocations, is
     </div>
   );
 }
+export default DiagnosticDeviceForm;

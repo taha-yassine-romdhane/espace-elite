@@ -8,25 +8,25 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Product, ProductType } from "../types";
-import { History } from "lucide-react";
+import { Product, ProductType } from "@/types";
+import { History, Sliders } from "lucide-react";
 
 interface AccessoriesTableProps {
   products: Product[];
   onEdit: (product: Product) => void;
   onDelete: (product: Product) => void;
   onViewHistory: (product: Product) => void;
+  onViewParameters?: (product: Product) => void;
   renderActionButtons: (product: Product) => React.ReactNode;
 }
 
 export function AccessoriesTable({ 
-  products, 
-  onEdit, 
-  onDelete,
+  products = [], 
   onViewHistory,
+  onViewParameters,
   renderActionButtons 
 }: AccessoriesTableProps) {
-  const accessories = products.filter(p => p.type === ProductType.ACCESSORY);
+  const accessories = products?.filter(p => p?.type === ProductType.ACCESSORY) || [];
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
@@ -63,11 +63,19 @@ export function AccessoriesTable({
   };
 
   const getLocationName = (device: Product) => {
-    if (!device.stockLocation) return "Non assigné";
+    if (!device?.stockLocation) return "Non assigné";
     return typeof device.stockLocation === 'string' 
       ? device.stockLocation 
       : device.stockLocation.name || "Non assigné";
   };
+
+  if (accessories.length === 0) {
+    return (
+      <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
+        <p className="text-gray-500">Aucun accessoire trouvé</p>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-md border">
@@ -80,7 +88,7 @@ export function AccessoriesTable({
             <TableHead className="py-1">N° Série</TableHead>
             <TableHead className="py-1">Emplacement</TableHead>
             <TableHead className="py-1">État</TableHead>
-            <TableHead className="py-1">Prix d'achat</TableHead>
+            <TableHead className="py-1">Prix d&apos;achat</TableHead>
             <TableHead className="py-1">Prix de vente</TableHead>
             <TableHead className="py-1 text-right">Actions</TableHead>
           </TableRow>
@@ -110,6 +118,17 @@ export function AccessoriesTable({
                 >
                   <History className="h-3 w-3" />
                 </Button>
+                {onViewParameters && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onViewParameters(device)}
+                    title="Voir les paramètres"
+                    className="h-6 w-6"
+                  >
+                    <Sliders className="h-3 w-3" />
+                  </Button>
+                )}
                 {renderActionButtons(device)}
               </TableCell>
             </TableRow>
@@ -119,3 +138,5 @@ export function AccessoriesTable({
     </div>
   );
 }
+
+export default AccessoriesTable;

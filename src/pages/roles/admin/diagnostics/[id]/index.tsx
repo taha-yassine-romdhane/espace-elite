@@ -52,7 +52,7 @@ export default function DiagnosticDetailsPage() {
             <h2 className="text-xl font-semibold">Erreur de chargement</h2>
           </div>
           <p className="text-gray-700 mb-4">
-            Une erreur s'est produite lors du chargement des détails du diagnostic.
+            Une erreur s&apos;est produite lors du chargement des détails du diagnostic.
           </p>
           <Button
             variant="outline"
@@ -74,7 +74,7 @@ export default function DiagnosticDetailsPage() {
         <div className="max-w-5xl mx-auto bg-white rounded-lg shadow p-8">
           <h2 className="text-xl font-semibold mb-4">Diagnostic non trouvé</h2>
           <p className="text-gray-700 mb-4">
-            Le diagnostic que vous recherchez n'existe pas ou a été supprimé.
+            Le diagnostic que vous recherchez n&apos;existe pas ou a été supprimé.
           </p>
           <Button
             variant="outline"
@@ -143,7 +143,7 @@ export default function DiagnosticDetailsPage() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 mt-6">
           <Tabs defaultValue="overview" className="w-full">
             <TabsList className="border-b border-gray-200 w-full rounded-none px-6 bg-gray-50">
-              <TabsTrigger value="overview">Vue d'ensemble</TabsTrigger>
+              <TabsTrigger value="overview">Vue d&apos;ensemble</TabsTrigger>
               <TabsTrigger value="parameters">Paramètres et Résultats</TabsTrigger>
               <TabsTrigger value="history">Historique</TabsTrigger>
               <TabsTrigger value="tasks">Tâches</TabsTrigger>
@@ -175,7 +175,7 @@ export default function DiagnosticDetailsPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-6">
-                  <div className="text-gray-500 italic">L'historique n'est pas disponible pour le moment</div>
+                  <div className="text-gray-500 italic">L&apos;historique n&apos;est pas disponible pour le moment</div>
                 </CardContent>
               </Card>
             </TabsContent>

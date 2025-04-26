@@ -204,3 +204,5 @@ export function ProductFormCompany({ onNext, onBack }: ProductFormCompanyProps) 
     </div>
   );
 }
+
+export default ProductFormCompany;

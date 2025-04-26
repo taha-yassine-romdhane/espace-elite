@@ -13,32 +13,32 @@ import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { User } from "@prisma/client";
 
 interface LocationEditFormProps {
-  location: {
-    id: string;
-    name: string;
-    description?: string;
-    userId?: string;
+  location?: {
+    id?: string;
+    name?: string;
+    description?: string | null;
+    userId?: string | null;
   };
   onSuccess?: () => void;
   onCancel?: () => void;
 }
 
-export function LocationEditForm({ location, onSuccess, onCancel }: LocationEditFormProps) {
+export function LocationEditForm({ location = undefined, onSuccess, onCancel }: LocationEditFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
+
   const [formData, setFormData] = useState({
-    name: location.name,
-    description: location.description || "",
-    userId: location.userId || "",
+    name: location?.name || "",
+    description: location?.description || "",
+    userId: location?.userId || "",
   });
 
   // Update form data when location changes
   useEffect(() => {
     setFormData({
-      name: location.name,
-      description: location.description || "",
-      userId: location.userId || "none", // Use 'none' instead of empty string
+      name: location?.name || "",
+      description: location?.description || "",
+      userId: location?.userId || "none", // Use 'none' instead of empty string
     });
   }, [location]);
 
@@ -65,7 +65,7 @@ export function LocationEditForm({ location, onSuccess, onCancel }: LocationEdit
         userId: data.userId === 'none' ? null : data.userId
       };
       
-      const response = await fetch(`/api/stock-locations/${location.id}`, {
+      const response = await fetch(`/api/stock-locations/${location?.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -132,9 +132,9 @@ export function LocationEditForm({ location, onSuccess, onCancel }: LocationEdit
             ) : formattedUsers.length > 0 ? (
               <>
                 <SelectItem value="none">Aucun responsable</SelectItem>
-                {formattedUsers.map((user: any) => (
+                {formattedUsers.map((user: User) => (
                   <SelectItem key={user.id} value={user.id}>
-                    {user.name}
+                    {user.firstName + " " + user.lastName}
                   </SelectItem>
                 ))}
               </>
@@ -160,3 +160,5 @@ export function LocationEditForm({ location, onSuccess, onCancel }: LocationEdit
     </div>
   );
 }
+
+export default LocationEditForm;

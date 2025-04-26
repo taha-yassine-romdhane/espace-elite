@@ -21,8 +21,6 @@ import {
   Settings,
   FileText,
   Clock,
-  CheckCircle,
-  XCircle,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -42,6 +40,8 @@ export function DiagnosticTable({ onViewDetails, onEnterResults }: DiagnosticTab
           throw new Error("Failed to fetch diagnostic operations");
         }
         const data = await response.json();
+        console.log("####", data);
+
         return data.diagnostics || [];
       } catch (error) {
         console.error("Error fetching diagnostic operations:", error);
@@ -54,12 +54,6 @@ export function DiagnosticTable({ onViewDetails, onEnterResults }: DiagnosticTab
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "-";
     return format(new Date(dateString), "PPP", { locale: fr });
-  };
-
-  // Function to check if a date is overdue
-  const isOverdue = (dateString: string | null) => {
-    if (!dateString) return false;
-    return new Date() > new Date(dateString);
   };
 
   // Function to get status badge
@@ -118,10 +112,6 @@ export function DiagnosticTable({ onViewDetails, onEnterResults }: DiagnosticTab
               </TableHeader>
               <TableBody>
                 {diagnosticOperations.map((operation: any) => {
-                  // Calculate if results are overdue
-                  const resultDueDate = operation.resultDueDate ? new Date(operation.resultDueDate) : null;
-                  const isResultOverdue = resultDueDate ? new Date() > resultDueDate : false;
-                  
                   return (
                     <TableRow key={operation.id} className="hover:bg-gray-50">
                       <TableCell>
@@ -182,11 +172,11 @@ export function DiagnosticTable({ onViewDetails, onEnterResults }: DiagnosticTab
                       <TableCell>
                         <div className="flex items-center gap-1">
                           <CalendarIcon className="h-4 w-4 text-gray-500" />
-                          <span className={isResultOverdue ? "text-red-600 font-medium" : ""}>
-                            {resultDueDate ? format(resultDueDate, 'PPP', { locale: fr }) : '-'}
+                          <span className={operation.followUpRequired ? "text-red-600 font-medium" : ""}>
+                            {operation.followUpDate ? format(operation.followUpDate, 'PPP', { locale: fr }) : '-'}
                           </span>
                         </div>
-                        {isResultOverdue && (
+                        {operation.followUpRequired && (
                           <div className="flex items-center text-xs text-red-600 mt-1">
                             <AlertCircle className="h-3 w-3 mr-1" />
                             <span>En retard</span>
@@ -277,7 +267,7 @@ export function DiagnosticTable({ onViewDetails, onEnterResults }: DiagnosticTab
               <Stethoscope className="h-12 w-12 text-gray-400" />
               <h3 className="text-lg font-medium text-gray-900">Aucune opération de diagnostic</h3>
               <p className="max-w-md text-sm text-gray-500">
-                Commencez par créer une nouvelle opération de diagnostic en utilisant le bouton "Commencer un Diagnostic" ci-dessus.
+                Commencez par créer une nouvelle opération de diagnostic en utilisant le bouton &quot;Commencer un Diagnostic&quot; ci-dessus.
               </p>
             </div>
           </div>
@@ -286,3 +276,5 @@ export function DiagnosticTable({ onViewDetails, onEnterResults }: DiagnosticTab
     </div>
   );
 }
+
+export default DiagnosticTable;

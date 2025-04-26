@@ -1,18 +1,14 @@
 import React, { useState } from 'react';
-import { X, FileUp, Upload, CheckCircle2, AlertCircle } from 'lucide-react';
+import { X, FileUp, Upload, AlertCircle } from 'lucide-react';
 import { UseFormReturn } from 'react-hook-form';
-import { UploadButton, UploadDropzone } from "@/utils/uploadthing";
+import { UploadDropzone } from "@/utils/uploadthing";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-
-interface ExistingFile {
-  url: string;
-  type: string;
-  name?: string;
-  id?: string; // Database ID for existing files
-}
+import Image from 'next/image';
+import { ExistingFile } from '@/types/forms/PatientFormData';
 
 interface FileManagerProps {
+  // Use a more flexible form type to ensure compatibility
   form: UseFormReturn<any>;
   existingFiles?: ExistingFile[];
   accept?: string;
@@ -33,7 +29,9 @@ export default function FileManager({
   maxFiles = 5
 }: FileManagerProps) {
   // Add state for entity ID from form
-  const patientId = form.getValues()?.id; // Get patient ID if it exists
+  const formValues = form.getValues();
+  const entityId = formValues?.id; // Get entity ID if it exists
+  const isCompanyForm = formValues?.nomSociete !== undefined; // Check if this is a company form
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -66,31 +64,34 @@ export default function FileManager({
     } else {
       setHasChanges(savedFileUrls.length > 0);
     }
-  }, [existingFiles, savedFileUrls]);
+  }, [entityId, existingFiles, savedFileUrls, initialFileUrls.length]);
 
   // Preserve form values after upload
-  const preserveFormValues = () => {
+  const preserveFormValues = (): void => {
     const currentFormValues = form.getValues();
     setTimeout(() => {
       Object.keys(currentFormValues).forEach(key => {
         if (key !== 'files' && key !== 'images') {
-          form.setValue(key as any, currentFormValues[key as keyof typeof currentFormValues]);
+          // Use string type for the key to avoid keyof type issues
+          form.setValue(key as string, currentFormValues[key]);
         }
       });
     }, 0);
   };
 
   // Handle successful upload
-  const handleUploadComplete = (res: any[]) => {
+  // Accept the actual UploadThing client return type
+  const handleUploadComplete = (res: Array<Record<string, unknown>>): void => {
     if (!res || res.length === 0) return;
     
     console.log('Upload complete response:', res);
     
     // Format the uploaded files to match our ExistingFile interface
     const uploadedFiles: ExistingFile[] = res.map(file => ({
-      url: file.ufsUrl || file.url, // Prefer ufsUrl, fallback to url for compatibility
-      type: file.type || "image/jpeg", // Default to image/jpeg if type is not provided
-      name: file.name
+      url: String((file).ufsUrl || file.url || ''),
+      type: String(file.type || "image/jpeg"),
+      name: String(file.name),
+      id: (typeof file.key === 'string' ? file.key : undefined),
     }));
     
     console.log('Formatted uploaded files:', uploadedFiles);
@@ -105,14 +106,13 @@ export default function FileManager({
     
     // CRITICAL FIX: Update form values in multiple ways to ensure they're saved
     try {
-      // 1. Set as JSON string in the form value
-      const filesJson = JSON.stringify(combinedFiles);
-      console.log('Setting form existingFiles value:', filesJson);
-      form.setValue('existingFiles', filesJson);
+      // 1. Set the existingFiles value directly
+      console.log('Setting form existingFiles value:', combinedFiles);
+      form.setValue('existingFiles', combinedFiles);
       
       // 2. Also update global window object to ensure data persists
       if (typeof window !== 'undefined') {
-        // @ts-ignore - Adding a temporary property to window
+        // @ts-expect-error - Adding a temporary property to window
         window.__PATIENT_FILES = combinedFiles;
       }
       
@@ -120,6 +120,9 @@ export default function FileManager({
       setTimeout(() => {
         const formElement = document.querySelector('form');
         if (formElement) {
+          // Create a JSON string for the hidden inputs
+          const filesJsonString = JSON.stringify(combinedFiles);
+          
           // Create or find hidden input
           let hiddenInput = formElement.querySelector('input[name="existingFilesData"]') as HTMLInputElement;
           if (!hiddenInput) {
@@ -130,7 +133,7 @@ export default function FileManager({
           }
           
           // Set the value and ensure it's properly attached to the input
-          hiddenInput.value = filesJson;
+          hiddenInput.value = filesJsonString;
           
           // Also create a backup input with a different name
           let backupInput = formElement.querySelector('input[name="_uploadedFiles"]') as HTMLInputElement;
@@ -140,9 +143,9 @@ export default function FileManager({
             backupInput.name = '_uploadedFiles';
             formElement.appendChild(backupInput);
           }
-          backupInput.value = filesJson;
+          backupInput.value = filesJsonString;
           
-          console.log('Updated hidden inputs with files data:', filesJson);
+          console.log('Updated hidden inputs with files data:', filesJsonString);
           console.log('Form has hidden inputs:', !!hiddenInput, !!backupInput);
         }
       }, 100);
@@ -225,12 +228,15 @@ export default function FileManager({
     setUploadError(null);
     
     try {
-      // Get patient ID from form values - needed to link files to patient
+      // Get entity ID from form values - needed to link files to patient or company
       const formValues = form.getValues();
       const entityId = formValues.id;
       
+      // Determine if this is a patient or company form
+      const isCompanyForm = formValues.nomSociete !== undefined;
+      
       if (!entityId) {
-        setUploadError('Please save the patient record first before saving files');
+        setUploadError(`Please save the ${isCompanyForm ? 'company' : 'patient'} record first before saving files`);
         setIsSaving(false);
         return;
       }
@@ -238,7 +244,7 @@ export default function FileManager({
       console.log('Saving files directly to database for entity:', entityId);
       console.log('Files to save:', existingFiles);
       
-      // First, delete existing files for this patient from the database
+      // First, delete existing files for this entity from the database
       // This ensures we don't have duplicates
       if (savedFileUrls.length > 0) {
         console.log('Removing existing files before saving new ones');
@@ -248,7 +254,8 @@ export default function FileManager({
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            patientId: entityId,
+            // Use the appropriate ID field based on entity type
+            ...(isCompanyForm ? { companyId: entityId } : { patientId: entityId }),
           }),
         });
         
@@ -265,7 +272,8 @@ export default function FileManager({
         },
         body: JSON.stringify({
           files: existingFiles,
-          patientId: entityId,
+          // Use the appropriate ID field based on entity type
+          ...(isCompanyForm ? { companyId: entityId } : { patientId: entityId }),
         }),
       });
       
@@ -305,7 +313,7 @@ export default function FileManager({
           <button
             type="button"
             onClick={saveFilesToDatabase}
-            disabled={isSaving || !patientId || !hasChanges}
+            disabled={isSaving || !entityId || !hasChanges}
             className={`px-3 py-1 text-xs rounded-md ${isSaving ? 'bg-gray-400' : !hasChanges ? 'bg-gray-500' : 'bg-blue-600'} text-white`}
           >
             {isSaving ? 'Enregistrement...' : !hasChanges ? 'Aucun changement' : 'Enregistrer les fichiers'}
@@ -333,9 +341,11 @@ export default function FileManager({
           {existingFiles.map((file, index) => (
             <div key={index} className="relative group">
               {file.type.startsWith('image/') ? (
-                <img
+                <Image
                   src={file.url}
                   alt={file.name || `Document ${index + 1}`}
+                  width={256}
+                  height={128}
                   className="w-full h-32 object-cover rounded-lg"
                 />
               ) : (
@@ -364,7 +374,7 @@ export default function FileManager({
               endpoint={endpoint}
               onClientUploadComplete={(res) => {
                 if (!res) return;
-                handleUploadComplete(res);
+                handleUploadComplete(res as any);
               }}
               onUploadError={(error: Error) => {
                 handleError(error);
@@ -397,7 +407,7 @@ export default function FileManager({
           <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
             <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-medium text-red-800">Erreur d'upload</p>
+              <p className="text-sm font-medium text-red-800">Erreur d&apos;upload</p>
               <p className="text-xs text-red-700">{uploadError}</p>
             </div>
           </div>

@@ -5,10 +5,10 @@ import PatientForm from '@/components/forms/PatientForm';
 import SocieteForm from '@/components/forms/SocieteForm';
 import { RenseignementTable } from './components/RenseignementTable';
 import { FileViewer } from './components/FileViewer';
-import { z } from 'zod';
 import { BeneficiaryType } from '@prisma/client';
 import { CaisseAffiliation, Renseignement, RenseignementFormData } from '@/types/renseignement';
 import { Building, Filter, Search, User, X } from 'lucide-react';
+import { ExistingFile } from '@/types/forms/PatientFormData';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
@@ -66,7 +66,7 @@ export default function RenseignementPage() {
 
   useEffect(() => {
     fetchRenseignements();
-  }, []);
+  }, [searchQuery, filters]);
 
   // Apply filters and search whenever renseignements, searchQuery, or filters change
   useEffect(() => {
@@ -179,12 +179,26 @@ export default function RenseignementPage() {
     setSearchQuery('');
   };
 
-  const handleFileChange = (files: File[]) => {
-    setFormData(prevFormData => ({
-      ...prevFormData,
-      files: files,
-      images: files
-    }));
+  const handleFileChange = (files: File[] | ExistingFile[]) => {
+    // Type guard to check if we're dealing with File[] or ExistingFile[]
+    const isFileArray = (files: any[]): files is File[] => {
+      return files.length > 0 && 'lastModified' in files[0];
+    };
+
+    if (isFileArray(files)) {
+      // Handle standard File objects (new uploads)
+      setFormData(prevFormData => ({
+        ...prevFormData,
+        files: files,
+        images: files // Only assign File[] to images
+      }));
+    } else {
+      // Handle ExistingFile objects
+      setFormData(prevFormData => ({
+        ...prevFormData,
+        existingFiles: files
+      }));
+    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {

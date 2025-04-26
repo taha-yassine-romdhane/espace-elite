@@ -4,7 +4,9 @@ import UnitInput from '../components/UnitInput';
 import FormSection from '../components/FormSection';
 
 interface BiometricsBlockProps {
+  // eslint-disable-next-line no-unused-vars
   form: UseFormReturn<any>;
+  // eslint-disable-next-line no-unused-vars
   onInputChange: (e: any) => void;
 }
 

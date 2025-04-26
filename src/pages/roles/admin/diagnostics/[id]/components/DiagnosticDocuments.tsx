@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/button";
-import { FileUp, File, Download, Trash2, AlertCircle, FileText, Image, FileArchive } from "lucide-react";
+import { FileUp, File, Download, Trash2, FileText, Image, FileArchive } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -14,7 +14,7 @@ interface DiagnosticDocumentsProps {
 }
 
 export function DiagnosticDocuments({ documents, diagnosticId }: DiagnosticDocumentsProps) {
-  const [isUploading, setIsUploading] = useState(false);
+  const [, setIsUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const queryClient = useQueryClient();
@@ -291,3 +291,5 @@ export function DiagnosticDocuments({ documents, diagnosticId }: DiagnosticDocum
     </Card>
   );
 }
+
+export default DiagnosticDocuments;

@@ -33,11 +33,9 @@ interface StockLocation {
   isActive: boolean;
 }
 
-interface StockLocationsTableProps {
-  onEdit: (location: StockLocation) => void;
-}
 
-export function StockLocationsTable({ onEdit }: StockLocationsTableProps) {
+
+export function StockLocationsTable() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [editingLocation, setEditingLocation] = useState<StockLocation | null>(null);
@@ -165,9 +163,9 @@ export function StockLocationsTable({ onEdit }: StockLocationsTableProps) {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Modifier l'emplacement</DialogTitle>
+            <DialogTitle>Modifier l&apos;emplacement</DialogTitle>
             <DialogDescription>
-              Modifiez les détails de l'emplacement ci-dessous.
+              Modifiez les détails de l&apos;emplacement ci-dessous.
             </DialogDescription>
           </DialogHeader>
           {editingLocation && (
@@ -186,7 +184,7 @@ export function StockLocationsTable({ onEdit }: StockLocationsTableProps) {
           <DialogHeader>
             <DialogTitle>Confirmer la suppression</DialogTitle>
             <DialogDescription>
-              Êtes-vous sûr de vouloir supprimer l'emplacement "{locationToDelete?.name}" ?
+              Êtes-vous sûr de vouloir supprimer l&apos;emplacement &quot;{locationToDelete?.name}&quot; ?
               Cette action ne peut pas être annulée.
             </DialogDescription>
           </DialogHeader>
@@ -207,3 +205,5 @@ export function StockLocationsTable({ onEdit }: StockLocationsTableProps) {
     </div>
   );
 }
+
+export default StockLocationsTable;

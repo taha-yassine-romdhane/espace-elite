@@ -122,3 +122,5 @@ export function DiagnosticHistory({ history, patientHistory }: DiagnosticHistory
     </Card>
   );
 }
+
+export default DiagnosticHistory;

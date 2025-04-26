@@ -1,13 +1,13 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Settings2, FileText } from "lucide-react";
+import { Settings2, FileText, Loader2 } from "lucide-react";
 import { DataTable } from "@/components/ui/data-table";
 import { Renseignement } from '@/types/renseignement';
 
@@ -19,16 +19,18 @@ interface RenseignementTableProps {
   onEdit: (item: Renseignement) => void;
   onDelete: (ids: string[]) => void;
   onViewFiles: (files: { url: string; type: string }[]) => void;
+  isLoading?: boolean;
 }
 
-export function RenseignementTable({
-  data,
-  selectedItems,
-  onSelect,
-  onSelectAll,
-  onEdit,
-  onDelete,
-  onViewFiles,
+function RenseignementTable({
+  data = [], // Default to empty array for SSR
+  selectedItems = [], // Default for SSR
+  onSelect = () => {}, // Default noop function for SSR
+  onSelectAll = () => {}, // Default noop function for SSR
+  onEdit = () => {}, // Default noop function for SSR
+  onDelete = () => {}, // Default noop function for SSR
+  onViewFiles = () => {}, // Default noop function for SSR
+  isLoading = false // Default for SSR
 }: RenseignementTableProps) {
   const columns = [
     {
@@ -200,6 +202,23 @@ export function RenseignementTable({
     },
   ];
 
+  // Add this check for server-side rendering or when data is not yet loaded
+  if (!data || data.length === 0) {
+    return (
+      <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
+        <p className="text-gray-500">Aucune donnée disponible</p>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="h-4 w-4 animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <DataTable
       columns={columns}
@@ -207,3 +226,7 @@ export function RenseignementTable({
     />
   );
 }
+
+// This makes the component safe for both direct import and standalone rendering
+export { RenseignementTable };
+export default RenseignementTable;

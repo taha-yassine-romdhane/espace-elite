@@ -10,10 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Mail, Phone, MessageCircle, FileText, Video, Search, BookOpen, HelpCircle, Users, Package, Calendar, Activity, Headphones, ExternalLink, ChevronRight } from 'lucide-react';
-import AdminLayout from "../AdminLayout";
-import Head from "next/head";
+import { Mail, Phone, MessageCircle, Search, BookOpen, HelpCircle, Users, Package, Calendar, Activity, Headphones, ExternalLink } from 'lucide-react';
+
 
 const HelpPage = () => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -185,7 +183,7 @@ const HelpPage = () => {
             <div className="container mx-auto py-8 px-4 max-w-7xl">
                 {/* Hero Section */}
                 <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-xl p-8 mb-10 text-white">
-                    <h1 className="text-3xl font-bold mb-4">Centre d'Aide et de Support</h1>
+                    <h1 className="text-3xl font-bold mb-4">Centre d&apos;Aide et de Support</h1>
                     <p className="text-blue-100 mb-6 max-w-2xl">Trouvez rapidement des réponses à vos questions et accédez à notre support technique pour vous aider à utiliser efficacement la plateforme Elite Santé.</p>
                     
                     {/* Search Bar */}
@@ -193,7 +191,7 @@ const HelpPage = () => {
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-blue-300" size={20} />
                         <Input 
                             type="text" 
-                            placeholder="Rechercher dans le centre d'aide..." 
+                            placeholder="Rechercher dans le centre d&apos;aide..." 
                             className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-blue-200 focus:bg-white/20"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}

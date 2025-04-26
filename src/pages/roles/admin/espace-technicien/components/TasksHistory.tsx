@@ -206,3 +206,5 @@ export function TasksHistory({ technicianId }: TasksHistoryProps) {
     </div>
   );
 }
+
+export default TasksHistory;

@@ -7,6 +7,11 @@ interface AddTaskButtonProps extends ButtonProps {
   showIcon?: boolean;
   variant?: 'default' | 'outline' | 'secondary';
   size?: 'default' | 'sm' | 'lg' | 'icon';
+  preselectedPatientId?: string | null;
+  preselectedDueDate?: string | null;
+  diagnosticId?: string;
+  onTaskCreated?: () => void;
+  className?: string;
 }
 
 export function AddTaskButton({

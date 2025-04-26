@@ -19,13 +19,13 @@ interface ProductCardProps {
 export function ProductCard({ product, index, onRemove, onConfigure }: ProductCardProps) {
   // Helper function to determine if parameters are configured
   const isParametersConfigured = (product: any) => {
-    if (!product.parameters || product.parameters.length === 0) {
+    if (!product?.parameters || product.parameters.length === 0) {
       return false;
     }
     
     // Check if all required parameters have values
     return product.parameters.every((param: any) => {
-      if (param.required) {
+      if (param?.required) {
         if (param.parameterType === 'NUMERIC' || param.parameterType === 'TEXT') {
           return param.value !== undefined && param.value !== null && param.value !== '';
         } else if (param.parameterType === 'BOOLEAN') {
@@ -41,9 +41,8 @@ export function ProductCard({ product, index, onRemove, onConfigure }: ProductCa
     });
   };
 
-  // Determine parameter status
   const renderParameterStatus = () => {
-    if (!product.parameters) {
+    if (!product?.parameters) {
       return (
         <div className="flex items-center text-yellow-600 text-sm mt-1">
           <CircleAlert className="h-4 w-4 mr-1" />
@@ -72,46 +71,54 @@ export function ProductCard({ product, index, onRemove, onConfigure }: ProductCa
   };
 
   return (
-    <Card className={cn(
-      "p-4 border border-gray-200 transition-colors",
-      isParametersConfigured(product) ? "bg-green-50" : "bg-yellow-50"
-    )}>
-      <div className="flex justify-between items-start">
-        <div className="flex-1">
-          <div className="flex items-center">
-            <Activity className="h-5 w-5 text-blue-900 mr-2" />
-            <h3 className="font-medium text-gray-900">{product.name}</h3>
+    <Card className="mb-3">
+      <div className="p-4">
+        <div className="flex justify-between items-start">
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <Activity className="h-4 w-4 text-blue-600" />
+              <h3 className="font-medium">{product?.name || 'Produit sans nom'}</h3>
+            </div>
+            
+            {product?.brand && (
+              <p className="text-sm text-gray-600 mt-1">
+                Marque: {product.brand}
+              </p>
+            )}
+            
+            {product?.model && (
+              <p className="text-sm text-gray-600">
+                Modèle: {product.model}
+              </p>
+            )}
+            
+            {renderParameterStatus()}
           </div>
           
-          <div className="text-sm text-gray-500 ml-7">
-            {product.brand} {product.model}
-            {product.serialNumber && ` • N°${product.serialNumber}`}
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 px-2"
+              onClick={() => onConfigure(index)}
+            >
+              <Sliders className="h-4 w-4 mr-1" />
+              <span>Configurer</span>
+            </Button>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 px-2 border-red-200 text-red-600 hover:bg-red-50"
+              onClick={() => onRemove(index)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
           </div>
-          
-          {renderParameterStatus()}
-        </div>
-        
-        <div className="flex space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 px-2"
-            onClick={() => onConfigure(index)}
-          >
-            <Sliders className="h-4 w-4 mr-1" />
-            <span>Configurer</span>
-          </Button>
-          
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 px-2 border-red-200 text-red-600 hover:bg-red-50"
-            onClick={() => onRemove(index)}
-          >
-            <X className="h-4 w-4" />
-          </Button>
         </div>
       </div>
     </Card>
   );
 }
+
+export default ProductCard;

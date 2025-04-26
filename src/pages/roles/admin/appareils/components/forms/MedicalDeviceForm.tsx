@@ -197,7 +197,7 @@ export function MedicalDeviceForm({ initialData, onSubmit, stockLocations, isEdi
                     name="purchasePrice"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Prix d'Achat</FormLabel>
+                        <FormLabel>Prix d&apos;Achat</FormLabel>
                         <FormControl>
                           <Input type="number" step="0.01" min="0" {...field}value={field.value || ''} />
                         </FormControl>
@@ -341,3 +341,5 @@ export function MedicalDeviceForm({ initialData, onSubmit, stockLocations, isEdi
     </Form>
   );
 }
+
+export default MedicalDeviceForm;

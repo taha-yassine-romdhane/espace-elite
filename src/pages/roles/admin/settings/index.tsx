@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UserManagement } from "./components/UserManagement";
 import { RolePermissions } from "./components/RolePermissions";
 import { GeneralSettings } from "./components/GeneralSettings";

@@ -193,7 +193,7 @@ export function AccessoryForm({ initialData, onSubmit, stockLocations, isEditMod
                     name="purchasePrice"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Prix d'Achat</FormLabel>
+                        <FormLabel>Prix d&apos;Achat</FormLabel>
                         <FormControl>
                           <Input type="number" min="0" step="0.01" {...field} value={field.value ?? ''} />
                         </FormControl>
@@ -228,3 +228,4 @@ export function AccessoryForm({ initialData, onSubmit, stockLocations, isEditMod
     </Form>
   );
 }
+export default AccessoryForm;

@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
+import { PrismaClient, ProductType } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!prisma) {
@@ -10,9 +11,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     // CREATE product
     if (req.method === 'POST') {
-      const { name, model, brand, serialNumber, purchasePrice, sellingPrice, stockLocationId, quantity = 1 } = req.body;
+      const { name, model, brand, serialNumber, type, purchasePrice, sellingPrice, stockLocationId, quantity = 1 } = req.body;
 
-      if (!name || !model || !brand) {
+      if (!name || !model || !brand || !type) {
         return res.status(400).json({ error: 'Missing required fields' });
       }
 
@@ -22,8 +23,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           model,
           brand,
           serialNumber,
-          purchasePrice: purchasePrice ? new Prisma.Decimal(purchasePrice) : null,
-          sellingPrice: sellingPrice ? new Prisma.Decimal(sellingPrice) : null,
+          type,
+          purchasePrice: purchasePrice ? Number(purchasePrice) : null,
+          sellingPrice: sellingPrice ? Number(sellingPrice) : null,
           // Create the initial stock entry if stockLocationId is provided
           stocks: stockLocationId ? {
             create: {
@@ -54,7 +56,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       
       const products = await prisma.product.findMany({
         where: type ? {
-          type: type
+          type: { equals: type as ProductType }
         } : {},
         include: {
           stocks: {
@@ -98,17 +100,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       // First update the product
-      const updatedProduct = await prisma.product.update({
-        where: { id },
-        data: {
-          name,
-          model,
-          brand,
-          serialNumber,
-          purchasePrice: purchasePrice ? new Prisma.Decimal(purchasePrice) : null,
-          sellingPrice: sellingPrice ? new Prisma.Decimal(sellingPrice) : null,
-        }
-      });
 
       // Then handle stock location update if provided
       if (stockLocationId) {

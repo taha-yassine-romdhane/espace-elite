@@ -14,7 +14,7 @@ export function DeviceInformation({ device }: DeviceInformationProps) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Information de l'Appareil</CardTitle>
+          <CardTitle className="text-lg">Information de l&apos;Appareil</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-gray-500 italic">Information appareil non disponible</div>
@@ -37,7 +37,7 @@ export function DeviceInformation({ device }: DeviceInformationProps) {
       <CardHeader className="bg-gray-50 border-b border-gray-100">
         <CardTitle className="text-lg flex items-center gap-2">
           <Stethoscope className="h-5 w-5 text-blue-600" />
-          Information de l'Appareil
+          Information de l&apos;Appareil
         </CardTitle>
       </CardHeader>
       <CardContent className="p-6">
@@ -65,7 +65,7 @@ export function DeviceInformation({ device }: DeviceInformationProps) {
               
               {isReserved && (
                 <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">
-                  Réservé jusqu'au {formatDate(device.reservedUntil)}
+                  Réservé jusqu&apos;au {formatDate(device.reservedUntil)}
                 </Badge>
               )}
             </div>
@@ -98,7 +98,7 @@ export function DeviceInformation({ device }: DeviceInformationProps) {
               <div className="flex items-start gap-2">
                 <Calendar className="h-4 w-4 text-gray-500 mt-0.5" />
                 <div>
-                  <div className="text-sm text-gray-500">Date d'achat</div>
+                  <div className="text-sm text-gray-500">Date d&apos;achat</div>
                   <div className="font-medium">{formatDate(device.purchaseDate)}</div>
                 </div>
               </div>
@@ -129,3 +129,5 @@ export function DeviceInformation({ device }: DeviceInformationProps) {
     </Card>
   );
 }
+
+export default DeviceInformation;

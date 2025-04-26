@@ -214,7 +214,7 @@ export function SparePartForm({ initialData, onSubmit, stockLocations, isEditMod
                     name="purchasePrice"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Prix d'Achat</FormLabel>
+                        <FormLabel>Prix d&apos;Achat</FormLabel>
                         <FormControl>
                           <Input type="number" step="0.01" min="0" {...field} value={field.value || ''} />
                         </FormControl>
@@ -257,3 +257,5 @@ export function SparePartForm({ initialData, onSubmit, stockLocations, isEditMod
     </Form>
   );
 }
+
+export default SparePartForm;

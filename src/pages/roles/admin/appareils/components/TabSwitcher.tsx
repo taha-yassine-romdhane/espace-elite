@@ -18,3 +18,5 @@ export function TabSwitcher({ activeTab, onTabChange }: TabSwitcherProps) {
     </Tabs>
   )
 }
+
+export default TabSwitcher;

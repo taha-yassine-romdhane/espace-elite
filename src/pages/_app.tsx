@@ -8,11 +8,12 @@ import { NextPage } from 'next';
 import { ReactElement, ReactNode } from 'react';
 import SEO from '@/components/layout/SEO';
 import Head from 'next/head';
+import { Session } from 'next-auth';
 
 const queryClient = new QueryClient();
 
 // Add layout support
-export type NextPageWithLayout<P = {}, IP = P> = NextPage<P, IP> & {
+export type NextPageWithLayout<P = {session: Session}, IP = P> = NextPage<P, IP> & {
   getLayout?: (page: ReactElement) => ReactNode;
 };
 

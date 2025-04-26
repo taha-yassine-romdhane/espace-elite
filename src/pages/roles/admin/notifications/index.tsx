@@ -67,7 +67,7 @@ export default function NotificationsPage() {
   // Fetch notifications
   useEffect(() => {
     fetchNotifications();
-  }, [activeTab]);
+  }, [activeTab ]);
 
   const fetchNotifications = async () => {
     setIsLoading(true);
@@ -512,7 +512,7 @@ export default function NotificationsPage() {
                       <span className="font-medium">Patient:</span> {(notification as DiagnosticResultNotification).patientName}
                     </div>
                     <div className="text-sm">
-                      <span className="font-medium">Date d'échéance:</span> {new Date((notification as DiagnosticResultNotification).dueDate).toLocaleDateString()}
+                      <span className="font-medium">Date d&apos;échéance:</span> {new Date((notification as DiagnosticResultNotification).dueDate).toLocaleDateString()}
                     </div>
                   </>
                 )}
@@ -523,7 +523,7 @@ export default function NotificationsPage() {
                       <span className="font-medium">Assigné à:</span> {(notification as TaskNotification).assigneeName || 'Non assigné'}
                     </div>
                     <div className="text-sm">
-                      <span className="font-medium">Date d'échéance:</span> {new Date((notification as TaskNotification).dueDate).toLocaleDateString()}
+                      <span className="font-medium">Date d&apos;échéance:</span> {new Date((notification as TaskNotification).dueDate).toLocaleDateString()}
                     </div>
                   </>
                 )}

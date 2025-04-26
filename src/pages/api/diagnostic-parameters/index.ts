@@ -7,6 +7,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const { deviceId, parameters } = req.body;
       
       // Debug log to see what parameter types are being received
+      // eslint-disable-next-line no-unused-vars
       console.log('Received parameters with types:', parameters.map((p: any) => ({
         title: p.title,
         parameterType: p.parameterType
@@ -41,6 +42,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
 
       // Then create the new parameters
+      // eslint-disable-next-line no-unused-vars
       const parameterPromises = parameters.map(async (param: any) => {
         // Ensure parameterType is explicitly set and not lost
         const parameterType = param.parameterType || 'PARAMETER';

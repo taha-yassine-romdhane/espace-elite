@@ -8,25 +8,23 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Product, ProductType } from "../types";
-import { History } from "lucide-react";
+import { Product, ProductType } from "@/types";
+import { History, Sliders } from "lucide-react";
 
 interface SparePartsTableProps {
   products: Product[];
-  onEdit: (product: Product) => void;
-  onDelete: (product: Product) => void;
   onViewHistory: (product: Product) => void;
+  onViewParameters?: (product: Product) => void;
   renderActionButtons: (product: Product) => React.ReactNode;
 }
 
 export function SparePartsTable({ 
-  products, 
-  onEdit, 
-  onDelete,
+  products = [], 
   onViewHistory,
+  onViewParameters,
   renderActionButtons 
 }: SparePartsTableProps) {
-  const spareParts = products.filter(p => p.type === ProductType.SPARE_PART);
+  const spareParts = products?.filter(p => p?.type === ProductType.SPARE_PART) || [];
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
@@ -63,11 +61,19 @@ export function SparePartsTable({
   };
 
   const getLocationName = (part: Product) => {
-    if (!part.stockLocation) return "Non assigné";
+    if (!part?.stockLocation) return "Non assigné";
     return typeof part.stockLocation === 'string' 
       ? part.stockLocation 
       : part.stockLocation.name || "Non assigné";
   };
+
+  if (spareParts.length === 0) {
+    return (
+      <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
+        <p className="text-gray-500">Aucune pièce détachée trouvée</p>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-md border p-4">
@@ -79,7 +85,7 @@ export function SparePartsTable({
             <TableHead className="py-1">Modèle</TableHead>
             <TableHead className="py-1">Emplacement</TableHead>
             <TableHead className="py-1">État</TableHead>
-            <TableHead className="py-1">Prix d'achat</TableHead>
+            <TableHead className="py-1">Prix d&apos;achat</TableHead>
             <TableHead className="py-1">Prix de vente</TableHead>
             <TableHead className="py-1 text-right">Actions</TableHead>
           </TableRow>
@@ -108,6 +114,17 @@ export function SparePartsTable({
                 >
                   <History className="h-3 w-3" />
                 </Button>
+                {onViewParameters && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onViewParameters(part)}
+                    title="Voir les paramètres"
+                    className="h-6 w-6"
+                  >
+                    <Sliders className="h-3 w-3" />
+                  </Button>
+                )}
                 {renderActionButtons(part)}
               </TableCell>
             </TableRow>
@@ -117,3 +134,5 @@ export function SparePartsTable({
     </div>
   );
 }
+
+export default SparePartsTable;

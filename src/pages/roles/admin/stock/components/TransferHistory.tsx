@@ -90,9 +90,9 @@ export default function TransferHistory() {
     if (!status) return null;
     switch (status) {
       case 'EN_VENTE':
-        return <Badge variant="success">En vente</Badge>;
+        return <Badge variant="default">En vente</Badge>;
       case 'RESERVE':
-        return <Badge variant="warning">Réservé</Badge>;
+        return <Badge variant="secondary">Réservé</Badge>;
       case 'DEFECTUEUX':
         return <Badge variant="destructive">Défectueux</Badge>;
       default:
@@ -118,7 +118,7 @@ export default function TransferHistory() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tous les emplacements</SelectItem>
-              {locations?.map((location: any) => (
+              {locations?.map((location: { id: string; name: string }) => (
                 <SelectItem key={location.id} value={location.id}>
                   {location.name}
                 </SelectItem>
@@ -187,10 +187,10 @@ export default function TransferHistory() {
                     <Badge variant="secondary">En attente</Badge>
                   )}
                   {transfer.sentBy && !transfer.receivedBy && (
-                    <Badge variant="warning">Envoyé</Badge>
+                    <Badge variant="default">Envoyé</Badge>
                   )}
                   {transfer.sentBy && transfer.receivedBy && (
-                    <Badge variant="success">Reçu</Badge>
+                    <Badge variant="default">Reçu</Badge>
                   )}
                 </TableCell>
               </TableRow>

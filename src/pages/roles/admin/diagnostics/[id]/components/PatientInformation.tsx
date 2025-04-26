@@ -1,11 +1,12 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { User, Phone, Mail, MapPin, Calendar } from "lucide-react";
+import { User, Phone, MapPin, Calendar } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { Patient } from "@/types";
 
 interface PatientInformationProps {
-  patient: any;
+  patient: Patient;
 }
 
 export function PatientInformation({ patient }: PatientInformationProps) {
@@ -60,7 +61,7 @@ export function PatientInformation({ patient }: PatientInformationProps) {
             {patient.dateOfBirth && (
               <div className="flex items-center gap-1 text-gray-600 mt-1">
                 <Calendar className="h-4 w-4" />
-                <span>{formatDate(patient.dateOfBirth)} ({calculateAge(patient.dateOfBirth)})</span>
+                <span>{formatDate(patient.dateOfBirth.toISOString())} ({calculateAge(patient.dateOfBirth.toISOString())})</span>
               </div>
             )}
           </div>
@@ -76,16 +77,6 @@ export function PatientInformation({ patient }: PatientInformationProps) {
               </div>
             )}
             
-            {patient.email && (
-              <div className="flex items-start gap-2">
-                <Mail className="h-4 w-4 text-gray-500 mt-0.5" />
-                <div>
-                  <div className="text-sm text-gray-500">Email</div>
-                  <div className="font-medium break-all">{patient.email}</div>
-                </div>
-              </div>
-            )}
-            
             {patient.address && (
               <div className="flex items-start gap-2">
                 <MapPin className="h-4 w-4 text-gray-500 mt-0.5" />
@@ -97,14 +88,10 @@ export function PatientInformation({ patient }: PatientInformationProps) {
             )}
           </div>
 
-          {patient.medicalInfo && (
-            <div className="mt-4 pt-4 border-t border-gray-100">
-              <h4 className="font-medium text-gray-900 mb-2">Informations médicales</h4>
-              <p className="text-gray-700 text-sm whitespace-pre-wrap">{patient.medicalInfo}</p>
-            </div>
-          )}
         </div>
       </CardContent>
     </Card>
   );
 }
+
+export default PatientInformation;

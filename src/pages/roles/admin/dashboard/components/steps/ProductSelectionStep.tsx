@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 interface ProductSelectionStepProps {
   onSelectProduct: (type: "medical-device" | "accessory" | "spare-part" | "diagnostic") => void;
   onCreateProduct: (type: "medical-device" | "accessory" | "spare-part" | "diagnostic") => void;
-  selectedProducts: any[];
+  selectedProducts?: any[];
   onRemoveProduct: (index: number) => void;
   onBack: () => void;
   onNext: () => void;
@@ -25,7 +25,7 @@ interface ProductSelectionStepProps {
 export function ProductSelectionStep({
   onSelectProduct,
   onCreateProduct,
-  selectedProducts,
+  selectedProducts = [],
   onRemoveProduct,
   onBack,
   onNext,
@@ -106,7 +106,7 @@ export function ProductSelectionStep({
       </div>
 
       {/* Selected Products */}
-      {selectedProducts.length > 0 && (
+      {selectedProducts?.length > 0 && (
         <div className="mt-6 space-y-3">
           <h3 className="text-base font-medium text-[#1e3a8a]">Produits Sélectionnés</h3>
           <div className="space-y-2">
@@ -153,7 +153,7 @@ export function ProductSelectionStep({
         <Button
           size="sm"
           onClick={onNext}
-          disabled={selectedProducts.length === 0}
+          disabled={selectedProducts?.length === 0}
           className={cn(
             "bg-[#1e3a8a] hover:bg-[#1e3a8a]/90 text-white",
             "flex items-center gap-2 h-9 px-4",
@@ -167,3 +167,5 @@ export function ProductSelectionStep({
     </div>
   );
 }
+
+export default ProductSelectionStep;

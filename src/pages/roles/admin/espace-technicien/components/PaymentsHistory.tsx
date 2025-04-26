@@ -163,3 +163,5 @@ export function PaymentsHistory({ technicianId }: PaymentsHistoryProps) {
     </Card>
   );
 }
+
+export default PaymentsHistory;

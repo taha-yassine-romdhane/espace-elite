@@ -31,7 +31,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           ...(search ? {
             OR: [
               { product: { name: { contains: search as string, mode: 'insensitive' } } },
-              { product: { reference: { contains: search as string, mode: 'insensitive' } } },
             ]
           } : {})
         },
@@ -49,7 +48,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           product: {
             select: {
               name: true,
-              reference: true,
             }
           },
           transferredBy: {
@@ -108,24 +106,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         });
 
         // 3. Update or create destination location stock
-        const destStock = await tx.stock.upsert({
-          where: {
-            locationId_productId: {
-              locationId: toLocationId,
-              productId,
-            }
-          },
-          create: {
-            locationId: toLocationId,
-            productId,
-            quantity,
-            status: newStatus || sourceStock.status,
-          },
-          update: {
-            quantity: { increment: quantity },
-            ...(newStatus ? { status: newStatus } : {})
-          }
-        });
+        //        const destStock = await tx.stock.upsert({
+        //          where: {
+        //            locationId_productId: {
+        //              locationId: toLocationId,
+        //              productId,
+        //            }
+        //          },
+        //          create: {
+        //            locationId: toLocationId,
+        //            productId,
+        //            quantity,
+        //            status: newStatus || sourceStock.status,
+        //          },
+        //          update: {
+        //            quantity: { increment: quantity },
+        //            ...(newStatus ? { status: newStatus } : {})
+        //          }
+        //        });
 
         // 4. Create transfer record
         const transfer = await tx.stockTransfer.create({
@@ -157,9 +155,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(201).json(transfer);
     } catch (error: any) {
       console.error('Error creating transfer:', error);
-      return res.status(500).json({ 
+      return res.status(500).json({
         error: 'Failed to create transfer',
-        message: error.message 
+        message: error.message
       });
     }
   }

@@ -9,7 +9,7 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
 
   // List of public paths that don't need authentication or sidebar

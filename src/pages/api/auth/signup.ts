@@ -43,11 +43,11 @@ export default async function handler(
     });
 
     // Remove password from response
+    // eslint-disable-next-line no-unused-vars
     const { password: _, ...userWithoutPassword } = user;
 
     return res.status(201).json(userWithoutPassword);
-  } catch (error: any) {
-    console.error('Signup error:', error);
+  } catch {
     return res.status(500).json({ message: 'Internal server error' });
   }
 }

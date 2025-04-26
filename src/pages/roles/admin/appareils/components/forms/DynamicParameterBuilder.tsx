@@ -15,7 +15,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { PlusCircle, X } from "lucide-react";
@@ -37,13 +36,11 @@ interface Parameter {
 }
 
 interface DynamicParameterBuilderProps {
-  deviceId?: string;
   onParameterSave: (parameters: Parameter[]) => void;
   initialParameters?: Parameter[];
 }
 
 export function DynamicParameterBuilder({
-  deviceId,
   onParameterSave,
   initialParameters = []
 }: DynamicParameterBuilderProps) {
@@ -375,3 +372,5 @@ export function DynamicParameterBuilder({
     </div>
   );
 }
+
+export default DynamicParameterBuilder;

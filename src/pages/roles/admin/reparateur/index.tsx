@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -36,7 +35,6 @@ type Location = {
 };
 
 export default function RepairLocations() {
-  const { data: session } = useSession();
   const [locations, setLocations] = useState<Location[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -60,7 +58,7 @@ export default function RepairLocations() {
       if (!response.ok) throw new Error('Failed to fetch locations');
       const data = await response.json();
       setLocations(data);
-    } catch (error) {
+    } catch {
       toast({
         title: 'Erreur',
         description: 'Impossible de charger les réparateurs',
@@ -90,7 +88,7 @@ export default function RepairLocations() {
         title: 'Succès',
         description: 'Réparateur ajouté avec succès',
       });
-    } catch (error) {
+    } catch {
       toast({
         title: 'Erreur',
         description: 'Échec de l\'ajout du réparateur',
@@ -127,7 +125,7 @@ export default function RepairLocations() {
         title: 'Succès',
         description: 'Réparateur modifié avec succès',
       });
-    } catch (error) {
+    } catch {
       toast({
         title: 'Erreur',
         description: 'Échec de la modification du réparateur',
@@ -153,7 +151,7 @@ export default function RepairLocations() {
         title: 'Succès',
         description: 'Réparateur supprimé avec succès',
       });
-    } catch (error) {
+    } catch {
       toast({
         title: 'Erreur',
         description: 'Échec de la suppression du réparateur',

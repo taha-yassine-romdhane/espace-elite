@@ -9,8 +9,8 @@ interface StepperFormProps {
   action: "location" | "vente" | "diagnostique";
 }
 
-export function StepperForm({ action }: StepperFormProps) {
-  const [currentStep, setCurrentStep] = useState(1);
+export function StepperForm({  }: StepperFormProps) {
+  const [, setCurrentStep] = useState(1);
   const [clientType, setClientType] = useState<"patient" | "societe" | null>(null);
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
 
@@ -110,3 +110,5 @@ export function StepperForm({ action }: StepperFormProps) {
     </Card>
   );
 }
+
+export default StepperForm;

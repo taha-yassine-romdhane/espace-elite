@@ -12,7 +12,7 @@ import { DataTable } from "@/components/ui/data-table";
 import { Renseignement } from '@/types/renseignement';
 
 interface RenseignementTableProps {
-  data: Renseignement[];
+  data?: Renseignement[];
   selectedItems: string[];
   onSelect: (id: string) => void;
   onSelectAll: (checked: boolean) => void;
@@ -22,7 +22,7 @@ interface RenseignementTableProps {
 }
 
 export function RenseignementTable({
-  data,
+  data = [],
   selectedItems,
   onSelect,
   onSelectAll,
@@ -200,6 +200,14 @@ export function RenseignementTable({
     },
   ];
 
+  if (!data || data.length === 0) {
+    return (
+      <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
+        <p className="text-gray-500">Aucune donnée disponible</p>
+      </div>
+    );
+  }
+
   return (
     <DataTable
       columns={columns}
@@ -207,3 +215,5 @@ export function RenseignementTable({
     />
   );
 }
+
+export default RenseignementTable;

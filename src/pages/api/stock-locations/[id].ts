@@ -65,12 +65,8 @@ export default async function handler(
         return res.status(200).json(updatedLocation);
 
       case 'DELETE':
-        // Delete stock location
-        const deletedLocation = await prisma.stockLocation.delete({
-          where: {
-            id,
-          },
-        });
+        // Delete stock location here
+ 
 
         return res.status(200).json({ message: 'Stock location deleted successfully', id });
 

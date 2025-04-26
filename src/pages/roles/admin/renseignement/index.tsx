@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ExistingFile } from '@/types/forms/PatientFormData';
 
 export default function RenseignementPage() {
   const { toast } = useToast();
@@ -49,7 +50,7 @@ export default function RenseignementPage() {
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [showFilesDialog, setShowFilesDialog] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
-  
+
   // Search and filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState({
@@ -58,17 +59,17 @@ export default function RenseignementPage() {
     type: 'all'
   });
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
-  const [availableDoctors, setAvailableDoctors] = useState<{id: string, name: string}[]>([]);
-  const [availableTechnicians, setAvailableTechnicians] = useState<{id: string, name: string}[]>([]);
+  const [availableDoctors, setAvailableDoctors] = useState<{ id: string, name: string }[]>([]);
+  const [availableTechnicians, setAvailableTechnicians] = useState<{ id: string, name: string }[]>([]);
 
   useEffect(() => {
     fetchRenseignements();
-  }, []);
+  }, [filters]);
 
   // Apply filters and search whenever renseignements, searchQuery, or filters change
   useEffect(() => {
     applyFiltersAndSearch();
-  }, [renseignements, searchQuery, filters]);
+  }, [renseignements, searchQuery, filters, activeFilters, availableDoctors, availableTechnicians]);
 
   // Extract unique doctors and technicians from renseignements
   useEffect(() => {
@@ -76,17 +77,17 @@ export default function RenseignementPage() {
       const doctors = renseignements
         .filter(item => item.doctor)
         .map(item => item.doctor!)
-        .filter((doctor, index, self) => 
+        .filter((doctor, index, self) =>
           index === self.findIndex(d => d.id === doctor.id)
         );
-      
+
       const technicians = renseignements
         .filter(item => item.technician)
         .map(item => item.technician!)
-        .filter((technician, index, self) => 
+        .filter((technician, index, self) =>
           index === self.findIndex(t => t.id === technician.id)
         );
-      
+
       setAvailableDoctors(doctors);
       setAvailableTechnicians(technicians);
     }
@@ -94,38 +95,38 @@ export default function RenseignementPage() {
 
   const applyFiltersAndSearch = () => {
     let filtered = [...renseignements];
-    
+
     // Apply search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter(item => 
-        item.nom.toLowerCase().includes(query) || 
+      filtered = filtered.filter(item =>
+        item.nom.toLowerCase().includes(query) ||
         item.telephone.toLowerCase().includes(query) ||
         (item.adresse && item.adresse.toLowerCase().includes(query)) ||
         (item.type === 'Patient' && item.cin && item.cin.toLowerCase().includes(query)) ||
         (item.type === 'Société' && item.matriculeFiscale && item.matriculeFiscale.toLowerCase().includes(query))
       );
     }
-    
+
     // Apply doctor filter
     if (filters.doctor && filters.doctor !== 'all') {
-      filtered = filtered.filter(item => 
+      filtered = filtered.filter(item =>
         item.doctor && item.doctor.id === filters.doctor
       );
     }
-    
+
     // Apply technician filter
     if (filters.technician && filters.technician !== 'all') {
-      filtered = filtered.filter(item => 
+      filtered = filtered.filter(item =>
         item.technician && item.technician.id === filters.technician
       );
     }
-    
+
     // Apply type filter
     if (filters.type && filters.type !== 'all') {
       filtered = filtered.filter(item => item.type === filters.type);
     }
-    
+
     // Update active filters for display
     const newActiveFilters: string[] = [];
     if (filters.doctor && filters.doctor !== 'all') {
@@ -139,7 +140,7 @@ export default function RenseignementPage() {
     if (filters.type && filters.type !== 'all') {
       newActiveFilters.push(`Type: ${filters.type}`);
     }
-    
+
     setActiveFilters(newActiveFilters);
     setFilteredRenseignements(filtered);
   };
@@ -157,7 +158,7 @@ export default function RenseignementPage() {
 
   const clearFilter = (filter: string) => {
     const filterKey = filter.split(':')[0].trim().toLowerCase();
-    
+
     if (filterKey === 'dr') {
       setFilters(prev => ({ ...prev, doctor: 'all' }));
     } else if (filterKey === 'tech') {
@@ -176,12 +177,26 @@ export default function RenseignementPage() {
     setSearchQuery('');
   };
 
-  const handleFileChange = (files: File[]) => {
-    setFormData(prevFormData => ({
-      ...prevFormData,
-      files: files,
-      images: files
-    }));
+  const handleFileChange = (files: File[] | ExistingFile[]) => {
+    // Type guard to check if we're dealing with File[] or ExistingFile[]
+    const isFileArray = (files: any[]): files is File[] => {
+      return files.length > 0 && 'lastModified' in files[0];
+    };
+
+    if (isFileArray(files)) {
+      // Handle standard File objects (new uploads)
+      setFormData(prevFormData => ({
+        ...prevFormData,
+        files: files,
+        images: files // Only assign File[] to images
+      }));
+    } else {
+      // Handle ExistingFile objects
+      setFormData(prevFormData => ({
+        ...prevFormData,
+        existingFiles: files
+      }));
+    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -224,7 +239,7 @@ export default function RenseignementPage() {
         files: [],
         existingFiles: item.files || [],
       };
-      
+
       console.log('Setting société form data:', formData);
       setFormData(formData);
     } else {
@@ -256,7 +271,7 @@ export default function RenseignementPage() {
         files: [],
         existingFiles: item.files || []
       };
-      
+
       console.log('Patient data from API:', item);
       console.log('Transformed form data:', formData);
       setFormData(formData);
@@ -281,7 +296,7 @@ export default function RenseignementPage() {
 
       // Remove the deleted item from the state
       setRenseignements(prev => prev.filter(item => !ids.includes(item.id)));
-      
+
       toast({
         title: "Supprimé avec succès",
         description: `${itemToDelete.type} a été supprimé avec succès.`,
@@ -359,13 +374,13 @@ export default function RenseignementPage() {
   const handleSubmit = async () => {
     try {
       // Determine which endpoint to use based on the type
-      const endpoint = formData.type === 'Patient' 
+      const endpoint = formData.type === 'Patient'
         ? '/api/renseignements/patients'
         : '/api/renseignements/companies';
-      
+
       // Create FormData instance for file upload
       const formDataObj = new FormData();
-      
+
       // Add all form fields
       Object.entries(formData).forEach(([key, value]) => {
         if (value !== undefined && value !== null && key !== 'files' && key !== 'images' && key !== 'existingFiles') {
@@ -452,7 +467,7 @@ export default function RenseignementPage() {
               Supprimer sélectionnés
             </Button>
           )}
-          <Button 
+          <Button
             onClick={() => {
               resetForm();
               setFormData(prev => ({ ...prev, type: 'Patient' }));
@@ -463,7 +478,7 @@ export default function RenseignementPage() {
             <User className="mr-2 h-4 w-4" />
             Ajouter Patient
           </Button>
-          <Button 
+          <Button
             onClick={() => {
               resetForm();
               setFormData(prev => ({ ...prev, type: 'Société' }));
@@ -514,7 +529,7 @@ export default function RenseignementPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                
+
                 <div className="space-y-2">
                   <h4 className="font-medium">Médecin responsable</h4>
                   <Select
@@ -534,7 +549,7 @@ export default function RenseignementPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                
+
                 <div className="space-y-2">
                   <h4 className="font-medium">Technicien responsable</h4>
                   <Select
@@ -554,7 +569,7 @@ export default function RenseignementPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                
+
                 <div className="flex justify-end">
                   <Button variant="outline" size="sm" onClick={clearAllFilters}>
                     Réinitialiser
@@ -564,11 +579,11 @@ export default function RenseignementPage() {
             </PopoverContent>
           </Popover>
         </div>
-        
+
         <div className="flex flex-wrap gap-2">
           {activeFilters.map(filter => (
             <Badge key={filter} variant="secondary" className="cursor-pointer flex items-center gap-1">
-              {filter} 
+              {filter}
               <X className="h-3 w-3" onClick={() => clearFilter(filter)} />
             </Badge>
           ))}
@@ -594,25 +609,25 @@ export default function RenseignementPage() {
         <div className="fixed inset-0 flex items-center justify-center z-50">
           {/* Modal backdrop with blur effect */}
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsOpen(false)}></div>
-          
+
           {/* Modal container */}
           <div className="relative bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col m-4">
             {/* Modal header */}
             <div className="flex justify-between items-center border-b border-gray-200 p-4 bg-gray-50">
               <h3 className="text-lg font-medium">
-                {isEdit 
+                {isEdit
                   ? `Modifier ${formData.type === 'Patient' ? 'un patient' : 'une société'}`
                   : `Ajouter ${formData.type === 'Patient' ? 'un patient' : 'une société'}`
                 }
               </h3>
-              <button 
+              <button
                 onClick={() => setIsOpen(false)}
                 className="text-gray-500 hover:text-gray-700 focus:outline-none"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
-            
+
             {/* Modal content - direct container for the form */}
             <div className="flex-1 overflow-auto">
               {formData.type === 'Patient' ? (

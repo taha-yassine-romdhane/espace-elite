@@ -10,6 +10,7 @@ import PatientForm from "../../../../../../components/forms/PatientForm";
 import SocieteForm from "../../../../../../components/forms/SocieteForm";
 import { BeneficiaryType } from "@/types";
 import { cn } from "@/lib/utils";
+import { ExistingFile } from "@/types/forms/PatientFormData";
 
 interface ClientSelectionStepProps {
   onNext: () => void;
@@ -19,7 +20,6 @@ interface ClientSelectionStepProps {
   clientType: "patient" | "societe" | null;
   selectedClient: string | null;
   clients: any[];
-  isLoading: boolean;
   error: string | null;
   action: "location" | "vente" | "diagnostique" | null;
 }
@@ -32,7 +32,6 @@ export function ClientSelectionStep({
   clientType,
   selectedClient,
   clients,
-  isLoading,
   error,
   action,
 }: ClientSelectionStepProps) {
@@ -83,15 +82,25 @@ export function ClientSelectionStep({
     setSocieteFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handlePatientFileChange = (files: File[]) => {
+  const handlePatientFileChange = (files: File[] | ExistingFile[]) => {
     if (files && files.length > 0) {
+      // Set the first file as the image regardless of type
       setPatientFormData(prev => ({ ...prev, img: files[0] }));
     }
   };
 
-  const handleSocieteFileChange = (files: File[]) => {
+  const handleSocieteFileChange = (files: File[] | ExistingFile[]) => {
     if (files && files.length > 0) {
-      setSocieteFormData(prev => ({ ...prev, img: files[0] }));
+      // Type guard to check if we're dealing with File[] or ExistingFile[]
+      const isExistingFile = (file: any): file is ExistingFile => {
+        return 'url' in file;
+      };
+
+      // Set the first file as the image regardless of type
+      setSocieteFormData(prev => ({ 
+        ...prev, 
+        img: files[0] 
+      }));
     }
   };
 
@@ -202,7 +211,7 @@ export function ClientSelectionStep({
             </RadioGroup>
           </div>
         ) : (
-          // For location and diagnostic, just show a message indicating patient selection
+          // For location , just show a message indicating patient selection
           <div>
             <Label className="text-base font-semibold text-[#1e3a8a]">Type de Client</Label>
             <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
@@ -363,3 +372,5 @@ export function ClientSelectionStep({
     </>
   );
 }
+
+export default ClientSelectionStep;

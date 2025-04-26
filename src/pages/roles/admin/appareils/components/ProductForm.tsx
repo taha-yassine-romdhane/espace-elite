@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,7 +11,6 @@ import {
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -23,7 +21,6 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/Card";
-import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 
 // Form validation schema
@@ -144,7 +141,7 @@ export function ProductForm({ initialData, onSubmit, stockLocations, isEditMode 
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Nom*</FormLabel>
+                      <FormLabel>Nom</FormLabel>
                       <FormControl>
                         <Input {...field} />
                       </FormControl>
@@ -158,7 +155,7 @@ export function ProductForm({ initialData, onSubmit, stockLocations, isEditMode 
                   name="type"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Type de Produit*</FormLabel>
+                      <FormLabel>Type de Produit</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger>
@@ -302,7 +299,7 @@ export function ProductForm({ initialData, onSubmit, stockLocations, isEditMode 
                         name="alertThreshold"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Seuil d'Alerte</FormLabel>
+                            <FormLabel>Seuil d&apos;Alerte</FormLabel>
                             <FormControl>
                               <Input type="number" min="0" {...field} value={field.value || ""} />
                             </FormControl>
@@ -326,7 +323,7 @@ export function ProductForm({ initialData, onSubmit, stockLocations, isEditMode 
                     name="purchasePrice"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Prix d'Achat</FormLabel>
+                        <FormLabel>Prix d&apos;Achat</FormLabel>
                         <FormControl>
                           <Input type="number" step="0.01" min="0" {...field} value={field.value || ""} />
                         </FormControl>
@@ -509,3 +506,5 @@ export function ProductForm({ initialData, onSubmit, stockLocations, isEditMode 
     </Form>
   );
 }
+
+export default ProductForm;

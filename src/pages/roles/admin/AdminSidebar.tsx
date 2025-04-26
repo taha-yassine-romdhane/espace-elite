@@ -31,7 +31,7 @@ type MenuItem = {
 
 const Sidebar: React.FC = () => {
     const router = useRouter();
-    const { data: session } = useSession();
+    const { } = useSession();
     const [isExpanded, setIsExpanded] = useState(false);
     
     // Store sidebar state in localStorage

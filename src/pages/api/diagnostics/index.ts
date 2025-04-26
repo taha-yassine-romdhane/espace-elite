@@ -98,7 +98,6 @@ export default async function handler(
       
       // Parse form data
       const clientId = fields.clientId?.[0] || '';
-      const clientType = fields.clientType?.[0] || 'patient';
       const products = JSON.parse(fields.products?.[0] || '[]');
       const followUpDate = fields.followUpDate?.[0] ? new Date(fields.followUpDate[0]) : null;
       const notes = fields.notes?.[0] || '';

@@ -100,7 +100,7 @@ export function ProductFormPatient({ onNext, onBack }: ProductFormPatientProps) 
         {selectedProducts.accessoires.map((product, index) => (
           <Card key={index} className="p-4">
             <div>
-              <Label>Nom de l'accessoire</Label>
+              <Label>Nom de l&apos;accessoire</Label>
               <Input value={product.name} readOnly />
             </div>
           </Card>
@@ -138,7 +138,7 @@ export function ProductFormPatient({ onNext, onBack }: ProductFormPatientProps) 
         {selectedProducts.diagnostique.map((product, index) => (
           <Card key={index} className="p-4">
             <div>
-              <Label>Nom de l'appareil</Label>
+              <Label>Nom de l&apos;appareil</Label>
               <Input value={product.name} readOnly />
             </div>
           </Card>
@@ -162,3 +162,5 @@ export function ProductFormPatient({ onNext, onBack }: ProductFormPatientProps) 
     </div>
   );
 }
+
+export default ProductFormPatient;

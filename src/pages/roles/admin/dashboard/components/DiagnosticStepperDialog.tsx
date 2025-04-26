@@ -1,20 +1,11 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
 import { ClientSelectionStep } from "./steps/ClientSelectionStep";
-import { NewDiagnosticProductStep } from "./steps/NewDiagnosticProductStep";
+import { NewDiagnosticProductStep } from "./steps/diagnostic/NewDiagnosticProductStep";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { format } from "date-fns";
-import { fr } from "date-fns/locale";
-import { CalendarIcon, AlertCircle, Upload, Loader2, User, Bell, FileText, PlusCircle } from "lucide-react";
+import { CalendarIcon, AlertCircle, Loader2, PlusCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Switch } from "@/components/ui/switch";
 import { StepperSidebar } from "./StepperSidebar";
 import { AddTaskButton } from "@/components/tasks/AddTaskButton";
 import { TaskFormDialog } from "@/components/tasks/TaskFormDialog";
@@ -33,14 +24,14 @@ const steps = [
 ] as const;
 
 export function DiagnosticStepperDialog({ isOpen, onClose }: DiagnosticStepperDialogProps) {
-  const { toast } = useToast();
+  const {  } = useToast();
   // Step Management
   const [currentStep, setCurrentStep] = useState(1);
 
   // Client Selection State
   const [clientType, setClientType] = useState<"patient" | "societe" | null>(null);
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
-  const [clients, setClients] = useState<any[]>([]);
+  const [clients, setClients] = useState<[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -267,7 +258,6 @@ export function DiagnosticStepperDialog({ isOpen, onClose }: DiagnosticStepperDi
                 clientType={clientType}
                 selectedClient={selectedClient}
                 clients={clients}
-                isLoading={isLoading}
                 error={error}
                 action="diagnostique"
               />
@@ -436,3 +426,5 @@ export function DiagnosticTaskFormDialog({ isOpen, patientId, followUpDate }: { 
     />
   );
 }
+
+export default DiagnosticStepperDialog;

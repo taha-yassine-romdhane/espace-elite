@@ -194,7 +194,6 @@ export function NewStepperDialog({ isOpen, onClose, action }: StepperDialogProps
                 clientType={clientType}
                 selectedClient={selectedClient}
                 clients={clients}
-                isLoading={isLoading}
                 error={error}
                 action={action}
               />
@@ -265,8 +264,8 @@ export function NewStepperDialog({ isOpen, onClose, action }: StepperDialogProps
                 )}
                 {currentProductType === "accessory" && (
                   <AccessoryForm
-                    onSubmit={(data) => {
-                      handleProductSelect({ ...data, type: "ACCESSORY" });
+                    onSubmit={ (data) => {
+                       handleProductSelect({ ...data, type: "ACCESSORY" });
                       setIsCreateFormOpen(false);
                     }}
                     stockLocations={stockLocations || []}
@@ -283,8 +282,8 @@ export function NewStepperDialog({ isOpen, onClose, action }: StepperDialogProps
                 )}
                 {currentProductType === "diagnostic" && (
                   <DiagnosticDeviceForm
-                    onSubmit={(data) => {
-                      handleProductSelect({ ...data, type: "DIAGNOSTIC_DEVICE" });
+                    onSubmit={async (data) => {
+                      await handleProductSelect({ ...data, type: "DIAGNOSTIC_DEVICE" });
                       setIsCreateFormOpen(false);
                     }}
                     stockLocations={stockLocations || []}
@@ -298,3 +297,5 @@ export function NewStepperDialog({ isOpen, onClose, action }: StepperDialogProps
     </Dialog>
   );
 }
+
+export default NewStepperDialog;

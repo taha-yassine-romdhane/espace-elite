@@ -9,7 +9,6 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-  CommandSeparator,
 } from "@/components/ui/command"
 import {
   Popover,
@@ -78,7 +77,7 @@ export function Combobox({
                   }}
                 >
                   <Plus className="mr-2 h-4 w-4" />
-                  Ajouter "{searchQuery}"
+                  Ajouter  &quot;{searchQuery}&quot;
                 </Button>
               )}
             </CommandEmpty>

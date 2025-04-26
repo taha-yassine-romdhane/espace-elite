@@ -25,3 +25,5 @@ export function DiagnosticNotes({ notes }: DiagnosticNotesProps) {
     </Card>
   );
 }
+
+export default DiagnosticNotes;

@@ -1,22 +1,22 @@
 import React from 'react';
-import { UseFormReturn } from 'react-hook-form';
+import { UseFormReturn, FieldValues, Path, PathValue } from 'react-hook-form';
 
 interface RadioOption {
   value: string;
   label: string;
 }
 
-interface DynamicRadioGroupProps {
+interface DynamicRadioGroupProps<T extends FieldValues = FieldValues> {
   name: string;
   label: string;
-  form: UseFormReturn<any>;
+  form: UseFormReturn<T>;
   options: RadioOption[];
   inline?: boolean;
   onChange?: (value: string) => void;
   className?: string;
 }
 
-export default function DynamicRadioGroup({
+export default function DynamicRadioGroup<T extends FieldValues = FieldValues>({
   name,
   label,
   form,
@@ -24,9 +24,9 @@ export default function DynamicRadioGroup({
   inline = true,
   onChange,
   className,
-}: DynamicRadioGroupProps) {
+}: DynamicRadioGroupProps<T>) {
   const handleChange = (value: string) => {
-    form.setValue(name, value);
+    form.setValue(name as Path<T>, value as PathValue<T, Path<T>>);
     
     if (onChange) {
       onChange(value);
@@ -45,7 +45,7 @@ export default function DynamicRadioGroup({
               type="radio"
               name={name}
               value={option.value}
-              checked={form.watch(name) === option.value}
+              checked={form.watch(name as Path<T>) === option.value}
               onChange={() => handleChange(option.value)}
               className="h-4 w-4 text-blue-600"
             />

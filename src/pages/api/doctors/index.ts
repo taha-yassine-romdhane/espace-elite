@@ -31,7 +31,7 @@ export default async function handler(
         },
       });
       return res.status(200).json(doctors);
-    } catch (error) {
+    } catch  {
       return res.status(500).json({ error: 'Error fetching doctors' });
     }
   }
@@ -56,7 +56,7 @@ export default async function handler(
       const doctor = await prisma.doctor.create({
         data: {
           userId: user.id,
-          speciality,
+          
         },
         include: {
           user: {
@@ -66,13 +66,14 @@ export default async function handler(
               lastName: true,
               telephone: true,
               isActive: true,
+              speciality: true,
             },
           },
         },
       });
 
       return res.status(201).json(doctor);
-    } catch (error) {
+    } catch  {
       return res.status(500).json({ error: 'Error creating doctor' });
     }
   }
@@ -84,7 +85,6 @@ export default async function handler(
       const doctor = await prisma.doctor.update({
         where: { id },
         data: {
-          speciality,
           user: {
             update: {
               email,
@@ -92,6 +92,7 @@ export default async function handler(
               lastName,
               telephone,
               isActive,
+              speciality,
             },
           },
         },
@@ -103,13 +104,14 @@ export default async function handler(
               lastName: true,
               telephone: true,
               isActive: true,
+              speciality: true,
             },
           },
         },
       });
 
       return res.status(200).json(doctor);
-    } catch (error) {
+    } catch  {
       return res.status(500).json({ error: 'Error updating doctor' });
     }
   }
@@ -138,7 +140,7 @@ export default async function handler(
       });
 
       return res.status(200).json({ message: 'Doctor deleted successfully' });
-    } catch (error) {
+    } catch  {
       return res.status(500).json({ error: 'Error deleting doctor' });
     }
   }

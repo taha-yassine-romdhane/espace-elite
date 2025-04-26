@@ -54,17 +54,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
 
     // Create history records for this update using PatientHistory and UserActionHistory
-  
+
 
     // Check if all parameters have values, and if so, mark the diagnostic as COMPLETED
-    const allParameters = await prisma.parameterValue.findMany({
-      where: {
-        diagnosticId: id,
-      },
-    });
+    // const allParameters = await prisma.parameterValue.findMany({
+    //  where: {
+    //    diagnosticId: id,
+    //  },
+    // });
 
-    const allParametersHaveValues = allParameters.every((param: { value: string | null }) => param.value);
-    
+    // const allParametersHaveValues = allParameters.every((param: { value: string | null }) => param.value);
+
     // If all parameter values are filled, the diagnostic is considered complete.
     // You may trigger additional logic here if needed (e.g., send notification, update tasks, etc.)
     // If all parameter values are filled, the diagnostic is considered complete.
@@ -72,8 +72,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // (No further logic here for now)
 
     // Return success
-    return res.status(200).json({ 
-      success: true, 
+    return res.status(200).json({
+      success: true,
       message: 'Paramètres mis à jour avec succès',
     });
   } catch (error) {

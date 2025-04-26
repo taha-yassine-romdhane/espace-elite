@@ -25,6 +25,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Find the task
     const task = await prisma.task.findUnique({
       where: { id },
+      include: {
+        diagnostic: {
+          select: {
+            id: true,
+            parameterId: true
+          }
+        },
+        assignedTo: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        completedBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
     });
 
     if (!task) {
@@ -45,40 +69,34 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         assignedTo: {
           select: {
             id: true,
-            name: true,
+            firstName: true,
+            lastName: true,
             email: true,
           },
         },
         completedBy: {
           select: {
             id: true,
-            name: true,
+            firstName: true,
+            lastName: true,
             email: true,
           },
         },
-        patient: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-          },
-        },
-        diagnostic: true,
       },
     });
 
     // If this task is related to a diagnostic parameter, update the notification as well
-    if (task.diagnosticId && task.parameterId) {
+    if (task.diagnostic?.id && task.diagnostic.parameterId) {
       await prisma.notification.updateMany({
         where: {
           type: 'FOLLOW_UP',
-          relatedId: task.diagnosticId,
-          parameterId: task.parameterId,
+          relatedId: task.diagnostic?.id,
+          parameterId: task.diagnostic?.parameterId
         },
         data: {
           status: 'READ',
-          readAt: new Date(),
-        },
+          readAt: new Date()
+        }
       });
     }
 

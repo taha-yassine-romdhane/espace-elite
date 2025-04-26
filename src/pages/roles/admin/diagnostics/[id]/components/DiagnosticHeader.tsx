@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { CalendarIcon, Clock, AlertCircle, CheckCircle, User } from "lucide-react";
 
 interface DiagnosticHeaderProps {
-  diagnostic: any;
+  diagnostic?: any;
 }
 
 export function DiagnosticHeader({ diagnostic }: DiagnosticHeaderProps) {
@@ -18,12 +18,13 @@ export function DiagnosticHeader({ diagnostic }: DiagnosticHeaderProps) {
 
   // Check if result is overdue
   const isResultOverdue = () => {
-    if (!diagnostic.resultDueDate) return false;
+    if (!diagnostic || !diagnostic.resultDueDate) return false;
     return new Date() > new Date(diagnostic.resultDueDate);
   };
 
   // Get status badge
   const getStatusBadge = () => {
+    if (!diagnostic || !diagnostic.status) return null;
     switch (diagnostic.status) {
       case "PENDING":
         return (
@@ -52,13 +53,23 @@ export function DiagnosticHeader({ diagnostic }: DiagnosticHeaderProps) {
     }
   };
 
+  if (!diagnostic) {
+    return (
+      <div className="border-b pb-4 mb-6">
+        <div className="flex justify-between items-center">
+          <div className="text-gray-500">Diagnostic non chargé</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Card className="border-blue-100 bg-blue-50/50">
       <CardContent className="p-6">
         <div className="flex flex-col md:flex-row md:justify-between md:items-center">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 mb-2">
-              Diagnostic #{diagnostic.id.slice(-8)}
+              Diagnostic #{diagnostic.id?.slice(-8)}
             </h1>
             <div className="flex items-center gap-2 text-gray-600 mb-1">
               <User className="h-4 w-4" />
@@ -113,3 +124,5 @@ export function DiagnosticHeader({ diagnostic }: DiagnosticHeaderProps) {
     </Card>
   );
 }
+
+export default DiagnosticHeader;

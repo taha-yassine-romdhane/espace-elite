@@ -5,7 +5,6 @@ import { toast } from "@/components/ui/use-toast";
 import { Separator } from "@/components/ui/separator";
 import { 
   AlertCircle, 
-  Database, 
   Download, 
   Upload, 
   Calendar, 
@@ -100,7 +99,7 @@ export function BackupRestore() {
     try {
       // In a real implementation, this would call an API endpoint
       // await fetch("/api/settings/backup", { method: "POST" });
-    } catch (error) {
+    } catch {
       clearInterval(interval);
       setIsExporting(false);
       
@@ -165,7 +164,7 @@ export function BackupRestore() {
       //   method: "POST",
       //   body: formData,
       // });
-    } catch (error) {
+    } catch {
       clearInterval(interval);
       setIsImporting(false);
       
@@ -207,7 +206,7 @@ export function BackupRestore() {
     try {
       // In a real implementation, this would call an API endpoint
       // await fetch(`/api/settings/restore/${selectedBackup.id}`, { method: "POST" });
-    } catch (error) {
+    } catch {
       clearInterval(interval);
       setIsImporting(false);
       
@@ -269,7 +268,7 @@ export function BackupRestore() {
           <div className="space-y-4">
             <h3 className="text-lg font-medium">Restauration</h3>
             <p className="text-gray-500">
-              Restaurez la base de données à partir d'un fichier de sauvegarde.
+              Restaurez la base de données à partir d&apos;un fichier de sauvegarde.
             </p>
             
             <div className="space-y-4">
@@ -313,14 +312,14 @@ export function BackupRestore() {
                 <div className="border rounded-md p-4 space-y-4">
                   <h4 className="font-medium flex items-center gap-2">
                     <Calendar className="h-4 w-4" />
-                    Restaurer depuis l'historique
+                    Restaurer depuis l&apos;historique
                   </h4>
                   
                   <Dialog open={isRestoreDialogOpen} onOpenChange={setIsRestoreDialogOpen}>
                     <DialogTrigger asChild>
                       <Button variant="outline" className="w-full">
                         <RefreshCw className="h-4 w-4 mr-2" />
-                        Voir l'historique des sauvegardes
+                        Voir l&apos;historique des sauvegardes
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-[600px]">
@@ -400,7 +399,7 @@ export function BackupRestore() {
                   </Dialog>
                   
                   <div className="text-sm text-gray-500">
-                    Restaurez la base de données à partir d'une sauvegarde précédente.
+                    Restaurez la base de données à partir d&apos;une sauvegarde précédente.
                   </div>
                 </div>
               </div>
@@ -431,3 +430,5 @@ export function BackupRestore() {
     </div>
   );
 }
+
+export default BackupRestore;

@@ -15,12 +15,13 @@ interface StepperSidebarProps {
     description: string;
   }[];
   currentStep: number;
+  // eslint-disable-next-line no-unused-vars
   clientDetails: any | null;
   totalPrice?: string;
 }
 
 export function StepperSidebar({ 
-  steps, 
+  steps = [], 
   currentStep, 
   clientDetails,
   totalPrice 
@@ -35,7 +36,7 @@ export function StepperSidebar({
         
         {/* Stepper */}
         <div className="relative space-y-6 mt-2">
-          {steps.map((step, index) => {
+          {steps?.map((step, index) => {
             const isActive = currentStep === step.id;
             const isCompleted = currentStep > step.id;
             
@@ -118,3 +119,5 @@ export function StepperSidebar({
     </div>
   );
 }
+
+export default StepperSidebar;

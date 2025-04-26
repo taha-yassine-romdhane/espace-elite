@@ -1,7 +1,8 @@
 import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { File, FileText } from "lucide-react";
+import { FileText } from "lucide-react";
+import Image from 'next/image';
 
 interface FileViewerProps {
   files: Array<string | { url: string; name?: string; type?: string }>;
@@ -88,7 +89,7 @@ export function FileViewer({ files, isOpen, onClose }: FileViewerProps) {
                 >
                   {isImage ? (
                     <div className="w-full aspect-square bg-gray-50 rounded-md mb-2 flex items-center justify-center overflow-hidden">
-                      <img 
+                      <Image 
                         src={fileUrl} 
                         alt={fileName}
                         className="max-w-full max-h-full object-contain"
@@ -143,3 +144,5 @@ export function FileViewer({ files, isOpen, onClose }: FileViewerProps) {
     </Dialog>
   );
 }
+
+export default FileViewer;

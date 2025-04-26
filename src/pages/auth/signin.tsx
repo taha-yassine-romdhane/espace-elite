@@ -33,7 +33,7 @@ export default function SignIn() {
       if (result?.error) {
         setError(result.error);
       }
-    } catch (error) {
+    } catch  {
       setError('An error occurred during sign in');
     } finally {
       setIsLoading(false);

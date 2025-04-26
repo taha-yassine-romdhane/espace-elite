@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useSession } from 'next-auth/react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Select,
@@ -14,7 +13,7 @@ import { fr } from 'date-fns/locale';
 import { useToast } from '@/components/ui/use-toast';
 import { DayTasksModal } from '@/components/tasks/DayTasksModal';
 import { AddTaskButton } from '@/components/tasks/AddTaskButton';
-import { TaskFormDialog } from '@/components/tasks/TaskFormDialog';
+import { TaskFormData, TaskFormDialog } from '@/components/tasks/TaskFormDialog';
 import {
   Tooltip,
   TooltipContent,
@@ -59,17 +58,9 @@ interface Notification {
   updatedAt: string;
 }
 
-interface User {
-  id: string;
-  firstName: string;
-  lastName: string;
-  role: string;
-}
-
 type ViewMode = 'month' | 'week' | 'day';
 
 export default function TasksPage() {
-  const { data: session } = useSession();
   const { toast } = useToast();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
@@ -77,19 +68,7 @@ export default function TasksPage() {
   const [selectedDayDate, setSelectedDayDate] = useState<Date | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('month');
 
-  // Fetch users for filters
-  const { data: users } = useQuery<User[]>({
-    queryKey: ['users'],
-    queryFn: async () => {
-      const response = await fetch('/api/users/formatted');
-      if (!response.ok) throw new Error('Failed to fetch users');
-      return response.json();
-    }
-  });
 
-  // Filter users by role
-  const managers = users?.filter(user => user.role === 'MANAGER') || [];
-  const technicians = users?.filter(user => user.role === 'TECHNICIAN') || [];
 
   // Calculate date range based on view mode
   const getDateRange = () => {
@@ -130,7 +109,7 @@ export default function TasksPage() {
   });
   
   // Fetch notifications
-  const { data: notifications, refetch: refetchNotifications } = useQuery<Notification[]>({
+  const { data: notifications } = useQuery<Notification[]>({
     queryKey: ['notifications', selectedDate, viewMode],
     queryFn: async () => {
       const params = new URLSearchParams({
@@ -144,7 +123,7 @@ export default function TasksPage() {
     }
   });
 
-  const handleTaskSubmit = async (data: any) => {
+  const handleTaskSubmit = async (data: TaskFormData) => {
     try {
       const response = await fetch('/api/tasks', {
         method: 'POST',
@@ -167,7 +146,7 @@ export default function TasksPage() {
       });
 
       refetchTasks();
-    } catch (error) {
+    } catch  {
       toast({
         title: "Erreur",
         description: "Une erreur est survenue lors de la création de la tâche",
@@ -249,7 +228,7 @@ export default function TasksPage() {
             )}
             {notification.dueDate && (
               <div className="text-xs">
-                <div>Date d'échéance: {format(new Date(notification.dueDate), 'dd/MM/yyyy')}</div>
+                <div>Date d&apos;échéance: {format(new Date(notification.dueDate), 'dd/MM/yyyy')}</div>
               </div>
             )}
             <div className="text-xs">

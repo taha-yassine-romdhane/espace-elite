@@ -24,6 +24,7 @@ import { fr } from 'date-fns/locale';
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, Clock } from 'lucide-react';
+import { Patient } from '@prisma/client';
 
 export interface TaskFormData {
   title: string;
@@ -343,7 +344,7 @@ export function TaskFormDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Aucun patient</SelectItem>
-                  {patients.map((patient: any) => (
+                  {patients.map((patient: Patient) => (
                     <SelectItem key={patient.id} value={patient.id}>
                       {patient.firstName} {patient.lastName}
                     </SelectItem>

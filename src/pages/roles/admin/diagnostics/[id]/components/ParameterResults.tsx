@@ -3,10 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ClipboardList, Save, AlertCircle, CheckCircle, Clock } from "lucide-react";
+import { ClipboardList, Save, CheckCircle, Clock } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { format } from "date-fns";
-import { fr } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/use-toast";
 
@@ -82,22 +80,6 @@ export function ParameterResults({ parameterValues, status, diagnosticId }: Para
     }));
     
     saveParametersMutation.mutate({ parameters: parameterData });
-  };
-
-  // Check if any parameter is a result parameter
-  const hasResultParameters = parameterValues.some((paramValue: any) => 
-    paramValue.parameter && paramValue.parameter.parameterType === 'RESULT');
-
-  // Format date
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return "-";
-    return format(new Date(dateString), "PPP", { locale: fr });
-  };
-
-  // Check if a due date is overdue
-  const isOverdue = (dateString: string | null) => {
-    if (!dateString) return false;
-    return new Date() > new Date(dateString);
   };
 
   if (!parameterValues || parameterValues.length === 0) {
@@ -263,3 +245,5 @@ export function ParameterResults({ parameterValues, status, diagnosticId }: Para
     </Card>
   );
 }
+
+export default ParameterResults;

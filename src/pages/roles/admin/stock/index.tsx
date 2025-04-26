@@ -1,13 +1,12 @@
 import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useSession } from 'next-auth/react';
+
 import StockLocations from './components/StockLocations';
 import StockTransfers from './components/StockTransfers';
 import StockInventory from './components/StockInventory';
 import TransferHistory from './components/TransferHistory';
 
 export default function StockPage() {
-  const { data: session } = useSession();
   const [activeTab, setActiveTab] = useState("inventory");
 
   return (
@@ -19,7 +18,7 @@ export default function StockPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="inventory" className="space-y-4" onValueChange={setActiveTab}>
+      <Tabs defaultValue={activeTab} className="space-y-4" onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="inventory">Inventaire</TabsTrigger>
           <TabsTrigger value="locations">Emplacements</TabsTrigger>

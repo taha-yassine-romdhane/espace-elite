@@ -2,6 +2,7 @@ import React, { Fragment } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { Button } from "@/components/ui/button";
 import { FileText } from "lucide-react";
+import Image from 'next/image';
 
 interface FileRecord {
   id: string;
@@ -62,7 +63,7 @@ const FileViewerModal: React.FC<FileViewerModalProps> = ({
                           >
                             {file.type.toUpperCase() === 'IMAGE' ? (
                               <div className="aspect-square relative">
-                                <img
+                                <Image
                                   src={file.url}
                                   alt="File preview"
                                   className="absolute inset-0 w-full h-full object-cover"

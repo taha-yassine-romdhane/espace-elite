@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -94,3 +93,5 @@ export function TechnicianHistory({ technicianId, onBack }: TechnicianHistoryPro
     </div>
   );
 }
+
+export default TechnicianHistory;

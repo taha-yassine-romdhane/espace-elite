@@ -171,7 +171,7 @@ const UsersPage = () => {
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [searchQuery]);
 
   // Filter users based on search query
   const filteredUsers = useMemo(() => {

@@ -127,11 +127,11 @@ export default function StockLocations() {
                 <Textarea
                   value={newLocation.description}
                   onChange={(e) => setNewLocation({ ...newLocation, description: e.target.value })}
-                  placeholder="Description de l'emplacement"
+                  placeholder="Description de l&apos;emplacement"
                 />
               </div>
               <Button type="submit" className="w-full">
-                Créer l'emplacement
+                Créer l&apos;emplacement
               </Button>
             </form>
           </DialogContent>
@@ -174,7 +174,7 @@ export default function StockLocations() {
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <Badge variant={location.isActive ? "success" : "secondary"}>
+                  <Badge variant={location.isActive ? "default" : "destructive"}>
                     {location.isActive ? 'Actif' : 'Inactif'}
                   </Badge>
                 </TableCell>
