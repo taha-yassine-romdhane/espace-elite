@@ -29,18 +29,6 @@ enum ProductType {
   SPARE_PART = 'SPARE_PART'
 }
 
-// Define stock status enum
-enum StockStatus {
-  EN_VENTE = 'EN_VENTE',
-  EN_LOCATION = 'EN_LOCATION',
-  EN_REPARATION = 'EN_REPARATION',
-  HORS_SERVICE = 'HORS_SERVICE',
-  ACTIVE = 'ACTIVE',
-  MAINTENANCE = 'MAINTENANCE',
-  RETIRED = 'RETIRED',
-  RESERVED = 'RESERVED'
-}
-
 interface Stock {
   id: string;
   location: {
@@ -214,6 +202,13 @@ export default function StockInventory() {
     diagnosticDevices: 0
   };
 
+  // Correct total: sum of all product type quantities
+  const trueTotal =
+    (summary.accessories || 0) +
+    (summary.spareParts || 0) +
+    (summary.medicalDevices || 0) +
+    (summary.diagnosticDevices || 0);
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -227,7 +222,7 @@ export default function StockInventory() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Total</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{summary.total}</div>
+            <div className="text-2xl font-bold">{trueTotal}</div>
           </CardContent>
         </Card>
         <Card>

@@ -26,4 +26,8 @@ export interface StockTransfer {
   notes?: string;
   transferDate: Date;
   updatedAt: Date;
+  isVerified?: boolean;
+  verifiedById?: string;
+  verifiedBy?: User;
+  verificationDate?: Date;
 }

@@ -17,8 +17,12 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { Info, AlertCircle, CheckCircle, XCircle, Clock } from 'lucide-react';
+import TransferDetailDialog from './TransferDetailDialog';
+import TransferVerificationStatus from './TransferVerificationStatus';
 
 interface Transfer {
   id: string;
@@ -29,14 +33,18 @@ interface Transfer {
     name: string;
   };
   product: {
+    id: string;
     name: string;
-    reference: string;
+    type: string;
+    brand: string | null;
+    model: string | null;
   };
   quantity: number;
   newStatus: string | null;
   transferredBy: {
     firstName: string;
     lastName: string;
+    role: string;
   };
   sentBy: {
     firstName: string;
@@ -48,7 +56,33 @@ interface Transfer {
   } | null;
   notes: string | null;
   transferDate: string;
+  metadata: any | null; // For medical device transfers
+  
+  // Verification fields
+  isVerified: boolean | null;
+  verifiedById: string | null;
+  verifiedBy: {
+    firstName: string;
+    lastName: string;
+  } | null;
+  verificationDate: string | null;
 }
+
+// Helper function to convert product type codes to readable names
+const getProductTypeName = (type: string) => {
+  switch (type) {
+    case 'MEDICAL_DEVICE':
+      return 'Appareil médical';
+    case 'DIAGNOSTIC_DEVICE':
+      return 'Équipement diagnostic';
+    case 'ACCESSORY':
+      return 'Accessoire';
+    case 'SPARE_PART':
+      return 'Pièce de rechange';
+    default:
+      return type;
+  }
+};
 
 export default function TransferHistory() {
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
@@ -57,6 +91,12 @@ export default function TransferHistory() {
     start: new Date(new Date().setDate(new Date().getDate() - 30)), // Last 30 days
     end: new Date(),
   });
+  const [selectedTransferId, setSelectedTransferId] = useState<string | null>(null);
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  
+  // Current user role - in a real app, this would come from an auth context
+  // For now, we'll assume the user is an admin in the admin section
+  const currentUserRole = 'ADMIN';
 
   const { data: locations } = useQuery({
     queryKey: ['stockLocations'],
@@ -162,7 +202,8 @@ export default function TransferHistory() {
               <TableHead>Quantité</TableHead>
               <TableHead>Nouveau Statut</TableHead>
               <TableHead>Initié par</TableHead>
-              <TableHead>État</TableHead>
+              <TableHead>Vérification</TableHead>
+              <TableHead></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -172,8 +213,19 @@ export default function TransferHistory() {
                   {format(new Date(transfer.transferDate), 'dd/MM/yyyy HH:mm', { locale: fr })}
                 </TableCell>
                 <TableCell className="font-medium">
-                  <div>{transfer.product.name}</div>
-                  <div className="text-sm text-gray-500">{transfer.product.reference}</div>
+                  <div>
+                    <div>{transfer.product.name}</div>
+                    <div className="text-sm text-gray-500">
+                      {[transfer.product.brand, transfer.product.model].filter(Boolean).join(' ')}
+                      <Badge variant="outline">{getProductTypeName(transfer.product.type)}</Badge>
+                    </div>
+                    {/* If this is a medical device transfer, it will have a note with the device ID */}
+                    {transfer.notes?.includes('Device ID:') && (
+                      <div className="text-xs text-blue-600 mt-1">
+                        Appareil médical transféré
+                      </div>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell>{transfer.fromLocation.name}</TableCell>
                 <TableCell>{transfer.toLocation.name}</TableCell>
@@ -183,15 +235,29 @@ export default function TransferHistory() {
                   {transfer.transferredBy.firstName} {transfer.transferredBy.lastName}
                 </TableCell>
                 <TableCell>
-                  {!transfer.sentBy && !transfer.receivedBy && (
-                    <Badge variant="secondary">En attente</Badge>
-                  )}
-                  {transfer.sentBy && !transfer.receivedBy && (
-                    <Badge variant="default">Envoyé</Badge>
-                  )}
-                  {transfer.sentBy && transfer.receivedBy && (
-                    <Badge variant="default">Reçu</Badge>
-                  )}
+                  <TransferVerificationStatus
+                    transferId={transfer.id}
+                    isVerified={transfer.isVerified}
+                    verifiedById={transfer.verifiedById}
+                    verifierName={transfer.verifiedBy ? `${transfer.verifiedBy.firstName} ${transfer.verifiedBy.lastName}` : null}
+                    verificationDate={transfer.verificationDate ? new Date(transfer.verificationDate) : null}
+                    transferredByRole={transfer.transferredBy.role}
+                    currentUserRole={currentUserRole}
+                    transferDate={new Date(transfer.transferDate)}
+                  />
+                </TableCell>
+                <TableCell>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => {
+                      setSelectedTransferId(transfer.id);
+                      setDetailDialogOpen(true);
+                    }}
+                  >
+                    <Info className="h-4 w-4 mr-1" />
+                    Détails
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}
@@ -205,6 +271,16 @@ export default function TransferHistory() {
           </TableBody>
         </Table>
       </div>
+      
+      {/* Transfer Detail Dialog */}
+      {selectedTransferId && (
+        <TransferDetailDialog
+          transferId={selectedTransferId}
+          isOpen={detailDialogOpen}
+          onClose={() => setDetailDialogOpen(false)}
+          currentUserRole={currentUserRole}
+        />
+      )}
     </div>
   );
 }

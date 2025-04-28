@@ -110,13 +110,15 @@ model User {
   technicianCompanies  Company[]           @relation("TechnicianCompanies")
   tasks                Task[]
   stockLocation        StockLocation?
-  stockTransfers       StockTransfer[] // No fields/references here
+  stockTransfers       StockTransfer[]     @relation("TransferredByUser")
   sentTransfers        StockTransfer[]     @relation("SentTransfers")
   receivedTransfers    StockTransfer[]     @relation("ReceivedTransfers")
   patientHistories     PatientHistory[] // Records of actions performed on patients
   userActions          UserActionHistory[] // History of user actions
   performedDiagnostics Diagnostic[]        @relation("PerformedDiagnostics") // User who performed diagnostics
   completedTasks       Task[]              @relation("CompletedTasks")
+  verifiedTransfers    StockTransfer[]     @relation("VerifiedTransfers")
+  notifications        Notification[]     // Notifications sent to this user
 }
 
 model Task {
@@ -178,13 +180,19 @@ model StockTransfer {
   newStatus      StockStatus?
 
   transferredById String
-  transferredBy   User   @relation(fields: [transferredById], references: [id])
+  transferredBy   User   @relation("TransferredByUser", fields: [transferredById], references: [id])
 
   sentById String?
   sentBy   User?   @relation("SentTransfers", fields: [sentById], references: [id])
 
   receivedById String?
   receivedBy   User?   @relation("ReceivedTransfers", fields: [receivedById], references: [id])
+
+  // Add verification fields
+  isVerified       Boolean?
+  verifiedById     String?
+  verifiedBy       User?     @relation("VerifiedTransfers", fields: [verifiedById], references: [id])
+  verificationDate DateTime?
 
   notes        String?
   transferDate DateTime @default(now())
@@ -522,6 +530,7 @@ enum NotificationType {
   MAINTENANCE
   APPOINTMENT
   PAYMENT_DUE
+  TRANSFER
   OTHER
 }
 
@@ -532,10 +541,12 @@ enum NotificationStatus {
   READ
 }
 
+
+
 model Notification {
   id          String               @id @default(cuid())
   title       String
-  message     String
+  message     String               // This is used as content in the code
   type        NotificationType
   status      NotificationStatus   @default(PENDING)
   dueDate     DateTime?
@@ -546,7 +557,11 @@ model Notification {
   patient     Patient?             @relation(fields: [patientId], references: [id])
   companyId   String?
   company     Company?             @relation(fields: [companyId], references: [id])
-  readAt      DateTime?            // Add this line
+  userId      String?              // Add user relation field
+  user        User?                @relation(fields: [userId], references: [id])
+  readAt      DateTime?            // Tracks when notification was read
+  isRead      Boolean              @default(false)  // Simple boolean for read status
+  metadata    Json?                // For storing additional info like transferId
   createdAt   DateTime             @default(now())
   updatedAt   DateTime             @updatedAt
 }

@@ -4,7 +4,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import StockLocations from './components/StockLocations';
 import StockTransfers from './components/StockTransfers';
 import StockInventory from './components/StockInventory';
-import TransferHistory from './components/TransferHistory';
 
 export default function StockPage() {
   const [activeTab, setActiveTab] = useState("inventory");
@@ -23,7 +22,6 @@ export default function StockPage() {
           <TabsTrigger value="inventory">Inventaire</TabsTrigger>
           <TabsTrigger value="locations">Emplacements</TabsTrigger>
           <TabsTrigger value="transfers">Transferts</TabsTrigger>
-          <TabsTrigger value="history">Historique</TabsTrigger>
         </TabsList>
 
         <TabsContent value="inventory" className="space-y-4">
@@ -36,10 +34,6 @@ export default function StockPage() {
 
         <TabsContent value="transfers" className="space-y-4">
           <StockTransfers />
-        </TabsContent>
-
-        <TabsContent value="history" className="space-y-4">
-          <TransferHistory />
         </TabsContent>
       </Tabs>
     </div>

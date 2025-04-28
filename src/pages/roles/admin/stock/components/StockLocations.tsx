@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Table,
   TableBody,
@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -23,6 +22,7 @@ import { Plus, Eye, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRig
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import StockViewDialog from './StockViewDialog';
+import { LocationForm } from '@/pages/roles/admin/appareils/components/LocationForm';
 
 // Product types enum to match the database
 enum ProductType {
@@ -62,10 +62,6 @@ export default function StockLocations() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [newLocation, setNewLocation] = useState({
-    name: '',
-    description: '',
-  });
   
   // Stock view dialog state
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
@@ -97,38 +93,15 @@ export default function StockLocations() {
     }
   }, [locations]);
 
-  // Create new location
-  const createLocation = useMutation({
-    mutationFn: async (locationData: { name: string; description: string }) => {
-      const response = await fetch('/api/stock/locations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(locationData),
-      });
-      if (!response.ok) throw new Error('Failed to create location');
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['stockLocations'] });
-      setIsDialogOpen(false);
-      setNewLocation({ name: '', description: '' });
-      toast({
-        title: "Succès",
-        description: "L'emplacement a été créé avec succès",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Erreur",
-        description: "Une erreur est survenue lors de la création de l'emplacement",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    createLocation.mutate(newLocation);
+  // Handle dialog close
+  const handleDialogClose = () => {
+    setIsDialogOpen(false);
+  };
+  
+  // Handle successful location creation
+  const handleLocationCreated = () => {
+    setIsDialogOpen(false);
+    queryClient.invalidateQueries({ queryKey: ['stockLocations'] });
   };
   
   // Handle opening the stock view dialog
@@ -216,41 +189,21 @@ export default function StockLocations() {
               className="pl-8 w-64"
             />
           </div>
+          {/* Add Location Dialog */}
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Ajouter un emplacement
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Ajouter un nouvel emplacement</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="text-sm font-medium">Nom</label>
-                <Input
-                  value={newLocation.name}
-                  onChange={(e) => setNewLocation({ ...newLocation, name: e.target.value })}
-                  placeholder="Nom de l'emplacement"
-                  required
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Description</label>
-                <Textarea
-                  value={newLocation.description}
-                  onChange={(e) => setNewLocation({ ...newLocation, description: e.target.value })}
-                  placeholder="Description de l&apos;emplacement"
-                />
-              </div>
-              <Button type="submit" className="w-full">
-                Créer l&apos;emplacement
+            <DialogTrigger asChild>
+              <Button className="h-10 flex items-center">
+                <Plus className="h-4 w-4 mr-2" />
+                Ajouter un emplacement
               </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Ajouter un nouvel emplacement</DialogTitle>
+              </DialogHeader>
+              <LocationForm onSuccess={handleLocationCreated} />
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 

@@ -2,7 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../auth/[...nextauth]';
 import { prisma } from '@/lib/prisma';
-import { ProductType, StockStatus } from '@prisma/client';
+import { ProductType } from '@prisma/client';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const session = await getServerSession(req, res, authOptions);
@@ -20,12 +20,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const itemsPerPage = parseInt(limit as string, 10) || 10;
       const skip = (pageNumber - 1) * itemsPerPage;
       
-      // Create search conditions
+      // Create search conditions for product relation
       const searchCondition = search ? {
         OR: [
-          { name: { contains: search as string, mode: 'insensitive' } },
-          { brand: { contains: search as string, mode: 'insensitive' } },
-          { model: { contains: search as string, mode: 'insensitive' } },
+          { name: { contains: search as string, mode: 'insensitive' as const } },
+          { brand: { contains: search as string, mode: 'insensitive' as const } },
+          { model: { contains: search as string, mode: 'insensitive' as const } },
+        ]
+      } : {};
+      
+      // Create search conditions for medical devices
+      const deviceSearchCondition = search ? {
+        OR: [
+          { name: { contains: search as string, mode: 'insensitive' as const } },
+          { brand: { contains: search as string, mode: 'insensitive' as const } },
+          { model: { contains: search as string, mode: 'insensitive' as const } },
         ]
       } : {};
       
@@ -40,8 +49,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         where: {
           ...(locationId ? { locationId: locationId as string } : {}),
           product: {
-            ...searchCondition,
-            ...(productType ? { type: productType as ProductType } : {})
+            AND: [
+              searchCondition,
+              ...(productType ? [{ type: productType as ProductType }] : [])
+            ]
           }
         },
         include: {
@@ -71,7 +82,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const medicalDevicesPromise = prisma.medicalDevice.findMany({
         where: {
           ...locationCondition,
-          ...searchCondition,
+          ...deviceSearchCondition,
           ...productTypeCondition,
           // If productType is specified, only include matching devices
           ...(productType ? 

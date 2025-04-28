@@ -37,4 +37,5 @@ export interface User {
   patientHistories?: PatientHistory[];
   userActions?: UserActionHistory[];
   performedDiagnostics?: Diagnostic[];
+  verifiedTransfers?: StockTransfer[];
 }
