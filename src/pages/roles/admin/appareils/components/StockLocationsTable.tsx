@@ -7,6 +7,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -16,10 +18,10 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/components/ui/use-toast";
 import { LocationEditForm } from "./LocationEditForm";
-import { Trash2, Edit } from "lucide-react";
+import { Trash2, Edit, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 
 interface StockLocation {
   id: string;
@@ -35,13 +37,21 @@ interface StockLocation {
 
 
 
-export function StockLocationsTable() {
+export function StockLocationsTable({ initialItemsPerPage = 10 }: { initialItemsPerPage?: number }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [editingLocation, setEditingLocation] = useState<StockLocation | null>(null);
   const [locationToDelete, setLocationToDelete] = useState<StockLocation | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  
+  // Search and pagination state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filteredLocations, setFilteredLocations] = useState<StockLocation[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(initialItemsPerPage);
+  const [paginatedData, setPaginatedData] = useState<StockLocation[]>([]);
+  const [totalPages, setTotalPages] = useState(1);
 
   // Fetch stock locations
   const { data: locations, isLoading } = useQuery({
@@ -55,6 +65,65 @@ export function StockLocationsTable() {
       return data;
     },
   });
+  
+  // Filter locations based on search query
+  useEffect(() => {
+    if (!locations) {
+      setFilteredLocations([]);
+      return;
+    }
+    
+    if (searchQuery.trim() === '') {
+      setFilteredLocations(locations);
+    } else {
+      const query = searchQuery.toLowerCase().trim();
+      const filtered = locations.filter((location: StockLocation) => 
+        (location.name && location.name.toLowerCase().includes(query)) ||
+        (location.description && location.description.toLowerCase().includes(query)) ||
+        (location.user && location.user.firstName && location.user.firstName.toLowerCase().includes(query)) ||
+        (location.user && location.user.lastName && location.user.lastName.toLowerCase().includes(query))
+      );
+      setFilteredLocations(filtered);
+    }
+    // Reset to first page when search changes
+    setCurrentPage(1);
+  }, [searchQuery, locations]);
+  
+  // Update paginated data when filtered data changes or pagination settings change
+  useEffect(() => {
+    if (!filteredLocations) {
+      setPaginatedData([]);
+      setTotalPages(1);
+      return;
+    }
+    
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    setPaginatedData(filteredLocations.slice(startIndex, endIndex));
+    setTotalPages(Math.max(1, Math.ceil(filteredLocations.length / itemsPerPage)));
+    
+    // Reset to page 1 if current page is out of bounds after data change
+    if (currentPage > Math.ceil(filteredLocations.length / itemsPerPage) && filteredLocations.length > 0) {
+      setCurrentPage(1);
+    }
+  }, [filteredLocations, currentPage, itemsPerPage]);
+  
+  // Handle search input change
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+  };
+  
+  // Handle items per page change
+  const handleItemsPerPageChange = (value: string) => {
+    setItemsPerPage(Number(value));
+    setCurrentPage(1); // Reset to first page when changing items per page
+  };
+  
+  // Pagination navigation functions
+  const goToFirstPage = () => setCurrentPage(1);
+  const goToLastPage = () => setCurrentPage(totalPages);
+  const goToPreviousPage = () => currentPage > 1 && setCurrentPage(currentPage - 1);
+  const goToNextPage = () => currentPage < totalPages && setCurrentPage(currentPage + 1);
 
   const getUserDisplayName = (user?: { firstName: string; lastName: string } | null) => {
     if (!user || !user.firstName || !user.lastName) return "Aucun responsable";
@@ -127,7 +196,17 @@ export function StockLocationsTable() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-      
+        {/* Search bar */}
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+          <Input
+            type="text"
+            placeholder="Rechercher par nom, description ou responsable..."
+            value={searchQuery}
+            onChange={handleSearchChange}
+            className="pl-8"
+          />
+        </div>
       </div>
       <div className="rounded-md border">
         <Table>
@@ -140,7 +219,7 @@ export function StockLocationsTable() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {locations?.map((location: StockLocation) => (
+            {paginatedData?.map((location: StockLocation) => (
               <TableRow key={location.id}>
                 <TableCell>{location.name}</TableCell>
                 <TableCell>{location.description || '-'}</TableCell>
@@ -202,6 +281,81 @@ export function StockLocationsTable() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {/* Pagination controls */}
+      {filteredLocations && filteredLocations.length > 0 && (
+        <div className="flex items-center justify-between px-2 py-4 border-t">
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-gray-700">
+              Affichage de {paginatedData.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} à {Math.min(currentPage * itemsPerPage, filteredLocations.length)} sur {filteredLocations.length} emplacements
+            </span>
+          </div>
+          
+          <div className="flex items-center space-x-6">
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-gray-700">Lignes par page:</span>
+              <Select
+                value={itemsPerPage.toString()}
+                onValueChange={handleItemsPerPageChange}
+              >
+                <SelectTrigger className="h-8 w-[70px]">
+                  <SelectValue placeholder={itemsPerPage.toString()} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="5">5</SelectItem>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="20">20</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={goToFirstPage}
+                disabled={currentPage === 1}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronsLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={goToPreviousPage}
+                disabled={currentPage === 1}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              
+              <span className="text-sm">
+                Page {currentPage} sur {totalPages}
+              </span>
+              
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={goToNextPage}
+                disabled={currentPage === totalPages}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={goToLastPage}
+                disabled={currentPage === totalPages}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronsRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

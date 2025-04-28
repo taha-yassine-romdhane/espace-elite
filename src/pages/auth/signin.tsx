@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { signIn, useSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
+import Header from '@/components/welcome/Header';
 
 export default function SignIn() {
   const router = useRouter();
@@ -49,6 +50,8 @@ export default function SignIn() {
   }
 
   return (
+    <>
+    <Header  />
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="max-w-md w-full space-y-8 p-8 bg-white rounded-lg shadow-lg">
         <div>
@@ -124,5 +127,6 @@ export default function SignIn() {
         </form>
       </div>
     </div>
+    </>
   );
 }

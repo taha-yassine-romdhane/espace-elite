@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { 
   DropdownMenu, 
@@ -7,9 +7,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Settings2, FileText, Loader2 } from "lucide-react";
+import { Settings2, FileText, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { DataTable } from "@/components/ui/data-table";
 import { Renseignement } from '@/types/renseignement';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface RenseignementTableProps {
   data: Renseignement[];
@@ -20,6 +21,7 @@ interface RenseignementTableProps {
   onDelete: (ids: string[]) => void;
   onViewFiles: (files: { url: string; type: string }[]) => void;
   isLoading?: boolean;
+  initialItemsPerPage?: number;
 }
 
 function RenseignementTable({
@@ -30,8 +32,62 @@ function RenseignementTable({
   onEdit = () => {}, // Default noop function for SSR
   onDelete = () => {}, // Default noop function for SSR
   onViewFiles = () => {}, // Default noop function for SSR
-  isLoading = false // Default for SSR
+  isLoading = false, // Default for SSR
+  initialItemsPerPage = 10 // Default items per page
 }: RenseignementTableProps) {
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(initialItemsPerPage);
+  const [paginatedData, setPaginatedData] = useState<Renseignement[]>([]);
+  const [totalPages, setTotalPages] = useState(1);
+  
+  // Update paginated data when data changes or pagination settings change
+  useEffect(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    setPaginatedData(data.slice(startIndex, endIndex));
+    setTotalPages(Math.max(1, Math.ceil(data.length / itemsPerPage)));
+    
+    // Reset to page 1 if current page is out of bounds after data change
+    if (currentPage > Math.ceil(data.length / itemsPerPage) && data.length > 0) {
+      setCurrentPage(1);
+    }
+  }, [data, currentPage, itemsPerPage]);
+  
+  // Handle page change
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+  
+  // Handle items per page change
+  const handleItemsPerPageChange = (value: string) => {
+    setItemsPerPage(Number(value));
+    setCurrentPage(1); // Reset to first page when changing items per page
+  };
+  
+  // Go to first page
+  const goToFirstPage = () => {
+    setCurrentPage(1);
+  };
+  
+  // Go to last page
+  const goToLastPage = () => {
+    setCurrentPage(totalPages);
+  };
+  
+  // Go to previous page
+  const goToPreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+  
+  // Go to next page
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
   const columns = [
     {
       id: "select",
@@ -220,10 +276,86 @@ function RenseignementTable({
   }
 
   return (
-    <DataTable
-      columns={columns}
-      data={data}
-    />
+    <div className="flex flex-col space-y-4">
+      <DataTable
+        columns={columns}
+        data={paginatedData}
+      />
+      
+      {/* Pagination controls */}
+      <div className="flex items-center justify-between px-2 py-4 border-t">
+        <div className="flex items-center space-x-2">
+          <span className="text-sm text-gray-700">
+            Affichage de {paginatedData.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} à {Math.min(currentPage * itemsPerPage, data.length)} sur {data.length} entrées
+          </span>
+        </div>
+        
+        <div className="flex items-center space-x-6">
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-gray-700">Lignes par page:</span>
+            <Select
+              value={itemsPerPage.toString()}
+              onValueChange={handleItemsPerPageChange}
+            >
+              <SelectTrigger className="h-8 w-[70px]">
+                <SelectValue placeholder={itemsPerPage.toString()} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="5">5</SelectItem>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="20">20</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+                <SelectItem value="100">100</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={goToFirstPage}
+              disabled={currentPage === 1}
+              className="h-8 w-8 p-0"
+            >
+              <ChevronsLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={goToPreviousPage}
+              disabled={currentPage === 1}
+              className="h-8 w-8 p-0"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            
+            <span className="text-sm">
+              Page {currentPage} sur {totalPages}
+            </span>
+            
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={goToNextPage}
+              disabled={currentPage === totalPages}
+              className="h-8 w-8 p-0"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={goToLastPage}
+              disabled={currentPage === totalPages}
+              className="h-8 w-8 p-0"
+            >
+              <ChevronsRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

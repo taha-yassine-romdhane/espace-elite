@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
@@ -33,6 +33,8 @@ const Sidebar: React.FC = () => {
     const router = useRouter();
     const { } = useSession();
     const [isExpanded, setIsExpanded] = useState(false);
+    const [isNavigating, setIsNavigating] = useState(false);
+    const [lastNavigationTime, setLastNavigationTime] = useState(0);
     
     // Store sidebar state in localStorage
     useEffect(() => {
@@ -42,11 +44,67 @@ const Sidebar: React.FC = () => {
         }
     }, []);
     
+    // Handle router events to track navigation state
+    useEffect(() => {
+        const handleRouteChangeStart = () => {
+            setIsNavigating(true);
+        };
+        
+        const handleRouteChangeComplete = () => {
+            setIsNavigating(false);
+        };
+        
+        const handleRouteChangeError = () => {
+            setIsNavigating(false);
+        };
+        
+        router.events.on('routeChangeStart', handleRouteChangeStart);
+        router.events.on('routeChangeComplete', handleRouteChangeComplete);
+        router.events.on('routeChangeError', handleRouteChangeError);
+        
+        return () => {
+            router.events.off('routeChangeStart', handleRouteChangeStart);
+            router.events.off('routeChangeComplete', handleRouteChangeComplete);
+            router.events.off('routeChangeError', handleRouteChangeError);
+        };
+    }, [router]);
+    
     const toggleSidebar = () => {
         const newState = !isExpanded;
         setIsExpanded(newState);
         localStorage.setItem('sidebarExpanded', String(newState));
     };
+    
+    // List of problematic route pairs that need hard navigation
+    const problematicRoutes = [
+        '/roles/admin/renseignement',
+        '/roles/admin/appareils'
+    ];
+    
+    // Navigation handler with special handling for problematic routes
+    const handleNavigation = useCallback((path: string) => {
+        const now = Date.now();
+        
+        // Prevent navigation if already navigating or if less than 300ms since last navigation
+        if (isNavigating || (now - lastNavigationTime < 300)) {
+            return;
+        }
+        
+        setLastNavigationTime(now);
+        
+        // Check if current path is in the problematic routes list
+        const currentPathIsProblematic = problematicRoutes.includes(router.pathname);
+        
+        // If navigating FROM a problematic route, always use hard navigation
+        // This ensures clean navigation both between problematic routes and from problematic routes to other pages
+        if (currentPathIsProblematic) {
+            console.log('Using hard navigation from problematic route');
+            window.location.href = path; // Force hard reload
+        } else {
+            // Use normal Next.js navigation for other routes
+            router.push(path);
+        }
+    }, [isNavigating, lastNavigationTime, router]);
 
     const menuItems: MenuItem[] = [
         { icon: <LayoutDashboard size={20} />, label: "Accueil", path: "/roles/admin/dashboard" },
@@ -107,17 +165,19 @@ const Sidebar: React.FC = () => {
                 <ul className="space-y-1 px-2">
                     {menuItems.map((item) => (
                         <li key={item.path}>
-                            <Link href={item.path} passHref>
-                                <div className={cn(
+                            {/* Use onClick instead of Link for better control */}
+                            <div 
+                                onClick={() => handleNavigation(item.path)}
+                                className={cn(
                                     "flex items-center px-3 py-3 text-sm font-medium rounded-lg transition-colors cursor-pointer",
                                     router.pathname === item.path
                                         ? "bg-[#1e3a8a] text-white"
                                         : "text-gray-700 hover:bg-gray-50 hover:text-[#1e3a8a]"
-                                )}>
-                                    <span className={`${isExpanded ? 'mr-3' : 'mx-auto'}`}>{item.icon}</span>
-                                    {isExpanded && <span>{item.label}</span>}
-                                </div>
-                            </Link>
+                                )}
+                            >
+                                <span className={`${isExpanded ? 'mr-3' : 'mx-auto'}`}>{item.icon}</span>
+                                {isExpanded && <span>{item.label}</span>}
+                            </div>
                         </li>
                     ))}
                 </ul>
@@ -126,8 +186,14 @@ const Sidebar: React.FC = () => {
             {/* Footer */}
             <div className="p-2 border-t border-gray-100">
                 <button
-                    onClick={() => signOut({ callbackUrl: '/welcome' })}
+                    onClick={() => {
+                        // Prevent multiple rapid logout attempts
+                        if (!isNavigating) {
+                            signOut({ callbackUrl: '/welcome' });
+                        }
+                    }}
                     className="flex items-center w-full px-3 py-3 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 hover:text-[#1e3a8a] transition-colors"
+                    disabled={isNavigating}
                 >
                     <span className={`${isExpanded ? 'mr-3' : 'mx-auto'}`}><Power size={20} /></span>
                     {isExpanded && <span>Logout</span>}

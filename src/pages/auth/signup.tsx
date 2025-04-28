@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
+import Header from '@/components/welcome/Header';
 
 export default function SignUp() {
   const router = useRouter();
@@ -80,6 +81,8 @@ export default function SignUp() {
   };
 
   return (
+    <>
+    <Header  />
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div>
@@ -194,5 +197,6 @@ export default function SignUp() {
         </form>
       </div>
     </div>
+    </>
   );
 }
