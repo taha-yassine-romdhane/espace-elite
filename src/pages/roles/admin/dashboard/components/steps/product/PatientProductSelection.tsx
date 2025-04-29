@@ -1,0 +1,259 @@
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/Card";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { 
+  Plus, 
+  ChevronRight, 
+  ChevronLeft,
+  Stethoscope,
+  Puzzle,
+  Info,
+  X,
+  Search,
+  Filter,
+  LayoutGrid
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+
+interface PatientProductSelectionProps {
+  selectedProducts: any[];
+  onSelectProduct: (type: "medical-device" | "accessory") => void;
+  onCreateProduct: (type: "medical-device" | "accessory") => void;
+  onRemoveProduct: (index: number) => void;
+  onBack: () => void;
+  onNext: () => void;
+}
+
+// Product Type Button Component
+const ProductTypeButton = ({ type, onSelect, onCreateNew }: {
+  type: {
+    id: string;
+    label: string;
+    selectLabel: string;
+    createLabel: string;
+    icon: React.ElementType;
+  };
+  onSelect: () => void;
+  onCreateNew: () => void;
+}) => {
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-col gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className={cn(
+            "w-full h-10 flex items-center gap-2 px-4",
+            "border-[#1e3a8a] border-opacity-20 hover:border-opacity-100",
+            "bg-white text-[#1e3a8a]",
+            "hover:bg-blue-50 transition-all duration-200",
+            "rounded-md"
+          )}
+          onClick={onSelect}
+        >
+          <type.icon className="h-4 w-4 flex-shrink-0" />
+          <span className="text-sm font-medium flex-1 text-left">{type.selectLabel}</span>
+          <Info className="h-4 w-4 text-[#1e3a8a] opacity-50" />
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className={cn(
+            "w-full h-10 flex items-center gap-2 px-4",
+            "border-[#1e3a8a] border-opacity-20 hover:border-opacity-100",
+            "bg-blue-50/30 text-[#1e3a8a]",
+            "hover:bg-blue-50 transition-all duration-200",
+            "rounded-md"
+          )}
+          onClick={onCreateNew}
+        >
+          <type.icon className="h-4 w-4 flex-shrink-0" />
+          <span className="text-sm font-medium flex-1 text-left">{type.createLabel}</span>
+          <Plus className="h-4 w-4 text-[#1e3a8a] opacity-50" />
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+// Product Card Component
+const ProductCard = ({
+  product,
+  onRemove
+}: {
+  product: any;
+  onRemove: () => void;
+}) => {
+  return (
+    <div className="p-4 flex items-center justify-between hover:bg-gray-50 border-b border-gray-100 last:border-0">
+      <div className="flex-1">
+        <div className="flex items-center gap-2">
+          <div className="flex-shrink-0">
+            {product.type === "MEDICAL_DEVICE" && <Stethoscope className="h-5 w-5 text-blue-500" />}
+            {product.type === "ACCESSORY" && <Puzzle className="h-5 w-5 text-green-500" />}
+          </div>
+          <div>
+            <h4 className="font-medium text-gray-900">{product.name}</h4>
+            <p className="text-sm text-gray-500">
+              {product.type === "MEDICAL_DEVICE" ? "Appareil médical" : "Accessoire"}
+            </p>
+          </div>
+        </div>
+      </div>
+      
+      <div className="flex items-center gap-4">
+        <div className="min-w-[80px] text-right">
+          <div className="font-medium">{typeof product.sellingPrice === 'number' ? 
+            product.sellingPrice.toFixed(2) : 
+            (parseFloat(product.sellingPrice) || 0).toFixed(2)} DT</div>
+        </div>
+        
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0 text-gray-400 hover:text-red-500 hover:bg-red-50 ml-2"
+          onClick={onRemove}
+        >
+          <span className="sr-only">Supprimer</span>
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+export function PatientProductSelection({
+  selectedProducts,
+  onSelectProduct,
+  onCreateProduct,
+  onRemoveProduct,
+  onBack,
+  onNext
+}: PatientProductSelectionProps) {
+  const [searchTerm, setSearchTerm] = useState("");
+  
+  // Define the available product types for patients (only medical devices and accessories)
+  const productTypes = [
+    { 
+      id: "medical-device", 
+      label: "Appareil", 
+      selectLabel: "Select Appareil", 
+      createLabel: "Créer Appareil",
+      icon: Stethoscope
+    },
+    { 
+      id: "accessory", 
+      label: "Accessoire", 
+      selectLabel: "Select Accessoire", 
+      createLabel: "Créer Accessoire",
+      icon: Puzzle
+    }
+  ] as const;
+  
+  // Calculate total price - ensure it's always a number
+  const totalPrice = selectedProducts.reduce((total, product) => {
+    const price = typeof product.sellingPrice === 'number' ? product.sellingPrice : 
+                  parseFloat(product.sellingPrice) || 0;
+    return total + price;
+  }, 0);
+
+  return (
+    <div className="space-y-6">
+      {/* Search and Filter Bar */}
+      <div className="flex items-center gap-4 mb-6">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            type="text"
+            placeholder="Rechercher des produits..."
+            className="pl-9 border-blue-200 focus:border-blue-500"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        <Button variant="outline" size="sm" className="gap-2 border-blue-200">
+          <Filter className="h-4 w-4 text-blue-500" />
+          <span>Filtres</span>
+        </Button>
+        <Button variant="outline" size="sm" className="gap-2 border-blue-200">
+          <LayoutGrid className="h-4 w-4 text-blue-500" />
+          <span>Catégories</span>
+        </Button>
+      </div>
+
+      {/* Product Type Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-2 gap-4">
+        {productTypes.map((type) => (
+          <ProductTypeButton 
+            key={type.id} 
+            type={type} 
+            onSelect={() => onSelectProduct(type.id as "medical-device" | "accessory")}
+            onCreateNew={() => onCreateProduct(type.id as "medical-device" | "accessory")}
+          />
+        ))}
+      </div>
+
+      {/* Selected Products */}
+      {selectedProducts?.length > 0 && (
+        <div className="mt-6 space-y-3">
+          <div className="flex justify-between items-center">
+            <h3 className="text-base font-medium text-blue-900">Produits Sélectionnés</h3>
+            <Badge variant="secondary" className="bg-blue-100 text-blue-700 hover:bg-blue-200">
+              {selectedProducts.length} {selectedProducts.length > 1 ? 'produits' : 'produit'}
+            </Badge>
+          </div>
+          
+          <Card className="overflow-hidden border border-blue-100">
+            <div className="bg-blue-50 px-4 py-2 border-b border-blue-100 flex justify-between items-center">
+              <div className="font-medium text-blue-900">Récapitulatif des produits</div>
+              <div className="text-sm text-blue-700">Total: <span className="font-semibold">{typeof totalPrice === 'number' ? totalPrice.toFixed(2) : '0.00'} DT</span></div>
+            </div>
+            
+            <div className="divide-y divide-gray-100">
+              {selectedProducts.map((product, index) => (
+                <ProductCard
+                  key={`${product.id}-${index}`}
+                  product={product}
+                  onRemove={() => onRemoveProduct(index)}
+                />
+              ))}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Navigation */}
+      <div className="flex justify-between pt-6 border-t">
+        <Button
+          variant="outline"
+          onClick={onBack}
+          className="text-blue-700 border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center gap-2"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Retour
+        </Button>
+        
+        <div className="flex items-center gap-3">
+          {selectedProducts.length > 0 && (
+            <div className="text-sm text-gray-600">
+              <span className="font-medium text-blue-700">{selectedProducts.length}</span> produits pour un total de <span className="font-medium text-blue-700">{typeof totalPrice === 'number' ? totalPrice.toFixed(2) : '0.00'} DT</span>
+            </div>
+          )}
+          
+          <Button
+            onClick={onNext}
+            disabled={selectedProducts?.length === 0}
+            className="bg-blue-700 hover:bg-blue-800 text-white flex items-center gap-2 disabled:opacity-50"
+          >
+            Continuer
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default PatientProductSelection;

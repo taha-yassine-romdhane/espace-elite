@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { ClientSelectionStep } from "./steps/ClientSelectionStep";
-import { ProductSelectionStep } from "./steps/ProductSelectionStep";
+import { PaymentStep } from "./steps/PaymentStep";
 import { ProductDialog } from "./dialogs/ProductDialog";
 import { useQuery } from "@tanstack/react-query";
 import { MedicalDeviceForm } from "@/pages/roles/admin/appareils/components/forms/MedicalDeviceForm";
@@ -10,6 +10,12 @@ import { AccessoryForm } from "@/pages/roles/admin/appareils/components/forms/Ac
 import { SparePartForm } from "@/pages/roles/admin/appareils/components/forms/SparePartForm";
 import { DiagnosticDeviceForm } from "@/pages/roles/admin/appareils/components/forms/DiagnosticDeviceForm";
 import { Button } from "@/components/ui";
+import SaleStepperSidebar from "./SaleStepperSidebar";
+import { toast } from "@/components/ui/use-toast";
+
+// Import the client-specific product selection components
+import PatientProductSelection from "./steps/product/PatientProductSelection";
+import CompanyProductSelection from "./steps/product/CompanyProductSelection";
 
 interface StepperDialogProps {
   isOpen: boolean;
@@ -30,6 +36,7 @@ export function NewStepperDialog({ isOpen, onClose, action }: StepperDialogProps
   // Client Selection State
   const [clientType, setClientType] = useState<"patient" | "societe" | null>(null);
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
+  const [clientDetails, setClientDetails] = useState<any | null>(null);
   const [clients, setClients] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,6 +48,21 @@ export function NewStepperDialog({ isOpen, onClose, action }: StepperDialogProps
   const [currentProductType, setCurrentProductType] = useState<
     "medical-device" | "accessory" | "spare-part" | "diagnostic" | null
   >(null);
+
+  // Calculate total price
+  const calculateTotalPrice = useCallback(() => {
+    return selectedProducts.reduce((total, product) => {
+      // Ensure price and quantity are valid numbers
+      const price = typeof product.sellingPrice === 'number' ? product.sellingPrice : 
+                   (parseFloat(product.sellingPrice) || 0);
+      const quantity = typeof product.quantity === 'number' ? product.quantity : 
+                      (parseInt(product.quantity) || 1);
+      return total + (price * quantity);
+    }, 0);
+  }, [selectedProducts]);
+
+  // Ensure totalPrice is always a valid number
+  const totalPrice = calculateTotalPrice();
 
   // Fetch stock locations for forms
   const { data: stockLocations } = useQuery({
@@ -74,9 +96,46 @@ export function NewStepperDialog({ isOpen, onClose, action }: StepperDialogProps
     }
   };
 
+  // Fetch client details when client is selected
+  const fetchClientDetails = useCallback(async (id: string, type: "patient" | "societe") => {
+    if (!id) return;
+
+    try {
+      // Fix: Use societes endpoint instead of companies for company data
+      const endpoint = type === "patient" ? "patients" : "societes";
+      const response = await fetch(`/api/${endpoint}/${id}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch ${type} details`);
+      }
+      const data = await response.json();
+
+      setClientDetails({
+        ...data,
+        type,
+        // Normalize fields for display
+        firstName: data.firstName || data.prenom || "",
+        lastName: data.lastName || data.nom || "",
+        nomComplet: data.nomComplet || `${data.firstName || ""} ${data.lastName || ""}`,
+        nomSociete: data.companyName || data.nomSociete || data.name || "",
+        telephone: data.telephone || data.telephonePrincipale || "",
+        address: data.address || data.adresseComplete || "",
+        cin: data.cin || "",
+        matriculeFiscale: data.matriculeFiscale || data.fiscalNumber || ""
+      });
+    } catch (error) {
+      console.error(`Error fetching ${type} details:`, error);
+      toast({
+        title: "Erreur",
+        description: `Impossible de charger les détails du ${type === "patient" ? "patient" : "société"}.`,
+        variant: "destructive"
+      });
+    }
+  }, []);
+
   const handleClientTypeChange = (type: "patient" | "societe") => {
     setClientType(type);
     setSelectedClient(null);
+    setClientDetails(null);
     setClients([]);
     fetchClients(type);
   };
@@ -102,6 +161,11 @@ export function NewStepperDialog({ isOpen, onClose, action }: StepperDialogProps
 
   // Navigation Handlers
   const handleNext = () => {
+    // If moving from client selection to product selection and we have a client selected,
+    // fetch the client details for display in the sidebar
+    if (currentStep === 1 && selectedClient && clientType) {
+      fetchClientDetails(selectedClient, clientType);
+    }
     setCurrentStep((prev) => Math.min(prev + 1, steps.length));
   };
 
@@ -122,6 +186,19 @@ export function NewStepperDialog({ isOpen, onClose, action }: StepperDialogProps
     onClose();
   };
 
+  // Handle payment completion
+  const handlePaymentComplete = (paymentData: any) => {
+    console.log('Payment data:', paymentData);
+    // Here you would normally save the payment to your backend
+    toast({
+      title: "Paiement enregistré",
+      description: "Le paiement a été enregistré avec succès.",
+      variant: "default"
+    });
+    // Close the dialog after successful payment
+    handleClose();
+  };
+
   const getActionTitle = () => {
     switch (action) {
       case "location":
@@ -137,93 +214,84 @@ export function NewStepperDialog({ isOpen, onClose, action }: StepperDialogProps
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-5xl p-0 overflow-hidden">
-        <DialogHeader className="px-6 py-4 border-b">
-          <DialogTitle>{getActionTitle()}</DialogTitle>
-        </DialogHeader>
+      <DialogContent className="max-w-7xl max-h-[90vh] overflow-hidden p-0 flex flex-col">
+        <div className="flex h-full overflow-hidden">
+          {/* Sale Stepper Sidebar */}
+          {action === "vente" && (
+            <SaleStepperSidebar
+              steps={steps}
+              currentStep={currentStep}
+              clientDetails={clientDetails}
+              selectedProducts={selectedProducts}
+              totalPrice={totalPrice}
+            />
+          )}
 
-        <div className="flex h-[80vh]">
-          {/* Vertical Steps */}
-          <div className="w-64 bg-gray-50 border-r p-6">
-            <div className="space-y-6">
-              {steps.map((step) => (
-                <div
-                  key={step.id}
-                  className={cn(
-                    "relative pl-8 pb-8 last:pb-0",
-                    "before:absolute before:left-2 before:top-1 before:h-full before:w-[2px]",
-                    currentStep > step.id
-                      ? "before:bg-[#1e3a8a]"
-                      : "before:bg-gray-200"
-                  )}
-                >
-                  <div
-                    className={cn(
-                      "absolute left-0 top-0 flex h-5 w-5 items-center justify-center rounded-full",
-                      currentStep >= step.id
-                        ? "bg-[#1e3a8a] text-white"
-                        : "bg-gray-200 text-gray-600"
-                    )}
-                  >
-                    {step.id}
-                  </div>
-                  <div>
-                    <h3 className={cn(
-                      "font-medium",
-                      currentStep >= step.id ? "text-[#1e3a8a]" : "text-gray-500"
-                    )}>
-                      {step.name}
-                    </h3>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {step.description}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <div className="flex-1 overflow-hidden flex flex-col">
+            <DialogHeader className="flex-shrink-0 p-4 pb-4 border-b">
+              <DialogTitle>{getActionTitle()}</DialogTitle>
+            </DialogHeader>
 
-          {/* Content */}
-          <div className="flex-1 overflow-y-auto p-6">
-            {currentStep === 1 && (
-              <ClientSelectionStep
-                onNext={handleNext}
-                onClose={handleClose}
-                onClientTypeChange={handleClientTypeChange}
-                onClientSelect={setSelectedClient}
-                clientType={clientType}
-                selectedClient={selectedClient}
-                clients={clients}
-                error={error}
-                action={action}
-              />
-            )}
+            <div className="flex-1 overflow-y-auto">
+              <div className="p-6 space-y-6">
+                {currentStep === 1 && (
+                  <ClientSelectionStep
+                    onNext={handleNext}
+                    onClose={handleClose}
+                    onClientTypeChange={handleClientTypeChange}
+                    onClientSelect={setSelectedClient}
+                    clientType={clientType}
+                    selectedClient={selectedClient}
+                    clients={clients}
+                    error={error}
+                    action={action}
+                  />
+                )}
 
-            {currentStep === 2 && (
-              <ProductSelectionStep
-                onSelectProduct={handleOpenProductDialog}
-                onCreateProduct={handleOpenCreateForm}
-                selectedProducts={selectedProducts}
-                onRemoveProduct={handleRemoveProduct}
-                onBack={handleBack}
-                onNext={handleNext}
-              />
-            )}
+                {currentStep === 2 && clientType === "patient" && (
+                  <PatientProductSelection
+                    onSelectProduct={handleOpenProductDialog}
+                    onCreateProduct={handleOpenCreateForm}
+                    selectedProducts={selectedProducts}
+                    onRemoveProduct={handleRemoveProduct}
+                    onBack={handleBack}
+                    onNext={handleNext}
+                  />
+                )}
+                
+                {currentStep === 2 && clientType === "societe" && (
+                  <CompanyProductSelection
+                    onSelectProduct={handleOpenProductDialog}
+                    onCreateProduct={handleOpenCreateForm}
+                    selectedProducts={selectedProducts}
+                    onRemoveProduct={handleRemoveProduct}
+                    onUpdateProductQuantity={(index, quantity) => {
+                      // Create a copy of the selected products array
+                      const updatedProducts = [...selectedProducts];
+                      // Update the quantity of the product at the specified index
+                      updatedProducts[index] = {
+                        ...updatedProducts[index],
+                        quantity: quantity
+                      };
+                      // Update the state with the modified array
+                      setSelectedProducts(updatedProducts);
+                    }}
+                    onBack={handleBack}
+                    onNext={handleNext}
+                  />
+                )}
 
-            {currentStep === 3 && (
-              <div className="space-y-6">
-                <h3 className="text-lg font-medium">Ajout Paiement</h3>
-                {/* Payment form will be added here */}
-                <div className="flex justify-between pt-6 border-t">
-                  <Button variant="outline" onClick={handleBack}>
-                    ← Retour
-                  </Button>
-                  <Button onClick={handleNext}>
-                    Terminer
-                  </Button>
-                </div>
+                {currentStep === 3 && (
+                  <PaymentStep
+                    onBack={handleBack}
+                    onComplete={handlePaymentComplete}
+                    selectedClient={clientDetails}
+                    selectedProducts={selectedProducts}
+                    calculateTotal={calculateTotalPrice}
+                  />
+                )}
               </div>
-            )}
+            </div>
           </div>
         </div>
 

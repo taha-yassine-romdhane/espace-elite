@@ -5,7 +5,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/badge";
-import { Search, MapPin } from "lucide-react";
+import { Search, MapPin, Stethoscope, Puzzle, Cog, Activity, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface ProductDialogProps {
   isOpen: boolean;
@@ -34,21 +35,70 @@ export function ProductDialog({ isOpen, onClose, type, onSelect }: ProductDialog
   const { data: products, isLoading } = useQuery({
     queryKey: ["products", type],
     queryFn: async () => {
-      if (type === "medical-device" || type === "diagnostic") {
-        const deviceType = type === "medical-device" ? "MEDICAL_DEVICE" : "DIAGNOSTIC_DEVICE";
-        const response = await fetch(`/api/medical-devices?type=${deviceType}`);
+      let response;
+      let data;
+      
+      // Strictly separate devices and products by their source table
+      if (type === "medical-device") {
+        // Fetch only MEDICAL_DEVICE type devices from the medicalDevice table
+        response = await fetch(`/api/medical-devices?type=MEDICAL_DEVICE`);
         if (!response.ok) {
-          throw new Error("Failed to fetch medical devices");
+          throw new Error(`Failed to fetch medical devices`);
         }
-        return response.json();
-      } else {
-        const productType = type === "accessory" ? "ACCESSORY" : "SPARE_PART";
-        const response = await fetch(`/api/products?type=${productType}`);
+        data = await response.json();
+        
+        // Ensure we only get true medical devices, not products with the same name
+        data = data.filter((item: any) => 
+          // Explicitly check the type is MEDICAL_DEVICE and the source is the medicalDevice table
+          item.type === "MEDICAL_DEVICE" && 
+          // We can check for properties that only exist on medical devices
+          ("availableForRent" in item || "technicalSpecs" in item)
+        );
+      } 
+      else if (type === "diagnostic") {
+        // Fetch only DIAGNOSTIC_DEVICE type devices from the medicalDevice table
+        response = await fetch(`/api/medical-devices?type=DIAGNOSTIC_DEVICE`);
         if (!response.ok) {
-          throw new Error("Failed to fetch products");
+          throw new Error(`Failed to fetch diagnostic devices`);
         }
-        return response.json();
+        data = await response.json();
+        
+        // Ensure we only get true diagnostic devices
+        data = data.filter((item: any) => 
+          item.type === "DIAGNOSTIC_DEVICE" && 
+          ("availableForRent" in item || "technicalSpecs" in item)
+        );
+      } 
+      else if (type === "accessory") {
+        // Fetch accessories from the products table
+        response = await fetch(`/api/products?type=ACCESSORY`);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch accessories`);
+        }
+        data = await response.json();
+        
+        // We don't need additional filtering here as the API already filters by type
+        // Just log what we got to help with debugging
+        console.log(`Fetched ${data.length} accessories from products table:`, data);
+      } 
+      else if (type === "spare-part") {
+        // Fetch spare parts from the products table
+        response = await fetch(`/api/products?type=SPARE_PART`);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch spare parts`);
+        }
+        data = await response.json();
+        
+        // We don't need additional filtering here as the API already filters by type
+        // Just log what we got to help with debugging
+        console.log(`Fetched ${data.length} spare parts from products table:`, data);
+      } 
+      else {
+        throw new Error(`Unknown product type: ${type}`);
       }
+      
+      console.log(`Fetched ${data.length} ${type} products from the correct table:`, data);
+      return data;
     },
   });
 
@@ -162,7 +212,34 @@ export function ProductDialog({ isOpen, onClose, type, onSelect }: ProductDialog
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-medium truncate">{product.name}</h4>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-medium truncate">{product.name}</h4>
+                        {/* Type Badge */}
+                        {type === "medical-device" && (
+                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 flex items-center gap-1">
+                            <Stethoscope className="h-3 w-3" />
+                            <span className="text-xs">Appareil</span>
+                          </Badge>
+                        )}
+                        {type === "accessory" && (
+                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 flex items-center gap-1">
+                            <Puzzle className="h-3 w-3" />
+                            <span className="text-xs">Accessoire</span>
+                          </Badge>
+                        )}
+                        {type === "spare-part" && (
+                          <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 flex items-center gap-1">
+                            <Cog className="h-3 w-3" />
+                            <span className="text-xs">Pièce</span>
+                          </Badge>
+                        )}
+                        {type === "diagnostic" && (
+                          <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 flex items-center gap-1">
+                            <Activity className="h-3 w-3" />
+                            <span className="text-xs">Diagnostic</span>
+                          </Badge>
+                        )}
+                      </div>
                       <div className="text-sm text-gray-500 truncate">
                         {product.brand} {product.model}
                         {product.serialNumber && ` • N°${product.serialNumber}`}
@@ -178,9 +255,48 @@ export function ProductDialog({ isOpen, onClose, type, onSelect }: ProductDialog
                           {product.sellingPrice} DT
                         </div>
                       )}
-                      <Badge variant="outline" className="mt-1">
-                        Stock: {product.stockQuantity || 1}
-                      </Badge>
+                      <div className="flex flex-col gap-1 mt-1">
+                        {/* Stock Badge */}
+                        <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">
+                          Stock: {product.stockQuantity || 1}
+                        </Badge>
+                        
+                        {/* Status Badge */}
+                        {product.status && (
+                          <Badge 
+                            variant="outline" 
+                            className={cn(
+                              "flex items-center gap-1",
+                              product.status === "AVAILABLE" && "bg-green-50 text-green-700 border-green-200",
+                              product.status === "RESERVED" && "bg-amber-50 text-amber-700 border-amber-200",
+                              product.status === "UNAVAILABLE" && "bg-red-50 text-red-700 border-red-200",
+                              !product.status || product.status === "UNKNOWN" && "bg-gray-50 text-gray-700 border-gray-200"
+                            )}
+                          >
+                            {product.status === "AVAILABLE" && <CheckCircle2 className="h-3 w-3" />}
+                            {product.status === "RESERVED" && <AlertCircle className="h-3 w-3" />}
+                            {product.status === "UNAVAILABLE" && <XCircle className="h-3 w-3" />}
+                            {!product.status || product.status === "UNKNOWN" && <span className="h-3 w-3" />}
+                            <span className="text-xs">
+                              {product.status === "AVAILABLE" ? "Disponible" : 
+                               product.status === "RESERVED" ? "Réservé" : 
+                               product.status === "UNAVAILABLE" ? "Indisponible" : 
+                               "État inconnu"}
+                            </span>
+                          </Badge>
+                        )}
+                        
+                        {/* If no status is provided, show a default available badge */}
+                        {!product.status && product.stockQuantity && product.stockQuantity > 0 && (
+                          <Badge 
+                            variant="outline" 
+                            className="bg-green-50 text-green-700 border-green-200 flex items-center gap-1"
+                          >
+                            <CheckCircle2 className="h-3 w-3" />
+                            <span className="text-xs">Disponible</span>
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </Card>
