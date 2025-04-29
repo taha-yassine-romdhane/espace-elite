@@ -390,6 +390,10 @@ export default function AppareilsPage() {
                 setProductToViewHistory(product);
                 setIsHistoryDialogOpen(true);
               }}
+              onViewParameters={(product) => {
+                setProductToViewParameters(product);
+                setIsParametersDialogOpen(true);
+              }}
               renderActionButtons={renderActionButtons}
             />
           </div>

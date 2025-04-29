@@ -118,7 +118,7 @@ model User {
   performedDiagnostics Diagnostic[]        @relation("PerformedDiagnostics") // User who performed diagnostics
   completedTasks       Task[]              @relation("CompletedTasks")
   verifiedTransfers    StockTransfer[]     @relation("VerifiedTransfers")
-  notifications        Notification[]     // Notifications sent to this user
+  notifications        Notification[] // Notifications sent to this user
 }
 
 model Task {
@@ -222,10 +222,10 @@ model Product {
 }
 
 model Patient {
-  id                 String           @id @default(cuid())
+  id                 String                   @id @default(cuid())
   firstName          String
   lastName           String
-  telephone          String           @unique
+  telephone          String                   @unique
   telephoneTwo       String?
   descriptionNumOne  String?
   descriptionNumTwo  String?
@@ -242,21 +242,22 @@ model Patient {
   imc                Float? // Calculated field
   medicalHistory     String?
   doctorId           String?
-  doctor             Doctor?          @relation(fields: [doctorId], references: [id])
+  doctor             Doctor?                  @relation(fields: [doctorId], references: [id])
   technicianId       String?
-  technician         User?            @relation("TechnicianPatients", fields: [technicianId], references: [id])
-  assignedTo         User             @relation("AssignedPatients", fields: [userId], references: [id])
+  technician         User?                    @relation("TechnicianPatients", fields: [technicianId], references: [id])
+  assignedTo         User                     @relation("AssignedPatients", fields: [userId], references: [id])
   userId             String
   files              File[]
   medicalDevices     MedicalDevice[]
+  deviceParameters   MedicalDeviceParametre[] // Link to device parameters used by this patient
   payments           Payment[]
   diagnostics        Diagnostic[]
   appointments       Appointment[]
   rentals            Rental[]
   notifications      Notification[]
-  history            PatientHistory[] // History of all operations for this patient
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  PatientHistory     PatientHistory[]
 }
 
 model Company {
@@ -375,36 +376,37 @@ model DiagnosticParameter {
 }
 
 model MedicalDevice {
-  id                  String                @id @default(cuid())
+  id                  String                   @id @default(cuid())
   name                String
   type                String // CPAP, DIAGNOSTIC_DEVICE, etc.
   brand               String?
   model               String?
-  serialNumber        String?               @unique
+  serialNumber        String?                  @unique
   description         String?
   technicalSpecs      String? // Technical specifications
   configuration       String? // Device configuration
   warranty            String? // Warranty information
   maintenanceInterval String? // Maintenance interval
-  purchasePrice       Decimal?              @db.Decimal(10, 2)
-  sellingPrice        Decimal?              @db.Decimal(10, 2)
-  rentalPrice         Decimal?              @db.Decimal(10, 2)
+  purchasePrice       Decimal?                 @db.Decimal(10, 2)
+  sellingPrice        Decimal?                 @db.Decimal(10, 2)
+  rentalPrice         Decimal?                 @db.Decimal(10, 2)
   stockLocationId     String?
-  stockLocation       StockLocation?        @relation(fields: [stockLocationId], references: [id])
-  stockQuantity       Int                   @default(1)
-  status              String                @default("ACTIVE") // ACTIVE, MAINTENANCE, RETIRED
-  availableForRent    Boolean               @default(false)
-  requiresMaintenance Boolean               @default(false)
+  stockLocation       StockLocation?           @relation(fields: [stockLocationId], references: [id])
+  stockQuantity       Int                      @default(1)
+  status              String                   @default("ACTIVE") // ACTIVE, MAINTENANCE, RETIRED
+  availableForRent    Boolean                  @default(false)
+  requiresMaintenance Boolean                  @default(false)
   installationDate    DateTime?
   reservedUntil       DateTime? // Date until which the device is reserved for a patient
   location            String? // Physical location of the device (e.g., patient's home)
   parameters          DiagnosticParameter[]
-  createdAt           DateTime              @default(now())
-  updatedAt           DateTime              @updatedAt
+  deviceParameters    MedicalDeviceParametre[] // Link to device parameters
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
   Rental              Rental[]
-  Patient             Patient?              @relation(fields: [patientId], references: [id])
+  Patient             Patient?                 @relation(fields: [patientId], references: [id])
   patientId           String?
-  Company             Company?              @relation(fields: [companyId], references: [id])
+  Company             Company?                 @relation(fields: [companyId], references: [id])
   companyId           String?
   Diagnostic          Diagnostic[]
   RepairLog           RepairLog[]
@@ -541,12 +543,10 @@ enum NotificationStatus {
   READ
 }
 
-
-
 model Notification {
   id          String               @id @default(cuid())
   title       String
-  message     String               // This is used as content in the code
+  message     String // This is used as content in the code
   type        NotificationType
   status      NotificationStatus   @default(PENDING)
   dueDate     DateTime?
@@ -557,11 +557,50 @@ model Notification {
   patient     Patient?             @relation(fields: [patientId], references: [id])
   companyId   String?
   company     Company?             @relation(fields: [companyId], references: [id])
-  userId      String?              // Add user relation field
+  userId      String? // Add user relation field
   user        User?                @relation(fields: [userId], references: [id])
-  readAt      DateTime?            // Tracks when notification was read
-  isRead      Boolean              @default(false)  // Simple boolean for read status
-  metadata    Json?                // For storing additional info like transferId
+  readAt      DateTime? // Tracks when notification was read
+  isRead      Boolean              @default(false) // Simple boolean for read status
+  metadata    Json? // For storing additional info like transferId
   createdAt   DateTime             @default(now())
   updatedAt   DateTime             @updatedAt
+}
+
+// Model for storing medical device parameters (CPAP, VNI, Concentrateur, etc.)
+model MedicalDeviceParametre {
+  id         String        @id @default(cuid())
+  // Common fields
+  deviceId   String // The medical device these parameters belong to
+  device     MedicalDevice @relation(fields: [deviceId], references: [id])
+  deviceType String // CPAP, VNI, Concentrateur O², Vi, Bouteil O²
+
+  // CPAP & VNI fields
+  pressionRampe String? // Pression Rampe value
+  dureeRampe    Int? // Durée Rampe (5-45 min)
+  autoRampe     Boolean? // Auto option for CPAP
+
+  // CPAP fields
+  pression     String? // Pression value for CPAP
+  autoPression Boolean? // Auto option for pression
+  dureeRampe2  Int? // Second Durée Rampe (8-18 Cm H₂O)
+  epr          String? // EPR value
+
+  // VNI fields
+  ipap                  String? // IPAP value
+  epap                  String? // EPAP value
+  aid                   String? // AID value
+  frequenceRespiratoire String? // Fréquence Respiratoire
+  volumeCourant         String? // Volume Courant
+  mode                  String? // Mode (S, ST, T, Auto, VGPS, VS aide)
+
+  // Concentrateur & Bouteille fields
+  debit String? // Débit value
+
+  // Patient association (for tracking which patient used these parameters)
+  patientId String?
+  patient   Patient? @relation(fields: [patientId], references: [id])
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

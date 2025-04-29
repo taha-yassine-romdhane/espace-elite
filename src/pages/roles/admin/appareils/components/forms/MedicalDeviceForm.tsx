@@ -22,6 +22,26 @@ import * as z from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Switch } from "@/components/ui/switch";
+import { useState } from "react";
+import { Eye, X } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog";
+
+// Import parameter form components
+import {
+  ParametreCPAPForm,
+  ParametreVNIForm,
+  ParametreConcentrateurForm,
+  ParametreBouteilleForm,
+  ParametreVIForm
+} from "./MedicaleDevicesParametreForms";
 
 // Form validation schema for medical devices
 const medicalDeviceSchema = z.object({
@@ -54,6 +74,9 @@ interface MedicalDeviceFormProps {
 }
 
 export function MedicalDeviceForm({ initialData, onSubmit, stockLocations, isEditMode = false }: MedicalDeviceFormProps) {
+  // State to control parameter preview dialog
+  const [dialogOpen, setDialogOpen] = useState(false);
+  
   const form = useForm<MedicalDeviceFormValues>({
     resolver: zodResolver(medicalDeviceSchema),
     defaultValues: {
@@ -79,28 +102,63 @@ export function MedicalDeviceForm({ initialData, onSubmit, stockLocations, isEdi
     }
   };
 
+  // Get the selected device name to determine which parameter form to show
+  const selectedName = form.watch('name');
+
+  // Select the appropriate parameter form component based on the selected device name
+  let ParamPreview = null;
+  if (selectedName === 'CPAP') {
+    ParamPreview = ParametreCPAPForm;
+  } else if (selectedName === 'VNI') {
+    ParamPreview = ParametreVNIForm;
+  } else if (selectedName === 'Concentrateur O²') {
+    ParamPreview = ParametreConcentrateurForm;
+  } else if (selectedName === 'Bouteil O²') {
+    ParamPreview = ParametreBouteilleForm;
+  } else if (selectedName === 'Vi') {
+    ParamPreview = ParametreVIForm;
+  }
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-        <Tabs defaultValue="basic" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="basic">Information de Base</TabsTrigger>
-            <TabsTrigger value="stock">Stock</TabsTrigger>
-            <TabsTrigger value="financial">Finance</TabsTrigger>
-            <TabsTrigger value="technical">Technique</TabsTrigger>
-          </TabsList>
+        <div className="flex flex-col lg:flex-row gap-0 lg:gap-6 relative">
+          {/* Main Form */}
+          <div className="w-full min-w-0 p-0 lg:pr-6">
+            <Tabs defaultValue="basic" className="w-full">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="basic">Information de Base</TabsTrigger>
+                <TabsTrigger value="stock">Stock</TabsTrigger>
+                <TabsTrigger value="financial">Finance</TabsTrigger>
+                <TabsTrigger value="technical">Technique</TabsTrigger>
+              </TabsList>
 
-          <TabsContent value="basic">
-            <Card>
-              <CardContent className="space-y-4 pt-4">
-                <FormField
+              <TabsContent value="basic">
+                <Card>
+                  <CardContent className="space-y-4 pt-4">
+                    <FormField
                   control={form.control}
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Nom*</FormLabel>
+                      <FormLabel>Nom</FormLabel>
                       <FormControl>
-                        <Input {...field} />
+                        <Select
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          required
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Sélectionner le type d'appareil" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="CPAP">CPAP</SelectItem>
+                            <SelectItem value="VNI">VNI</SelectItem>
+                            <SelectItem value="Concentrateur O²">Concentrateur O²</SelectItem>
+                            <SelectItem value="Vi">Vi</SelectItem>
+                            <SelectItem value="Bouteil O²">Bouteil O²</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -323,7 +381,46 @@ export function MedicalDeviceForm({ initialData, onSubmit, stockLocations, isEdi
               </CardContent>
             </Card>
           </TabsContent>
-        </Tabs>
+            </Tabs>
+          </div>
+          
+          {/* Parameter Preview Dialog Button - Only show if a device type is selected */}
+          {ParamPreview && (
+            <div className="mt-4">
+              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    className="flex items-center gap-2 text-blue-700 border-blue-200 hover:bg-blue-50"
+                  >
+                    <Eye size={16} />
+                    Voir les paramètres
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[500px]">
+                  <DialogHeader>
+                    <div className="flex justify-between items-center">
+                      <DialogTitle className="text-blue-700">Paramètres de l'appareil</DialogTitle>
+                    </div>
+                    <DialogDescription>
+                      Aperçu des paramètres pour {selectedName}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="max-h-[70vh] overflow-y-auto mt-4">
+                    {ParamPreview && (
+                      <ParamPreview 
+                        onSubmit={() => {}} 
+                        initialValues={{}} 
+                        readOnly={true}
+                      />
+                    )}
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+          )}
+        </div>
 
         <div className="flex justify-end space-x-4">
           <Button 

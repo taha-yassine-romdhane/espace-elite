@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Product, ProductType } from "@/types";
-import { History, Sliders, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { History, Sliders, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Settings } from "lucide-react";
 
 interface MedicalDevicesTableProps {
   products: Product[];
@@ -159,28 +159,34 @@ export function MedicalDevicesTable({
                   {device.status}
                 </Badge>
               </TableCell>
-              <TableCell className="py-1 text-right">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => onViewHistory(device)}
-                  title="Voir l'historique des réparations"
-                  className="h-6 w-6"
-                >
-                  <History className="h-3 w-3" />
-                </Button>
-                {onViewParameters && (
+              <TableCell className="py-1">
+                <div className="flex items-center justify-end gap-2">
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="icon"
-                    onClick={() => onViewParameters(device)}
-                    title="Voir les paramètres"
-                    className="h-6 w-6"
+                    onClick={() => onViewHistory(device)}
+                    title="Voir l'historique des réparations"
+                    className="h-9 w-9 rounded-md border border-gray-200 bg-white hover:bg-gray-100 flex items-center justify-center"
                   >
-                    <Sliders className="h-3 w-3" />
+                    <History className="h-5 w-5" />
                   </Button>
-                )}
-                {renderActionButtons(device)}
+                  {onViewParameters && (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => onViewParameters(device)}
+                      title="Voir les paramètres de l'appareil"
+                      className="h-9 w-9 rounded-md border border-gray-200 bg-white hover:bg-gray-100 flex items-center justify-center"
+                    >
+                      <Settings className="h-5 w-5" />
+                    </Button>
+                  )}
+                  {renderActionButtons && (
+                    <div className="flex items-center gap-2">
+                      {renderActionButtons(device)}
+                    </div>
+                  )}
+                </div>
               </TableCell>
             </TableRow>
           ))}

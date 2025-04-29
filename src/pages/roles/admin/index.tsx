@@ -2,8 +2,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
 import { useEffect } from 'react';
 import AdminLayout from './AdminLayout';
-import { Card, CardContent } from "@/components/ui/Card";
-import { Users, Box, Bell, ShoppingCart, Cog, Clipboard, SquareActivity } from 'lucide-react';
+import { Users, Box, Bell, ShoppingCart, Cog, Clipboard, SquareActivity, Home } from 'lucide-react';
 
 export default function AdminDashboard() {
   const { data: session, status } = useSession();
@@ -32,45 +31,102 @@ export default function AdminDashboard() {
   }
 
   const quickLinks = [
-    { icon: <Users size={24} />, title: 'Utilisateurs', description: 'Gérer les utilisateurs', bgColor: 'bg-blue-500', path: '/roles/admin/users' },
-    { icon: <Box size={24} />, title: 'Stock', description: 'Gérer les stocks', bgColor: 'bg-green-500', path: '/roles/admin/stock' },
-    { icon: <ShoppingCart size={24} />, title: 'Produits', description: 'Gérer les produits', bgColor: 'bg-purple-500', path: '/roles/admin/appareils' },
-    { icon: <Bell size={24} />, title: 'Notifications', description: 'Gérer les notifications', bgColor: 'bg-yellow-500', path: '/roles/admin/notifications' },
-    { icon: <Cog size={24} />, title: 'Paramètres', description: 'Configurer le système', bgColor: 'bg-red-500', path: '/roles/admin/settings' },
-    { icon: <Clipboard size={24} />, title: 'Tâches', description: 'Gérer les tâches', bgColor: 'bg-blue-500', path: '/roles/admin/tasks' },
-    { icon: <Users size={24} />, title: 'Reparateurs', description: 'Gérer les reparateurs', bgColor: 'bg-blue-500', path: '/roles/admin/reparateur' },
-    { icon: <Users size={24} />, title: 'Renseignements', description: 'Gérer les Renseignements', bgColor: 'bg-blue-500', path: '/roles/admin/renseignement' },
-    { icon: <SquareActivity size={24} />, title: 'Diagnostics', description: 'Gérer les Diagnostics', bgColor: 'bg-blue-500', path: '/roles/admin/diagnostic' },
+    { icon: <Users size={32} />, title: 'Utilisateurs', description: 'Gérer les utilisateurs', bgColor: 'bg-blue-600', path: '/roles/admin/users' },
+    { icon: <Box size={32} />, title: 'Stock', description: 'Gérer les stocks', bgColor: 'bg-blue-500', path: '/roles/admin/stock' },
+    { icon: <ShoppingCart size={32} />, title: 'Produits', description: 'Gérer les produits', bgColor: 'bg-blue-400', path: '/roles/admin/appareils' },
+    { icon: <Bell size={32} />, title: 'Notifications', description: 'Gérer les notifications', bgColor: 'bg-blue-300', path: '/roles/admin/notifications' },
+    { icon: <Cog size={32} />, title: 'Paramètres', description: 'Configurer le système', bgColor: 'bg-blue-700', path: '/roles/admin/settings' },
+    { icon: <Clipboard size={32} />, title: 'Tâches', description: 'Gérer les tâches', bgColor: 'bg-blue-800', path: '/roles/admin/tasks' },
+    { icon: <Users size={32} />, title: 'Reparateurs', description: 'Gérer les réparateurs', bgColor: 'bg-blue-500', path: '/roles/admin/reparateur' },
+    { icon: <Users size={32} />, title: 'Renseignements', description: 'Gérer les renseignements', bgColor: 'bg-blue-600', path: '/roles/admin/renseignement' },
+    { icon: <SquareActivity size={32} />, title: 'Diagnostics', description: 'Gérer les diagnostics', bgColor: 'bg-blue-400', path: '/roles/admin/diagnostic' },
   ];
 
+// Purpose descriptions for each button
+function getPurposeDescription(title: string) {
+  switch (title) {
+    case 'Utilisateurs':
+      return "Ajouter, modifier ou supprimer des comptes utilisateurs.";
+    case 'Stock':
+      return "Suivre et gérer les stocks de produits et appareils.";
+    case 'Produits':
+      return "Consulter, ajouter ou éditer les produits disponibles.";
+    case 'Notifications':
+      return "Recevoir et gérer les alertes du système.";
+    case 'Paramètres':
+      return "Configurer les paramètres généraux de la plateforme.";
+    case 'Tâches':
+      return "Attribuer et suivre les tâches administratives.";
+    case 'Reparateurs':
+      return "Gérer les comptes et missions des réparateurs.";
+    case 'Renseignements':
+      return "Accéder aux informations et historiques.";
+    case 'Diagnostics':
+      return "Lancer et consulter les diagnostics techniques.";
+    default:
+      return "Accès rapide à la fonctionnalité.";
+  }
+}
+
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Tableau de Bord Administrateur</h1>
-          <p className="text-gray-500">Bienvenue, {session?.user?.name || 'Administrateur'}</p>
+    <div className="min-h-screen w-full bg-gray-100 py-10 px-2 md:px-8">
+      {/* Welcome and General Info */}
+      <div className="flex flex-col md:flex-row justify-between items-center mb-8">
+        <div className="mb-4 md:mb-0">
+          <h1 className="text-4xl md:text-5xl font-extrabold text-gray-800 mb-2">Bienvenue{session?.user?.name ? `, ${session.user.name}` : ' Administrateur'} !</h1>
+          <p className="text-lg text-gray-500 font-medium">Heureux de vous revoir sur votre espace d'administration.</p>
         </div>
-        <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-          ADMIN
+        <div className="bg-blue-100 text-blue-700 px-6 py-2 rounded-full text-lg font-semibold shadow flex items-center gap-2">
+          <span className="uppercase tracking-wider">ADMIN</span>
         </div>
       </div>
 
-      {/* Quick Access Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
+      {/* General Info Section */}
+      <div className="bg-white rounded-xl shadow p-6 mb-10 flex flex-col md:flex-row items-center justify-between gap-6 border border-gray-200">
+        <div>
+          <div className="text-xl font-bold text-blue-700 mb-1">Informations Générales</div>
+          <div className="text-gray-600">Aujourd'hui : {new Date().toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
+        </div>
+        <div className="flex gap-8">
+          <div className="flex flex-col items-center">
+            <span className="text-lg font-bold text-blue-700">Rapide</span>
+            <span className="text-blue-500">Navigation</span>
+          </div>
+          <div className="flex flex-col items-center">
+            <span className="text-lg font-bold text-blue-700">Sécurisé</span>
+            <span className="text-blue-500">Accès</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Accueil (Home) Button */}
+      <div className="flex justify-center mb-8">
+        <button
+          className="flex items-center gap-3 px-8 py-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-xl font-bold shadow-lg border-4 border-blue-300 hover:border-blue-500 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-blue-200"
+          style={{ minWidth: 320 }}
+          onClick={() => router.push('/roles/admin/dashboard')}
+        >
+          <Home size={32} className="mr-2" />
+          Accueil
+        </button>
+      </div>
+
+      {/* Enhanced Quick Access Buttons */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
         {quickLinks.map((link, index) => (
-          <Card 
-            key={index} 
-            className="cursor-pointer hover:shadow-lg transition-all duration-300"
+          <div
+            key={index}
+            className="group relative bg-white rounded-xl shadow hover:shadow-lg hover:scale-[1.03] transition-all duration-200 cursor-pointer border border-gray-200 hover:border-blue-400"
             onClick={() => router.push(link.path)}
           >
-            <CardContent className="p-6">
-              <div className={`w-12 h-12 rounded-full ${link.bgColor} text-white flex items-center justify-center mb-4`}>
-                {link.icon}
-              </div>
-              <h3 className="font-medium text-gray-900">{link.title}</h3>
-              <p className="text-sm text-gray-500">{link.description}</p>
-            </CardContent>
-          </Card>
+            <div className="flex flex-col items-center p-7">
+              <div className={`w-14 h-14 rounded-full flex items-center justify-center mb-4 text-white text-3xl shadow ${link.bgColor ?? 'bg-blue-600'} group-hover:scale-110 transition-transform duration-200`}>{link.icon}</div>
+              <h3 className="text-lg font-bold text-blue-800 mb-1 group-hover:text-blue-600 transition-colors duration-200">{link.title}</h3>
+              <p className="text-xs text-gray-500 text-center font-medium mb-2">{link.description}</p>
+              {/* Purpose/Info for each button */}
+              <span className="text-xs text-blue-500 bg-blue-50 px-3 py-1 rounded-full mt-1 shadow-sm">{getPurposeDescription(link.title)}</span>
+            </div>
+          </div>
         ))}
       </div>
     </div>
