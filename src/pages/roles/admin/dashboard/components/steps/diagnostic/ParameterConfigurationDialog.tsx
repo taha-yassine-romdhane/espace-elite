@@ -1,21 +1,20 @@
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ParameterConsumer } from "@/pages/roles/admin/appareils/components/forms/ParameterConsumer";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format, addDays } from "date-fns";
 import { fr } from "date-fns/locale";
 import { CalendarIcon, Info } from "lucide-react";
 import { Label } from "@/components/ui/label";
+import { useState, useEffect } from "react";
+import { toast } from "@/components/ui/use-toast";
 
 interface ParameterConfigurationDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (parameters: any) => void;
+  onSubmit: (resultDueDate: Date) => void;
   deviceId: string;
   deviceName: string;
-  initialValues?: any[];
-  patientId?: string;
   resultDueDate?: Date;
   onResultDueDateChange?: (date: Date | undefined) => void;
 }
@@ -26,38 +25,81 @@ export function ParameterConfigurationDialog({
   onSubmit,
   deviceId,
   deviceName,
-  initialValues = [],
-  patientId,
   resultDueDate,
   onResultDueDateChange = () => {}
 }: ParameterConfigurationDialogProps) {
   // Set default date to 7 days from now if not provided
   const defaultDate = resultDueDate || addDays(new Date(), 7);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(defaultDate);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
-  const handleParameterSubmit = (parameters: any) => {
-    // Add the result due date to all RESULT type parameters
-    const updatedParameters = parameters.map((param: any) => {
-      if (param.parameterType === 'RESULT' && resultDueDate) {
-        return {
-          ...param,
-          resultDueDate: resultDueDate.toISOString().split('T')[0] // Format as YYYY-MM-DD
-        };
-      }
-      return param;
-    });
-    
-    onSubmit(updatedParameters);
-  };
+  // Update local state when prop changes
+  useEffect(() => {
+    setSelectedDate(resultDueDate || defaultDate);
+  }, [resultDueDate, defaultDate]);
   
   // Format date as a string for display
   const formatDate = (date?: Date) => {
     if (!date) return "";
     return format(date, 'PPP', { locale: fr });
   };
+  
+  // Handle date change locally
+  const handleDateChange = (date: Date | undefined) => {
+    setSelectedDate(date);
+    onResultDueDateChange(date);
+  };
+  
+  // Handle form submission
+  const handleSubmit = async () => {
+    if (!selectedDate) {
+      setError("Veuillez sélectionner une date pour les résultats");
+      return;
+    }
+    
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      // Call the API to save the configuration
+      const response = await fetch(`/api/diagnostic-parameters`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          deviceId,
+          resultDueDate: selectedDate.toISOString()
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Erreur lors de la sauvegarde des paramètres');
+      }
+      
+      // Call the onSubmit callback with the selected date
+      onSubmit(selectedDate);
+      
+      // Close the dialog
+      onClose();
+      
+      // Show success toast
+      toast({
+        title: "Configuration sauvegardée",
+        description: `L'appareil est réservé jusqu'au ${formatDate(selectedDate)}`,
+      });
+    } catch (err) {
+      console.error('Error saving configuration:', err);
+      setError("Impossible de sauvegarder la configuration. Veuillez réessayer.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold">
             Configurer les Paramètres - {deviceName}
@@ -85,8 +127,8 @@ export function ParameterConfigurationDialog({
                     className="w-full justify-start text-left font-normal bg-white border-gray-300"
                   >
                     <CalendarIcon className="mr-2 h-4 w-4 text-gray-500" />
-                    {resultDueDate ? (
-                      formatDate(resultDueDate)
+                    {selectedDate ? (
+                      formatDate(selectedDate)
                     ) : (
                       <span className="text-gray-500">Sélectionner une date</span>
                     )}
@@ -98,8 +140,8 @@ export function ParameterConfigurationDialog({
                   </div>
                   <Calendar
                     mode="single"
-                    selected={resultDueDate || defaultDate}
-                    onSelect={onResultDueDateChange}
+                    selected={selectedDate}
+                    onSelect={handleDateChange}
                     initialFocus
                     disabled={{
                       before: new Date(),
@@ -115,22 +157,34 @@ export function ParameterConfigurationDialog({
             </div>
             
             {/* Show selected date as text for clarity */}
-            {resultDueDate && (
+            {selectedDate && (
               <div className="text-sm text-blue-800 mt-1 flex items-center">
                 <CalendarIcon className="h-3.5 w-3.5 mr-1.5" />
-                Résultats attendus le {formatDate(resultDueDate)}
+                Résultats attendus le {formatDate(selectedDate)}
               </div>
             )}
           </div>
         </div>
         
-        <div className="py-4">
-          <ParameterConsumer
-            deviceId={deviceId}
-            onSubmit={handleParameterSubmit}
-            initialValues={initialValues}
-            patientId={patientId}
-          />
+        {/* Error message */}
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">
+            {error}
+          </div>
+        )}
+        
+        {/* Action buttons */}
+        <div className="flex justify-end space-x-2 pt-4 border-t border-gray-100">
+          <Button variant="outline" onClick={onClose} disabled={isLoading}>
+            Annuler
+          </Button>
+          <Button 
+            onClick={handleSubmit} 
+            disabled={isLoading || !selectedDate}
+            className="bg-blue-900 hover:bg-blue-800 text-white"
+          >
+            {isLoading ? 'Enregistrement...' : 'Enregistrer'}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

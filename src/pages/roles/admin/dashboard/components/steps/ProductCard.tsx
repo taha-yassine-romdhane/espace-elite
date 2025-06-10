@@ -19,52 +19,30 @@ interface ProductCardProps {
 export function ProductCard({ product, index, onRemove, onConfigure }: ProductCardProps) {
   // Helper function to determine if parameters are configured
   const isParametersConfigured = (product: any) => {
-    if (!product?.parameters || product.parameters.length === 0) {
-      return false;
-    }
-    
-    // Check if all required parameters have values
-    return product.parameters.every((param: any) => {
-      if (param?.required) {
-        if (param.parameterType === 'NUMERIC' || param.parameterType === 'TEXT') {
-          return param.value !== undefined && param.value !== null && param.value !== '';
-        } else if (param.parameterType === 'BOOLEAN') {
-          return param.value === true || param.value === false;
-        } else if (param.parameterType === 'SELECT') {
-          return param.selectedOption !== undefined && param.selectedOption !== null;
-        } else if (param.parameterType === 'RESULT') {
-          // Result parameters are configured if they have a resultDueDate
-          return param.resultDueDate !== undefined && param.resultDueDate !== null;
-        }
-      }
-      return true;
-    });
+    // In the new simplified approach, we only check for the resultDueDate directly on the product
+    // or from the MedicalDevice.reservedUntil field
+    return product?.resultDueDate || product?.reservedUntil;
   };
 
   const renderParameterStatus = () => {
-    if (!product?.parameters) {
-      return (
-        <div className="flex items-center text-yellow-600 text-sm mt-1">
-          <CircleAlert className="h-4 w-4 mr-1" />
-          <span>Paramètres non configurés</span>
-        </div>
-      );
-    }
-
     const configured = isParametersConfigured(product);
     
     if (configured) {
+      // Format the date if available
+      const dateStr = product?.resultDueDate || product?.reservedUntil;
+      const dateDisplay = dateStr ? new Date(dateStr).toLocaleDateString() : '';
+      
       return (
         <div className="flex items-center text-green-600 text-sm mt-1">
           <CheckCircle2 className="h-4 w-4 mr-1" />
-          <span>Paramètres configurés</span>
+          <span>Date des résultats configurée: {dateDisplay}</span>
         </div>
       );
     } else {
       return (
         <div className="flex items-center text-yellow-600 text-sm mt-1">
           <CircleAlert className="h-4 w-4 mr-1" />
-          <span>Paramètres incomplets</span>
+          <span>Date des résultats non configurée</span>
         </div>
       );
     }

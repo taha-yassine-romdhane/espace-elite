@@ -100,6 +100,8 @@ export function DiagnosticDevicesTable({
         return 'secondary';
       case 'RETIRED':
         return 'destructive';
+      case 'RESERVED':
+        return 'warning';
       default:
         return 'outline';
     }

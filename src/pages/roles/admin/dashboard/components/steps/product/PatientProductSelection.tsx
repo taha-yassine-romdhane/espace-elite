@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/Card";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { 
   Plus, 
@@ -11,17 +10,17 @@ import {
   Puzzle,
   Info,
   X,
-  Search,
-  Filter,
-  LayoutGrid
+  Settings
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import ProductParameterDialog from "./ProductParameterDialog";
 
 interface PatientProductSelectionProps {
   selectedProducts: any[];
   onSelectProduct: (type: "medical-device" | "accessory") => void;
   onCreateProduct: (type: "medical-device" | "accessory") => void;
   onRemoveProduct: (index: number) => void;
+  onUpdateProduct?: (index: number, updatedProduct: any) => void;
   onBack: () => void;
   onNext: () => void;
 }
@@ -81,45 +80,111 @@ const ProductTypeButton = ({ type, onSelect, onCreateNew }: {
 // Product Card Component
 const ProductCard = ({
   product,
-  onRemove
+  onRemove,
+  onConfigure
 }: {
   product: any;
   onRemove: () => void;
+  onConfigure?: () => void;
 }) => {
+  // Only show configure button for medical devices
+  const showConfigureButton = product.type === "MEDICAL_DEVICE" && onConfigure;
+  
+  // Check if parameters are configured
+  const hasParameters = product.parameters && Object.keys(product.parameters).length > 0;
+  
+  // Function to format parameters for display
+  const formatParameters = (params: any) => {
+    if (!params) return [];
+    
+    const formattedParams = [];
+    
+    // CPAP parameters
+    if (params.pressionRampe) formattedParams.push(`Pression Rampe: ${params.pressionRampe}`);
+    if (params.dureeRampe) formattedParams.push(`Durée Rampe: ${params.dureeRampe} min`);
+    if (params.pression) formattedParams.push(`Pression: ${params.pression}`);
+    if (params.epr) formattedParams.push(`EPR: ${params.epr}`);
+    
+    // VNI parameters
+    if (params.ipap) formattedParams.push(`IPAP: ${params.ipap}`);
+    if (params.epap) formattedParams.push(`EPAP: ${params.epap}`);
+    if (params.aid) formattedParams.push(`AID: ${params.aid}`);
+    if (params.frequenceRespiratoire) formattedParams.push(`Fréq. Resp.: ${params.frequenceRespiratoire}`);
+    if (params.volumeCourant) formattedParams.push(`Vol. Courant: ${params.volumeCourant}`);
+    if (params.mode) formattedParams.push(`Mode: ${params.mode}`);
+    
+    // Concentrateur & Bouteille parameters
+    if (params.debit) formattedParams.push(`Débit: ${params.debit}`);
+    
+    return formattedParams;
+  };
+  
+  // Get formatted parameters
+  const parametersList = formatParameters(product.parameters);
+  
   return (
-    <div className="p-4 flex items-center justify-between hover:bg-gray-50 border-b border-gray-100 last:border-0">
-      <div className="flex-1">
+    <div className="p-4 flex flex-col hover:bg-gray-50 border-b border-gray-100 last:border-0">
+      <div className="flex items-center justify-between">
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <div className="flex-shrink-0">
+              {product.type === "MEDICAL_DEVICE" && <Stethoscope className="h-5 w-5 text-blue-500" />}
+              {product.type === "ACCESSORY" && <Puzzle className="h-5 w-5 text-green-500" />}
+            </div>
+            <div>
+              <h4 className="font-medium text-gray-900">{product.name}</h4>
+              <p className="text-sm text-gray-500">
+                {product.type === "MEDICAL_DEVICE" ? "Appareil médical" : "Accessoire"}
+              </p>
+            </div>
+          </div>
+        </div>
+        
         <div className="flex items-center gap-2">
-          <div className="flex-shrink-0">
-            {product.type === "MEDICAL_DEVICE" && <Stethoscope className="h-5 w-5 text-blue-500" />}
-            {product.type === "ACCESSORY" && <Puzzle className="h-5 w-5 text-green-500" />}
+          <div className="min-w-[80px] text-right">
+            <div className="font-medium">{typeof product.sellingPrice === 'number' ? 
+              product.sellingPrice.toFixed(2) : 
+              (parseFloat(product.sellingPrice) || 0).toFixed(2)} DT</div>
           </div>
-          <div>
-            <h4 className="font-medium text-gray-900">{product.name}</h4>
-            <p className="text-sm text-gray-500">
-              {product.type === "MEDICAL_DEVICE" ? "Appareil médical" : "Accessoire"}
-            </p>
-          </div>
+          
+          {showConfigureButton && (
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn(
+                "h-8 w-8 p-0 hover:bg-blue-50 border-blue-200",
+                hasParameters ? "text-green-500 hover:text-green-700" : "text-blue-500 hover:text-blue-700"
+              )}
+              onClick={onConfigure}
+              title={hasParameters ? "Modifier les paramètres" : "Configurer les paramètres"}
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
+          )}
+          
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 text-gray-400 hover:text-red-500 hover:bg-red-50"
+            onClick={onRemove}
+          >
+            <span className="sr-only">Supprimer</span>
+            <X className="h-4 w-4" />
+          </Button>
         </div>
       </div>
       
-      <div className="flex items-center gap-4">
-        <div className="min-w-[80px] text-right">
-          <div className="font-medium">{typeof product.sellingPrice === 'number' ? 
-            product.sellingPrice.toFixed(2) : 
-            (parseFloat(product.sellingPrice) || 0).toFixed(2)} DT</div>
+      {/* Display configured parameters if they exist */}
+      {hasParameters && parametersList.length > 0 && (
+        <div className="mt-2 ml-7 pl-2 border-l-2 border-blue-100">
+          <div className="text-xs text-gray-500 font-medium mb-1">Paramètres configurés:</div>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+            {parametersList.map((param, index) => (
+              <div key={index} className="text-xs text-gray-600">{param}</div>
+            ))}
+          </div>
         </div>
-        
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 w-8 p-0 text-gray-400 hover:text-red-500 hover:bg-red-50 ml-2"
-          onClick={onRemove}
-        >
-          <span className="sr-only">Supprimer</span>
-          <X className="h-4 w-4" />
-        </Button>
-      </div>
+      )}
     </div>
   );
 };
@@ -129,28 +194,51 @@ export function PatientProductSelection({
   onSelectProduct,
   onCreateProduct,
   onRemoveProduct,
+  onUpdateProduct,
   onBack,
   onNext
 }: PatientProductSelectionProps) {
   const [searchTerm, setSearchTerm] = useState("");
+  const [parameterDialogOpen, setParameterDialogOpen] = useState(false);
+  const [selectedProductIndex, setSelectedProductIndex] = useState<number | null>(null);
   
-  // Define the available product types for patients (only medical devices and accessories)
+  // Define the available product types for patients
   const productTypes = [
     { 
       id: "medical-device", 
-      label: "Appareil", 
-      selectLabel: "Select Appareil", 
-      createLabel: "Créer Appareil",
+      label: "Appareils Médicaux", 
+      selectLabel: "Sélectionner un appareil", 
+      createLabel: "Créer un nouvel appareil",
       icon: Stethoscope
     },
     { 
       id: "accessory", 
-      label: "Accessoire", 
-      selectLabel: "Select Accessoire", 
-      createLabel: "Créer Accessoire",
+      label: "Accessoires", 
+      selectLabel: "Sélectionner un accessoire", 
+      createLabel: "Créer un nouvel accessoire",
       icon: Puzzle
     }
   ] as const;
+  
+  // Get the currently selected product for parameter configuration
+  const selectedProduct = selectedProductIndex !== null ? selectedProducts[selectedProductIndex] : null;
+  
+  // Handle opening the parameter dialog for a product
+  const handleConfigureProduct = (index: number) => {
+    setSelectedProductIndex(index);
+    setParameterDialogOpen(true);
+  };
+  
+  // Handle saving parameters for a product
+  const handleSaveParameters = (productId: string, parameters: any) => {
+    if (selectedProductIndex !== null && onUpdateProduct) {
+      const updatedProduct = {
+        ...selectedProducts[selectedProductIndex],
+        parameters
+      };
+      onUpdateProduct(selectedProductIndex, updatedProduct);
+    }
+  };
   
   // Calculate total price - ensure it's always a number
   const totalPrice = selectedProducts.reduce((total, product) => {
@@ -161,27 +249,7 @@ export function PatientProductSelection({
 
   return (
     <div className="space-y-6">
-      {/* Search and Filter Bar */}
-      <div className="flex items-center gap-4 mb-6">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            type="text"
-            placeholder="Rechercher des produits..."
-            className="pl-9 border-blue-200 focus:border-blue-500"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        <Button variant="outline" size="sm" className="gap-2 border-blue-200">
-          <Filter className="h-4 w-4 text-blue-500" />
-          <span>Filtres</span>
-        </Button>
-        <Button variant="outline" size="sm" className="gap-2 border-blue-200">
-          <LayoutGrid className="h-4 w-4 text-blue-500" />
-          <span>Catégories</span>
-        </Button>
-      </div>
+
 
       {/* Product Type Grid */}
       <div className="grid grid-cols-2 md:grid-cols-2 gap-4">
@@ -217,6 +285,7 @@ export function PatientProductSelection({
                   key={`${product.id}-${index}`}
                   product={product}
                   onRemove={() => onRemoveProduct(index)}
+                  onConfigure={product.type === "MEDICAL_DEVICE" ? () => handleConfigureProduct(index) : undefined}
                 />
               ))}
             </div>
@@ -252,6 +321,14 @@ export function PatientProductSelection({
           </Button>
         </div>
       </div>
+      
+      {/* Parameter Configuration Dialog */}
+      <ProductParameterDialog
+        isOpen={parameterDialogOpen}
+        onClose={() => setParameterDialogOpen(false)}
+        product={selectedProduct}
+        onSaveParameters={handleSaveParameters}
+      />
     </div>
   );
 }

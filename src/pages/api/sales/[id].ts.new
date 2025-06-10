@@ -1,0 +1,296 @@
+import { NextApiRequest, NextApiResponse } from 'next';
+import { prisma } from '@/lib/prisma';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '../auth/[...nextauth]';
+import { SaleStatus } from '@prisma/client';
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  const session = await getServerSession(req, res, authOptions);
+
+  if (!session) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const { id } = req.query;
+
+  if (!id || typeof id !== 'string') {
+    return res.status(400).json({ error: 'Invalid sale ID' });
+  }
+
+  try {
+    switch (req.method) {
+      case 'GET':
+        // Get a single sale by ID
+        const sale = await prisma.sale.findUnique({
+          where: { id },
+          include: {
+            processedBy: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+            patient: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                telephone: true,
+              },
+            },
+            company: {
+              select: {
+                id: true,
+                companyName: true,
+                telephone: true,
+              },
+            },
+            payment: {
+              include: {
+                paymentDetails: true // Include payment details
+              }
+            },
+            items: {
+              include: {
+                product: true,
+                medicalDevice: true,
+              },
+            },
+          },
+        });
+
+        if (!sale) {
+          return res.status(404).json({ error: 'Sale not found' });
+        }
+
+        // Transform the data to match the expected format in the frontend
+        const transformedSale = {
+          id: sale.id,
+          invoiceNumber: sale.invoiceNumber || `INV-${sale.id.substring(0, 8).toUpperCase()}`,
+          saleDate: sale.saleDate,
+          totalAmount: sale.totalAmount,
+          discount: sale.discount || 0,
+          finalAmount: sale.finalAmount,
+          status: sale.status,
+          notes: sale.notes || null,
+          
+          // Who processed the sale
+          processedById: sale.processedById,
+          processedBy: {
+            id: sale.processedBy.id,
+            name: `${sale.processedBy.firstName} ${sale.processedBy.lastName}`,
+            email: sale.processedBy.email,
+          },
+          
+          // Client information (either patient or company)
+          patientId: sale.patientId,
+          patient: sale.patient ? {
+            id: sale.patient.id,
+            firstName: sale.patient.firstName,
+            lastName: sale.patient.lastName,
+            telephone: sale.patient.telephone,
+            fullName: `${sale.patient.firstName} ${sale.patient.lastName}`,
+          } : null,
+          
+          companyId: sale.companyId,
+          company: sale.company ? {
+            id: sale.company.id,
+            companyName: sale.company.companyName,
+            telephone: sale.company.telephone,
+          } : null,
+          
+          // Client display name (either patient name or company name)
+          clientName: sale.patient 
+            ? `${sale.patient.firstName} ${sale.patient.lastName}`
+            : (sale.company ? sale.company.companyName : 'Client inconnu'),
+          
+          clientType: sale.patient ? 'PATIENT' : (sale.company ? 'COMPANY' : null),
+          
+          // Payment information with details
+          paymentId: sale.paymentId,
+          payment: sale.payment ? {
+            id: sale.payment.id,
+            amount: sale.payment.amount,
+            status: sale.payment.status,
+            method: sale.payment.method,
+            // Include payment details breakdown
+            paymentDetails: sale.payment.paymentDetails?.map(detail => ({
+              id: detail.id,
+              method: detail.method,
+              amount: detail.amount,
+              classification: detail.classification,
+              reference: detail.reference,
+              // Format for display
+              displayMethod: getPaymentMethodDisplay(detail.method),
+              displayClassification: getPaymentClassificationDisplay(detail.classification),
+            })) || [],
+            // Group payment details by method for easy display
+            paymentByMethod: groupPaymentDetailsByMethod(sale.payment.paymentDetails || [])
+          } : null,
+          
+          // Items in the sale
+          items: sale.items.map(item => ({
+            id: item.id,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            discount: item.discount || 0,
+            itemTotal: item.itemTotal,
+            serialNumber: item.serialNumber || null,
+            warranty: item.warranty || null,
+            
+            // Product or medical device information
+            productId: item.productId,
+            product: item.product ? {
+              id: item.product.id,
+              name: item.product.name,
+              type: item.product.type,
+              brand: item.product.brand || null,
+              model: item.product.model || null,
+            } : null,
+            
+            medicalDeviceId: item.medicalDeviceId,
+            medicalDevice: item.medicalDevice ? {
+              id: item.medicalDevice.id,
+              name: item.medicalDevice.name,
+              type: item.medicalDevice.type,
+              brand: item.medicalDevice.brand || null,
+              model: item.medicalDevice.model || null,
+              serialNumber: item.medicalDevice.serialNumber || null,
+            } : null,
+            
+            // Item name for display
+            name: item.product 
+              ? item.product.name 
+              : (item.medicalDevice ? item.medicalDevice.name : 'Article inconnu'),
+          })),
+          
+          createdAt: sale.createdAt,
+          updatedAt: sale.updatedAt,
+        };
+
+        return res.status(200).json({ sale: transformedSale });
+
+      case 'PUT':
+        // Update a sale
+        const updateData = req.body;
+        
+        // Validate the update data
+        if (!updateData) {
+          return res.status(400).json({ error: 'No update data provided' });
+        }
+
+        // Update the sale
+        const updatedSale = await prisma.sale.update({
+          where: { id },
+          data: {
+            status: updateData.status,
+            notes: updateData.notes,
+            discount: updateData.discount ? parseFloat(updateData.discount) : undefined,
+            finalAmount: updateData.finalAmount ? parseFloat(updateData.finalAmount) : undefined,
+            // Only update these if they are provided
+            patientId: updateData.patientId || undefined,
+            companyId: updateData.companyId || undefined,
+            // Don't allow updating the processedBy user
+          },
+          include: {
+            processedBy: true,
+            patient: true,
+            company: true,
+            payment: {
+              include: {
+                paymentDetails: true
+              }
+            },
+            items: {
+              include: {
+                product: true,
+                medicalDevice: true,
+              },
+            },
+          },
+        });
+
+        return res.status(200).json({ sale: updatedSale });
+
+      case 'DELETE':
+        // Check if the sale can be deleted (e.g., not COMPLETED)
+        const saleToDelete = await prisma.sale.findUnique({
+          where: { id },
+          select: { status: true },
+        });
+
+        if (!saleToDelete) {
+          return res.status(404).json({ error: 'Sale not found' });
+        }
+
+        // Only allow deletion of sales that are not completed
+        if (saleToDelete.status === 'COMPLETED') {
+          return res.status(400).json({ 
+            error: 'Cannot delete a completed sale. Consider cancelling it instead.' 
+          });
+        }
+
+        // Delete the sale
+        await prisma.sale.delete({
+          where: { id },
+        });
+
+        return res.status(200).json({ message: 'Sale deleted successfully' });
+
+      default:
+        res.setHeader('Allow', ['GET', 'PUT', 'DELETE']);
+        return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
+    }
+  } catch (error) {
+    console.error('API Error:', error);
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+}
+
+// Helper function to get a display-friendly payment method name
+function getPaymentMethodDisplay(method: string): string {
+  const methodMap: Record<string, string> = {
+    'especes': 'Espèces',
+    'cheque': 'Chèque',
+    'virement': 'Virement',
+    'mondat': 'Mandat',
+    'cnam': 'CNAM',
+    'traite': 'Traite'
+  };
+  return methodMap[method.toLowerCase()] || method;
+}
+
+// Helper function to get a display-friendly payment classification
+function getPaymentClassificationDisplay(classification: string): string {
+  const classMap: Record<string, string> = {
+    'principale': 'Principal',
+    'garantie': 'Garantie',
+    'complement': 'Complément'
+  };
+  return classMap[classification.toLowerCase()] || classification;
+}
+
+// Helper function to group payment details by method
+function groupPaymentDetailsByMethod(details: any[]): Record<string, any> {
+  return details.reduce((acc, detail) => {
+    const method = detail.method.toLowerCase();
+    if (!acc[method]) {
+      acc[method] = {
+        method: method,
+        displayMethod: getPaymentMethodDisplay(method),
+        details: [],
+        totalAmount: 0
+      };
+    }
+    
+    acc[method].details.push(detail);
+    acc[method].totalAmount += parseFloat(detail.amount.toString());
+    
+    return acc;
+  }, {});
+}

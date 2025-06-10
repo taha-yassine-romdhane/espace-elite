@@ -65,8 +65,35 @@ export default async function handler(
         return res.status(200).json(updatedLocation);
 
       case 'DELETE':
-        // Delete stock location here
- 
+        // Before deleting, check if this location has any associated items
+        const locationWithItems = await prisma.stockLocation.findUnique({
+          where: { id },
+          include: {
+            stocks: { take: 1 },
+            medicalDevices: { take: 1 },
+            products: { take: 1 },
+            outgoingTransfers: { take: 1 },
+            incomingTransfers: { take: 1 }
+          }
+        });
+        
+        // Prevent deletion if location has associated items
+        if (
+          (locationWithItems?.stocks && locationWithItems.stocks.length > 0) ||
+          (locationWithItems?.medicalDevices && locationWithItems.medicalDevices.length > 0) ||
+          (locationWithItems?.products && locationWithItems.products.length > 0) ||
+          (locationWithItems?.outgoingTransfers && locationWithItems.outgoingTransfers.length > 0) ||
+          (locationWithItems?.incomingTransfers && locationWithItems.incomingTransfers.length > 0)
+        ) {
+          return res.status(400).json({
+            error: 'Cannot delete location that has associated items (stocks, devices, products, or transfers)'
+          });
+        }
+
+        // Delete the stock location from the database
+        await prisma.stockLocation.delete({
+          where: { id }
+        });
 
         return res.status(200).json({ message: 'Stock location deleted successfully', id });
 

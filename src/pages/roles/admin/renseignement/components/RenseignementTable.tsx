@@ -20,6 +20,7 @@ interface RenseignementTableProps {
   onEdit: (item: Renseignement) => void;
   onDelete: (ids: string[]) => void;
   onViewFiles: (files: { url: string; type: string }[]) => void;
+  onViewDetails: (item: Renseignement) => void; // New prop for viewing details
   isLoading?: boolean;
   initialItemsPerPage?: number;
 }
@@ -32,6 +33,7 @@ function RenseignementTable({
   onEdit = () => {}, // Default noop function for SSR
   onDelete = () => {}, // Default noop function for SSR
   onViewFiles = () => {}, // Default noop function for SSR
+  onViewDetails = () => {}, // Default noop function for viewing details
   isLoading = false, // Default for SSR
   initialItemsPerPage = 10 // Default items per page
 }: RenseignementTableProps) {
@@ -243,6 +245,9 @@ function RenseignementTable({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
+            <DropdownMenuItem onClick={() => onViewDetails(row.original)}>
+              Détails
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onEdit(row.original)}>
               Modifier
             </DropdownMenuItem>

@@ -109,8 +109,8 @@ const Sidebar: React.FC = () => {
     const menuItems: MenuItem[] = [
         { icon: <LayoutDashboard size={20} />, label: "Accueil", path: "/roles/admin/dashboard" },
         { icon: <CalendarCheck size={20} />, label: "Gestion des taches", path: "/roles/admin/tasks" },
+        { icon: <HelpCircle size={20} />, label: "info des steps", path: "/roles/admin/info-step" },
         { icon: <ClipboardCheck size={20} />, label: "Gestion des Notifications", path: "/roles/admin/notifications" },
-        { icon: <SquareActivity size={20} />, label: "Diagnostique", path: "/roles/admin/diagnostic" },
         { icon: <ContactRound size={20} />, label: "Utilisateurs", path: "/roles/admin/users" },
         { icon: <UserCog size={20} />, label: "Espace Technicien", path: "/roles/admin/espace-technicien" },
         { icon: <Users size={20} />, label: "Renseignement", path: "/roles/admin/renseignement" },

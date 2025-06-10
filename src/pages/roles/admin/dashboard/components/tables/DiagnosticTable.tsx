@@ -1,6 +1,6 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { format } from "date-fns";
+import { format, isAfter, isBefore, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
   Table,
@@ -21,15 +21,30 @@ import {
   Settings,
   FileText,
   Clock,
+  FileCheck,
+  FilePlus2,
+  Calendar,
+  Building2,
+  Phone,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface DiagnosticTableProps {
   onViewDetails?: (id: string) => void;
   onEnterResults?: (id: string) => void;
+  onAddDocuments?: (id: string) => void;
 }
 
-export function DiagnosticTable({ onViewDetails, onEnterResults }: DiagnosticTableProps) {
+// Define result type based on the new schema structure
+interface DiagnosticResultType {
+  id: string;
+  iah: number | null;
+  idValue: number | null;
+  remarque: string | null;
+  status: string;
+}
+
+export function DiagnosticTable({ onViewDetails, onEnterResults, onAddDocuments }: DiagnosticTableProps) {
   // Fetch diagnostic operations data
   const { data: diagnosticOperations, isLoading } = useQuery({
     queryKey: ["diagnostic-operations"],
@@ -40,7 +55,7 @@ export function DiagnosticTable({ onViewDetails, onEnterResults }: DiagnosticTab
           throw new Error("Failed to fetch diagnostic operations");
         }
         const data = await response.json();
-        console.log("####", data);
+        console.log("Diagnostic data:", data);
 
         return data.diagnostics || [];
       } catch (error) {
@@ -54,6 +69,20 @@ export function DiagnosticTable({ onViewDetails, onEnterResults }: DiagnosticTab
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "-";
     return format(new Date(dateString), "PPP", { locale: fr });
+  };
+  
+  // Function to format date with time
+  const formatDateTime = (dateString: string | null) => {
+    if (!dateString) return "-";
+    return format(new Date(dateString), "PPP 'à' HH:mm", { locale: fr });
+  };
+  
+  // Function to check if a date is overdue
+  const isOverdue = (dateString: string | null) => {
+    if (!dateString) return false;
+    const today = new Date();
+    const dueDate = new Date(dateString);
+    return isBefore(dueDate, today);
   };
 
   // Function to get status badge
@@ -116,17 +145,36 @@ export function DiagnosticTable({ onViewDetails, onEnterResults }: DiagnosticTab
                     <TableRow key={operation.id} className="hover:bg-gray-50">
                       <TableCell>
                         <div className="flex items-start gap-2">
-                          <User className="h-4 w-4 text-blue-600 mt-1" />
+                          {operation.companyName !== 'N/A' ? (
+                            <Building2 className="h-5 w-5 text-purple-600 mt-0.5" />
+                          ) : (
+                            <User className="h-5 w-5 text-blue-600 mt-0.5" />
+                          )}
+                          <div>
+                            <div className="font-medium">{operation.patientName}</div>
+                            {operation.patient?.telephone && (
+                              <div className="text-xs text-gray-500 flex items-center gap-1">
+                                <Phone className="h-3 w-3" />
+                                {operation.patient.telephone}
+                              </div>
+                            )}
+                            {operation.companyName !== 'N/A' && (
+                              <div className="text-xs text-purple-600">{operation.companyName}</div>
+                            )}
+                          </div>
+                        </div>
+                      </TableCell>
+                      
+                      <TableCell>
+                        <div className="flex items-start gap-2">
+                          <Stethoscope className="h-5 w-5 text-blue-600 mt-0.5" />
                           <div>
                             <div className="font-medium">
-                              {operation.patient?.firstName} {operation.patient?.lastName}
+                              {operation.deviceName || "Appareil inconnu"}
                             </div>
-                            <div className="text-sm text-gray-500">
-                              {operation.patient?.telephone || "-"}
-                            </div>
-                            {operation.patient?.email && (
-                              <div className="text-xs text-gray-500 truncate max-w-[200px]">
-                                {operation.patient.email}
+                            {operation.medicalDevice?.serialNumber && (
+                              <div className="text-xs text-gray-500">
+                                N/S: {operation.medicalDevice.serialNumber}
                               </div>
                             )}
                           </div>
@@ -135,83 +183,100 @@ export function DiagnosticTable({ onViewDetails, onEnterResults }: DiagnosticTab
                       
                       <TableCell>
                         <div className="flex items-start gap-2">
-                          <Stethoscope className="h-4 w-4 text-blue-600 mt-1" />
+                          <User className="h-5 w-5 text-blue-600 mt-0.5" />
                           <div>
                             <div className="font-medium">
-                              {operation.medicalDevice?.name || "Appareil inconnu"}
+                              {operation.performedBy || "Non assigné"}
                             </div>
-                            <div className="text-sm text-gray-500">
-                              {operation.medicalDevice?.brand} {operation.medicalDevice?.model}
-                            </div>
-                            {operation.medicalDevice?.serialNumber && (
-                              <div className="text-xs text-gray-500">
-                                N° {operation.medicalDevice.serialNumber}
+                          </div>
+                        </div>
+                      </TableCell>
+                      
+                      <TableCell>
+                        {operation.followUpDate ? (
+                          <div className="flex items-start gap-2">
+                            <CalendarIcon className={`h-5 w-5 ${isOverdue(operation.followUpDate) ? 'text-red-600' : 'text-blue-600'} mt-0.5`} />
+                            <div>
+                              <div className={`font-medium ${isOverdue(operation.followUpDate) ? 'text-red-600' : ''}`}>
+                                {formatDate(operation.followUpDate)}
                               </div>
-                            )}
+                              <div className="text-xs text-gray-500">
+                                {isOverdue(operation.followUpDate) ? 'En retard' : 'À venir'}
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      </TableCell>
-                      
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <div className="font-medium">
-                            {operation.performedBy?.name || "Non assigné"}
-                          </div>
-                        </div>
-                      </TableCell>
-                      
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-4 w-4 text-gray-500" />
-                          <span>
-                            {formatDate(operation.createdAt)}
-                          </span>
-                        </div>
-                      </TableCell>
-                      
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <CalendarIcon className="h-4 w-4 text-gray-500" />
-                          <span className={operation.followUpRequired ? "text-red-600 font-medium" : ""}>
-                            {operation.followUpDate ? format(operation.followUpDate, 'PPP', { locale: fr }) : '-'}
-                          </span>
-                        </div>
-                        {operation.followUpRequired && (
-                          <div className="flex items-center text-xs text-red-600 mt-1">
-                            <AlertCircle className="h-3 w-3 mr-1" />
-                            <span>En retard</span>
-                          </div>
+                        ) : (
+                          <div className="text-gray-500 italic">Non planifié</div>
                         )}
+                      </TableCell>
+                      
+                      <TableCell>
+                        <div className="flex items-start gap-2">
+                          <Clock className="h-5 w-5 text-blue-600 mt-0.5" />
+                          <div>
+                            <div className="font-medium">{formatDate(operation.date)}</div>
+                            <div className="text-xs text-gray-500">{format(new Date(operation.date), "HH:mm", { locale: fr })}</div>
+                          </div>
+                        </div>
                       </TableCell>
                       
                       <TableCell>
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <div className="flex items-center gap-1 cursor-help">
+                              <div className="flex items-center space-x-1 cursor-help">
                                 <ClipboardList className="h-4 w-4 text-blue-600" />
-                                <span className="font-medium">
-                                  {operation.parameters?.length || 0} paramètre(s)
+                                <span className="text-sm">
+                                  {operation.result ? (
+                                    <span className="text-green-600">Résultats disponibles</span>
+                                  ) : (
+                                    <span className="text-yellow-600">En attente</span>
+                                  )}
                                 </span>
                               </div>
                             </TooltipTrigger>
                             <TooltipContent>
                               <div className="p-2 max-w-xs">
-                                <h4 className="font-medium mb-1">Paramètres</h4>
-                                {operation.parameters && operation.parameters.length > 0 ? (
-                                  <ul className="text-xs space-y-1">
-                                    {operation.parameters.slice(0, 5).map((param: any, idx: number) => (
-                                      <li key={idx} className="flex justify-between">
-                                        <span>{param.name}:</span>
-                                        <span className="font-medium ml-2">{param.value || "Non renseigné"}</span>
+                                <h4 className="font-medium mb-1">Résultats du diagnostic</h4>
+                                {operation.result ? (
+                                  <div className="space-y-2">
+                                    <ul className="space-y-1 text-xs">
+                                      <li>
+                                        <span className="font-medium">IAH: </span>
+                                        <span className="text-gray-600">
+                                          {operation.result.iah !== null ? operation.result.iah : "Non renseigné"}
+                                        </span>
+                                        {operation.result.iah !== null && (
+                                          <span className="ml-1 text-xs text-gray-500">(Normal: &lt;5)</span>
+                                        )}
                                       </li>
-                                    ))}
-                                    {operation.parameters.length > 5 && (
-                                      <li className="text-blue-600">+ {operation.parameters.length - 5} autres</li>
-                                    )}
-                                  </ul>
+                                      <li>
+                                        <span className="font-medium">ID: </span>
+                                        <span className="text-gray-600">
+                                          {operation.result.idValue !== null ? operation.result.idValue : "Non renseigné"}
+                                        </span>
+                                        {operation.result.idValue !== null && (
+                                          <span className="ml-1 text-xs text-gray-500">(Normal: &lt;10)</span>
+                                        )}
+                                      </li>
+                                      <li>
+                                        <span className="font-medium">Remarque: </span>
+                                        <span className="text-gray-600">
+                                          {operation.result.remarque || "Non renseigné"}
+                                        </span>
+                                      </li>
+                                      <li>
+                                        <span className="font-medium">Status: </span>
+                                        <span className="text-gray-600">
+                                          {operation.result.status === 'COMPLETED' ? 'Complété' : 
+                                           operation.result.status === 'PENDING' ? 'En attente' : 
+                                           operation.result.status || "Non renseigné"}
+                                        </span>
+                                      </li>
+                                    </ul>
+                                  </div>
                                 ) : (
-                                  <p className="text-xs text-gray-500">Aucun paramètre</p>
+                                  <p className="text-xs text-gray-500">Résultats en attente</p>
                                 )}
                               </div>
                             </TooltipContent>
@@ -219,12 +284,20 @@ export function DiagnosticTable({ onViewDetails, onEnterResults }: DiagnosticTab
                         </TooltipProvider>
                       </TableCell>
                       
+
+                      
                       <TableCell>
-                        {getStatusBadge(operation.status)}
+                        {!operation.result ? (
+                          <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200">
+                            Résultats en attente
+                          </Badge>
+                        ) : (
+                          getStatusBadge(operation.result.status || 'PENDING')
+                        )}
                         {operation.followUpRequired && (
                           <div className="mt-1">
-                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-100 text-xs">
-                              Suivi requis
+                            <Badge variant="outline" className={`text-xs ${isOverdue(operation.followUpDate) ? 'bg-red-50 text-red-700 border-red-100' : 'bg-blue-50 text-blue-700 border-blue-100'}`}>
+                              {isOverdue(operation.followUpDate) ? 'Suivi en retard' : 'Suivi requis'}
                             </Badge>
                           </div>
                         )}
@@ -241,18 +314,6 @@ export function DiagnosticTable({ onViewDetails, onEnterResults }: DiagnosticTab
                             <FileText className="h-3.5 w-3.5" />
                             <span>Détails</span>
                           </Button>
-                          
-                          {operation.status === 'PENDING' && (
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              className="border-blue-200 text-blue-800 hover:bg-blue-50 flex items-center gap-1"
-                              onClick={() => onEnterResults && onEnterResults(operation.id)}
-                            >
-                              <Settings className="h-3.5 w-3.5" />
-                              <span>Résultats</span>
-                            </Button>
-                          )}
                         </div>
                       </TableCell>
                     </TableRow>

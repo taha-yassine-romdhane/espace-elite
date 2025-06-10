@@ -84,7 +84,7 @@ export default async function handler(
         try {
           console.log("Received PUT request for ID:", id);
           console.log("Request body:", JSON.stringify(req.body, null, 2));
-          
+
           const { type, ...data } = req.body;
           console.log("Extracted type:", type);
           console.log("Updating device:", id, JSON.stringify(data, null, 2));
@@ -92,7 +92,7 @@ export default async function handler(
           if (!id) {
             return res.status(400).json({ error: 'ID is required' });
           }
-            
+
           // Check if this is a simple update without type (e.g., just updating reservation status)
           // If so, update the medical device directly
           if (!type && (data.patientId || data.location || data.reservedUntil)) {
@@ -107,12 +107,11 @@ export default async function handler(
                 },
                 include: {
                   stockLocation: true,
-                  parameters: true
                 }
               });
-              
+
               console.log('Device reservation updated successfully:', updatedDevice.id);
-              
+
               return res.status(200).json({
                 id: updatedDevice.id,
                 name: updatedDevice.name,
@@ -128,71 +127,15 @@ export default async function handler(
           }
 
           if (type === 'MEDICAL_DEVICE' || type === 'DIAGNOSTIC_DEVICE') {
-            // Handle parameters for diagnostic devices
-            let parametersData = {};
+            // With the schema refactoring, we no longer use DiagnosticParameter and ParameterValue models
+            // diagnostic results are now tracked directly in the DiagnosticResult model
             if (type === 'DIAGNOSTIC_DEVICE' && data.parameters && Array.isArray(data.parameters)) {
-              console.log('Processing parameters for diagnostic device:', data.parameters);
-              
-              try {
-                // First delete any parameter values that reference these parameters
-                // Find the parameters to get their IDs
-                const existingParameters = await prisma.diagnosticParameter.findMany({
-                  where: { deviceId: id as string },
-                  select: { id: true }
-                });
-                
-                const parameterIds = existingParameters.map(param => param.id);
-                
-                if (parameterIds.length > 0) {
-                  // Delete parameter values first
-                  console.log('Deleting parameter values for parameters:', parameterIds);
-                  await prisma.parameterValue.deleteMany({
-                    where: { parameterId: { in: parameterIds } }
-                  });
-                }
-                
-                // Now it's safe to delete the parameters
-                console.log('Deleting parameters for device:', id);
-                await prisma.diagnosticParameter.deleteMany({
-                  where: { deviceId: id as string }
-                });
-              } catch (deleteError) {
-                console.error('Error deleting parameters:', deleteError);
-                // Continue with the update even if parameter deletion fails
-              }
-              
-              try {
-                // Create new parameters
-                parametersData = {
-                  parameters: {
-                    create: data.parameters.map((param: any) => {
-                      console.log('Processing parameter for creation:', param.title || param.name, 'with type:', param.parameterType);
-                      return {
-                        title: param.name || param.title || 'Parameter',
-                        type: param.type || 'INPUT',
-                        unit: param.unit,
-                        minValue: param.minValue,
-                        maxValue: param.maxValue,
-                        isRequired: param.isRequired || false,
-                        isAutomatic: param.isAutomatic || false,
-                        parameterType: param.parameterType || 'PARAMETER',
-                        resultDueDate: param.resultDueDate,
-                        value: param.value
-                      };
-                    })
-                  }
-                };
-                console.log('Parameters data prepared:', JSON.stringify(parametersData, null, 2));
-              } catch (paramError) {
-                console.error('Error processing parameters:', paramError);
-                // Continue without parameters if there's an error
-                parametersData = {};
-              }
-              
-              // Remove parameters from main data object
+              console.log('Diagnostic device parameters are now handled differently with the new schema');
+              // We don't need to create separate parameters anymore since we use DiagnosticResult
+              // Just remove parameters from data to avoid errors
               delete data.parameters;
             }
-            
+
             console.log('About to update device with ID:', id);
             console.log('Update data:', {
               name: data.name,
@@ -201,9 +144,8 @@ export default async function handler(
               serialNumber: data.serialNumber,
               purchasePrice: data.purchasePrice ? parseFloat(data.purchasePrice) : null,
               sellingPrice: data.sellingPrice ? parseFloat(data.sellingPrice) : null,
-              parametersData
             });
-            
+
             try {
               const updatedDevice = await prisma.medicalDevice.update({
                 where: { id: id as string },
@@ -241,16 +183,14 @@ export default async function handler(
                     }
                   }),
                   stockQuantity: data.stockQuantity || 1,
-                  ...parametersData
                 },
                 include: {
                   stockLocation: true,
-                  parameters: true
                 }
               });
-              
+
               console.log('Device updated successfully:', updatedDevice.id);
-              
+
               return res.status(200).json({
                 id: updatedDevice.id,
                 name: updatedDevice.name,
@@ -267,7 +207,6 @@ export default async function handler(
                 stockLocation: updatedDevice.stockLocation?.name || 'Non assigné',
                 stockLocationId: updatedDevice.stockLocationId,
                 stockQuantity: updatedDevice.stockQuantity,
-                parameters: updatedDevice.parameters || [],
                 status: updatedDevice.status,
                 configuration: updatedDevice.configuration
               });
@@ -296,9 +235,9 @@ export default async function handler(
                   purchasePrice: data.purchasePrice ? parseFloat(data.purchasePrice.toString()) : null,
                   sellingPrice: data.sellingPrice ? parseFloat(data.sellingPrice.toString()) : null,
                   type: data.type,
-                  status: data.status === 'EN_VENTE' ? 'ACTIVE' : 
-                         data.status === 'EN_REPARATION' ? 'MAINTENANCE' : 
-                         data.status === 'HORS_SERVICE' ? 'RETIRED' : 'ACTIVE',
+                  status: data.status === 'EN_VENTE' ? 'ACTIVE' :
+                    data.status === 'EN_REPARATION' ? 'MAINTENANCE' :
+                      data.status === 'HORS_SERVICE' ? 'RETIRED' : 'ACTIVE',
                   ...(data.stockLocationId ? {
                     stocks: {
                       upsert: {
@@ -331,8 +270,8 @@ export default async function handler(
 
               // Map the status back to the frontend format
               const mappedStatus = updatedProduct.status === 'ACTIVE' ? 'EN_VENTE' :
-                                 updatedProduct.status === 'MAINTENANCE' ? 'EN_REPARATION' :
-                                 updatedProduct.status === 'RETIRED' ? 'HORS_SERVICE' : 'EN_VENTE';
+                updatedProduct.status === 'MAINTENANCE' ? 'EN_REPARATION' :
+                  updatedProduct.status === 'RETIRED' ? 'HORS_SERVICE' : 'EN_VENTE';
 
               return res.status(200).json({
                 id: updatedProduct.id,

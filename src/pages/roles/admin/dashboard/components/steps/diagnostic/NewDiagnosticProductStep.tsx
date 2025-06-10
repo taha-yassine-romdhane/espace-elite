@@ -94,27 +94,15 @@ export function NewDiagnosticProductStep({
   const handleOpenParameterDialog = async (index: number) => {
     setSelectedProductIndex(index);
     
-    // Fetch parameters if they don't exist yet
-    const product = selectedProducts[index];
-    if (!product.parameters) {
-      try {
-        const parameters = await fetchDeviceParameters(product.id);
-        // Update the product with parameters
-        const updatedProducts = [...selectedProducts];
-        updatedProducts[index] = { ...product, parameters };
-        onUpdateProductParameters(index, parameters);
-      } catch (error) {
-        console.error("Error fetching parameters:", error);
-      }
-    }
-    
+    // In the new approach, we don't need to fetch parameters
+    // Just open the dialog to configure the result date
     setIsParameterDialogOpen(true);
   };
 
-  const handleParameterSubmit = (parameters: any) => {
+  const handleParameterSubmit = (date: Date) => {
     if (selectedProductIndex !== null) {
-      // Parameters already have resultDueDate added by ParameterConfigurationDialog
-      onUpdateProductParameters(selectedProductIndex, parameters);
+      // Update the result due date
+      onResultDueDateChange(date);
       setIsParameterDialogOpen(false);
       setSelectedProductIndex(null);
     }
@@ -238,8 +226,6 @@ export function NewDiagnosticProductStep({
           onSubmit={handleParameterSubmit}
           deviceId={selectedProducts[selectedProductIndex]?.id}
           deviceName={selectedProducts[selectedProductIndex]?.name}
-          initialValues={selectedProducts[selectedProductIndex]?.parameters}
-          patientId={patientId}
           resultDueDate={resultDueDate}
           onResultDueDateChange={onResultDueDateChange}
         />

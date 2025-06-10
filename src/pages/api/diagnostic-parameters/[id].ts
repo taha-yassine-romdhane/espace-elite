@@ -8,83 +8,79 @@ export default async function handler(
   const { id } = req.query;
 
   if (!id || typeof id !== 'string') {
-    return res.status(400).json({ error: 'Invalid device ID' });
+    return res.status(400).json({ error: 'Invalid diagnostic ID' });
   }
 
   try {
     switch (req.method) {
       case 'GET':
-        // First, check if there's a MedicalDevice with this ID
-        const medicalDevice = await prisma.medicalDevice.findUnique({
-          where: { id },
-          include: { parameters: true }
+        // Get diagnostic result for a specific diagnostic
+        const diagnosticResult = await prisma.diagnosticResult.findUnique({
+          where: { diagnosticId: id }
         });
 
-        if (medicalDevice) {
-          // If found, return its parameters
-          return res.status(200).json(medicalDevice.parameters || []);
+        if (!diagnosticResult) {
+          return res.status(200).json(null); // Return null if no result exists yet
         }
 
-        // If not found as a MedicalDevice, check if it's a Product
-        const product = await prisma.product.findUnique({
-          where: { id }
-        });
-
-        if (!product) {
-          // If neither a MedicalDevice nor a Product exists with this ID
-          return res.status(404).json({ error: 'Device not found' });
-        }
-
-        // For Products, we need to find if there's a related MedicalDevice
-        // This depends on your data model - how Products and MedicalDevices are related
-        // For now, return an empty array for Products
-        return res.status(200).json([]);
+        return res.status(200).json(diagnosticResult);
 
       case 'POST':
-        // Save parameters for a specific diagnostic device
-        const { parameters } = req.body;
+        // Save or update diagnostic result
+        const { iah, idValue, remarque, status } = req.body;
 
-        if (!parameters || !Array.isArray(parameters)) {
-          return res.status(400).json({ error: 'Parameters array is required' });
-        }
-
-        // Check if this is a MedicalDevice
-        const deviceToUpdate = await prisma.medicalDevice.findUnique({
-          where: { id }
+        // Check if this is a valid diagnostic
+        const diagnostic = await prisma.diagnostic.findUnique({
+          where: { id },
+          include: { result: true }
         });
 
-        if (!deviceToUpdate) {
-          return res.status(404).json({ error: 'Medical device not found' });
+        if (!diagnostic) {
+          return res.status(404).json({ error: 'Diagnostic not found' });
         }
 
-        // First, delete any existing parameters for this device
-        await prisma.diagnosticParameter.deleteMany({
-          where: { deviceId: id }
-        });
+        let result;
 
-        // Then create the new parameters
-        const createdParameters = await Promise.all(
-          parameters.map(param => 
-            prisma.diagnosticParameter.create({
-              data: {
-                title: param.title,
-                type: param.type,
-                unit: param.unit,
-                minValue: param.minValue,
-                maxValue: param.maxValue,
-                isRequired: param.isRequired,
-                isAutomatic: param.isAutomatic || false,
-                value: param.value,
-                deviceId: id
-              }
-            })
-          )
-        );
+        if (diagnostic.result) {
+          // Update existing result
+          result = await prisma.diagnosticResult.update({
+            where: { diagnosticId: id },
+            data: {
+              iah: iah !== undefined ? parseFloat(iah) : null,
+              idValue: idValue !== undefined ? parseFloat(idValue) : null,
+              remarque,
+              status: status || 'NORMAL'
+            }
+          });
+        } else {
+          // Create new result
+          result = await prisma.diagnosticResult.create({
+            data: {
+              diagnosticId: id,
+              iah: iah !== undefined ? parseFloat(iah) : null,
+              idValue: idValue !== undefined ? parseFloat(idValue) : null,
+              remarque,
+              status: status || 'NORMAL'
+            }
+          });
+        }
 
-        return res.status(200).json(createdParameters);
+        return res.status(200).json(result);
+
+      case 'DELETE':
+        // Delete diagnostic result
+        const deletedResult = await prisma.diagnosticResult.delete({
+          where: { diagnosticId: id }
+        }).catch(() => null);
+
+        if (!deletedResult) {
+          return res.status(404).json({ error: 'Diagnostic result not found' });
+        }
+
+        return res.status(200).json({ success: true });
 
       default:
-        res.setHeader('Allow', ['GET', 'POST']);
+        res.setHeader('Allow', ['GET', 'POST', 'DELETE']);
         return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
     }
   } catch (error) {

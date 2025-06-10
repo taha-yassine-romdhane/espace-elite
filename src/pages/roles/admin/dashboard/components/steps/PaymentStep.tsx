@@ -1,44 +1,11 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { 
-  ChevronLeft, 
-  ChevronRight, 
-  Banknote, 
-  CreditCard, 
-  Building, 
-  ArrowUpRight, 
-  Mail, 
-  FileCheck
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, Printer, Save, Clock } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-// Import our smaller components
-import PaymentTypeCard from "./payment/PaymentTypeCard";
-import PaymentStepProgress, { PaymentStep as ProgressStep } from "./payment/PaymentStepProgress";
-import PaymentDetailsForm from "./payment/PaymentDetailsForm";
-
-// Using the PaymentStep interface from PaymentStepProgress component
-
-interface PaymentTypeConfig {
-  id: string;
-  title: string;
-  description: string;
-  icon: React.ElementType;
-  steps: any[];
-  fields: {
-    amount: number;
-    deposit?: number;
-    balance?: number;
-    bankName?: string;
-    checkNumber?: string;
-    owner?: string;
-    dueDate?: string;
-    transactionId?: string;
-    mandateNumber?: string;
-    amountCovered?: number;
-    depositDate?: string;
-  };
-}
+// Import the new payment system
+import { PaymentDialog } from "./payment/paymentForms";
+import type { PaymentData } from "./payment/paymentForms";
 
 interface PaymentStepProps {
   onBack: () => void;
@@ -48,292 +15,273 @@ interface PaymentStepProps {
   calculateTotal: () => number;
 }
 
-export function PaymentStep({ 
-  onBack, 
-  onComplete, 
+export function PaymentStep({
+  onBack,
+  onComplete,
   selectedClient,
   selectedProducts,
-  calculateTotal 
+  calculateTotal
 }: PaymentStepProps) {
-  const [activePaymentType, setActivePaymentType] = useState<string | null>(null);
   const [paymentDetailsOpen, setPaymentDetailsOpen] = useState(false);
-  const [currentPaymentConfig, setCurrentPaymentConfig] = useState<PaymentTypeConfig | null>(null);
-  const [stepFormData, setStepFormData] = useState<any>({});
+  const [savedPayments, setSavedPayments] = useState<PaymentData[]>([]);
   
   // Check if selected client is a patient
   const isPatient = selectedClient?.type === "patient";
-  
-  // Initialize payment types with their respective steps
-  const paymentTypes: PaymentTypeConfig[] = [
-    {
-      id: "cash",
-      title: "Paiement en Espèce",
-      description: "Paiement direct en espèces avec option d'acompte",
-      icon: Banknote,
-      steps: [
-        { id: "reception", label: "Réception du Patient", description: "Accueil du patient et explication du processus", completed: false },
-        { id: "amount", label: "Détermination du Montant", description: "Calcul du montant total et de l'acompte", completed: false },
-        { id: "receipt", label: "Remise du Reçu", description: "Fourniture d'un reçu pour le paiement", completed: false },
-        { id: "record", label: "Enregistrement", description: "Saisie des informations dans le système", completed: false },
-        { id: "confirmation", label: "Confirmation", description: "Confirmation du paiement et clôture", completed: false }
-      ],
-      fields: {
-        amount: calculateTotal(),
-        deposit: 0,
-        balance: calculateTotal()
-      }
-    },
-    {
-      id: "check",
-      title: "Paiement par Chèque",
-      description: "Paiement par chèque bancaire",
-      icon: CreditCard,
-      steps: [
-        { id: "verification", label: "Vérification du Chèque", description: "Vérification des informations du chèque", completed: false },
-        { id: "info", label: "Saisie des Informations", description: "Saisie des détails du chèque", completed: false },
-        { id: "deposit", label: "Dépôt du Chèque", description: "Enregistrement du dépôt du chèque", completed: false },
-        { id: "follow-up", label: "Suivi", description: "Suivi de l'encaissement du chèque", completed: false },
-        { id: "completion", label: "Finalisation", description: "Confirmation de l'encaissement", completed: false },
-        { id: "archive", label: "Archivage", description: "Archivage des documents relatifs au paiement", completed: false }
-      ],
-      fields: {
-        amount: calculateTotal(),
-        bankName: "",
-        checkNumber: "",
-        owner: "",
-        dueDate: ""
-      }
-    },
-    {
-      id: "cnam",
-      title: "Paiement CNAM",
-      description: "Paiement avec assurance CNAM pour CPAP",
-      icon: Building,
-      steps: [
-        { id: "agreement", label: "Accord est avec patient", description: "Confirmation de l'accord avec le patient", completed: false },
-        { id: "paperwork", label: "Préparation des Documents", description: "Collecte et préparation des documents nécessaires", completed: false },
-        { id: "submission", label: "Soumission à la CNAM", description: "Envoi du dossier à la CNAM", completed: false },
-        { id: "approval", label: "Approbation", description: "Suivi de l'approbation par la CNAM", completed: false },
-        { id: "reimbursement", label: "Remboursement", description: "Réception du remboursement de la CNAM", completed: false },
-        { id: "reconciliation", label: "Rapprochement", description: "Rapprochement des comptes", completed: false },
-        { id: "completion", label: "Clôture", description: "Clôture du dossier de paiement CNAM", completed: false }
-      ],
-      fields: {
-        amount: calculateTotal(),
-        amountCovered: 0,
-        depositDate: new Date().toISOString().split('T')[0]
-      }
-    },
-    {
-      id: "transfer",
-      title: "Virement Bancaire",
-      description: "Paiement par virement bancaire",
-      icon: ArrowUpRight,
-      steps: [
-        { id: "reception", label: "Réception des Coordonnées", description: "Collecte des informations bancaires", completed: false },
-        { id: "instructions", label: "Instructions de Virement", description: "Fourniture des instructions pour le virement", completed: false },
-        { id: "confirmation", label: "Confirmation de Réception", description: "Vérification de la réception du virement", completed: false },
-        { id: "recording", label: "Enregistrement", description: "Enregistrement du paiement dans le système", completed: false },
-        { id: "receipt", label: "Émission de Reçu", description: "Envoi d'un reçu au client", completed: false }
-      ],
-      fields: {
-        amount: calculateTotal(),
-        bankName: "",
-        transactionId: ""
-      }
-    },
-    {
-      id: "mandate",
-      title: "Paiement par Mandat",
-      description: "Paiement par mandat postal",
-      icon: Mail,
-      steps: [
-        { id: "reception", label: "Réception du Mandat", description: "Réception et vérification du mandat", completed: false },
-        { id: "verification", label: "Vérification", description: "Vérification de l'authenticité du mandat", completed: false },
-        { id: "deposit", label: "Dépôt", description: "Dépôt du mandat pour encaissement", completed: false },
-        { id: "confirmation", label: "Confirmation", description: "Confirmation de l'encaissement", completed: false },
-        { id: "recording", label: "Enregistrement", description: "Enregistrement dans le système", completed: false },
-        { id: "closure", label: "Clôture", description: "Clôture du dossier de paiement par mandat", completed: false }
-      ],
-      fields: {
-        amount: calculateTotal(),
-        mandateNumber: ""
-      }
-    },
-    {
-      id: "draft",
-      title: "Paiement par Traite",
-      description: "Paiement par traite bancaire",
-      icon: FileCheck,
-      steps: [
-        { id: "creation", label: "Création de la Traite", description: "Préparation du document de traite", completed: false },
-        { id: "signature", label: "Signature", description: "Signature du document par les parties", completed: false },
-        { id: "registration", label: "Enregistrement", description: "Enregistrement de la traite dans le système", completed: false },
-        { id: "deposit", label: "Dépôt", description: "Dépôt de la traite à la banque", completed: false },
-        { id: "follow-up", label: "Suivi", description: "Suivi de l'encaissement de la traite", completed: false },
-        { id: "confirmation", label: "Confirmation", description: "Confirmation de l'encaissement", completed: false },
-        { id: "archiving", label: "Archivage", description: "Archivage des documents", completed: false }
-      ],
-      fields: {
-        amount: calculateTotal(),
-        bankName: "",
-        checkNumber: "",
-        owner: "",
-        dueDate: ""
-      }
+
+  // Calculate payment totals
+  const totalAmount = calculateTotal();
+  const paidAmount = savedPayments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
+  const remainingAmount = Math.max(0, totalAmount - paidAmount);
+  const isComplete = paidAmount >= totalAmount;
+
+  // Group payments by method
+  const groupedPayments = savedPayments.reduce((acc, payment) => {
+    if (!acc[payment.type]) {
+      acc[payment.type] = [];
     }
-  ];
+    acc[payment.type].push(payment);
+    return acc;
+  }, {} as Record<string, PaymentData[]>);
 
-  const handlePaymentTypeSelect = (paymentType: PaymentTypeConfig) => {
-    setActivePaymentType(paymentType.id);
-    setCurrentPaymentConfig(paymentType);
-    setStepFormData(paymentType.fields);
-    setPaymentDetailsOpen(true);
+  // Get payment method label
+  const getMethodLabel = (methodId: string) => {
+    const methodLabels: Record<string, string> = {
+      especes: "Espèces",
+      cheque: "Chèque",
+      virement: "Virement",
+      mondat: "Mandat",
+      cnam: "CNAM",
+      traite: "Traite"
+    };
+    return methodLabels[methodId] || methodId.charAt(0).toUpperCase() + methodId.slice(1);
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setStepFormData((prev : any) => {
-      const newData = { ...prev, [name]: value };
+  // Handle payment completion
+  const handlePaymentComplete = (payments: PaymentData[]) => {
+    // Add timestamp to payments if they don't have one
+    const paymentsWithTimestamp = payments.map(payment => ({
+      ...payment,
+      timestamp: payment.timestamp || new Date().toISOString()
+    }));
+    
+    // Save the payments
+    setSavedPayments(paymentsWithTimestamp);
+    
+    // If we have a complete payment, finalize it
+    if (paidAmount >= totalAmount) {
+      // Prepare the payment data to be sent to the parent component
+      const paymentData = {
+        payments: paymentsWithTimestamp,
+        totalAmount: calculateTotal(),
+        paidAmount,
+        remainingAmount,
+        status: 'COMPLETED',
+        client: selectedClient,
+        products: selectedProducts
+      };
       
-      // Calculate balance if deposit is changed for cash payment
-      if (name === 'deposit' && currentPaymentConfig?.id === 'cash') {
-        const deposit = parseFloat(value) || 0;
-        const total = calculateTotal();
-        newData.balance = total - deposit;
-      }
-      
-      // Calculate patient contribution if CNAM covered amount is changed
-      if (name === 'amountCovered' && currentPaymentConfig?.id === 'cnam') {
-        const covered = parseFloat(value) || 0;
-        const total = calculateTotal();
-        newData.balance = total - covered;
-      }
-      
-      return newData;
-    });
+      // Call the onComplete callback with the payment data
+      onComplete(paymentData);
+    }
   };
 
-  const handleStepCompletion = (stepId: string) => {
-    if (!currentPaymentConfig) return;
-    
-    const updatedSteps = currentPaymentConfig.steps.map(step => 
-      step.id === stepId ? { ...step, completed: true } : step
-    );
-    
-    setCurrentPaymentConfig({
-      ...currentPaymentConfig,
-      steps: updatedSteps
-    });
+  // Handle print receipt
+  const handlePrintReceipt = () => {
+    // In a real app, this would generate a receipt and print it
+    console.log('Printing receipt for payments:', savedPayments);
+    // For now, we'll just open a print dialog
+    window.print();
   };
 
-  const handlePaymentComplete = () => {
-    if (!currentPaymentConfig) return;
-    
+  // Handle save partial payment
+  const handleSavePartial = () => {
     const paymentData = {
-      type: currentPaymentConfig.id,
-      clientId: selectedClient?.id,
-      clientType: selectedClient?.type,
-      products: selectedProducts.map(p => ({ id: p.id, quantity: p.quantity || 1 })),
-      amount: parseFloat(stepFormData.amount) || calculateTotal(),
-      ...stepFormData,
-      steps: currentPaymentConfig.steps.map(step => ({
-        id: step.id,
-        completed: step.completed
-      }))
+      payments: savedPayments,
+      totalAmount,
+      paidAmount,
+      remainingAmount,
+      status: 'PARTIAL',
+      client: selectedClient,
+      products: selectedProducts
     };
     
     onComplete(paymentData);
   };
 
   return (
-    <div className="space-y-6">
-      <h3 className="text-lg font-medium text-blue-900">Sélectionner le Type de Paiement</h3>
-      
-      {/* Payment Types Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {paymentTypes.map(paymentType => (
-          <PaymentTypeCard 
-            key={paymentType.id}
-            id={paymentType.id}
-            title={paymentType.title}
-            description={paymentType.description}
-            icon={paymentType.icon}
-            isActive={activePaymentType === paymentType.id}
-            onClick={() => handlePaymentTypeSelect(paymentType)}
-          />
-        ))}
+    <div className="space-y-8">
+      <div className="flex justify-between items-center">
+        <Button variant="outline" onClick={onBack} className="flex items-center gap-2">
+          <ChevronLeft className="h-4 w-4" /> Retour
+        </Button>
+        <h2 className="text-2xl font-bold text-center">Paiement</h2>
+        <div className="w-[100px]"></div> {/* Spacer for alignment */}
       </div>
 
-      {/* Navigation */}
-      <div className="flex justify-between pt-6 border-t">
-        <Button
-          variant="outline"
-          onClick={onBack}
-          className="flex items-center gap-2"
-        >
-          <ChevronLeft className="h-4 w-4" />
-          Retour
-        </Button>
-        <Button
-          onClick={handlePaymentComplete}
-          disabled={!activePaymentType}
-          className="bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-2"
-        >
-          Terminer
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
-
-      {/* Payment Details Dialog */}
-      <Dialog open={paymentDetailsOpen} onOpenChange={setPaymentDetailsOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
-          <DialogHeader className="border-b pb-4">
-            <DialogTitle className="flex items-center gap-2 text-blue-900">
-              {currentPaymentConfig && (
-                <>
-                  <currentPaymentConfig.icon className="h-5 w-5" />
-                  {currentPaymentConfig.title}
-                </>
-              )}
-            </DialogTitle>
-          </DialogHeader>
+      <div className="bg-white p-6 rounded-lg shadow-sm border">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-xl font-medium">Détails du Paiement</h3>
           
-          <div className="flex-1 overflow-y-auto py-4">
-            {currentPaymentConfig && (
-              <div className="flex gap-6">
-                {/* Left Side - Steps Progress */}
-                <div className="w-1/3 border-r pr-4">
-                  <h4 className="font-medium text-sm text-gray-500 mb-4">PROGRESSION</h4>
-                  <PaymentStepProgress 
-                    steps={currentPaymentConfig.steps} 
-                    onStepComplete={handleStepCompletion} 
-                  />
+          {/* Payment status indicator */}
+          <div className="flex items-center gap-2">
+            <div className={cn(
+              "w-2 h-2 rounded-full", 
+              isComplete ? "bg-green-500" : "bg-amber-500"
+            )}></div>
+            <span className={cn(
+              "text-sm", 
+              isComplete ? "text-green-700" : "text-amber-700"
+            )}>
+              {isComplete ? 'Paiement complet' : `Reste à payer: ${remainingAmount.toFixed(2)} DT`}
+            </span>
+          </div>
+        </div>
+
+        <div className="text-center mb-4">
+          <p className="text-gray-500">Montant total: {totalAmount.toFixed(2)} DT</p>
+        </div>
+
+        {savedPayments.length > 0 ? (
+          <div className="space-y-6">
+            {/* Payment methods recapitulative */}
+            <div className="mt-6 bg-white rounded-lg border p-4">
+              <h4 className="font-medium mb-3">Récapitulatif des Paiements</h4>
+              
+              <div className="space-y-4">
+                {Object.entries(groupedPayments).map(([method, methodPayments]) => {
+                  const methodTotal = methodPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+                  
+                  return (
+                    <div key={method} className="border-b pb-3 last:border-0">
+                      <div className="flex justify-between items-center mb-2">
+                        <h5 className="font-medium">{getMethodLabel(method)}</h5>
+                        <span className="font-bold text-blue-700">
+                          {methodTotal.toFixed(2)} DT
+                        </span>
+                      </div>
+                      
+                      {/* List individual payments within this method */}
+                      <div className="space-y-1 pl-4">
+                        {methodPayments.map((payment, idx) => {
+                          // Get payment details based on type
+                          let details = '';
+                          if (payment.type === 'cheque' && payment.chequeNumber) {
+                            details = ` - N° ${payment.chequeNumber}`;
+                          } else if (payment.type === 'virement' && payment.reference) {
+                            details = ` - Réf: ${payment.reference}`;
+                          } else if (payment.type === 'traite' && payment.echeance) {
+                            details = ` - Échéance: ${payment.echeance}`;
+                          }
+                          
+                          return (
+                            <div key={idx} className="flex justify-between text-sm group">
+                              <div className="flex items-center gap-1">
+                                <span className="text-gray-600">
+                                  {payment.classification === 'principale' ? 'Principal' : 
+                                  payment.classification === 'garantie' ? 'Garantie' : 'Complément'}
+                                  {details}
+                                </span>
+                                {payment.timestamp && (
+                                  <span className="text-xs text-gray-400 flex items-center">
+                                    <Clock className="h-3 w-3 mr-1" />
+                                    {new Date(payment.timestamp).toLocaleDateString()}
+                                  </span>
+                                )}
+                              </div>
+                              <span>{payment.amount?.toFixed(2)} DT</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              
+              <div className="mt-4 pt-3 border-t">
+                <div className="flex justify-between font-medium">
+                  <span>Total des paiements:</span>
+                  <span className="text-blue-700">{paidAmount.toFixed(2)} DT</span>
                 </div>
                 
-                {/* Right Side - Payment Details Form */}
-                <div className="w-2/3">
-                  <h4 className="font-medium text-sm text-gray-500 mb-4">DÉTAILS DU PAIEMENT</h4>
-                  <PaymentDetailsForm 
-                    paymentType={currentPaymentConfig.id}
-                    formData={stepFormData}
-                    onInputChange={handleInputChange}
-                  />
+                <div className="flex justify-between mt-1">
+                  <span>Montant Total:</span>
+                  <span className="font-medium">{totalAmount.toFixed(2)} DT</span>
                 </div>
+                
+                {remainingAmount > 0 && (
+                  <div className="flex justify-between mt-1 text-amber-600">
+                    <span>Reste à Payer:</span>
+                    <span className="font-medium">{remainingAmount.toFixed(2)} DT</span>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
+            
+            {/* Action buttons */}
+            <div className="flex flex-wrap gap-3 mt-4">
+              <Button 
+                variant="outline" 
+                className="flex items-center gap-2"
+                onClick={handlePrintReceipt}
+              >
+                <Printer className="h-4 w-4" />
+                Aperçu du reçu
+              </Button>
+              
+              {!isComplete && (
+                <Button 
+                  variant="outline"
+                  className="flex items-center gap-2"
+                  onClick={handleSavePartial}
+                >
+                  <Save className="h-4 w-4" />
+                  Enregistrer et continuer plus tard
+                </Button>
+              )}
+            </div>
           </div>
-          
-          <div className="border-t pt-4 flex justify-end">
-            <Button
-              className="bg-blue-600 text-white hover:bg-blue-700"
-              onClick={() => setPaymentDetailsOpen(false)}
+        ) : (
+          <div className="text-center py-8 text-gray-500">
+            <p>Aucun paiement n'a été ajouté.</p>
+            <p className="text-sm mt-1">Cliquez sur le bouton ci-dessous pour ajouter un paiement.</p>
+          </div>
+        )}
+
+        <div className="mt-6">
+          <Button 
+            onClick={() => setPaymentDetailsOpen(true)} 
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            {savedPayments.length > 0 ? 'Modifier les Paiements' : 'Ajouter un Paiement'}
+          </Button>
+        </div>
+
+        {savedPayments.length > 0 && isComplete && (
+          <div className="mt-8 flex justify-end">
+            <Button 
+              onClick={() => onComplete({ 
+                payments: savedPayments,
+                totalAmount,
+                paidAmount,
+                remainingAmount,
+                status: 'COMPLETED'
+              })}
+              className="bg-green-600 hover:bg-green-700 text-white"
             >
-              Enregistrer et Fermer
+              Terminer le Paiement
             </Button>
           </div>
-        </DialogContent>
-      </Dialog>
+        )}
+      </div>
+
+      {/* New Payment Dialog */}
+      <PaymentDialog 
+        open={paymentDetailsOpen}
+        onOpenChange={setPaymentDetailsOpen}
+        totalAmount={calculateTotal()}
+        onComplete={handlePaymentComplete}
+      />
     </div>
   );
 }

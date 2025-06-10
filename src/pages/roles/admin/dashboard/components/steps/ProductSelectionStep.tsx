@@ -6,6 +6,7 @@ interface ProductSelectionStepProps {
   onCreateProduct: (type: "medical-device" | "accessory" | "spare-part" | "diagnostic") => void;
   selectedProducts?: any[];
   onRemoveProduct: (index: number) => void;
+  onUpdateProduct?: (index: number, updatedProduct: any) => void;
   onBack: () => void;
   onNext: () => void;
   clientType?: "patient" | "societe" | null;
@@ -23,6 +24,7 @@ export function ProductSelectionStep({
   onSelectProduct,
   onCreateProduct,
   onRemoveProduct,
+  onUpdateProduct,
   onBack,
   onNext,
   clientType
@@ -48,6 +50,7 @@ export function ProductSelectionStep({
         onSelectProduct={onSelectProduct}
         onCreateProduct={onCreateProduct}
         onRemoveProduct={onRemoveProduct}
+        onUpdateProduct={onUpdateProduct}
         onBack={onBack}
         onNext={onNext}
       />

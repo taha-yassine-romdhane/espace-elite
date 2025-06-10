@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import PatientForm from '@/components/forms/PatientForm';
@@ -16,6 +17,7 @@ import { ExistingFile } from '@/types/forms/PatientFormData';
 
 export default function RenseignementPage() {
   const { toast } = useToast();
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [formData, setFormData] = useState<RenseignementFormData>({
@@ -341,6 +343,15 @@ export default function RenseignementPage() {
     setShowFilesDialog(true);
   };
 
+  // Handler for viewing details of a patient or company
+  const handleViewDetails = (item: Renseignement) => {
+    if (item.type === 'Patient') {
+      router.push(`/roles/admin/renseignement/patient/${item.id}`);
+    } else {
+      router.push(`/roles/admin/renseignement/societe/${item.id}`);
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       type: 'Patient',
@@ -603,6 +614,7 @@ export default function RenseignementPage() {
         onEdit={handleEdit}
         onDelete={handleDelete}
         onViewFiles={(files) => handleViewFiles(files)}
+        onViewDetails={handleViewDetails}
       />
 
       {isOpen && (

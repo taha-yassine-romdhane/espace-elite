@@ -5,10 +5,14 @@ import { authOptions } from '../auth/[...nextauth]';
 import formidable from 'formidable';
 import fs from 'fs';
 import path from 'path';
+import { Files } from 'lucide-react';
 
+// Enable bodyParser for all methods except POST with multipart/form-data
 export const config = {
   api: {
-    bodyParser: false,
+    bodyParser: {
+      sizeLimit: '10mb',
+    },
   },
 };
 
@@ -50,13 +54,16 @@ export default async function handler(
         include: {
           medicalDevice: {
             select: {
+              id: true,
               name: true,
               brand: true,
               model: true,
+              serialNumber: true,
             },
           },
           patient: {
             select: {
+              id: true,
               firstName: true,
               lastName: true,
               telephone: true,
@@ -64,17 +71,58 @@ export default async function handler(
           },
           Company: {
             select: {
+              id: true,
               companyName: true,
               telephone: true,
             },
           },
+          performedBy: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+          // Include diagnostic result with the new model
+          result: true,
         },
         orderBy: {
           createdAt: 'desc',
         },
       });
+      
+      // Transform the data to make it easier to use in the frontend
+      const transformedDiagnostics = diagnostics.map(diagnostic => {
+        // Format patient information
+        const patientName = diagnostic.patient ? 
+          `${diagnostic.patient.firstName} ${diagnostic.patient.lastName}`.trim() : 
+          diagnostic.Company?.companyName || 'N/A';
+          
+        // Format device information
+        const deviceName = `${diagnostic.medicalDevice.name} ${diagnostic.medicalDevice.brand || ''} ${diagnostic.medicalDevice.model || ''}`.trim();
+         
+        // Format user information
+        const performedBy = diagnostic.performedBy ? 
+          `${diagnostic.performedBy.firstName} ${diagnostic.performedBy.lastName}`.trim() : 
+          'N/A';
 
-      return res.status(200).json({ diagnostics });
+        return {
+          id: diagnostic.id,
+          deviceName,
+          patientName,
+          companyName: diagnostic.Company?.companyName || 'N/A',
+          date: diagnostic.diagnosticDate,
+          followUpDate: diagnostic.followUpDate,
+          followUpRequired: diagnostic.followUpRequired,
+          notes: diagnostic.notes,
+          performedBy,
+          result: diagnostic.result, // Include the full diagnostic result
+          status: diagnostic.result?.status || 'PENDING',
+        };
+      });
+
+      return res.status(200).json({ diagnostics: transformedDiagnostics });
     } catch (error) {
       console.error('Error fetching diagnostics:', error);
       return res.status(500).json({ error: 'Error fetching diagnostics' });
@@ -83,257 +131,135 @@ export default async function handler(
 
   if (req.method === 'POST') {
     try {
-      const form = formidable({ multiples: true });
+      let clientId = '';
+      let products = [];
+      let followUpDate = null;
+      let notes = '';
+      let totalPrice = 0;
+      let medicalDeviceId = '';
+      let uploadedFileUrls = [];
       
-      const parseForm = async (): Promise<{ fields: formidable.Fields, files: formidable.Files }> => {
-        return new Promise((resolve, reject) => {
-          form.parse(req, (err, fields, files) => {
-            if (err) reject(err);
-            resolve({ fields, files });
-          });
-        });
-      };
+      // Handle regular JSON data
+      const data = req.body;
+      clientId = data.clientId || '';
+      products = data.products || [];
+      medicalDeviceId = data.medicalDeviceId || '';
+      followUpDate = data.followUpDate ? new Date(data.followUpDate) : null;
+      notes = data.notes || '';
+      totalPrice = data.totalPrice || 0;
+      uploadedFileUrls = data.fileUrls || [];
       
-      const { fields, files } = await parseForm();
+      // Validate required fields
+      if (!clientId) {
+        return res.status(400).json({ error: 'Client ID is required' });
+      }
       
-      // Parse form data
-      const clientId = fields.clientId?.[0] || '';
-      const products = JSON.parse(fields.products?.[0] || '[]');
-      const followUpDate = fields.followUpDate?.[0] ? new Date(fields.followUpDate[0]) : null;
-      const notes = fields.notes?.[0] || '';
+      if (!medicalDeviceId) {
+        return res.status(400).json({ error: 'Medical device ID is required' });
+      }
       
-      // Get user ID from session for history tracking
+      // Get user ID from session
       const userId = session.user.id;
+      if (!userId) {
+        return res.status(400).json({ error: 'User ID is required' });
+      }
       
-      // Determine if client is a patient or company
-      const patient = await prisma.patient.findUnique({
+      // Determine if the client is a patient or company
+      const isPatient = await prisma.patient.findUnique({
         where: { id: clientId },
-        select: { id: true, address: true }
       });
       
-      const isPatient = !!patient;
+      // Prepare diagnostic data
+      const diagnosticData: any = {
+        medicalDevice: { 
+          connect: { id: medicalDeviceId }
+        },
+        diagnosticDate: new Date(),
+        notes: notes,
+        followUpDate: followUpDate,
+        followUpRequired: followUpDate ? true : false,
+        performedBy: { connect: { id: userId } },
+      };
       
-      // Get client location for updating device locations
-      let clientLocation = null;
+      // Add patient or company connection based on client type
       if (isPatient) {
-        const patientDetails = await prisma.patient.findUnique({
-          where: { id: clientId },
-          select: { address: true }
-        });
-        if (patientDetails && patientDetails.address) {
-          clientLocation = patientDetails.address;
-        }
+        diagnosticData.patient = { connect: { id: clientId } };
       } else {
-        const companyDetails = await prisma.company.findUnique({
-          where: { id: clientId },
-          select: { address: true }
-        });
-        if (companyDetails && companyDetails.address) {
-          clientLocation = companyDetails.address;
-        }
+        diagnosticData.Company = { connect: { id: clientId } };
       }
       
-      // Handle file uploads
-      const uploadedFiles = [];
-      if (files.documents) {
-        const documents = Array.isArray(files.documents) ? files.documents : [files.documents];
-        for (const file of documents) {
-          const filePath = await saveFile(file);
-          uploadedFiles.push({
-            filename: file.originalFilename || 'unknown',
-            path: filePath,
-            size: file.size,
-            mimeType: file.mimetype || 'application/octet-stream'
-          });
-        }
-      }
+      // Create the diagnostic record
+      const diagnostic = await prisma.diagnostic.create({
+        data: diagnosticData
+      });
       
-      // Create diagnostic records for each product
-      const diagnosticRecords = [];
+      // Create diagnostic result
+      await prisma.diagnosticResult.create({
+        data: {
+          iah: null,
+          idValue: null,
+          remarque: null,
+          status: 'PENDING',
+          diagnostic: { connect: { id: diagnostic.id } },
+        },
+      });
       
-      for (const product of products) {
-        // Extract the product ID correctly
-        const productId = product.id || (product.productId ? product.productId : null);
-        
-        if (!productId) {
-          console.error('Missing product ID:', product);
-          return res.status(400).json({ error: 'Missing product ID', product });
-        }
-        
-        // Create diagnostic record with conditional patient/company connection
-        let diagnosticData: any = {
-          medicalDevice: {
-            connect: { id: productId },
-          },
-          result: '',
-          notes,
-          diagnosticDate: new Date(),
-          followUpDate: followUpDate,
-          followUpRequired: followUpDate ? true : false,
-          performedBy: {
-            connect: { id: userId },
-          },
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-        
-        // Add either patient or company connection
-        if (isPatient) {
-          diagnosticData.patient = { connect: { id: clientId } };
-        } else {
-          diagnosticData.Company = { connect: { id: clientId } };
-          // For company case, we need a dummy patient connection (required by schema)
-          // This is a workaround for the schema constraint
-          const dummyPatient = await prisma.patient.findFirst({
-            select: { id: true },
-            take: 1
-          });
-          if (dummyPatient) {
-            diagnosticData.patient = { connect: { id: dummyPatient.id } };
-          } else {
-            return res.status(400).json({ 
-              error: 'Cannot create diagnostic for company without any patients in the system' 
-            });
-          }
-        }
-        
-        const diagnostic = await prisma.diagnostic.create({
-          data: diagnosticData,
-        });
-        
-        diagnosticRecords.push(diagnostic);
-        
-        // Update device location to client location
-        if (clientLocation && productId) {
-          await prisma.medicalDevice.update({
-            where: { id: productId },
-            data: {
-              location: clientLocation,
-            } as any,
-          });
-        }
-        
-        // Create patient history record
-        if (isPatient) {
-          await prisma.patientHistory.create({
-            data: {
-              patient: {
-                connect: { id: clientId }
-              },
-              actionType: 'DIAGNOSTIC',
-              details: {
-                diagnosticId: diagnostic.id,
-                deviceId: product.id,
-                deviceName: product.name || 'Unknown device',
-                notes: notes,
-                followUpDate: followUpDate,
-                followUpRequired: followUpDate ? true : false
-              },
-              relatedItemId: diagnostic.id,
-              relatedItemType: 'diagnostic',
-              performedBy: {
-                connect: { id: userId }
-              }
-            }
-          });
-        }
-        
-        // Create user action history record
-        await prisma.userActionHistory.create({
+      // Create patient history record if it's a patient
+      if (isPatient) {
+        await prisma.patientHistory.create({
           data: {
-            user: {
-              connect: { id: userId }
+            patient: {
+              connect: { id: clientId }
             },
             actionType: 'DIAGNOSTIC',
             details: {
               diagnosticId: diagnostic.id,
-              clientId: clientId,
-              clientType: isPatient ? 'PATIENT' : 'COMPANY',
-              deviceId: product.id,
-              deviceName: product.name || 'Unknown device',
-              action: 'Created diagnostic record'
+              deviceId: medicalDeviceId,
+              deviceName: products[0]?.name || 'Unknown device',
+              notes: notes,
+              followUpDate: followUpDate,
+              followUpRequired: followUpDate ? true : false
             },
             relatedItemId: diagnostic.id,
-            relatedItemType: 'diagnostic'
-          }
-        });
-        
-        // Save parameter values if any
-        if (product.parameters && product.parameters.length > 0 && productId) {
-          for (const param of product.parameters) {
-            const paramId = param.id || param.parameterId;
-            if (!paramId) {
-              console.warn('Skipping parameter without ID:', param);
-              continue;
-            }
-            
-            if (param.value !== undefined && param.value !== null) {
-              await prisma.parameterValue.upsert({
-                where: {
-                  parameterId_medicalDeviceId: {
-                    parameterId: paramId,
-                    medicalDeviceId: productId,
-                  },
-                },
-                update: {
-                  value: String(param.value),
-                },
-                create: {
-                  value: String(param.value),
-                  parameter: {
-                    connect: { id: paramId },
-                  },
-                  medicalDevice: {
-                    connect: { id: productId },
-                  },
-                },
-              });
+            relatedItemType: 'diagnostic',
+            performedBy: {
+              connect: { id: userId }
             }
           }
-        }
-      }
-      
-      // Create file records
-      for (const file of uploadedFiles) {
-        await prisma.file.create({
-          data: {
-            url: file.path,
-            type: "DOCUMENT",
-            ...(isPatient ? {
-              patient: { connect: { id: clientId } }
-            } : {
-              company: { connect: { id: clientId } }
-            }),
-          },
         });
       }
       
-      // Create follow-up notification if follow-up date is provided
+      // Create a task for follow-up if required
       if (followUpDate) {
-        await prisma.notification.create({
-          data: {
-            title: 'Suivi de diagnostic',
-            message: `Suivi prévu pour le patient avec ${products.length} appareil(s) diagnostique(s)`,
-            type: 'FOLLOW_UP' as any,
-            status: 'PENDING' as any,
-            dueDate: followUpDate,
-            ...(isPatient ? {
-              patient: { connect: { id: clientId } }
-            } : {
-              company: { connect: { id: clientId } }
-            }),
-          },
-        });
+        try {
+          await prisma.task.create({
+            data: {
+              title: `Suivi diagnostic pour ${isPatient ? 'patient' : 'société'}`,
+              description: `Suivi requis pour le diagnostic créé le ${new Date().toLocaleDateString()}`,
+              status: 'TODO',
+              priority: 'MEDIUM',
+              startDate: new Date(),
+              endDate: followUpDate,
+              assignedTo: { connect: { id: userId } },
+              diagnostic: { connect: { id: diagnostic.id } },
+            }
+          });
+        } catch (error) {
+          console.error('Error creating follow-up task:', error);
+        }
       }
       
       return res.status(201).json({ 
         success: true, 
-        diagnostics: diagnosticRecords,
-        message: 'Diagnostic records created successfully with history tracking'
+        message: 'Diagnostic created successfully',
+        diagnosticId: diagnostic.id
       });
     } catch (error) {
       console.error('Error creating diagnostic:', error);
-      return res.status(500).json({ error: 'Error creating diagnostic', details: String(error) });
+      return res.status(500).json({
+        success: false,
+        message: `Error creating diagnostic: ${error}`,
+      });
     }
   }
 
@@ -372,4 +298,5 @@ export default async function handler(
   }
 
   return res.status(405).json({ error: 'Method not allowed' });
+
 }

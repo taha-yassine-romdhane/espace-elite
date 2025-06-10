@@ -15,15 +15,16 @@ export default async function handler(
 
   if (req.method === 'GET') {
     try {
-      const locations = await prisma.location.findMany({
+      const locations = await prisma.stockLocation.findMany({
         orderBy: { 
           name: 'asc' 
         },
         select: {
           id: true,
           name: true,
-          address: true,
-          type: true
+          // Handle fields that might not exist in the current schema
+          description: true,
+          isActive: true
         }
       });
       return res.status(200).json(locations);
@@ -35,12 +36,12 @@ export default async function handler(
 
   if (req.method === 'POST') {
     try {
-      const { name, address, type } = req.body;
-      const location = await prisma.location.create({
+      const { name, description } = req.body;
+      const location = await prisma.stockLocation.create({
         data: {
           name,
-          address,
-          type
+          description,
+          isActive: true
         },
       });
       return res.status(201).json(location);
@@ -52,13 +53,13 @@ export default async function handler(
 
   if (req.method === 'PUT') {
     try {
-      const { id, name, address, type } = req.body;
-      const location = await prisma.location.update({
+      const { id, name, description, isActive } = req.body;
+      const location = await prisma.stockLocation.update({
         where: { id },
         data: {
           name,
-          address,
-          type
+          description,
+          isActive: isActive !== undefined ? isActive : true
         },
       });
       return res.status(200).json(location);
@@ -71,7 +72,7 @@ export default async function handler(
   if (req.method === 'DELETE') {
     try {
       const { id } = req.query;
-      await prisma.location.delete({
+      await prisma.stockLocation.delete({
         where: { id: String(id) },
       });
       return res.status(200).json({ message: 'Location deleted successfully' });

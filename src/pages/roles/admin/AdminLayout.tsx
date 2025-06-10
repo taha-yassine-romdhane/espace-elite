@@ -26,7 +26,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       // Clear any existing timeout
       if (loadingTimeout) clearTimeout(loadingTimeout);
       
-      // Only show loading if we're changing pages (not on initial load)
+      // Only show loading if we're changing pages
       if (currentPath && url !== currentPath) {
         setIsLoading(true);
         
@@ -49,7 +49,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       setIsLoading(false);
     };
 
-    // Set initial path
+    // Set current path on initial load
     if (router.pathname && !currentPath) {
       setCurrentPath(router.pathname);
     }

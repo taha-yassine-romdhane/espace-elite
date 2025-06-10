@@ -1,15 +1,19 @@
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
-import { NewStepperDialog } from "./components/NewStepperDialog";
+import { SaleStepperDialog } from "./components/SaleStepperDialog";
 import { DiagnosticStepperDialog } from "./components/DiagnosticStepperDialog";
 import { Building2, ShoppingCart, Stethoscope } from "lucide-react";
 import { useRouter } from "next/router";
 
-// Import the new DiagnosticTable component
+// Import table components
 import { DiagnosticTable } from "./components/tables/DiagnosticTable";
+import { RentalTable } from "./components/tables/RentalTable";
+import { SalesTable } from "./components/tables/SalesTable";
+import { TabSwitcher } from "./components/TabSwitcher";
 
 export default function DashboardPage() {
   const [selectedAction, setSelectedAction] = useState<"location" | "vente" | "diagnostique" | null>(null);
+  const [activeTab, setActiveTab] = useState<"diagnostics" | "rentals" | "sales">("diagnostics");
   const router = useRouter();
 
   return (
@@ -44,15 +48,34 @@ export default function DashboardPage() {
           </Button>
         </div>
 
-        {/* Diagnostic Operations Table */}
-        <DiagnosticTable 
-          onViewDetails={(id) => router.push(`/roles/admin/diagnostics/${id}`)} 
-          onEnterResults={(id) => router.push(`/roles/admin/diagnostics/${id}/results`)}
-        />
+        {/* Tab Switcher */}
+        <TabSwitcher activeTab={activeTab} onTabChange={(tab) => setActiveTab(tab as any)} />
+        
+        {/* Tables */}
+        {activeTab === "diagnostics" && (
+          <DiagnosticTable 
+            onViewDetails={(id) => router.push(`/roles/admin/diagnostics/${id}`)} 
+            onEnterResults={(id) => router.push(`/roles/admin/diagnostics/${id}/results`)}
+          />
+        )}
+        
+        {activeTab === "rentals" && (
+          <RentalTable 
+            onViewDetails={(id) => router.push(`/roles/admin/rentals/${id}`)}
+            onEdit={(id) => router.push(`/roles/admin/rentals/${id}/edit`)}
+          />
+        )}
+        
+        {activeTab === "sales" && (
+          <SalesTable 
+            onViewDetails={(id) => router.push(`/roles/admin/sales/${id}`)}
+            onEdit={(id) => router.push(`/roles/admin/sales/${id}/edit`)}
+          />
+        )}
 
         {/* Stepper Dialogs */}
         {selectedAction && selectedAction !== "diagnostique" && (
-          <NewStepperDialog
+          <SaleStepperDialog
             isOpen={!!selectedAction}
             onClose={() => setSelectedAction(null)}
             action={selectedAction}

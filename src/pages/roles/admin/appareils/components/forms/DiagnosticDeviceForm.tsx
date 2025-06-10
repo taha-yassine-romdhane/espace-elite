@@ -22,9 +22,7 @@ import * as z from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Switch } from "@/components/ui/switch";
-import { DynamicParameterBuilder } from "./DynamicParameterBuilder";
 import { useState } from "react";
-import { Badge } from "@/components/ui/badge";
 
 // Define Parameter interface for type safety
 interface Parameter {
@@ -64,7 +62,7 @@ const diagnosticDeviceSchema = z.object({
   configuration: z.string().optional().nullable(),
   availableForRent: z.boolean().optional().default(false),
   requiresMaintenance: z.boolean().optional().default(false),
-  status: z.enum(["ACTIVE", "MAINTENANCE", "RETIRED"]).default("ACTIVE"),
+  status: z.enum(["ACTIVE", "MAINTENANCE", "RETIRED", "RESERVED"]).default("ACTIVE"),
   parameters: z.record(z.any()).optional(),
 });
 
@@ -230,7 +228,7 @@ export function DiagnosticDeviceForm({ initialData, onSubmit, stockLocations, is
   return (
     <div className="p-6">
       <div className="flex flex-col lg:flex-row gap-6">
-        <div className="w-full lg:w-3/5">
+        <div className="w-full ">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
               <Tabs defaultValue="basic" className="w-full">
@@ -402,6 +400,7 @@ export function DiagnosticDeviceForm({ initialData, onSubmit, stockLocations, is
                                 <SelectItem value="ACTIVE">Actif</SelectItem>
                                 <SelectItem value="MAINTENANCE">En Maintenance</SelectItem>
                                 <SelectItem value="RETIRED">Retiré</SelectItem>
+                                <SelectItem value="RESERVED">Réservé</SelectItem>
                               </SelectContent>
                             </Select>
                             <FormMessage />
@@ -500,67 +499,6 @@ export function DiagnosticDeviceForm({ initialData, onSubmit, stockLocations, is
             </form>
           </Form>
         </div>
-
-        {form.getValues('type') === 'DIAGNOSTIC_DEVICE' && (
-          <div className="w-full lg:w-2/5 border-l pl-6">
-            {/* Parameter Summary Section */}
-            {parameters && parameters.length > 0 && (
-              <div className="mb-6 border rounded-md p-4 bg-gray-50">
-                <h3 className="text-lg font-medium mb-3">Paramètres configurés</h3>
-                
-                {/* Parameter Type Summary */}
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {parameters.filter((p: Parameter) => p.parameterType === 'PARAMETER').length > 0 && (
-                    <Badge variant="outline" className="bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200">
-                      Configuration: {parameters.filter((p: Parameter) => p.parameterType === 'PARAMETER').length}
-                    </Badge>
-                  )}
-                  {parameters.filter((p: Parameter) => p.parameterType === 'RESULT').length > 0 && (
-                    <Badge variant="outline" className="bg-purple-100 text-purple-800 hover:bg-purple-100 border-purple-200">
-                      Résultats: {parameters.filter((p: Parameter) => p.parameterType === 'RESULT').length}
-                    </Badge>
-                  )}
-                </div>
-                
-                {/* Log parameters to console for debugging */}
-                <div className="hidden">
-                  {parameters.map((p: Parameter) => p.title).join(', ')}
-                </div>
-                
-                {/* Parameter List */}
-                <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2">
-                  {parameters.map((param: Parameter, index: number) => (
-                    <div key={index} className={`p-2 rounded-md text-sm flex justify-between items-center ${
-                      param.parameterType === 'PARAMETER' 
-                        ? 'bg-blue-50 border border-blue-200' 
-                        : 'bg-purple-50 border border-purple-200'
-                    }`}>
-                      <div>
-                        <div className="font-medium">{param.title}</div>
-                        {param.unit && <div className="text-xs text-gray-500">Unité: {param.unit}</div>}
-                        {param.parameterType === 'RESULT' && param.resultDueDate && (
-                          <div className="text-xs text-purple-700">Date prévue: {param.resultDueDate}</div>
-                        )}
-                      </div>
-                      <Badge variant="outline" className={`text-xs ${
-                        param.parameterType === 'PARAMETER'
-                          ? 'bg-blue-100 text-blue-800 border-blue-200'
-                          : 'bg-purple-100 text-purple-800 border-purple-200'
-                      }`}>
-                        {param.parameterType === 'PARAMETER' ? 'Config' : 'Résultat'}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            <DynamicParameterBuilder
-              onParameterSave={handleParameterSave}
-              initialParameters={parameters}
-            />  
-          </div>
-        )}
       </div>
     </div>
   );

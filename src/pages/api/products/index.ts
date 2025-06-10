@@ -84,7 +84,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           stockLocation: primaryStock?.location || null,
           stockLocationId: primaryStock?.locationId || null,
           stockQuantity: product.stocks?.reduce((total, stock) => total + stock.quantity, 0) || 0,
-          status: primaryStock?.status || 'EN_VENTE'
+          status: product.status || 'ACTIVE' // Use the product's status field directly
         };
       });
 

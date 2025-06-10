@@ -1,23 +1,30 @@
 import { useRouter } from "next/router";
 import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { ArrowLeft, Printer, Edit, AlertCircle, History, FileText } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 import { DiagnosticHeader } from "./components/DiagnosticHeader";
 import { PatientInformation } from "./components/PatientInformation";
 import { DeviceInformation } from "./components/DeviceInformation";
-import { ParameterResults } from "./components/ParameterResults";
+import { DiagnosticResultsForm } from "./components/DiagnosticResultsForm";
 import { DiagnosticNotes } from "./components/DiagnosticNotes";
 import { DiagnosticTasks } from "./components/DiagnosticTasks";
+import { DiagnosticDocuments } from "./components/DiagnosticDocuments";
 
 export default function DiagnosticDetailsPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const { id } = router.query;
 
+  // State to manage the diagnostic data
+  const [localDiagnostic, setLocalDiagnostic] = useState<any>(null);
+  
   // Fetch diagnostic details
-  const { data: diagnostic, isLoading, error } = useQuery({
+  const { data: diagnostic, isLoading, error, refetch } = useQuery({
     queryKey: ["diagnostic", id],
     queryFn: async () => {
       if (!id) return null;
@@ -25,10 +32,42 @@ export default function DiagnosticDetailsPage() {
       if (!response.ok) {
         throw new Error("Failed to fetch diagnostic details");
       }
-      return response.json();
+      const data = await response.json();
+      console.log("Diagnostic data:", data);
+      console.log("Parameter values:", data.parameterValues);
+      return data;
     },
     enabled: !!id,
   });
+
+  // Sync the fetched diagnostic data with our local state
+  useEffect(() => {
+    if (diagnostic) {
+      setLocalDiagnostic(diagnostic);
+    }
+  }, [diagnostic]);
+
+  // Handle notes update
+  const handleNotesUpdated = (newNotes: string) => {
+    if (localDiagnostic) {
+      setLocalDiagnostic({
+        ...localDiagnostic,
+        notes: newNotes
+      });
+      
+      toast({
+        title: "Notes mises à jour",
+        description: "Les notes du diagnostic ont été mises à jour avec succès",
+        variant: "default",
+      });
+    }
+  };
+
+  // Ensure patient data is properly formatted
+  const formattedPatient = localDiagnostic?.patient ? {
+    ...localDiagnostic.patient,
+    dateOfBirth: localDiagnostic.patient.dateOfBirth ? new Date(localDiagnostic.patient.dateOfBirth) : null
+  } : null;
 
   // Handle loading state
   if (isLoading) {
@@ -68,7 +107,7 @@ export default function DiagnosticDetailsPage() {
   }
 
   // Handle not found
-  if (!diagnostic) {
+  if (!localDiagnostic) {
     return (
       <div className="min-h-screen bg-gray-50 p-8">
         <div className="max-w-5xl mx-auto bg-white rounded-lg shadow p-8">
@@ -124,7 +163,7 @@ export default function DiagnosticDetailsPage() {
               <Printer className="h-4 w-4 mr-2" />
               Imprimer
             </Button>
-            {diagnostic.status === "PENDING" && (
+            {localDiagnostic.status === "PENDING" && (
               <Button
                 className="bg-blue-900 hover:bg-blue-800 text-white flex items-center"
                 onClick={() => router.push(`/roles/admin/diagnostics/${id}/results`)}
@@ -137,7 +176,7 @@ export default function DiagnosticDetailsPage() {
         </div>
 
         {/* Diagnostic Header */}
-        <DiagnosticHeader diagnostic={diagnostic} />
+        <DiagnosticHeader diagnostic={localDiagnostic} />
 
         {/* Main Content */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 mt-6">
@@ -152,17 +191,22 @@ export default function DiagnosticDetailsPage() {
             
             <TabsContent value="overview" className="p-6 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <PatientInformation patient={diagnostic.patient} />
-                <DeviceInformation device={diagnostic.medicalDevice} />
+                <PatientInformation patient={formattedPatient} />
+                <DeviceInformation device={localDiagnostic.medicalDevice} />
               </div>
-              <DiagnosticNotes notes={diagnostic.notes} />
+              <DiagnosticNotes 
+                notes={localDiagnostic?.notes || null} 
+                diagnosticId={id as string}
+                onNotesUpdated={handleNotesUpdated}
+              />  
             </TabsContent>
             
             <TabsContent value="parameters" className="p-6">
-              <ParameterResults 
-                parameterValues={diagnostic.parameterValues || []} 
-                status={diagnostic.status}
+              <DiagnosticResultsForm 
+                diagnosticResult={localDiagnostic.result || null}
+                status={localDiagnostic.status}
                 diagnosticId={id as string}
+                resultDueDate={localDiagnostic.resultDueDate ? new Date(localDiagnostic.resultDueDate) : null}
               />
             </TabsContent>
             
@@ -183,23 +227,16 @@ export default function DiagnosticDetailsPage() {
             <TabsContent value="tasks" className="p-6">
               <DiagnosticTasks 
                 diagnosticId={id as string} 
-                resultDueDate={diagnostic.resultDueDate}
-                patientId={diagnostic.patient?.id}
+                resultDueDate={localDiagnostic.resultDueDate}
+                patientId={localDiagnostic.patient?.id}
               />
             </TabsContent>
             
             <TabsContent value="documents" className="p-6">
-              <Card>
-                <CardHeader className="bg-gray-50 border-b border-gray-100">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <FileText className="h-5 w-5 text-blue-600" />
-                    Documents
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-6">
-                  <div className="text-gray-500 italic">Les documents ne sont pas disponibles pour le moment</div>
-                </CardContent>
-              </Card>
+              <DiagnosticDocuments 
+                documents={localDiagnostic.documents || []} 
+                diagnosticId={id as string} 
+              />
             </TabsContent>
           </Tabs>
         </div>

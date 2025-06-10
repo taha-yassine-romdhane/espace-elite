@@ -20,6 +20,12 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 // Define product types enum to match the database
 enum ProductType {
@@ -46,6 +52,15 @@ interface Stock {
   quantity: number;
   status: string;
   isDevice?: boolean;
+  reservedFor?: {
+    id: string;
+    name: string;
+    telephone: string;
+    isCompany: boolean;
+    diagnosticId: string;
+    diagnosticDate: string;
+    resultDueDate: string | null;
+  } | null;
 }
 
 interface InventoryResponse {
@@ -152,20 +167,42 @@ export default function StockInventory() {
   };
 
   // Get badge for stock status
-  const getStatusBadge = (status: string, isDevice: boolean = false) => {
-    // Different statuses for devices vs regular stock
+  const getStatusBadge = (status: string, isDevice: boolean = false, reservedFor?: any) => {
     if (isDevice) {
       switch (status) {
         case 'ACTIVE':
-          return <Badge variant="default">Actif</Badge>;
+          return (
+            <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
+              Actif
+            </Badge>
+          );
         case 'MAINTENANCE':
-          return <Badge variant="secondary">En maintenance</Badge>;
+          return (
+            <Badge variant="secondary">
+              En Maintenance
+            </Badge>
+          );
         case 'RETIRED':
-          return <Badge variant="destructive">Retiré</Badge>;
+          return (
+            <Badge variant="destructive">
+              Retiré
+            </Badge>
+          );
         case 'RESERVED':
-          return <Badge variant="outline">Réservé</Badge>;
+          return (
+            <div className="flex flex-col gap-1">
+              <Badge variant="warning">
+                Réservé
+              </Badge>
+              {reservedFor && (
+                <div className="text-xs text-gray-500">
+                  Pour: {reservedFor.name}
+                </div>
+              )}
+            </div>
+          );
         default:
-          return <Badge>{status}</Badge>;
+          return <Badge variant="outline">{status}</Badge>;
       }
     } else {
       switch (status) {
@@ -344,13 +381,63 @@ export default function StockInventory() {
                 <TableCell>{getTypeBadge(item.product.type)}</TableCell>
                 <TableCell>{item.location.name}</TableCell>
                 <TableCell>{item.quantity}</TableCell>
-                <TableCell>{getStatusBadge(item.status, item.isDevice)}</TableCell>
                 <TableCell>
-                  <Button variant="ghost" size="sm">
-                    Modifier
-                  </Button>
-                </TableCell>
-              </TableRow>
+                {getStatusBadge(item.status, item.isDevice, item.reservedFor)}
+                {item.status === 'RESERVED' && item.reservedFor && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 mt-1">
+                          <Search className="h-3.5 w-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="w-72 p-4">
+                        <div className="space-y-2">
+                          <h4 className="font-semibold text-sm">Détails de la réservation</h4>
+                          <div className="text-xs space-y-1">
+                            <div className="flex justify-between">
+                              <span className="font-medium">{item.reservedFor.isCompany ? 'Société:' : 'Patient:'}</span>
+                              <span>{item.reservedFor.name}</span>
+                            </div>
+                            {item.reservedFor.telephone && (
+                              <div className="flex justify-between">
+                                <span className="font-medium">Téléphone:</span>
+                                <span>{item.reservedFor.telephone}</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between">
+                              <span className="font-medium">Date de diagnostic:</span>
+                              <span>{new Date(item.reservedFor.diagnosticDate).toLocaleDateString('fr-FR')}</span>
+                            </div>
+                            {item.reservedFor.resultDueDate && (
+                              <div className="flex justify-between">
+                                <span className="font-medium">Date de résultat prévue:</span>
+                                <span>{new Date(item.reservedFor.resultDueDate).toLocaleDateString('fr-FR')}</span>
+                              </div>
+                            )}
+                            <div className="mt-2 pt-2 border-t border-gray-100">
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="w-full mt-1 text-xs h-7"
+                                onClick={() => window.open(`/roles/admin/diagnostics/${item.reservedFor?.diagnosticId}`, '_blank')}
+                              >
+                                Voir le diagnostic
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+              </TableCell>
+              <TableCell>
+                <Button variant="ghost" size="sm">
+                  Modifier
+                </Button>
+              </TableCell>
+            </TableRow>
             ))}
             {(!inventoryData?.items || inventoryData.items.length === 0) && (
               <TableRow>

@@ -4,102 +4,56 @@ import { prisma } from '@/lib/prisma';
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'POST') {
     try {
-      const { deviceId, parameters } = req.body;
+      const { deviceId, resultDueDate } = req.body;
       
-      // Debug log to see what parameter types are being received
-      // eslint-disable-next-line no-unused-vars
-      console.log('Received parameters with types:', parameters.map((p: any) => ({
-        title: p.title,
-        parameterType: p.parameterType
-      })));
-
-      // First, find all existing parameters for this device
-      const existingParameters = await prisma.diagnosticParameter.findMany({
-        where: {
-          deviceId: deviceId
-        },
-        include: {
-          ParameterValue: true
-        }
-      });
+      // Log the received data
+      console.log('Received configuration:', { deviceId, resultDueDate });
       
-      // Delete all parameter values first to avoid foreign key constraint violations
-      for (const param of existingParameters) {
-        if (param.ParameterValue && param.ParameterValue.length > 0) {
-          await prisma.parameterValue.deleteMany({
-            where: {
-              parameterId: param.id
-            }
-          });
-        }
-      }
-
-      // Then delete the parameters
-      await prisma.diagnosticParameter.deleteMany({
-        where: {
-          deviceId: deviceId
-        }
-      });
-
-      // Then create the new parameters
-      // eslint-disable-next-line no-unused-vars
-      const parameterPromises = parameters.map(async (param: any) => {
-        // Ensure parameterType is explicitly set and not lost
-        const parameterType = param.parameterType || 'PARAMETER';
-        console.log(`Creating parameter ${param.title} with type: ${parameterType}`);
-        
-        // Use the resultDueDate directly if provided
-        // For RESULT parameters, this will be filled in when the device is actually used
-        const resultDueDate = param.resultDueDate;
-        
-        if (resultDueDate) {
-          console.log(`Parameter ${param.title} has resultDueDate: ${resultDueDate}`);
-        }
-        
-        return prisma.diagnosticParameter.create({
-          data: {
-            title: param.title,
-            type: param.type,
-            unit: param.unit,
-            minValue: param.minValue,
-            maxValue: param.maxValue,
-            isRequired: param.isRequired,
-            isAutomatic: param.isAutomatic || false,
-            parameterType: parameterType, // Use the explicit variable
-            resultDueDate: resultDueDate,
-            value: param.value,
-            deviceId: deviceId
+      // Update the device with the reserved until date
+      if (deviceId && resultDueDate) {
+        await prisma.medicalDevice.update({
+          where: { id: deviceId },
+          data: { 
+            reservedUntil: new Date(resultDueDate),
+            status: 'RESERVED'
           }
         });
-      });
-
-      const createdParameters = await Promise.all(parameterPromises);
+        
+        console.log(`Device ${deviceId} reserved until ${resultDueDate}`);
+      }
       
-      // Log created parameters to verify types were saved correctly
-      console.log('Created parameters with types:', createdParameters.map(p => ({
-        title: p.title,
-        parameterType: p.parameterType
-      })));
-
-      res.status(200).json({ message: 'Parameters saved successfully' });
+      res.status(200).json({ 
+        message: 'Device configuration saved successfully',
+        resultDueDate
+      });
     } catch (error) {
-      console.error('Error saving parameters:', error);
-      res.status(500).json({ error: 'Failed to save parameters' });
+      console.error('Error saving device configuration:', error);
+      res.status(500).json({ error: 'Failed to save device configuration' });
     }
   } else if (req.method === 'GET') {
     try {
       const { deviceId } = req.query;
+      
+      if (!deviceId) {
+        return res.status(400).json({ error: 'Device ID is required' });
+      }
 
-      const parameters = await prisma.diagnosticParameter.findMany({
-        where: {
-          deviceId: deviceId as string
-        }
+      // Get the device to check its reservation status
+      const device = await prisma.medicalDevice.findUnique({
+        where: { id: deviceId as string }
       });
 
-      res.status(200).json(parameters);
+      if (!device) {
+        return res.status(404).json({ error: 'Device not found' });
+      }
+      
+      // Return the device's reservation date as the result due date
+      res.status(200).json({
+        resultDueDate: device.reservedUntil || null
+      });
     } catch (error) {
-      console.error('Error fetching parameters:', error);
-      res.status(500).json({ error: 'Failed to fetch parameters' });
+      console.error('Error fetching device configuration:', error);
+      res.status(500).json({ error: 'Failed to fetch device configuration' });
     }
   } else {
     res.setHeader('Allow', ['GET', 'POST']);

@@ -41,7 +41,7 @@ import {
   ParametreConcentrateurForm,
   ParametreBouteilleForm,
   ParametreVIForm
-} from "./MedicaleDevicesParametreForms";
+} from "../../../../../../components/MedicaleDevicesParametreForms";
 
 // Form validation schema for medical devices
 const medicalDeviceSchema = z.object({
@@ -59,7 +59,7 @@ const medicalDeviceSchema = z.object({
   technicalSpecs: z.string().optional().nullable(),
   configuration: z.string().optional().nullable(),
   
-  status: z.enum(["ACTIVE", "MAINTENANCE", "RETIRED"]).default("ACTIVE"),
+  status: z.enum(["ACTIVE", "MAINTENANCE", "RETIRED", "RESERVED"]).default("ACTIVE"),
   availableForRent: z.boolean().default(false),
   requiresMaintenance: z.boolean().default(false),
 });
@@ -330,6 +330,7 @@ export function MedicalDeviceForm({ initialData, onSubmit, stockLocations, isEdi
                           <SelectItem value="ACTIVE">Actif</SelectItem>
                           <SelectItem value="MAINTENANCE">En Maintenance</SelectItem>
                           <SelectItem value="RETIRED">Retiré</SelectItem>
+                          <SelectItem value="RESERVED">Réservé</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />

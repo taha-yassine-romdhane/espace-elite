@@ -54,8 +54,8 @@ export default function RepairLocations() {
 
   const fetchLocations = async () => {
     try {
-      const response = await fetch('/api/locations');
-      if (!response.ok) throw new Error('Failed to fetch locations');
+      const response = await fetch('/api/repair-locations');
+      if (!response.ok) throw new Error('Failed to fetch repair locations');
       const data = await response.json();
       setLocations(data);
     } catch {
@@ -70,7 +70,7 @@ export default function RepairLocations() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch('/api/locations', {
+      const response = await fetch('/api/repair-locations', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -102,7 +102,7 @@ export default function RepairLocations() {
     if (!selectedLocation) return;
 
     try {
-      const response = await fetch('/api/locations', {
+      const response = await fetch('/api/repair-locations', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -138,7 +138,7 @@ export default function RepairLocations() {
     if (!selectedLocation) return;
 
     try {
-      const response = await fetch(`/api/locations?id=${selectedLocation.id}`, {
+      const response = await fetch(`/api/repair-locations?id=${selectedLocation.id}`, {
         method: 'DELETE',
       });
 

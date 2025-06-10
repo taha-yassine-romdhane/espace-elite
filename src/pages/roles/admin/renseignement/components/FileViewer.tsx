@@ -93,6 +93,8 @@ export function FileViewer({ files, isOpen, onClose }: FileViewerProps) {
                         src={fileUrl} 
                         alt={fileName}
                         className="max-w-full max-h-full object-contain"
+                        width={500}
+                        height={500}
                         loading="lazy"
                         onError={(e) => {
                           console.log(`Failed to load image: ${fileUrl}`);

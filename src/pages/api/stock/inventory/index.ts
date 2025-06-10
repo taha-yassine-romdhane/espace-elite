@@ -78,7 +78,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         ]
       });
       
-      // 2. Get medical devices
+      // 2. Get medical devices with patient information for RESERVED devices
       const medicalDevicesPromise = prisma.medicalDevice.findMany({
         where: {
           ...locationCondition,
@@ -97,6 +97,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               id: true,
               name: true
             }
+          },
+          // Include diagnostic information to find the patient
+          Diagnostic: {
+            where: {
+              // Only include active diagnostics
+              followUpRequired: true
+            },
+            select: {
+              id: true,
+              patient: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  telephone: true
+                }
+              },
+              Company: {
+                select: {
+                  id: true,
+                  companyName: true,
+                  telephone: true
+                }
+              },
+              diagnosticDate: true,
+              followUpDate: true
+            },
+            orderBy: {
+              diagnosticDate: 'desc'
+            },
+            take: 1 // Get the most recent diagnostic
           }
         },
         orderBy: [
@@ -107,25 +138,45 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // 3. Execute both queries in parallel
       const [stocks, medicalDevices] = await Promise.all([stocksPromise, medicalDevicesPromise]);
       
-      // 4. Transform medical devices to match the stock format
-      const medicalDeviceItems = medicalDevices.map(device => ({
-        id: device.id,
-        quantity: 1, // Medical devices are tracked individually
-        status: device.status || 'ACTIVE',
-        location: {
-          id: device.stockLocationId || '',
-          name: device.stockLocation?.name || 'Non assigné'
-        },
-        product: {
+      // 4. Transform medical devices to match the stock format and include patient information
+      const medicalDeviceItems = medicalDevices.map(device => {
+        // Get the most recent diagnostic for this device (if any)
+        const latestDiagnostic = device.Diagnostic && device.Diagnostic.length > 0 ? device.Diagnostic[0] : null;
+        
+        // Determine if the device is reserved and who it's reserved for
+        const isReserved = device.status === 'RESERVED';
+        const reservedFor = isReserved && latestDiagnostic ? {
+          id: latestDiagnostic.patient?.id || latestDiagnostic.Company?.id || '',
+          name: latestDiagnostic.patient 
+            ? `${latestDiagnostic.patient.firstName} ${latestDiagnostic.patient.lastName}` 
+            : latestDiagnostic.Company?.companyName || '',
+          telephone: latestDiagnostic.patient?.telephone || latestDiagnostic.Company?.telephone || '',
+          isCompany: !!latestDiagnostic.Company,
+          diagnosticId: latestDiagnostic.id,
+          diagnosticDate: latestDiagnostic.diagnosticDate,
+          resultDueDate: latestDiagnostic.followUpDate
+        } : null;
+
+        return {
           id: device.id,
-          name: device.name,
-          brand: device.brand || '',
-          model: device.model || '',
-          type: device.type === 'DIAGNOSTIC_DEVICE' ? 'DIAGNOSTIC_DEVICE' : 'MEDICAL_DEVICE',
-          serialNumber: device.serialNumber
-        },
-        isDevice: true // Flag to identify this as a device, not regular stock
-      }));
+          quantity: 1, // Medical devices are tracked individually
+          status: device.status || 'ACTIVE',
+          location: {
+            id: device.stockLocationId || '',
+            name: device.stockLocation ? device.stockLocation.name : 'Non assigné'
+          },
+          product: {
+            id: device.id,
+            name: device.name,
+            brand: device.brand || '',
+            model: device.model || '',
+            type: device.type === 'DIAGNOSTIC_DEVICE' ? 'DIAGNOSTIC_DEVICE' : 'MEDICAL_DEVICE',
+            serialNumber: device.serialNumber
+          },
+          isDevice: true, // Flag to identify this as a device, not regular stock
+          reservedFor: reservedFor // Add reservation information
+        };
+      });
       
       // 5. Combine all items
       const allItems = [

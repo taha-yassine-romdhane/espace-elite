@@ -267,19 +267,21 @@ export function ProductDialog({ isOpen, onClose, type, onSelect }: ProductDialog
                             variant="outline" 
                             className={cn(
                               "flex items-center gap-1",
-                              product.status === "AVAILABLE" && "bg-green-50 text-green-700 border-green-200",
+                              (product.status === "AVAILABLE" || product.status === "ACTIVE") && "bg-green-50 text-green-700 border-green-200",
                               product.status === "RESERVED" && "bg-amber-50 text-amber-700 border-amber-200",
-                              product.status === "UNAVAILABLE" && "bg-red-50 text-red-700 border-red-200",
+                              (product.status === "UNAVAILABLE" || product.status === "MAINTENANCE" || product.status === "RETIRED") && "bg-red-50 text-red-700 border-red-200",
                               !product.status || product.status === "UNKNOWN" && "bg-gray-50 text-gray-700 border-gray-200"
                             )}
                           >
-                            {product.status === "AVAILABLE" && <CheckCircle2 className="h-3 w-3" />}
+                            {(product.status === "AVAILABLE" || product.status === "ACTIVE") && <CheckCircle2 className="h-3 w-3" />}
                             {product.status === "RESERVED" && <AlertCircle className="h-3 w-3" />}
-                            {product.status === "UNAVAILABLE" && <XCircle className="h-3 w-3" />}
+                            {(product.status === "UNAVAILABLE" || product.status === "MAINTENANCE" || product.status === "RETIRED") && <XCircle className="h-3 w-3" />}
                             {!product.status || product.status === "UNKNOWN" && <span className="h-3 w-3" />}
                             <span className="text-xs">
-                              {product.status === "AVAILABLE" ? "Disponible" : 
+                              {product.status === "AVAILABLE" || product.status === "ACTIVE" ? "Disponible" : 
                                product.status === "RESERVED" ? "Réservé" : 
+                               product.status === "MAINTENANCE" ? "En maintenance" :
+                               product.status === "RETIRED" ? "Retiré" :
                                product.status === "UNAVAILABLE" ? "Indisponible" : 
                                "État inconnu"}
                             </span>
