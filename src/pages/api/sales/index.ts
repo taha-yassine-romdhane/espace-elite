@@ -338,7 +338,10 @@ export default async function handler(
                 await tx.medicalDevice.update({
                   where: { id: item.medicalDeviceId },
                   data: {
-                    status: 'SOLD'
+                    status: 'SOLD',
+                    // Associate the device with the patient or company
+                    patientId: saleData.patientId || null,
+                    companyId: saleData.companyId || null
                   }
                 });
               }

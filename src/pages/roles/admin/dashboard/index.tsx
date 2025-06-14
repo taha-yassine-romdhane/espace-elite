@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { SaleStepperDialog } from "./components/SaleStepperDialog";
 import { DiagnosticStepperDialog } from "./components/DiagnosticStepperDialog";
+import { RentStepperDialog } from "./components/RentStepperDialog";
 import { Building2, ShoppingCart, Stethoscope } from "lucide-react";
 import { useRouter } from "next/router";
 
@@ -74,9 +75,9 @@ export default function DashboardPage() {
         )}
 
         {/* Stepper Dialogs */}
-        {selectedAction && selectedAction !== "diagnostique" && (
+        {selectedAction === "vente" && (
           <SaleStepperDialog
-            isOpen={!!selectedAction}
+            isOpen={true}
             onClose={() => setSelectedAction(null)}
             action={selectedAction}
           />
@@ -84,6 +85,13 @@ export default function DashboardPage() {
 
         {selectedAction === "diagnostique" && (
           <DiagnosticStepperDialog
+            isOpen={true}
+            onClose={() => setSelectedAction(null)}
+          />
+        )}
+        
+        {selectedAction === "location" && (
+          <RentStepperDialog
             isOpen={true}
             onClose={() => setSelectedAction(null)}
           />

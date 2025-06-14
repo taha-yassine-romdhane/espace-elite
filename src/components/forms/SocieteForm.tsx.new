@@ -144,7 +144,12 @@ export default function SocieteForm({ formData, onInputChange, onFileChange, onB
     form.setValue('existingFiles', updatedExistingFiles);
     
     // Notify parent component
-    onFileChange(updatedExistingFiles);
+    onFileChange({
+      target: {
+        name: 'existingFiles',
+        value: updatedExistingFiles
+      }
+    } as unknown as React.ChangeEvent<HTMLInputElement>);
   };
 
   return (

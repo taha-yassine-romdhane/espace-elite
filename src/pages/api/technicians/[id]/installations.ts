@@ -75,12 +75,16 @@ export default async function handler(
               companyName: true
             }
           },
-          parameters: {
+          deviceParameters: {
             select: {
               id: true,
-              title: true,
-              unit: true,
-              value: true
+              deviceType: true,
+              pressionRampe: true,
+              dureeRampe: true,
+              pression: true,
+              ipap: true,
+              epap: true,
+              debit: true
             }
           }
         },
@@ -89,6 +93,18 @@ export default async function handler(
         }
       });
 
+      // Define the type for the parameters to avoid TypeScript errors
+      type DeviceParameter = {
+        id: string;
+        deviceType?: string;
+        pressionRampe?: string;
+        dureeRampe?: number;
+        pression?: string;
+        ipap?: string;
+        epap?: string;
+        debit?: string;
+      };
+      
       // Transform the data to match our expected interface
       const formattedInstallations = installations.map(device => ({
         id: device.id,
@@ -115,11 +131,11 @@ export default async function handler(
               }
             : { id: '', firstName: 'N/A', lastName: '' },
         installationDate: device.installationDate?.toISOString() || new Date().toISOString(),
-        parameters: device.parameters.map(param => ({
+        parameters: (device.deviceParameters || []).map((param: DeviceParameter) => ({
           id: param.id,
-          title: param.title,
-          value: param.value || '',
-          unit: param.unit || ''
+          title: param.deviceType || '',
+          value: param.pression || param.ipap || param.debit || param.pressionRampe || '',
+          unit: param.deviceType === 'Concentrateur O²' || param.deviceType === 'Bouteil O²' ? 'L/min' : 'cmH₂O'
         })),
         doctorId: device.Patient?.doctorId || '',
         doctor: device.Patient?.doctor 

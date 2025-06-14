@@ -10,6 +10,7 @@ interface ProductSelectionStepProps {
   onBack: () => void;
   onNext: () => void;
   clientType?: "patient" | "societe" | null;
+  isRental?: boolean;
 }
 
 /**
@@ -27,7 +28,8 @@ export function ProductSelectionStep({
   onUpdateProduct,
   onBack,
   onNext,
-  clientType
+  clientType,
+  isRental = false
 }: ProductSelectionStepProps) {
   // Handler for company product quantity updates
   const handleQuantityChange = (index: number, quantity: number) => {
@@ -53,6 +55,7 @@ export function ProductSelectionStep({
         onUpdateProduct={onUpdateProduct}
         onBack={onBack}
         onNext={onNext}
+        isRental={isRental}
       />
     );
   } else if (clientType === "societe") {
@@ -65,6 +68,7 @@ export function ProductSelectionStep({
         onUpdateProductQuantity={handleQuantityChange}
         onBack={onBack}
         onNext={onNext}
+        isRental={isRental}
       />
     );
   }

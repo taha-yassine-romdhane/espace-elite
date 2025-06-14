@@ -236,7 +236,7 @@ export default function FileManager({
       const isCompanyForm = formValues.nomSociete !== undefined;
       
       if (!entityId) {
-        setUploadError(`Please save the ${isCompanyForm ? 'company' : 'patient'} record first before saving files`);
+        setUploadError(`Veuillez d'abord enregistrer la ${isCompanyForm ? 'société' : 'fiche patient'} en cliquant sur le bouton "Sauvegarder" en bas du formulaire`);
         setIsSaving(false);
         return;
       }
@@ -313,7 +313,7 @@ export default function FileManager({
           <button
             type="button"
             onClick={saveFilesToDatabase}
-            disabled={isSaving || !entityId || !hasChanges}
+            disabled={isSaving || (!hasChanges && existingFiles.length > 0)}
             className={`px-3 py-1 text-xs rounded-md ${isSaving ? 'bg-gray-400' : !hasChanges ? 'bg-gray-500' : 'bg-blue-600'} text-white`}
           >
             {isSaving ? 'Enregistrement...' : !hasChanges ? 'Aucun changement' : 'Enregistrer les fichiers'}

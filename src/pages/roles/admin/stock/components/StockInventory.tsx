@@ -369,7 +369,6 @@ export default function StockInventory() {
               <TableHead>Emplacement</TableHead>
               <TableHead>Quantité</TableHead>
               <TableHead>Statut</TableHead>
-              <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -431,11 +430,6 @@ export default function StockInventory() {
                     </Tooltip>
                   </TooltipProvider>
                 )}
-              </TableCell>
-              <TableCell>
-                <Button variant="ghost" size="sm">
-                  Modifier
-                </Button>
               </TableCell>
             </TableRow>
             ))}

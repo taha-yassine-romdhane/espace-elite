@@ -9,12 +9,8 @@ import type { PaymentData } from '../context/PaymentContext';
 export const PaymentSummary: React.FC = () => {
   const { payments, removePayment, totalAmount, remainingAmount, requiredAmount, isComplete } = usePayment();
   
-  // Debug logging
-  console.log('PaymentSummary rendering with payments:', payments);
-  console.log('Total amount in summary:', totalAmount);
 
   if (payments.length === 0) {
-    console.log('No payments to display');
     return (
       <div className="text-center p-6">
         <p className="text-gray-500">Aucun paiement ajouté</p>
@@ -88,7 +84,7 @@ export const PaymentSummary: React.FC = () => {
                           )}
                         </span>
                         <div className="flex items-center gap-2">
-                          <span className="font-medium">{payment.amount.toFixed(2)} DT</span>
+                          <span className="font-medium">{typeof payment.amount === 'number' ? payment.amount.toFixed(2) : Number(payment.amount || 0).toFixed(2)} DT</span>
                           <Button
                             variant="ghost"
                             size="icon"

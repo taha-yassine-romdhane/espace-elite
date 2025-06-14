@@ -16,6 +16,37 @@ export interface PaymentData {
   timestamp?: string;
   createdBy?: string;
   description?: string;
+  
+  // CNAM specific fields
+  cnamBondType?: 'masque' | 'cpap' | 'autre';
+  relatedMedicalDeviceIds?: string[];
+  relatedProductIds?: string[];
+  
+  // CNAM dossier fields
+  etatDossier?: 'en_attente' | 'en_cours' | 'complement_dossier' | 'accepte' | 'refuse';
+  dateDepose?: string;
+  dateRappel?: string;
+  dateAcceptation?: string;
+  dateExpiration?: string;
+  statusHistory?: Array<{
+    date: string;
+    status: string;
+    note?: string;
+    user: string;
+  }>;
+  
+  // Payment tracking fields
+  isPending?: boolean;
+  requiresFollowUp?: boolean;
+  dossierReference?: string;
+  metadata?: {
+    bondType?: string;
+    originalAmount?: number;
+    pendingStatus?: boolean;
+    lastUpdated?: string;
+    expectedCompletionDate?: string | null;
+    [key: string]: any;
+  };
 }
 
 /**

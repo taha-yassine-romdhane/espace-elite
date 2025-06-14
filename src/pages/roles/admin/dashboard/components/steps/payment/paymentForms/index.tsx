@@ -1,12 +1,43 @@
+import { PaymentData } from './PaymentFormsMain';
 import EspecesForm from './EspecesForm';
 import ChequeForm from './ChequeForm';
-import MondatForm from './MondatForm';
 import VirementForm from './VirementForm';
-import CNAMForm from './CNAMForm';
+import MondatForm from './MondatForm';
 import TraiteForm from './TraiteForm';
-import PaymentForms, { PaymentDialog, PaymentProvider, usePayment } from './PaymentFormsMain';
-// Using 'export type' for type exports when isolatedModules is enabled
-import type { PaymentData } from './PaymentFormsMain';
+import CNAMForm from './CNAMForm';
+import { PaymentDialog, PaymentProvider, usePayment } from './PaymentFormsMain';
+
+// Create a wrapper for CNAMForm to handle isRental prop
+const CNAMFormWrapper = (props: any) => {
+  return <CNAMForm {...props} />;
+};
+
+const PaymentForms = {
+  especes: {
+    label: 'Espèces',
+    component: EspecesForm
+  },
+  cheque: {
+    label: 'Chèque',
+    component: ChequeForm
+  },
+  virement: {
+    label: 'Virement',
+    component: VirementForm
+  },
+  mandat: {
+    label: 'Mandat',
+    component: MondatForm
+  },
+  traite: {
+    label: 'Traite',
+    component: TraiteForm
+  },
+  cnam: {
+    label: 'CNAM',
+    component: CNAMFormWrapper
+  }
+};
 
 // Export individual forms for direct use if needed
 export {

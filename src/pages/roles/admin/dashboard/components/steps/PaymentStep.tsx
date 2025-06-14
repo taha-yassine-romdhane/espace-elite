@@ -13,6 +13,7 @@ interface PaymentStepProps {
   selectedClient: any;
   selectedProducts: any[];
   calculateTotal: () => number;
+  isRental?: boolean;
 }
 
 export function PaymentStep({
@@ -20,7 +21,8 @@ export function PaymentStep({
   onComplete,
   selectedClient,
   selectedProducts,
-  calculateTotal
+  calculateTotal,
+  isRental = false
 }: PaymentStepProps) {
   const [paymentDetailsOpen, setPaymentDetailsOpen] = useState(false);
   const [savedPayments, setSavedPayments] = useState<PaymentData[]>([]);
@@ -67,17 +69,29 @@ export function PaymentStep({
     // Save the payments
     setSavedPayments(paymentsWithTimestamp);
     
+    // Check if we have any CNAM payments with pending status
+    const hasPendingCNAM = paymentsWithTimestamp.some(
+      payment => payment.type === 'cnam' && payment.isPending
+    );
+    
+    // Calculate if payment is financially complete (even if CNAM is pending)
+    const isFinanciallyComplete = paidAmount >= totalAmount;
+    
     // If we have a complete payment, finalize it
-    if (paidAmount >= totalAmount) {
+    if (isFinanciallyComplete) {
       // Prepare the payment data to be sent to the parent component
       const paymentData = {
         payments: paymentsWithTimestamp,
         totalAmount: calculateTotal(),
         paidAmount,
         remainingAmount,
-        status: 'COMPLETED',
+        status: hasPendingCNAM ? 'COMPLETED_WITH_PENDING_CNAM' : 'COMPLETED',
         client: selectedClient,
-        products: selectedProducts
+        products: selectedProducts,
+        hasPendingCNAM,
+        pendingCNAMDetails: hasPendingCNAM ? 
+          paymentsWithTimestamp.filter(p => p.type === 'cnam' && p.isPending) : 
+          []
       };
       
       // Call the onComplete callback with the payment data
@@ -281,6 +295,8 @@ export function PaymentStep({
         onOpenChange={setPaymentDetailsOpen}
         totalAmount={calculateTotal()}
         onComplete={handlePaymentComplete}
+        selectedProducts={selectedProducts}
+        isRental={isRental}
       />
     </div>
   );

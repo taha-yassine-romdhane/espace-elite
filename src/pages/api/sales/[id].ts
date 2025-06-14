@@ -2,28 +2,32 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]';
-import { SaleStatus } from '@prisma/client';
 
+/**
+ * Sale details API endpoint
+ * 
+ * Handles GET, PUT, and DELETE requests for a specific sale
+ * 
+ * @param {NextApiRequest} req - The incoming request
+ * @param {NextApiResponse} res - The outgoing response
+ */
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  const session = await getServerSession(req, res, authOptions);
-
-  if (!session) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const { id } = req.query;
-
-  if (!id || typeof id !== 'string') {
-    return res.status(400).json({ error: 'Invalid sale ID' });
-  }
-
   try {
+    const { id } = req.query;
+    console.log(`[SALE-API] ${req.method} request for sale ID: ${id}`);
+    
+    if (!id || typeof id !== 'string') {
+      console.log(`[SALE-API] Invalid sale ID: ${id}`);
+      return res.status(400).json({ error: 'Invalid sale ID' });
+    }
+    
     switch (req.method) {
       case 'GET':
         // Get a single sale by ID
+        console.log(`[SALE-API] Fetching sale with ID: ${id}`);
         const sale = await prisma.sale.findUnique({
           where: { id },
           include: {
@@ -41,6 +45,12 @@ export default async function handler(
                 firstName: true,
                 lastName: true,
                 telephone: true,
+                telephoneTwo: true,
+                cin: true,
+                cnamId: true,
+                address: true,
+                affiliation: true,
+                beneficiaryType: true,
               },
             },
             company: {
@@ -65,9 +75,37 @@ export default async function handler(
         });
 
         if (!sale) {
+          console.log(`[SALE-API] Sale not found with ID: ${id}`);
           return res.status(404).json({ error: 'Sale not found' });
         }
 
+        console.log(`[SALE-API] Sale found with ID: ${id}, payment ID: ${sale.paymentId || 'none'}`);
+
+        // Log the raw sale data for debugging
+        console.log(`[SALE-API] Raw sale data:`, {
+          id: sale.id,
+          status: sale.status,
+          paymentId: sale.paymentId,
+          hasPayment: !!sale.payment,
+          paymentMethod: sale.payment?.method,
+          paymentDetailsCount: sale.payment?.paymentDetails?.length || 0,
+          hasPaymentNotes: !!sale.payment?.notes
+        });
+        
+        // If payment has notes, try to parse and log them
+        if (sale.payment?.notes) {
+          try {
+            const notesData = JSON.parse(sale.payment.notes);
+            console.log(`[SALE-API] Payment notes contains:`, {
+              hasPaymentsArray: !!notesData.payments,
+              paymentsCount: notesData.payments?.length || 0,
+              paymentTypes: notesData.payments?.map((p: any) => p.type).join(', ') || 'none'
+            });
+          } catch (error) {
+            console.log(`[SALE-API] Error parsing payment notes:`, error);
+          }
+        }
+        
         // Transform the data to match the expected format in the frontend
         const transformedSale = {
           id: sale.id,
@@ -118,19 +156,11 @@ export default async function handler(
             amount: sale.payment.amount,
             status: sale.payment.status,
             method: sale.payment.method,
-            // Include payment details breakdown
-            paymentDetails: sale.payment.paymentDetails?.map(detail => ({
-              id: detail.id,
-              method: detail.method,
-              amount: detail.amount,
-              classification: detail.classification,
-              reference: detail.reference,
-              // Format for display
-              displayMethod: getPaymentMethodDisplay(detail.method),
-              displayClassification: getPaymentClassificationDisplay(detail.classification),
-            })) || [],
+            createdAt: sale.payment.createdAt,
+            // Handle both storage approaches: PaymentDetail records or JSON in notes
+            paymentDetails: getPaymentDetails(sale.payment),
             // Group payment details by method for easy display
-            paymentByMethod: groupPaymentDetailsByMethod(sale.payment.paymentDetails || [])
+            paymentByMethod: groupPaymentDetailsByMethod(getPaymentDetails(sale.payment))
           } : null,
           
           // Items in the sale
@@ -275,10 +305,132 @@ function getPaymentClassificationDisplay(classification: string): string {
   return classMap[classification.toLowerCase()] || classification;
 }
 
+// Helper function to extract payment details from either PaymentDetail records or notes JSON
+function getPaymentDetails(payment: any): any[] {
+  if (!payment) {
+    console.log(`[SALE-API] getPaymentDetails called with null or undefined payment`);
+    return [];
+  }
+  
+  console.log(`[SALE-API] getPaymentDetails called for payment:`, {
+    id: payment?.id || 'unknown',
+    method: payment?.method,
+    amount: payment?.amount,
+    status: payment?.status,
+    hasPaymentDetails: !!payment?.paymentDetails,
+    paymentDetailsCount: payment?.paymentDetails?.length || 0,
+    hasNotes: !!payment?.notes,
+    notesLength: payment?.notes?.length || 0
+  });
+  
+  // If we have PaymentDetail records, use those
+  if (payment.paymentDetails && Array.isArray(payment.paymentDetails) && payment.paymentDetails.length > 0) {
+    console.log(`[SALE-API] Found ${payment.paymentDetails.length} PaymentDetail records`);
+    console.log(`[SALE-API] PaymentDetail methods: ${payment.paymentDetails.map((d: any) => d.method).join(', ')}`);
+    
+    return payment.paymentDetails.map((detail: any) => {
+      console.log(`[SALE-API] Processing PaymentDetail:`, {
+        id: detail?.id,
+        method: detail?.method,
+        amount: detail?.amount,
+        classification: detail?.classification,
+        reference: detail?.reference,
+        hasMetadata: !!detail?.metadata
+      });
+      return {
+        id: detail.id,
+        method: detail.method,
+        amount: detail.amount,
+        classification: detail.classification,
+        reference: detail.reference,
+        // Format for display
+        displayMethod: getPaymentMethodDisplay(detail.method),
+        displayClassification: getPaymentClassificationDisplay(detail.classification),
+        // Include metadata if available
+        ...(detail.metadata ? { metadata: detail.metadata } : {})
+      };
+    });
+  }
+  
+  // Otherwise, try to parse the notes field if it exists and contains payment data
+  if (payment.notes && typeof payment.notes === 'string') {
+    console.log(`[SALE-API] No PaymentDetail records found, checking notes field`);
+    console.log(`[SALE-API] Notes field length: ${payment.notes.length} characters`);
+    console.log(`[SALE-API] Notes field content (first 200 chars): ${payment.notes.substring(0, 200)}...`);
+    
+    try {
+      const notesData = JSON.parse(payment.notes);
+      console.log(`[SALE-API] Successfully parsed notes JSON:`, {
+        hasPaymentsArray: !!notesData.payments,
+        paymentsCount: notesData.payments?.length || 0,
+        notesDataKeys: Object.keys(notesData)
+      });
+      
+      // If we have a payments array in the notes JSON
+      if (notesData.payments && Array.isArray(notesData.payments)) {
+        console.log(`[SALE-API] Found ${notesData.payments.length} legacy payment details in notes`);
+        console.log(`[SALE-API] Legacy payment details:`, JSON.stringify(notesData.payments, null, 2));
+        
+        return notesData.payments.map((detail: any) => {
+          const legacyId = detail.id || `legacy-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+          
+          console.log(`[SALE-API] Processing legacy payment:`, {
+            legacyId,
+            type: detail.type || 'unknown',
+            amount: detail.amount || 0,
+            classification: detail.classification || 'principale',
+            reference: detail.reference || detail.dossierReference || null,
+            hasMetadata: !!detail.metadata
+          });
+          
+          return {
+            id: legacyId,
+            method: detail.type || 'unknown',
+            amount: detail.amount || 0,
+            classification: detail.classification || 'principale',
+            reference: detail.reference || detail.dossierReference || null,
+            // Format for display
+            displayMethod: getPaymentMethodDisplay(detail.type || 'unknown'),
+            displayClassification: getPaymentClassificationDisplay(detail.classification || 'principale'),
+            // Include CNAM-specific fields if available
+            ...(detail.etatDossier ? { etatDossier: detail.etatDossier } : {}),
+            ...(detail.isPending !== undefined ? { isPending: detail.isPending } : {}),
+            ...(detail.metadata ? { metadata: detail.metadata } : {})
+          };
+        });
+      } else {
+        console.log(`[SALE-API] No payments array found in notes JSON or it's not an array`);
+      }
+    } catch (error) {
+      console.error('[SALE-API] Error parsing payment notes:', error);
+      return [];
+    }
+  }
+  
+  // If no details found, return empty array
+  console.log(`[SALE-API] No payment details found in either PaymentDetail records or notes JSON`);
+  return [];
+}
+
 // Helper function to group payment details by method
 function groupPaymentDetailsByMethod(details: any[]): Record<string, any> {
-  return details.reduce((acc, detail) => {
+  console.log(`[SALE-API] groupPaymentDetailsByMethod called with ${details.length} details`);
+  console.log(`[SALE-API] Payment details to group:`, JSON.stringify(details, null, 2));
+  
+  const result = details.reduce((acc, detail) => {
+    if (!detail || typeof detail !== 'object') {
+      console.log(`[SALE-API] Invalid detail item:`, detail);
+      return acc;
+    }
+    
+    if (!detail.method) {
+      console.log(`[SALE-API] Detail missing method:`, detail);
+      return acc;
+    }
+    
     const method = detail.method.toLowerCase();
+    console.log(`[SALE-API] Processing detail with method: ${method}`);
+    
     if (!acc[method]) {
       acc[method] = {
         method: method,
@@ -286,11 +438,26 @@ function groupPaymentDetailsByMethod(details: any[]): Record<string, any> {
         details: [],
         totalAmount: 0
       };
+      console.log(`[SALE-API] Created new group for method: ${method}`);
     }
     
     acc[method].details.push(detail);
-    acc[method].totalAmount += parseFloat(detail.amount.toString());
+    
+    // Safely parse amount
+    const amount = typeof detail.amount === 'number' 
+      ? detail.amount 
+      : parseFloat(String(detail.amount || 0));
+    
+    if (isNaN(amount)) {
+      console.log(`[SALE-API] Invalid amount for detail:`, detail);
+    } else {
+      acc[method].totalAmount += amount;
+      console.log(`[SALE-API] Added amount ${amount} to ${method}, new total: ${acc[method].totalAmount}`);
+    }
     
     return acc;
   }, {});
+  
+  console.log(`[SALE-API] Final grouped payment details:`, JSON.stringify(result, null, 2));
+  return result;
 }

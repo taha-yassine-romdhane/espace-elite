@@ -14,12 +14,6 @@ import { useToast } from '@/components/ui/use-toast';
 import { DayTasksModal } from '@/components/tasks/DayTasksModal';
 import { AddTaskButton } from '@/components/tasks/AddTaskButton';
 import { TaskFormData, TaskFormDialog } from '@/components/tasks/TaskFormDialog';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -67,8 +61,6 @@ export default function TasksPage() {
   const [isDayModalOpen, setIsDayModalOpen] = useState(false);
   const [selectedDayDate, setSelectedDayDate] = useState<Date | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('month');
-
-
 
   // Calculate date range based on view mode
   const getDateRange = () => {
@@ -142,14 +134,15 @@ export default function TasksPage() {
 
       toast({
         title: "Succès",
-        description: "La tâche a été créée avec succès",
+        description: "Tâche créée avec succès",
       });
 
       refetchTasks();
-    } catch  {
+    } catch (error) {
+      console.error('Error creating task:', error);
       toast({
         title: "Erreur",
-        description: "Une erreur est survenue lors de la création de la tâche",
+        description: "Impossible de créer la tâche",
         variant: "destructive",
       });
     }
@@ -162,289 +155,248 @@ export default function TasksPage() {
 
   const getSelectedDayTasks = () => {
     if (!selectedDayDate || !tasks) return [];
-    return tasks.filter(task => 
-      format(new Date(task.startDate), 'yyyy-MM-dd') === format(selectedDayDate, 'yyyy-MM-dd')
+    return tasks.filter(task => {
+      const taskDate = new Date(task.startDate);
+      return taskDate.toDateString() === selectedDayDate.toDateString();
+    });
+  };
+
+  const renderTaskCard = (task: Task) => {
+    const priorityColors = {
+      LOW: 'bg-green-100 text-green-800 border-green-200',
+      MEDIUM: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      HIGH: 'bg-red-100 text-red-800 border-red-200'
+    };
+
+    return (
+      <div
+        key={task.id}
+        className={`p-2 rounded border text-xs ${priorityColors[task.priority]} cursor-pointer hover:opacity-80`}
+        onClick={() => handleDayClick(new Date(task.startDate))}
+      >
+        <div className="font-medium truncate">{task.title}</div>
+        <div className="text-xs opacity-75">
+          {task.assignedTo ? `${task.assignedTo.firstName} ${task.assignedTo.lastName}` : 'Non assigné'}
+        </div>
+      </div>
     );
   };
 
-  const renderTaskCard = (task: Task) => (
-    <TooltipProvider key={task.id}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className={cn(
-            "text-xs p-1 rounded truncate",
-            task.priority === 'HIGH' ? "bg-red-100 text-red-800" :
-            task.priority === 'MEDIUM' ? "bg-yellow-100 text-yellow-800" :
-            "bg-green-100 text-green-800"
-          )}>
-            {task.title}
-          </div>
-        </TooltipTrigger>
-        <TooltipContent className="w-64 p-2">
-          <div className="space-y-2">
-            <div className="font-semibold">{task.title}</div>
-            <div className="text-sm">{task.description}</div>
-            <div className="text-xs">
-              <div>Début: {format(new Date(task.startDate), 'dd/MM/yyyy HH:mm')}</div>
-              <div>Fin: {format(new Date(task.endDate), 'dd/MM/yyyy HH:mm')}</div>
-              <div>Assigné à: {task.assignedTo.firstName} {task.assignedTo.lastName}</div>
-              <div>Statut: {task.status}</div>
-              <div>Priorité: {task.priority}</div>
-            </div>
-          </div>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
-  
-  const renderNotificationCard = (notification: Notification) => (
-    <TooltipProvider key={notification.id}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className={cn(
-            "text-xs p-1 rounded truncate mt-1 border-l-2",
-            notification.type === 'FOLLOW_UP' ? "bg-blue-50 text-blue-800 border-blue-600" :
-            notification.type === 'MAINTENANCE' ? "bg-purple-50 text-purple-800 border-purple-600" :
-            notification.type === 'PAYMENT_DUE' ? "bg-amber-50 text-amber-800 border-amber-600" :
-            notification.type === 'APPOINTMENT' ? "bg-emerald-50 text-emerald-800 border-emerald-600" :
-            "bg-gray-50 text-gray-800 border-gray-500"
-          )}>
-            {notification.title}
-          </div>
-        </TooltipTrigger>
-        <TooltipContent className="w-64 p-2">
-          <div className="space-y-2">
-            <div className="font-semibold">{notification.title}</div>
-            <div className="text-sm">{notification.description}</div>
-            {notification.patientName && (
-              <div className="text-xs">
-                <div>Patient: {notification.patientName}</div>
-              </div>
-            )}
-            {notification.companyName && (
-              <div className="text-xs">
-                <div>Société: {notification.companyName}</div>
-              </div>
-            )}
-            {notification.dueDate && (
-              <div className="text-xs">
-                <div>Date d&apos;échéance: {format(new Date(notification.dueDate), 'dd/MM/yyyy')}</div>
-              </div>
-            )}
-            <div className="text-xs">
-              <div>Statut: {notification.status}</div>
-              <div>Type: {notification.type}</div>
-            </div>
-          </div>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
+  const renderNotificationCard = (notification: Notification) => {
+    const typeColors = {
+      FOLLOW_UP: 'bg-blue-100 text-blue-800 border-blue-200',
+      MAINTENANCE: 'bg-orange-100 text-orange-800 border-orange-200',
+      PAYMENT_DUE: 'bg-purple-100 text-purple-800 border-purple-200',
+      APPOINTMENT: 'bg-teal-100 text-teal-800 border-teal-200',
+      OTHER: 'bg-gray-100 text-gray-800 border-gray-200'
+    };
+
+    return (
+      <div
+        key={notification.id}
+        className={`p-2 rounded border text-xs ${typeColors[notification.type]} cursor-pointer hover:opacity-80`}
+      >
+        <div className="font-medium truncate">{notification.title}</div>
+        <div className="text-xs opacity-75">
+          {notification.patientName || notification.companyName || 'Système'}
+        </div>
+      </div>
+    );
+  };
 
   const renderDayView = () => {
     const dayTasks = tasks?.filter(task => {
       const taskDate = new Date(task.startDate);
-      return format(taskDate, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd');
+      return taskDate.toDateString() === selectedDate.toDateString();
     }) || [];
-    
+
     const dayNotifications = notifications?.filter(notification => {
-      if (!notification.dueDate) return false;
       const notificationDate = new Date(notification.dueDate);
-      return format(notificationDate, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd');
+      return notificationDate.toDateString() === selectedDate.toDateString();
     }) || [];
 
     return (
-      <div className="bg-white rounded-lg shadow p-4">
-        <div className="text-xl font-semibold mb-4">
+      <div className="bg-white rounded-lg border p-6">
+        <h2 className="text-lg font-semibold mb-4">
           {format(selectedDate, 'EEEE d MMMM yyyy', { locale: fr })}
-        </div>
+        </h2>
         
-        {dayTasks.length > 0 && (
-          <div className="mb-4">
-            <h3 className="text-sm font-medium text-gray-700 mb-2">Tâches</h3>
-            <div className="space-y-2">
-              {dayTasks.map(task => renderTaskCard(task))}
-            </div>
-          </div>
-        )}
-        
-        {dayNotifications.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <h3 className="text-sm font-medium text-gray-700 mb-2">Notifications</h3>
+            <h3 className="font-medium text-gray-900 mb-3">Tâches ({dayTasks.length})</h3>
             <div className="space-y-2">
-              {dayNotifications.map(notification => renderNotificationCard(notification))}
+              {dayTasks.length > 0 ? (
+                dayTasks.map(task => renderTaskCard(task))
+              ) : (
+                <p className="text-gray-500 text-sm">Aucune tâche pour cette journée</p>
+              )}
             </div>
           </div>
-        )}
-        
-        {dayTasks.length === 0 && dayNotifications.length === 0 && (
-          <div className="text-gray-500 italic">Aucune tâche ou notification pour ce jour</div>
-        )}
+          
+          <div>
+            <h3 className="font-medium text-gray-900 mb-3">Notifications ({dayNotifications.length})</h3>
+            <div className="space-y-2">
+              {dayNotifications.length > 0 ? (
+                dayNotifications.map(notification => renderNotificationCard(notification))
+              ) : (
+                <p className="text-gray-500 text-sm">Aucune notification pour cette journée</p>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     );
   };
 
   const renderWeekView = () => {
     const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
-    const days = eachDayOfInterval({
+    const weekDays = eachDayOfInterval({
       start: weekStart,
-      end: addDays(weekStart, 6)
+      end: endOfWeek(selectedDate, { weekStartsOn: 1 })
     });
 
     return (
-      <div className="grid grid-cols-7 gap-4">
-        {days.map(day => {
-          const dayTasks = tasks?.filter(task => {
-            const taskDate = new Date(task.startDate);
-            return format(taskDate, 'yyyy-MM-dd') === format(day, 'yyyy-MM-dd');
-          }) || [];
-          
-          const dayNotifications = notifications?.filter(notification => {
-            if (!notification.dueDate) return false;
-            const notificationDate = new Date(notification.dueDate);
-            return format(notificationDate, 'yyyy-MM-dd') === format(day, 'yyyy-MM-dd');
-          }) || [];
-
-          return (
-            <div 
-              key={day.toISOString()} 
-              className="bg-white rounded-lg shadow p-2 overflow-y-auto"
-              style={{ maxHeight: '200px' }}
-              onClick={() => handleDayClick(day)}
-            >
-              <div className="text-sm font-semibold mb-2">
-                {format(day, 'EEEE d', { locale: fr })}
-              </div>
-              
-              {dayTasks.length > 0 && (
-                <div className="mb-2">
-                  {dayTasks.map(task => renderTaskCard(task))}
-                </div>
-              )}
-              
-              {dayNotifications.length > 0 && (
-                <div>
-                  {dayNotifications.map(notification => renderNotificationCard(notification))}
-                </div>
-              )}
-              
-              {dayTasks.length + dayNotifications.length > 0 && (
-                <div className="text-xs text-right mt-1 text-blue-600 hover:underline cursor-pointer">
-                  Voir tout ({dayTasks.length + dayNotifications.length})
-                </div>
-              )}
+      <div className="bg-white rounded-lg border overflow-hidden">
+        <div className="grid grid-cols-7 gap-0">
+          {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map((day, index) => (
+            <div key={index} className="bg-gray-50 p-3 text-center font-medium text-sm border-b">
+              {day}
             </div>
-          );
-        })}
+          ))}
+          
+          {weekDays.map((day, dayIndex) => {
+            const dayTasks = tasks?.filter(task => {
+              const taskDate = new Date(task.startDate);
+              return taskDate.toDateString() === day.toDateString();
+            }) || [];
+
+            const dayNotifications = notifications?.filter(notification => {
+              const notificationDate = new Date(notification.dueDate);
+              return notificationDate.toDateString() === day.toDateString();
+            }) || [];
+
+            const isToday = day.toDateString() === new Date().toDateString();
+
+            return (
+              <div
+                key={dayIndex}
+                className={`min-h-[120px] p-2 border-b border-r cursor-pointer hover:bg-gray-50 ${
+                  isToday ? 'bg-blue-50' : ''
+                }`}
+                onClick={() => handleDayClick(day)}
+              >
+                <div className={`text-sm font-medium mb-2 ${isToday ? 'text-blue-600' : ''}`}>
+                  {format(day, 'd')}
+                </div>
+                
+                <div className="space-y-1">
+                  {dayTasks.slice(0, 2).map(task => renderTaskCard(task))}
+                  {dayTasks.length > 2 && (
+                    <div className="text-xs text-gray-500">+{dayTasks.length - 2} tâches</div>
+                  )}
+                  
+                  {dayNotifications.slice(0, 1).map(notification => renderNotificationCard(notification))}
+                  {dayNotifications.length > 1 && (
+                    <div className="text-xs text-gray-500">+{dayNotifications.length - 1} notifs</div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     );
   };
 
   const renderMonthView = () => {
-    const startOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-    const days = Array.from({ length: 35 }, (_, i) => {
-      const date = new Date(startOfMonth);
-      date.setDate(i - startOfMonth.getDay() + 1);
-      return date;
+    const monthStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+    const monthEnd = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+    const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+    const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
+    
+    const calendarDays = eachDayOfInterval({
+      start: calendarStart,
+      end: calendarEnd
     });
 
     return (
-      <div className="grid grid-cols-7 gap-4">
-        {['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'].map(day => (
-          <div key={day} className="text-center font-semibold p-2 text-gray-600">
-            {day}
-          </div>
-        ))}
-        {days.map(date => {
-          const dateStr = format(date, 'yyyy-MM-dd');
-          const isCurrentMonth = date.getMonth() === selectedDate.getMonth();
-          const dayTasks = tasks?.filter(task => 
-            format(new Date(task.startDate), 'yyyy-MM-dd') === dateStr
-          ) || [];
+      <div className="bg-white rounded-lg border overflow-hidden">
+        <div className="grid grid-cols-7 gap-0">
+          {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map((day, index) => (
+            <div key={index} className="bg-gray-50 p-3 text-center font-medium text-sm border-b">
+              {day}
+            </div>
+          ))}
           
-          const dayNotifications = notifications?.filter(notification => {
-            if (!notification.dueDate) return false;
-            const notificationDate = new Date(notification.dueDate);
-            return format(notificationDate, 'yyyy-MM-dd') === dateStr;
-          }) || [];
-          
-          const totalItems = dayTasks.length + dayNotifications.length;
+          {calendarDays.map((day, dayIndex) => {
+            const dayTasks = tasks?.filter(task => {
+              const taskDate = new Date(task.startDate);
+              return taskDate.toDateString() === day.toDateString();
+            }) || [];
 
-          return (
-            <div
-              key={dateStr}
-              onClick={() => handleDayClick(date)}
-              className={cn(
-                "min-h-[120px] p-2 rounded-lg transition-colors cursor-pointer overflow-y-auto",
-                isCurrentMonth 
-                  ? "bg-white shadow hover:shadow-md" 
-                  : "bg-gray-50"
-              )}
-              style={{ maxHeight: '150px' }}
-            >
-              <div className="flex justify-between items-center mb-2">
-                <span className={cn(
-                  "text-sm",
-                  isCurrentMonth ? "text-gray-900" : "text-gray-400"
-                )}>
-                  {format(date, 'd')}
-                </span>
-                {totalItems > 0 && (
-                  <span className="text-xs bg-blue-100 text-blue-800 px-2 rounded-full">
-                    {totalItems}
-                  </span>
+            const dayNotifications = notifications?.filter(notification => {
+              const notificationDate = new Date(notification.dueDate);
+              return notificationDate.toDateString() === day.toDateString();
+            }) || [];
+
+            const isCurrentMonth = day.getMonth() === selectedDate.getMonth();
+            const isToday = day.toDateString() === new Date().toDateString();
+
+            return (
+              <div
+                key={dayIndex}
+                className={cn(
+                  "min-h-[100px] p-2 border-b border-r cursor-pointer hover:bg-gray-50",
+                  !isCurrentMonth && "bg-gray-50 text-gray-400",
+                  isToday && isCurrentMonth && "bg-blue-50"
                 )}
-              </div>
-              
-              {/* Display tasks first */}
-              {dayTasks.length > 0 && (
-                <div className="space-y-1 mb-1">
+                onClick={() => handleDayClick(day)}
+              >
+                <div className={cn(
+                  "text-sm font-medium mb-1",
+                  isToday && isCurrentMonth && "text-blue-600"
+                )}>
+                  {format(day, 'd')}
+                </div>
+                
+                <div className="space-y-1">
                   {dayTasks.slice(0, 2).map(task => renderTaskCard(task))}
                   {dayTasks.length > 2 && (
                     <div className="text-xs text-gray-500">+{dayTasks.length - 2} tâches</div>
                   )}
-                </div>
-              )}
-              
-              {/* Display notifications */}
-              {dayNotifications.length > 0 && (
-                <div className="space-y-1">
-                  {dayNotifications.slice(0, 2).map(notification => renderNotificationCard(notification))}
-                  {dayNotifications.length > 2 && (
-                    <div className="text-xs text-gray-500">+{dayNotifications.length - 2} notifications</div>
+                  
+                  {dayNotifications.slice(0, 1).map(notification => renderNotificationCard(notification))}
+                  {dayNotifications.length > 1 && (
+                    <div className="text-xs text-gray-500">+{dayNotifications.length - 1} notifs</div>
                   )}
                 </div>
-              )}
-            </div>
-          );
-        })}
+              </div>
+            );
+          })}
+        </div>
       </div>
     );
   };
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold">Journal des Taches</h1>
-          <div className="text-lg text-gray-600">
-            {viewMode === 'month' && (
-              format(selectedDate, 'MMMM yyyy', { locale: fr })
-            )}
-            {viewMode === 'week' && (
-              `Semaine ${format(selectedDate, 'w')} - ${format(selectedDate, 'MMMM yyyy', { locale: fr })}`
-            )}
-            {viewMode === 'day' && (
-              format(selectedDate, 'EEEE d MMMM yyyy', { locale: fr })
-            )}
+    <div className="container mx-auto py-4 space-y-4">
+      {/* Compact Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-lg border">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">Journal des Tâches</h1>
+          <div className="text-sm text-gray-600">
+            {viewMode === 'month' && format(selectedDate, 'MMMM yyyy', { locale: fr })}
+            {viewMode === 'week' && `Semaine ${format(selectedDate, 'w')} - ${format(selectedDate, 'MMMM yyyy', { locale: fr })}`}
+            {viewMode === 'day' && format(selectedDate, 'EEEE d MMMM yyyy', { locale: fr })}
           </div>
         </div>
         
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          {/* Navigation */}
+          <div className="flex items-center gap-1">
             <Button
               variant="outline"
-              size="icon"
+              size="sm"
               onClick={() => {
                 if (viewMode === 'month') {
                   setSelectedDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth() - 1));
@@ -459,7 +411,14 @@ export default function TasksPage() {
             </Button>
             <Button
               variant="outline"
-              size="icon"
+              size="sm"
+              onClick={() => setSelectedDate(new Date())}
+            >
+              Aujourd'hui
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => {
                 if (viewMode === 'month') {
                   setSelectedDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1));
@@ -474,8 +433,9 @@ export default function TasksPage() {
             </Button>
           </div>
 
+          {/* View Mode */}
           <Select value={viewMode} onValueChange={(value: ViewMode) => setViewMode(value)}>
-            <SelectTrigger className="w-32">
+            <SelectTrigger className="w-28">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -485,14 +445,17 @@ export default function TasksPage() {
             </SelectContent>
           </Select>
 
-          <AddTaskButton onClick={() => setIsTaskModalOpen(true)} />
+          {/* Add Task Button */}
+          <AddTaskButton onClick={() => setIsTaskModalOpen(true)} size="sm" />
         </div>
       </div>
 
+      {/* Calendar Views */}
       {viewMode === 'month' && renderMonthView()}
       {viewMode === 'week' && renderWeekView()}
       {viewMode === 'day' && renderDayView()}
 
+      {/* Modals */}
       <TaskFormDialog
         open={isTaskModalOpen}
         onClose={() => setIsTaskModalOpen(false)}

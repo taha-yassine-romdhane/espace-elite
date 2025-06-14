@@ -49,16 +49,15 @@ export interface Task {
   endDate: string;
   assignedTo?: {
     id: string;
-    firstName: string;
-    lastName: string;
+    name: string;
   };
   patientId?: string;
 }
 
 interface User {
   id: string;
-  firstName: string;
-  lastName: string;
+  name: string;
+  email: string;
   role: string;
 }
 
@@ -118,13 +117,15 @@ export function TaskFormDialog({
     }
   });
 
-  // Fetch users for assignment
+  // Fetch users for assignment - only employees
   const { data: users } = useQuery<User[]>({
-    queryKey: ['users'],
+    queryKey: ['users-employees'],
     queryFn: async () => {
       const response = await fetch('/api/users');
       if (!response.ok) throw new Error('Failed to fetch users');
-      return response.json();
+      const allUsers = await response.json();
+      // Filter to only show employees
+      return allUsers.filter((user: User) => user.role === 'EMPLOYEE');
     }
   });
 
@@ -134,7 +135,12 @@ export function TaskFormDialog({
     queryFn: async () => {
       const response = await fetch('/api/clients?type=patient');
       if (!response.ok) throw new Error('Failed to fetch patients');
-      return response.json();
+      const data = await response.json();
+      // Transform the data to match expected format
+      return data.map((patient: any) => ({
+        id: patient.id,
+        name: patient.name
+      }));
     },
     enabled: open // Only fetch when dialog is open
   });
@@ -322,9 +328,9 @@ export function TaskFormDialog({
                 <SelectValue placeholder="Sélectionner un utilisateur" />
               </SelectTrigger>
               <SelectContent>
-                {users?.map((user) => (
+                {users?.map((user: User) => (
                   <SelectItem key={user.id} value={user.id}>
-                    {user.firstName} {user.lastName} ({user.role})
+                    {user.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -344,9 +350,9 @@ export function TaskFormDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Aucun patient</SelectItem>
-                  {patients.map((patient: Patient) => (
+                  {patients.map((patient: any) => (
                     <SelectItem key={patient.id} value={patient.id}>
-                      {patient.firstName} {patient.lastName}
+                      {patient.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

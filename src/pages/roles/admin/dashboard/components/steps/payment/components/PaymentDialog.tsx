@@ -15,7 +15,9 @@ export interface PaymentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   totalAmount: number;
-  onComplete: () => void;
+  onComplete: (payments: any[]) => void;
+  selectedProducts?: any[];
+  isRental?: boolean;
 }
 
 /**
@@ -23,10 +25,14 @@ export interface PaymentDialogProps {
  */
 const PaymentDialogContent = ({ 
   onOpenChange, 
-  onComplete 
+  onComplete,
+  selectedProducts = [],
+  isRental = false
 }: { 
   onOpenChange: (open: boolean) => void;
-  onComplete: () => void;
+  onComplete: (payments: any[]) => void;
+  selectedProducts?: any[];
+  isRental?: boolean;
 }) => {
   // State for the payment form
   const [selectedType, setSelectedType] = useState<string | null>(null);
@@ -108,7 +114,7 @@ const PaymentDialogContent = ({
   // Handle dialog close
   const handleDialogClose = () => {
     if (paymentContext.isComplete) {
-      onComplete();
+      onComplete(paymentContext.payments);
     }
     onOpenChange(false);
   };
@@ -119,16 +125,28 @@ const PaymentDialogContent = ({
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="font-medium text-lg">Suivi du Dossier CNAM</h3>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setShowForm(false);
-                setActiveTab("types");
-              }}
-            >
-              Retour aux types de paiement
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setActiveTab("types");
+                  setShowForm(false);
+                }}
+              >
+                Ajouter un autre paiement
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setShowForm(false);
+                  setActiveTab("types");
+                }}
+              >
+                Retour aux types de paiement
+              </Button>
+            </div>
           </div>
 
           <CNAMStepTracker
@@ -190,6 +208,8 @@ const PaymentDialogContent = ({
             onSubmit: handleFormSubmit,
             initialValues: initialValues,
             isSubmitting: isSubmitting,
+            selectedProducts: selectedType === 'cnam' ? selectedProducts : undefined,
+            isRental: selectedType === 'cnam' ? isRental : undefined,
           })}
         </div>
       ) : (
@@ -258,7 +278,9 @@ const PaymentDialog: React.FC<PaymentDialogProps> = ({
   open, 
   onOpenChange, 
   totalAmount, 
-  onComplete 
+  onComplete,
+  selectedProducts = [],
+  isRental = false
 }) => {
   // No need for reset logic here as it's handled in the inner component
 
@@ -272,7 +294,9 @@ const PaymentDialog: React.FC<PaymentDialogProps> = ({
         <PaymentProvider requiredAmount={totalAmount}>
           <PaymentDialogContent 
             onOpenChange={onOpenChange} 
-            onComplete={onComplete} 
+            onComplete={onComplete}
+            selectedProducts={selectedProducts}
+            isRental={isRental}
           />
         </PaymentProvider>
       </DialogContent>

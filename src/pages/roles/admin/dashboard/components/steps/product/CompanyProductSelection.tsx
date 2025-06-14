@@ -36,6 +36,7 @@ interface CompanyProductSelectionProps {
   onUpdateProductQuantity?: (index: number, quantity: number) => void;
   onBack: () => void;
   onNext: () => void;
+  isRental?: boolean;
 }
 
 // Product Type Button Component
@@ -192,7 +193,8 @@ export function CompanyProductSelection({
   onRemoveProduct,
   onUpdateProductQuantity,
   onBack,
-  onNext
+  onNext,
+  isRental = false
 }: CompanyProductSelectionProps) {
   const [searchTerm, setSearchTerm] = useState("");
   

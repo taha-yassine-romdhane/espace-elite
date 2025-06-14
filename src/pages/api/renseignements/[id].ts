@@ -34,7 +34,14 @@ export default async function handler(
               firstName: true,
               lastName: true,
             }
-          }
+          },
+          // Include related data
+          diagnostics: true,
+          medicalDevices: true,
+          payments: true,
+          rentals: true,
+          PatientHistory: true, // Correct casing to match schema
+          appointments: true
         },
       });
 
@@ -43,12 +50,12 @@ export default async function handler(
           // Get doctor name if available
           let doctorName = 'Non assigné';
           let doctorId = null;
-          if (patient.doctor) {
-            doctorId = patient.doctor.id;
+          if (patient.doctorId) {
+            doctorId = patient.doctorId;
             try {
               // Get the linked user for the doctor
               const doctorUser = await prisma.user.findUnique({
-                where: { id: patient.doctor.userId },
+                where: { id: patient.doctorId },
                 select: { firstName: true, lastName: true }
               });
               if (doctorUser) {
@@ -62,9 +69,10 @@ export default async function handler(
           // Get technician name if available
           let technicianName = 'Non assigné';
           let technicianId = null;
-          if (patient.technician) {
-            technicianId = patient.technician.id;
-            technicianName = `${patient.technician.firstName} ${patient.technician.lastName}`;
+          if (patient.technicianId && patient.technician) {
+            technicianId = patient.technicianId;
+            // Access the technician user data properly through the relation
+            technicianName = `${patient.technician.firstName || ''} ${patient.technician.lastName || ''}`;
           } 
           
           // Get assigned user name if available
@@ -91,11 +99,11 @@ export default async function handler(
             identifiantCNAM: patient.cnamId,
             beneficiaire: patient.beneficiaryType,
             caisseAffiliation: patient.affiliation,
-            doctor: patient.doctor ? {
+            doctor: patient.doctorId ? {
               id: doctorId,
               name: doctorName
             } : null,
-            technician: patient.technician ? {
+            technician: patient.technicianId ? {
               id: technicianId,
               name: technicianName
             } : null,
@@ -104,6 +112,13 @@ export default async function handler(
               name: assignedToName
             },
             files: patient.files || [],
+            // Include related data in the response - using UI-friendly names but with data from correct schema fields
+            diagnostics: patient.diagnostics || [],
+            devices: patient.medicalDevices || [], // Map medicalDevices to devices for UI
+            payments: patient.payments || [],
+            rentals: patient.rentals || [],
+            history: patient.PatientHistory || [], // Map PatientHistory to history for UI
+            appointments: patient.appointments || [],
             createdAt: patient.createdAt,
             updatedAt: patient.updatedAt,
           };

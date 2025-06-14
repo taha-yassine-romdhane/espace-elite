@@ -23,6 +23,7 @@ interface PatientProductSelectionProps {
   onUpdateProduct?: (index: number, updatedProduct: any) => void;
   onBack: () => void;
   onNext: () => void;
+  isRental?: boolean;
 }
 
 // Product Type Button Component
@@ -196,7 +197,8 @@ export function PatientProductSelection({
   onRemoveProduct,
   onUpdateProduct,
   onBack,
-  onNext
+  onNext,
+  isRental = false
 }: PatientProductSelectionProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [parameterDialogOpen, setParameterDialogOpen] = useState(false);
