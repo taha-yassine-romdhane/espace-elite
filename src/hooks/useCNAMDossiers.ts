@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { PaymentData } from '@/pages/roles/admin/dashboard/components/steps/payment/context/PaymentContext';
+import { PaymentData } from '@/components/payment/context/PaymentContext';
 import { useToast } from '@/components/ui/use-toast';
 
 interface UseCNAMDossiersOptions {

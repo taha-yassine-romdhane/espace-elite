@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { User } from '@prisma/client'; // Assuming User type is available from Prisma
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'; // Assuming you use Shadcn UI
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Assuming you use Shadcn UI
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'; // Assuming you use Shadcn UI
 import { Briefcase, CalendarDays, CheckCircle, Mail, MapPin, Phone, UserCircle } from 'lucide-react';
 interface ProfileData extends Omit<User, 'password' | 'createdAt' | 'updatedAt'> {

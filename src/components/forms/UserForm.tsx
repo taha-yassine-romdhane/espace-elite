@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Card } from "@/components/ui/Card";
+import { Card } from "@/components/ui/card";
 
 interface FormData {
   id?: string;

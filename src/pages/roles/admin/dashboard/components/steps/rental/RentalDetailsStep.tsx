@@ -34,8 +34,10 @@ export function RentalDetailsStep({
   const [startDateOpen, setStartDateOpen] = useState(false);
   const [endDateOpen, setEndDateOpen] = useState(false);
 
-  // Calculate rental duration in days
-  const rentalDuration = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+  // Calculate rental duration in days with defensive checks
+  const rentalDuration = startDate && endDate ? 
+    Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) : 
+    0; // Default to 0 days if dates are undefined
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -173,3 +175,5 @@ export function RentalDetailsStep({
     </div>
   );
 }
+
+export default RentalDetailsStep;

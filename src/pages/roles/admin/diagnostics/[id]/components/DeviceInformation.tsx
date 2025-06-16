@@ -1,5 +1,5 @@
 import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Stethoscope, Tag, Barcode, Calendar, MapPin, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";

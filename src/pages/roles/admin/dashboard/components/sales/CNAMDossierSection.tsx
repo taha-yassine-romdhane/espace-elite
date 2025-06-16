@@ -1,12 +1,12 @@
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, FileCheck, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { useCNAMDossiers } from '@/hooks/useCNAMDossiers';
-import CNAMDossierList from '../steps/payment/components/CNAMDossierList';
-import { PaymentData } from '../steps/payment/context/PaymentContext';
+import CNAMDossierList from '@/components/payment/components/CNAMDossierList';
+import { PaymentData } from '@/components/payment/context/PaymentContext';
 
 interface CNAMDossierSectionProps {
   saleId: string;

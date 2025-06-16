@@ -1,5 +1,5 @@
 import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { History, User, Calendar, FileText } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";

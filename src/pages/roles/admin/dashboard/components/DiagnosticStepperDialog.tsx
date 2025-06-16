@@ -117,7 +117,8 @@ export function DiagnosticStepperDialog({ isOpen, onClose }: DiagnosticStepperDi
 
   // Product Selection Handlers
   const handleProductSelect = (product: any) => {
-    setSelectedProducts((prev) => [...prev, { ...product, quantity: 1 }]);
+    // Replace the entire array with just the new product (only one device allowed)
+    setSelectedProducts([product]);
   };
 
   const handleRemoveProduct = (index: number) => {
@@ -251,6 +252,7 @@ export function DiagnosticStepperDialog({ isOpen, onClose }: DiagnosticStepperDi
 
   // Handle file changes
   const handleFileChange = (files: ExistingFile[]) => {
+    console.log('Files changed:', files);
     setFilesToUpload(files);
   };
 
@@ -310,59 +312,20 @@ export function DiagnosticStepperDialog({ isOpen, onClose }: DiagnosticStepperDi
     }
     
     try {
-      // First, upload any new files if there are any
+      // Collect all file URLs from UploadThing uploads
       let uploadedFileUrls: string[] = [];
       
       if (filesToUpload.length > 0) {
         console.log('Files to upload:', filesToUpload);
         
-        // Collect all file URLs - both from UploadThing and existing files
+        // Collect all file URLs from UploadThing uploads
         filesToUpload.forEach((file) => {
-          // For UploadThing files, the URL will be a full URL starting with https://
-          if (file.url && (file.url.startsWith('http://') || file.url.startsWith('https://'))) {
+          // For UploadThing files, the URL will be in the url property
+          if (file.url) {
             console.log('Adding file URL to upload list:', file.url);
             uploadedFileUrls.push(file.url);
           }
         });
-        
-        // Create FormData for any local files (not used with UploadThing)
-        const formData = new FormData();
-        
-        // Add patient ID to link files to patient
-        if (clientType === 'patient') {
-          formData.append('patientId', selectedClient);
-        } else if (clientType === 'societe') {
-          formData.append('companyId', selectedClient);
-        }
-        
-        // Add each file to FormData (only for non-UploadThing files)
-        let hasLocalFiles = false;
-        filesToUpload.forEach((file, index) => {
-          // Extract file object from URL if it's a blob URL
-          if (file.url.startsWith('blob:')) {
-            // This assumes the file object is stored somewhere accessible
-            const fileObj = form.getValues(`files.${index}`);
-            if (fileObj) {
-              formData.append('files', fileObj);
-              hasLocalFiles = true;
-            }
-          }
-        });
-        
-        // Only upload if there are actual local files to upload
-        if (hasLocalFiles) {
-          const uploadResponse = await fetch('/api/files', {
-            method: 'POST',
-            body: formData
-          });
-          
-          if (uploadResponse.ok) {
-            const uploadResult = await uploadResponse.json();
-            uploadedFileUrls = [...uploadedFileUrls, ...uploadResult.fileUrls];
-          } else {
-            throw new Error('Failed to upload files');
-          }
-        }
         
         console.log('Final file URLs to save:', uploadedFileUrls);
       }
@@ -525,15 +488,21 @@ export function DiagnosticStepperDialog({ isOpen, onClose }: DiagnosticStepperDi
                     </p>
                     
                     {clientType === 'patient' && selectedClient ? (
-                      <FileManager
-                        form={form}
-                        existingFiles={existingFiles}
-                        onFileChange={handleFileChange}
-                        onRemoveExistingFile={handleRemoveExistingFile}
-                        className="w-full"
-                        endpoint="documentUploader"
-                        maxFiles={5}
-                      />
+                      <>
+                        <FileManager
+                          form={form}
+                          existingFiles={existingFiles}
+                          onFileChange={handleFileChange}
+                          onRemoveExistingFile={handleRemoveExistingFile}
+                          className="w-full"
+                          endpoint="documentUploader"
+                          maxFiles={5}
+                        />
+                        <div className="mt-4 text-sm text-gray-600">
+                          <p>Les fichiers seront automatiquement associés au diagnostic et au patient lors de la soumission.</p>
+                          <p>Vous n'avez pas besoin de cliquer sur "Enregistrer les fichiers" - ils seront enregistrés avec le diagnostic.</p>
+                        </div>
+                      </>
                     ) : (
                       <div className="bg-yellow-50 p-4 rounded-md border border-yellow-100">
                         <p className="text-sm text-yellow-700">Vous devez sélectionner un patient pour ajouter des documents.</p>

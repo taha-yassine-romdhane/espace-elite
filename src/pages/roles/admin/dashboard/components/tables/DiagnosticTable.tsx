@@ -1,5 +1,5 @@
-import React from "react";
-import { useQuery } from "@tanstack/react-query";
+import React, { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, isAfter, isBefore, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
@@ -12,6 +12,17 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   CalendarIcon,
   AlertCircle,
@@ -26,8 +37,10 @@ import {
   Calendar,
   Building2,
   Phone,
+  Trash2,
+  Loader2,
 } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { DiagnosticResultDialog } from "../dialogs/DiagnosticResultDialog";
 
 interface DiagnosticTableProps {
   onViewDetails?: (id: string) => void;
@@ -45,6 +58,11 @@ interface DiagnosticResultType {
 }
 
 export function DiagnosticTable({ onViewDetails, onEnterResults, onAddDocuments }: DiagnosticTableProps) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [diagnosticToDelete, setDiagnosticToDelete] = useState<string | null>(null);
+  
   // Fetch diagnostic operations data
   const { data: diagnosticOperations, isLoading } = useQuery({
     queryKey: ["diagnostic-operations"],
@@ -113,6 +131,58 @@ export function DiagnosticTable({ onViewDetails, onEnterResults, onAddDocuments 
           </Badge>
         );
     }
+  };
+
+  // Delete diagnostic mutation
+  const deleteDiagnostic = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/diagnostics?id=${id}`, {
+        method: 'DELETE',
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete diagnostic');
+      }
+      
+      return await response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Diagnostic supprimé",
+        description: "Le diagnostic a été supprimé et le statut de l'appareil a été réinitialisé.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["diagnostic-operations"] });
+      setDiagnosticToDelete(null);
+    },
+    onError: (error) => {
+      console.error('Error deleting diagnostic:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de supprimer le diagnostic. Veuillez réessayer.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Handle delete button click
+  const handleDeleteClick = (id: string) => {
+    setDiagnosticToDelete(id);
+    setIsDeleteDialogOpen(true);
+  };
+
+  // Handle confirm delete
+  const handleConfirmDelete = () => {
+    if (diagnosticToDelete) {
+      deleteDiagnostic.mutate(diagnosticToDelete);
+    }
+    setIsDeleteDialogOpen(false);
+  };
+
+  // Handle cancel delete
+  const handleCancelDelete = () => {
+    setDiagnosticToDelete(null);
+    setIsDeleteDialogOpen(false);
   };
 
   return (
@@ -221,67 +291,7 @@ export function DiagnosticTable({ onViewDetails, onEnterResults, onAddDocuments 
                       </TableCell>
                       
                       <TableCell>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className="flex items-center space-x-1 cursor-help">
-                                <ClipboardList className="h-4 w-4 text-blue-600" />
-                                <span className="text-sm">
-                                  {operation.result ? (
-                                    <span className="text-green-600">Résultats disponibles</span>
-                                  ) : (
-                                    <span className="text-yellow-600">En attente</span>
-                                  )}
-                                </span>
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <div className="p-2 max-w-xs">
-                                <h4 className="font-medium mb-1">Résultats du diagnostic</h4>
-                                {operation.result ? (
-                                  <div className="space-y-2">
-                                    <ul className="space-y-1 text-xs">
-                                      <li>
-                                        <span className="font-medium">IAH: </span>
-                                        <span className="text-gray-600">
-                                          {operation.result.iah !== null ? operation.result.iah : "Non renseigné"}
-                                        </span>
-                                        {operation.result.iah !== null && (
-                                          <span className="ml-1 text-xs text-gray-500">(Normal: &lt;5)</span>
-                                        )}
-                                      </li>
-                                      <li>
-                                        <span className="font-medium">ID: </span>
-                                        <span className="text-gray-600">
-                                          {operation.result.idValue !== null ? operation.result.idValue : "Non renseigné"}
-                                        </span>
-                                        {operation.result.idValue !== null && (
-                                          <span className="ml-1 text-xs text-gray-500">(Normal: &lt;10)</span>
-                                        )}
-                                      </li>
-                                      <li>
-                                        <span className="font-medium">Remarque: </span>
-                                        <span className="text-gray-600">
-                                          {operation.result.remarque || "Non renseigné"}
-                                        </span>
-                                      </li>
-                                      <li>
-                                        <span className="font-medium">Status: </span>
-                                        <span className="text-gray-600">
-                                          {operation.result.status === 'COMPLETED' ? 'Complété' : 
-                                           operation.result.status === 'PENDING' ? 'En attente' : 
-                                           operation.result.status || "Non renseigné"}
-                                        </span>
-                                      </li>
-                                    </ul>
-                                  </div>
-                                ) : (
-                                  <p className="text-xs text-gray-500">Résultats en attente</p>
-                                )}
-                              </div>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
+                        <DiagnosticResultDialog result={operation.result} />
                       </TableCell>
                       
 
@@ -314,6 +324,19 @@ export function DiagnosticTable({ onViewDetails, onEnterResults, onAddDocuments 
                             <FileText className="h-3.5 w-3.5" />
                             <span>Détails</span>
                           </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleDeleteClick(operation.id)}
+                            className="flex items-center gap-1 border-red-200 hover:bg-red-50 hover:text-red-600"
+                            disabled={deleteDiagnostic.isPending}
+                          >
+                            {deleteDiagnostic.isPending && diagnosticToDelete === operation.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-3.5 w-3.5" />
+                            )}
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -334,6 +357,27 @@ export function DiagnosticTable({ onViewDetails, onEnterResults, onAddDocuments 
           </div>
         )}
       </div>
+      
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Êtes-vous sûr de vouloir supprimer ce diagnostic?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette action est irréversible. Le diagnostic sera supprimé et le statut de l'appareil sera réinitialisé à ACTIF.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelDelete}>Annuler</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmDelete}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

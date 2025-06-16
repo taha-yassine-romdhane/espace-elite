@@ -3,15 +3,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { ClientSelectionStep } from "./steps/ClientSelectionStep";
 import { ProductDialog } from "./dialogs/ProductDialog";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
 import { MedicalDeviceForm } from "@/pages/roles/admin/appareils/components/forms/MedicalDeviceForm";
 import { AccessoryForm } from "@/pages/roles/admin/appareils/components/forms/AccessoryForm";
 import RentStepperSidebar from "./RentStepperSidebar";
 import { toast } from "@/components/ui/use-toast";
 import { ProductSelectionStep } from "./steps/ProductSelectionStep";
 import { RentalDetailsStep } from "./steps/rental/RentalDetailsStep";
-import { PaymentStep } from "./steps/PaymentStep";
+import { PaymentStep } from "@/components/steps/PaymentStep";
 
 interface RentStepperDialogProps {
   isOpen: boolean;

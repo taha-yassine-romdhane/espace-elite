@@ -378,8 +378,19 @@ export default async function handler(
         res.setHeader('Allow', ['GET', 'POST', 'PUT']);
         return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('API Error:', error);
+    
+    // Handle Prisma unique constraint errors
+    if (error && typeof error === 'object' && error.code === 'P2002') {
+      const field = error.meta?.target?.[0] || 'unknown field';
+      return res.status(409).json({ 
+        error: `Duplicate value for ${field}`, 
+        field,
+        code: 'P2002'
+      });
+    }
+    
     return res.status(500).json({ error: 'Internal Server Error' });
   }
 }

@@ -1,4 +1,4 @@
-import { Card } from "@/components/ui/Card";
+import { Card } from "@/components/ui/card";
 import { 
   Activity,
   Search
@@ -73,10 +73,12 @@ export function DiagnosticProductDialog({
               filteredProducts.map((product) => (
                 <Card
                   key={product.id}
-                  className="p-3 cursor-pointer hover:border-[#1e3a8a] transition-colors"
+                  className={`p-3 ${product.status === 'ACTIVE' ? 'cursor-pointer hover:border-[#1e3a8a]' : 'cursor-not-allowed opacity-75'} transition-colors`}
                   onClick={() => {
-                    onSelect(product);
-                    onClose();
+                    if (product.status === 'ACTIVE') {
+                      onSelect(product);
+                      onClose();
+                    }
                   }}
                 >
                   <div className="flex items-start justify-between gap-4">
@@ -98,6 +100,9 @@ export function DiagnosticProductDialog({
                              product.status === 'RESERVED' ? 'Réservé' : 
                              product.status}
                           </span>
+                        )}
+                        {product.status !== 'ACTIVE' && (
+                          <span className="ml-2 text-xs text-red-600">(Non sélectionnable)</span>
                         )}
                       </div>
                       <div className="text-sm text-gray-500 truncate ml-6">

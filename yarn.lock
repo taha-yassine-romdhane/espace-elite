@@ -641,6 +641,13 @@
   resolved "https://registry.yarnpkg.com/@pkgjs/parseargs/-/parseargs-0.11.0.tgz#a77ea742fab25775145434eb1d2328cf5013ac33"
   integrity sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==
 
+"@playwright/test@^1.53.0":
+  version "1.53.0"
+  resolved "https://registry.yarnpkg.com/@playwright/test/-/test-1.53.0.tgz#23e0abac142f05b6b315c2da19129178aebb94e4"
+  integrity sha512-15hjKreZDcp7t6TL/7jkAo6Df5STZN09jGiv5dbP9A6vMVncXRqE7/B2SncsyOwrkZRBH2i6/TPOL8BVmm3c7w==
+  dependencies:
+    playwright "1.53.0"
+
 "@prisma/client@^6.7.0":
   version "6.7.0"
   resolved "https://registry.yarnpkg.com/@prisma/client/-/client-6.7.0.tgz#69f913b0a8cfb6aa5de5dca6aa57bfd4e91e7e95"
@@ -2810,6 +2817,11 @@ fraction.js@^4.3.7:
   resolved "https://registry.yarnpkg.com/fraction.js/-/fraction.js-4.3.7.tgz#06ca0085157e42fda7f9e726e79fefc4068840f7"
   integrity sha512-ZsDfxO51wGAXREY55a7la9LScWpwv9RxIrYABrlvOFBlH/ShPnrtsXeuUIfXKKOVicNxQ+o8JTbJvjS4M89yew==
 
+fsevents@2.3.2:
+  version "2.3.2"
+  resolved "https://registry.yarnpkg.com/fsevents/-/fsevents-2.3.2.tgz#8a526f78b8fdf4623b709e0b975c52c24c02fd1a"
+  integrity sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==
+
 fsevents@2.3.3, fsevents@~2.3.2:
   version "2.3.3"
   resolved "https://registry.yarnpkg.com/fsevents/-/fsevents-2.3.3.tgz#cac6407785d03675a2a5e1a5305c697b347d90d6"
@@ -3747,6 +3759,20 @@ pirates@^4.0.1:
   version "4.0.7"
   resolved "https://registry.yarnpkg.com/pirates/-/pirates-4.0.7.tgz#643b4a18c4257c8a65104b73f3049ce9a0a15e22"
   integrity sha512-TfySrs/5nm8fQJDcBDuUng3VOUKsd7S+zqvbOTiGXHfxX4wK31ard+hoNuvkicM/2YFzlpDgABOevKSsB4G/FA==
+
+playwright-core@1.53.0:
+  version "1.53.0"
+  resolved "https://registry.yarnpkg.com/playwright-core/-/playwright-core-1.53.0.tgz#bf2738cc143116b6130b78e0c644edf2e7e53ff4"
+  integrity sha512-mGLg8m0pm4+mmtB7M89Xw/GSqoNC+twivl8ITteqvAndachozYe2ZA7srU6uleV1vEdAHYqjq+SV8SNxRRFYBw==
+
+playwright@1.53.0:
+  version "1.53.0"
+  resolved "https://registry.yarnpkg.com/playwright/-/playwright-1.53.0.tgz#4eae78aa24e3c714bf71981f80b3310b838692fd"
+  integrity sha512-ghGNnIEYZC4E+YtclRn4/p6oYbdPiASELBIYkBXfaTVKreQUYbMUYQDwS12a8F0/HtIjr/CkGjtwABeFPGcS4Q==
+  dependencies:
+    playwright-core "1.53.0"
+  optionalDependencies:
+    fsevents "2.3.2"
 
 possible-typed-array-names@^1.0.0:
   version "1.1.0"

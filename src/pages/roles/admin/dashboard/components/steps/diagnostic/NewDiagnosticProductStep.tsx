@@ -33,8 +33,6 @@ export function NewDiagnosticProductStep({
   selectedProducts = [],
   onRemoveProduct,
   onSelectProduct,
-  onUpdateProductParameters = () => {},
-  patientId,
   resultDueDate,
   onResultDueDateChange = () => {}
 }: DiagnosticProductStepProps) {
@@ -68,20 +66,6 @@ export function NewDiagnosticProductStep({
       return data.filter((device: any) => device.type === "DIAGNOSTIC_DEVICE");
     },
   });
-
-  // Fetch parameters for a specific device
-  const fetchDeviceParameters = async (deviceId: string) => {
-    try {
-      const response = await fetch(`/api/diagnostic-parameters?deviceId=${deviceId}`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch device parameters");
-      }
-      return await response.json();
-    } catch (error) {
-      console.error("Error fetching parameters:", error);
-      return [];
-    }
-  };
 
   const handleOpenProductDialog = () => {
     setProductDialogOpen(true);
@@ -146,15 +130,6 @@ export function NewDiagnosticProductStep({
       <div className="space-y-4 mt-6">
         <div className="flex justify-between items-center">
           <h3 className="text-lg font-medium">Équipements Sélectionnés</h3>
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={handleOpenProductDialog}
-            className="flex items-center gap-1"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Ajouter</span>
-          </Button>
         </div>
 
         {selectedProducts.length === 0 ? (
@@ -207,9 +182,43 @@ export function NewDiagnosticProductStep({
             <div className="py-4">
               <DiagnosticDeviceForm
                 onSubmit={async (data) => {
-                  // Ensure the new device is created with the correct type
-                  await onSelectProduct({ ...data, type: "DIAGNOSTIC_DEVICE" });
-                  setIsCreateFormOpen(false);
+                  try {
+                    // First save the device to the database
+                    const response = await fetch('/api/medical-devices', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({ ...data, type: "DIAGNOSTIC_DEVICE" }),
+                    });
+                    
+                    if (!response.ok) {
+                      // Handle specific error cases
+                      const errorData = await response.json();
+                      
+                      if (response.status === 409 && errorData.code === 'P2002') {
+                        // Handle duplicate serial number
+                        const field = errorData.field || 'serialNumber';
+                        const fieldName = field === 'serialNumber' ? 'Numéro de série' : field;
+                        
+                        // Show user-friendly error message
+                        alert(`${fieldName} déjà utilisé. Veuillez utiliser une valeur unique.`);
+                        return;
+                      }
+                      
+                      throw new Error(errorData.error || 'Failed to create diagnostic device');
+                    }
+                    
+                    // Get the newly created device with its ID from the response
+                    const savedDevice = await response.json();
+                    
+                    // Now select the device with its database ID
+                    onSelectProduct(savedDevice);
+                    setIsCreateFormOpen(false);
+                  } catch (error) {
+                    console.error('Error creating diagnostic device:', error);
+                    alert('Échec de la création de l\'appareil de diagnostic. Veuillez réessayer.');
+                  }
                 }}
                 stockLocations={stockLocations || []}
               />

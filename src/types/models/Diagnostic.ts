@@ -2,7 +2,6 @@ import { MedicalDevice } from './MedicalDevice';
 import { Patient } from './Patient';
 import { Company } from './Company';
 import { User } from './User';
-import { ParameterValue } from './ParameterValue';
 
 export interface Diagnostic {
   id: string;
@@ -17,7 +16,6 @@ export interface Diagnostic {
   performedBy?: User;
   followUpRequired: boolean;
   followUpDate?: Date;
-  parameterValues?: ParameterValue[];
   companyId?: string;
   company?: Company;
   createdAt: Date;

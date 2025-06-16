@@ -1,5 +1,6 @@
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
+import Link from 'next/link';
 import { useEffect } from 'react';
 import AdminLayout from './AdminLayout';
 import { Users, Box, Bell, ShoppingCart, Cog, Clipboard, SquareActivity, Home } from 'lucide-react';
@@ -101,32 +102,33 @@ function getPurposeDescription(title: string) {
 
       {/* Accueil (Home) Button */}
       <div className="flex justify-center mb-8">
-        <button
-          className="flex items-center gap-3 px-8 py-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-xl font-bold shadow-lg border-4 border-blue-300 hover:border-blue-500 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-blue-200"
-          style={{ minWidth: 320 }}
-          onClick={() => router.push('/roles/admin/dashboard')}
-        >
-          <Home size={32} className="mr-2" />
-          Accueil
-        </button>
+        <Link href="/roles/admin/dashboard">
+          <div
+            className="flex items-center gap-3 px-8 py-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-xl font-bold shadow-lg border-4 border-blue-300 hover:border-blue-500 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-blue-200"
+            style={{ minWidth: 320 }}
+          >
+            <Home size={32} className="mr-2" />
+            Accueil
+          </div>
+        </Link>
       </div>
 
       {/* Enhanced Quick Access Buttons */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
         {quickLinks.map((link, index) => (
-          <div
-            key={index}
-            className="group relative bg-white rounded-xl shadow hover:shadow-lg hover:scale-[1.03] transition-all duration-200 cursor-pointer border border-gray-200 hover:border-blue-400"
-            onClick={() => router.push(link.path)}
-          >
-            <div className="flex flex-col items-center p-7">
-              <div className={`w-14 h-14 rounded-full flex items-center justify-center mb-4 text-white text-3xl shadow ${link.bgColor ?? 'bg-blue-600'} group-hover:scale-110 transition-transform duration-200`}>{link.icon}</div>
-              <h3 className="text-lg font-bold text-blue-800 mb-1 group-hover:text-blue-600 transition-colors duration-200">{link.title}</h3>
-              <p className="text-xs text-gray-500 text-center font-medium mb-2">{link.description}</p>
-              {/* Purpose/Info for each button */}
-              <span className="text-xs text-blue-500 bg-blue-50 px-3 py-1 rounded-full mt-1 shadow-sm">{getPurposeDescription(link.title)}</span>
+          <Link href={link.path} key={index}>
+            <div
+              className="group relative bg-white rounded-xl shadow hover:shadow-lg hover:scale-[1.03] transition-all duration-200 cursor-pointer border border-gray-200 hover:border-blue-400"
+            >
+              <div className="flex flex-col items-center p-7">
+                <div className={`w-14 h-14 rounded-full flex items-center justify-center mb-4 text-white text-3xl shadow ${link.bgColor ?? 'bg-blue-600'} group-hover:scale-110 transition-transform duration-200`}>{link.icon}</div>
+                <h3 className="text-lg font-bold text-blue-800 mb-1 group-hover:text-blue-600 transition-colors duration-200">{link.title}</h3>
+                <p className="text-xs text-gray-500 text-center font-medium mb-2">{link.description}</p>
+                {/* Purpose/Info for each button */}
+                <span className="text-xs text-blue-500 bg-blue-50 px-3 py-1 rounded-full mt-1 shadow-sm">{getPurposeDescription(link.title)}</span>
+              </div>
             </div>
-          </div>
+          </Link>
         ))}
       </div>
     </div>

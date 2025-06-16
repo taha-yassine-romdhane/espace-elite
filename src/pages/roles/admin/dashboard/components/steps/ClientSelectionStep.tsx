@@ -104,8 +104,24 @@ export function ClientSelectionStep({
     }
   };
 
+  // Custom handler for client selection that prevents selecting patients with ongoing diagnostics
+  const handleClientSelect = (clientId: string) => {
+    // For diagnostic stepper, check if patient has ongoing diagnostic
+    if (action === "diagnostique" && clientType === "patient") {
+      const selectedPatient = clients.find(client => client.id === clientId);
+      
+      if (selectedPatient?.hasOngoingDiagnostic) {
+        // Show error or toast message
+        return; // Prevent selection
+      }
+    }
+    
+    // If not diagnostic stepper or patient doesn't have ongoing diagnostic, proceed with selection
+    onClientSelect(clientId);
+  };
+  
   const handleCreateSuccess = (newClient: any) => {
-    onClientSelect(newClient.id);
+    handleClientSelect(newClient.id);
     setIsCreateFormOpen(false);
     setSearchQuery(""); // Reset search query
     
@@ -147,12 +163,16 @@ export function ClientSelectionStep({
 
   // Filter clients based on search query
   const filteredClients = useMemo(() => {
-    if (!searchQuery.trim() || !clients.length) return clients;
-    
-    return clients.filter(client => 
-      client.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    return clients?.filter((client) => {
+      if (!client) return false;
+      if (!searchQuery.trim()) return true;
+      
+      return client.name.toLowerCase().includes(searchQuery.toLowerCase());
+    }) || [];
   }, [clients, searchQuery]);
+  
+  // For diagnostic stepper, show all clients but mark those with ongoing diagnostics
+  // For display purposes only - actual selection will be prevented in onClientSelect handler
 
   // Determine if we should show the client type selection
   // For location and diagnostic, we only allow patient selection
@@ -260,16 +280,12 @@ export function ClientSelectionStep({
             <div className="relative">
               <Select
                 value={selectedClient || ""}
-                onValueChange={onClientSelect}
+                onValueChange={handleClientSelect}
               >
-                <SelectTrigger className="border-[#1e3a8a] focus:ring-[#1e3a8a]">
-                  <SelectValue placeholder={
-                    clientType === "patient" 
-                      ? "Sélectionner un patient" 
-                      : "Sélectionner une société"
-                  } />
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={clientType === "patient" ? "Sélectionner un patient" : "Sélectionner une société"} />
                 </SelectTrigger>
-                <SelectContent className="p-0">
+                <SelectContent className="max-h-[300px]">
                   <div className="sticky top-0 z-10 bg-white px-3 py-2 border-b">
                     <div className="relative">
                       <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-500" />
@@ -285,11 +301,31 @@ export function ClientSelectionStep({
                   </div>
                   <div className="max-h-[200px] overflow-y-auto py-1">
                     {filteredClients.length > 0 ? (
-                      filteredClients.map((client) => (
-                        <SelectItem key={client.id} value={client.id}>
-                          {client.name}
-                        </SelectItem>
-                      ))
+                      filteredClients.map((client) => {
+                        // Check if this is a patient with an ongoing diagnostic
+                        const hasOngoingDiagnostic = clientType === "patient" && client.hasOngoingDiagnostic;
+                        const isDiagnosticStepper = action === "diagnostique";
+                        
+                        // For diagnostic stepper, show patients with ongoing diagnostics as non-selectable
+                        if (hasOngoingDiagnostic && isDiagnosticStepper) {
+                          return (
+                            <div key={client.id} className="px-2 py-2 text-sm text-gray-400 flex items-center justify-between cursor-not-allowed">
+                              <span>{client.name}</span>
+                              <span className="text-xs text-red-500">(Diagnostic en cours)</span>
+                            </div>
+                          );
+                        }
+                        
+                        // For rental/sales steppers, show all patients as selectable
+                        return (
+                          <SelectItem key={client.id} value={client.id}>
+                            {client.name}
+                            {hasOngoingDiagnostic && !isDiagnosticStepper && (
+                              <span className="ml-2 text-xs text-amber-500">(Diagnostic en cours)</span>
+                            )}
+                          </SelectItem>
+                        );
+                      })
                     ) : (
                       <div className="px-2 py-4 text-center text-sm text-gray-500">
                         {searchQuery ? "Aucun résultat trouvé" : "Aucun client disponible"}

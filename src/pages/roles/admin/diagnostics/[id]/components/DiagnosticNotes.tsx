@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/Card";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { FileText, Edit, Save, X } from "lucide-react";

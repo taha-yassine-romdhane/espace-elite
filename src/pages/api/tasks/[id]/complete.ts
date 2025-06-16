@@ -26,11 +26,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const task = await prisma.task.findUnique({
       where: { id },
       include: {
-        diagnostic: {
-          select: {
-            parameterId: true
-          }
-        },
+        diagnostic: true,
         assignedTo: {
           select: {
             id: true,
@@ -66,13 +62,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       },
     });
 
-    // If this task is related to a diagnostic parameter, update the notification as well
-    if (task.diagnostic?.parameterId) {
+    // If this task is related to a diagnostic, update the notification as well
+    if (task.diagnostic) {
       await prisma.notification.updateMany({
         where: {
           type: 'FOLLOW_UP',
           relatedId: task.id,
-          parameterId: task.diagnostic.parameterId,
         },
         data: {
           status: 'READ',
