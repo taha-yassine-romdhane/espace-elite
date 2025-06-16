@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/Card";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { 
   Plus, 
@@ -243,7 +243,7 @@ export function PatientProductSelection({
   };
   
   // Calculate total price - ensure it's always a number
-  const totalPrice = selectedProducts.reduce((total, product) => {
+  const totalPrice = (selectedProducts || []).reduce((total, product) => {
     const price = typeof product.sellingPrice === 'number' ? product.sellingPrice : 
                   parseFloat(product.sellingPrice) || 0;
     return total + price;
@@ -266,12 +266,12 @@ export function PatientProductSelection({
       </div>
 
       {/* Selected Products */}
-      {selectedProducts?.length > 0 && (
+      {(selectedProducts && selectedProducts.length > 0) && (
         <div className="mt-6 space-y-3">
           <div className="flex justify-between items-center">
             <h3 className="text-base font-medium text-blue-900">Produits Sélectionnés</h3>
             <Badge variant="secondary" className="bg-blue-100 text-blue-700 hover:bg-blue-200">
-              {selectedProducts.length} {selectedProducts.length > 1 ? 'produits' : 'produit'}
+              {selectedProducts?.length || 0} {(selectedProducts?.length || 0) > 1 ? 'produits' : 'produit'}
             </Badge>
           </div>
           
@@ -307,7 +307,7 @@ export function PatientProductSelection({
         </Button>
         
         <div className="flex items-center gap-3">
-          {selectedProducts.length > 0 && (
+          {(selectedProducts && selectedProducts.length > 0) && (
             <div className="text-sm text-gray-600">
               <span className="font-medium text-blue-700">{selectedProducts.length}</span> produits pour un total de <span className="font-medium text-blue-700">{typeof totalPrice === 'number' ? totalPrice.toFixed(2) : '0.00'} DT</span>
             </div>
@@ -315,7 +315,7 @@ export function PatientProductSelection({
           
           <Button
             onClick={onNext}
-            disabled={selectedProducts?.length === 0}
+            disabled={!selectedProducts || selectedProducts.length === 0}
             className="bg-blue-700 hover:bg-blue-800 text-white flex items-center gap-2 disabled:opacity-50"
           >
             Continuer

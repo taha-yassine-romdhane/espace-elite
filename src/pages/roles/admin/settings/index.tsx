@@ -3,7 +3,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UserManagement } from "./components/UserManagement";
 import { RolePermissions } from "./components/RolePermissions";
 import { GeneralSettings } from "./components/GeneralSettings";
-import { Card } from "@/components/ui/Card";
+import { Card } from "@/components/ui/card";
 import { Settings, Users, Shield, Database } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { BackupRestore } from "./components/BackupRestore";

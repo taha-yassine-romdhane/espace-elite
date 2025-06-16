@@ -96,8 +96,7 @@ export default async function handler(
       const transformedDiagnostics = diagnostics.map(diagnostic => {
         // Format patient information
         const patientName = diagnostic.patient ? 
-          `${diagnostic.patient.firstName} ${diagnostic.patient.lastName}`.trim() : 
-          diagnostic.Company?.companyName || 'N/A';
+          `${diagnostic.patient.firstName} ${diagnostic.patient.lastName}`.trim() : 'N/A';
           
         // Format device information
         const deviceName = `${diagnostic.medicalDevice.name} ${diagnostic.medicalDevice.brand || ''} ${diagnostic.medicalDevice.model || ''}`.trim();
@@ -111,7 +110,7 @@ export default async function handler(
           id: diagnostic.id,
           deviceName,
           patientName,
-          companyName: diagnostic.Company?.companyName || 'N/A',
+          companyName: 'N/A', // Always N/A since we only use patients
           date: diagnostic.diagnosticDate,
           followUpDate: diagnostic.followUpDate,
           followUpRequired: diagnostic.followUpRequired,
@@ -151,7 +150,7 @@ export default async function handler(
       
       // Validate required fields
       if (!clientId) {
-        return res.status(400).json({ error: 'Client ID is required' });
+        return res.status(400).json({ error: 'Patient ID is required' });
       }
       
       if (!medicalDeviceId) {
@@ -164,13 +163,18 @@ export default async function handler(
         return res.status(400).json({ error: 'User ID is required' });
       }
       
-      // Determine if the client is a patient or company
-      const isPatient = await prisma.patient.findUnique({
+      // Verify this is a patient and get patient details
+      const patient = await prisma.patient.findUnique({
         where: { id: clientId },
+        select: { id: true, firstName: true, lastName: true }
       });
       
+      if (!patient) {
+        return res.status(400).json({ error: 'Patient not found' });
+      }
+      
       // Prepare diagnostic data
-      const diagnosticData: any = {
+      const diagnosticData = {
         medicalDevice: { 
           connect: { id: medicalDeviceId }
         },
@@ -179,14 +183,8 @@ export default async function handler(
         followUpDate: followUpDate,
         followUpRequired: followUpDate ? true : false,
         performedBy: { connect: { id: userId } },
+        patient: { connect: { id: clientId } }
       };
-      
-      // Add patient or company connection based on client type
-      if (isPatient) {
-        diagnosticData.patient = { connect: { id: clientId } };
-      } else {
-        diagnosticData.Company = { connect: { id: clientId } };
-      }
       
       // Create the diagnostic record
       const diagnostic = await prisma.diagnostic.create({
@@ -204,29 +202,63 @@ export default async function handler(
         },
       });
       
-      // Create patient history record if it's a patient
-      if (isPatient) {
-        await prisma.patientHistory.create({
-          data: {
-            patient: {
-              connect: { id: clientId }
-            },
-            actionType: 'DIAGNOSTIC',
-            details: {
-              diagnosticId: diagnostic.id,
-              deviceId: medicalDeviceId,
-              deviceName: products[0]?.name || 'Unknown device',
-              notes: notes,
-              followUpDate: followUpDate,
-              followUpRequired: followUpDate ? true : false
-            },
-            relatedItemId: diagnostic.id,
-            relatedItemType: 'diagnostic',
-            performedBy: {
-              connect: { id: userId }
-            }
+      // Create patient history record
+      await prisma.patientHistory.create({
+        data: {
+          patient: {
+            connect: { id: clientId }
+          },
+          actionType: 'DIAGNOSTIC',
+          details: {
+            diagnosticId: diagnostic.id,
+            deviceId: medicalDeviceId,
+            deviceName: products[0]?.name || 'Unknown device',
+            notes: notes,
+            followUpDate: followUpDate,
+            followUpRequired: followUpDate ? true : false
+          },
+          relatedItemId: diagnostic.id,
+          relatedItemType: 'diagnostic',
+          performedBy: {
+            connect: { id: userId }
           }
-        });
+        }
+      });
+      
+      // Update device status to RESERVED
+      await prisma.medicalDevice.update({
+        where: { id: medicalDeviceId },
+        data: { 
+          status: 'RESERVED'
+        }
+      });
+      
+      // Create notification for the assigned user
+      await prisma.notification.create({
+        data: {
+          title: 'Nouveau diagnostic créé',
+          message: `Un diagnostic a été créé pour le patient ${patient.firstName} ${patient.lastName}`,
+          type: 'FOLLOW_UP',
+          status: 'PENDING',
+          isRead: false,
+          user: { connect: { id: userId } },
+          patient: { connect: { id: clientId } },
+          metadata: { diagnosticId: diagnostic.id }
+        }
+      });
+      
+      // Link any uploaded files to the patient and diagnostic
+      if (uploadedFileUrls.length > 0) {
+        await Promise.all(uploadedFileUrls.map(async (fileUrl: string) => {
+          // Create file record linked to patient and diagnostic
+          await prisma.file.create({
+            data: {
+              url: fileUrl,
+              type: 'DIAGNOSTIC_DOCUMENT',
+              patient: { connect: { id: clientId } },
+            }
+          });
+        }));
       }
       
       // Create a task for follow-up if required
@@ -234,7 +266,7 @@ export default async function handler(
         try {
           await prisma.task.create({
             data: {
-              title: `Suivi diagnostic pour ${isPatient ? 'patient' : 'société'}`,
+              title: `Suivi diagnostic pour patient`,
               description: `Suivi requis pour le diagnostic créé le ${new Date().toLocaleDateString()}`,
               status: 'TODO',
               priority: 'MEDIUM',
@@ -285,15 +317,61 @@ export default async function handler(
   if (req.method === 'DELETE') {
     try {
       const { id } = req.query;
-
-      await prisma.diagnostic.delete({
-        where: { id: String(id) }
+      const diagnosticId = String(id);
+      
+      // First, find the diagnostic to get the associated device ID and related records
+      const diagnostic = await prisma.diagnostic.findUnique({
+        where: { id: diagnosticId },
+        include: {
+          result: true,
+          Task: true
+        }
       });
-
-      return res.status(200).json({ message: 'Diagnostic deleted successfully' });
+      
+      if (!diagnostic) {
+        return res.status(404).json({ error: 'Diagnostic not found' });
+      }
+      
+      // Begin transaction to ensure all operations succeed or fail together
+      await prisma.$transaction(async (tx) => {
+        // 1. Delete related DiagnosticResult if exists
+        if (diagnostic.result) {
+          await tx.diagnosticResult.delete({
+            where: { diagnosticId: diagnosticId }
+          });
+        }
+        
+        // 2. Delete related Tasks
+        if (diagnostic.Task && diagnostic.Task.length > 0) {
+          await tx.task.deleteMany({
+            where: { diagnosticId: diagnosticId }
+          });
+        }
+        
+        // 3. Reset the device status to ACTIVE and clear the reservedUntil date
+        if (diagnostic.medicalDeviceId) {
+          await tx.medicalDevice.update({
+            where: { id: diagnostic.medicalDeviceId },
+            data: { 
+              status: 'ACTIVE',
+              reservedUntil: null // Clear the reservation date
+            }
+          });
+        }
+        
+        // 4. Finally, delete the diagnostic record
+        await tx.diagnostic.delete({
+          where: { id: diagnosticId }
+        });
+      });
+      
+      return res.status(200).json({ message: 'Diagnostic deleted successfully and device status reset to ACTIVE' });
     } catch (error) {
       console.error('Error deleting diagnostic:', error);
-      return res.status(500).json({ error: 'Error deleting diagnostic' });
+      return res.status(500).json({ 
+        error: 'Error deleting diagnostic', 
+        details: error instanceof Error ? error.message : String(error) 
+      });
     }
   }
 

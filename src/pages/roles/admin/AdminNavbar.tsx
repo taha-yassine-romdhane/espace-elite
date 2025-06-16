@@ -2,12 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/router';
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { 
-    User, 
-    Bell, 
-    Search, 
-    Settings, 
-    LogOut, 
+import {
+    User,
+    Bell,
+    Search,
+    Settings,
+    LogOut,
     ChevronDown,
     Moon,
     Sun,
@@ -18,14 +18,35 @@ import {
     HelpCircle,
     Shield,
     Activity,
-    Link
+    Link,
+    Check,
+    AlertCircle
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
+import axios from 'axios';
+import { format, formatDistanceToNow } from 'date-fns';
+import { fr } from 'date-fns/locale';
+import GlobalSearch from '@/components/search/GlobalSearch';
 
 interface NavbarProps {
     onSidebarToggle?: () => void;
     sidebarExpanded?: boolean;
 }
+
+interface Notification {
+    id: string;
+    title: string;
+    message: string;
+    type: NotificationType;
+    status: NotificationStatus;
+    isRead: boolean;
+    createdAt: string;
+    readAt: string | null;
+    metadata?: any;
+}
+
+type NotificationType = 'FOLLOW_UP' | 'MAINTENANCE' | 'APPOINTMENT' | 'PAYMENT_DUE' | 'TRANSFER' | 'OTHER';
+type NotificationStatus = 'PENDING' | 'COMPLETED' | 'DISMISSED' | 'READ';
 
 const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true }) => {
     const { data: session } = useSession();
@@ -35,16 +56,60 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
     const [searchQuery, setSearchQuery] = useState('');
     const [isDarkMode, setIsDarkMode] = useState(false);
     const [currentTime, setCurrentTime] = useState(new Date());
+    const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [unreadCount, setUnreadCount] = useState(0);
+    const [isLoading, setIsLoading] = useState(false);
     const profileRef = useRef<HTMLDivElement>(null);
     const notificationsRef = useRef<HTMLDivElement>(null);
 
-    // Update time every minute
+    // Update time every minute and fetch notifications
     useEffect(() => {
         const timer = setInterval(() => {
             setCurrentTime(new Date());
         }, 60000);
+        
+        // Fetch notifications when component mounts
+        fetchNotifications();
+        
         return () => clearInterval(timer);
     }, []);
+    
+    // Function to fetch notifications from the API
+    const fetchNotifications = async () => {
+        if (!session) return;
+        
+        try {
+            setIsLoading(true);
+            const response = await axios.get('/api/notifications/get-user-notifications');
+            setNotifications(response.data.notifications);
+            setUnreadCount(response.data.unreadCount);
+        } catch (error) {
+            console.error('Error fetching notifications:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    
+    // Function to mark a notification as read
+    const markNotificationAsRead = async (notificationId: string) => {
+        try {
+            await axios.post('/api/notifications/mark-as-read', { notificationId });
+            
+            // Update local state
+            setNotifications(prev => 
+                prev.map(notification => 
+                    notification.id === notificationId 
+                        ? { ...notification, isRead: true, readAt: new Date().toISOString() } 
+                        : notification
+                )
+            );
+            
+            // Update unread count
+            setUnreadCount(prev => Math.max(0, prev - 1));
+        } catch (error) {
+            console.error('Error marking notification as read:', error);
+        }
+    };
 
     // Close dropdowns when clicking outside
     useEffect(() => {
@@ -90,38 +155,32 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
         return titleMap[path] || 'Elite Medicale Services';
     };
 
-    // Mock notifications data
-    const notifications = [
-        {
-            id: 1,
-            type: 'diagnostic',
-            title: 'Nouveau diagnostic',
-            message: 'Un diagnostic pour POLY A Yuwell YH-100 est prêt',
-            time: '5 min',
-            unread: true,
-            icon: <Activity className="h-4 w-4" />
-        },
-        {
-            id: 2,
-            type: 'task',
-            title: 'Tâche assignée',
-            message: 'Nouvelle tâche de réparation assignée',
-            time: '1h',
-            unread: true,
-            icon: <Calendar className="h-4 w-4" />
-        },
-        {
-            id: 3,
-            type: 'message',
-            title: 'Message système',
-            message: 'Mise à jour du système terminée',
-            time: '2h',
-            unread: false,
-            icon: <MessageSquare className="h-4 w-4" />
+    // Get notification icon based on type
+    const getNotificationIcon = (type: NotificationType) => {
+        switch (type) {
+            case 'FOLLOW_UP':
+                return <Calendar className="h-4 w-4" />;
+            case 'MAINTENANCE':
+                return <Settings className="h-4 w-4" />;
+            case 'APPOINTMENT':
+                return <Calendar className="h-4 w-4" />;
+            case 'PAYMENT_DUE':
+                return <AlertCircle className="h-4 w-4" />;
+            case 'TRANSFER':
+                return <Link className="h-4 w-4" />;
+            default:
+                return <Bell className="h-4 w-4" />;
         }
-    ];
+    };
 
-    const unreadCount = notifications.filter(n => n.unread).length;
+    // Format relative time for notifications
+    const getRelativeTime = (dateString: string) => {
+        try {
+            return formatDistanceToNow(new Date(dateString), { addSuffix: true, locale: fr });
+        } catch (error) {
+            return 'récemment';
+        }
+    };
 
     const handleLogout = () => {
         signOut({ callbackUrl: '/welcome' });
@@ -129,13 +188,13 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
 
     const formatTime = (date: Date) => {
         return date.toLocaleTimeString('fr-FR', { 
-            hour: '2-digit', 
-            minute: '2-digit' 
+            hour: '2-digit',
+            minute: '2-digit'
         });
     };
 
     const formatDate = (date: Date) => {
-        return date.toLocaleDateString('fr-FR', { 
+        return date.toLocaleDateString('fr-FR', {
             weekday: 'long',
             year: 'numeric',
             month: 'long',
@@ -170,33 +229,9 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
                         </div>
                     </div>
 
-                    {/* Center Section - Search */}
+                    {/* Center Section - Global Search */}
                     <div className="hidden md:flex flex-1 max-w-lg mx-8">
-                        <div className="relative w-full">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <Search className="h-4 w-4 text-gray-400" />
-                            </div>
-                            <input
-                                type="text"
-                                placeholder="Rechercher des patients, appareils, diagnostics..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="block w-full pl-10 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent placeholder-gray-400 transition-all"
-                            />
-                            {searchQuery && (
-                                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-2 max-h-64 overflow-y-auto">
-                                    <div className="px-3 py-2 text-xs text-gray-500 font-medium">Résultats de recherche</div>
-                                    <div className="px-3 py-2 hover:bg-gray-50 cursor-pointer">
-                                        <div className="text-sm font-medium">Patient: Abbas Elmrayadh</div>
-                                        <div className="text-xs text-gray-500">Diagnostic en cours</div>
-                                    </div>
-                                    <div className="px-3 py-2 hover:bg-gray-50 cursor-pointer">
-                                        <div className="text-sm font-medium">POLY A Yuwell YH-100</div>
-                                        <div className="text-xs text-gray-500">Appareil médical</div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+                        <GlobalSearch />
                     </div>
 
                     {/* Right Section */}
@@ -232,20 +267,21 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
                                         </div>
                                     </div>
                                     <div className="max-h-64 overflow-y-auto">
-                                        {notifications.map((notification) => (
+                                        {notifications.length > 0 ? notifications.map((notification) => (
                                             <div
                                                 key={notification.id}
                                                 className={cn(
                                                     "px-4 py-3 hover:bg-gray-50 cursor-pointer border-l-4 transition-colors",
-                                                    notification.unread 
-                                                        ? "border-l-blue-500 bg-blue-50/30" 
+                                                    !notification.isRead
+                                                        ? "border-l-blue-500 bg-blue-50/30"
                                                         : "border-l-transparent"
                                                 )}
+                                                onClick={() => markNotificationAsRead(notification.id)}
                                             >
                                                 <div className="flex items-start space-x-3">
                                                     <div className="flex-shrink-0 mt-1">
                                                         <div className="p-1 bg-blue-100 rounded-full text-blue-600">
-                                                            {notification.icon}
+                                                            {getNotificationIcon(notification.type)}
                                                         </div>
                                                     </div>
                                                     <div className="flex-1 min-w-0">
@@ -254,7 +290,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
                                                                 {notification.title}
                                                             </p>
                                                             <span className="text-xs text-gray-500 ml-2">
-                                                                {notification.time}
+                                                                {getRelativeTime(notification.createdAt)}
                                                             </span>
                                                         </div>
                                                         <p className="text-sm text-gray-600 mt-1">
@@ -263,7 +299,12 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
                                                     </div>
                                                 </div>
                                             </div>
-                                        ))}
+                                        )) : (
+                                            <div className="px-4 py-6 text-center text-gray-500">
+                                                <Bell className="h-5 w-5 mx-auto mb-2 opacity-50" />
+                                                <p className="text-sm">Aucune notification</p>
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="px-4 py-2 border-t border-gray-100">
                                         <button className="text-sm text-[#1e3a8a] font-medium hover:underline">

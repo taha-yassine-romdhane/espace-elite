@@ -15,7 +15,7 @@ import UserForm from '@/components/forms/UserForm';
 import { useToast } from "@/components/ui/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { UserPlus, Pencil, Trash2, Loader2, Search } from "lucide-react";
-import { Card } from '@/components/ui/Card';
+import { Card } from '@/components/ui/card';
 
 interface User {
   id: string;

@@ -20,7 +20,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent } from "@/components/ui/Card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { useState } from "react";
 
@@ -355,7 +355,7 @@ export function DiagnosticDeviceForm({ initialData, onSubmit, stockLocations, is
                           name="sellingPrice"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel className="text-base">Prix de vente</FormLabel>
+                              <FormLabel className="text-base">Prix de diagnostic</FormLabel>
                               <FormControl>
                                 <Input type="number" step="0.01" min="0" {...field} value={field.value || ''} className="h-12" />
                               </FormControl>
@@ -371,19 +371,6 @@ export function DiagnosticDeviceForm({ initialData, onSubmit, stockLocations, is
                 <TabsContent value="technical">
                   <Card>
                     <CardContent className="space-y-4 pt-4">
-                      <FormField
-                        control={form.control}
-                        name="configuration"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-base">Configuration</FormLabel>
-                            <FormControl>
-                              <Textarea {...field} value={field.value || ''} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
                       <FormField
                         control={form.control}
                         name="status"

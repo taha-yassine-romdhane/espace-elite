@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { FileCheck } from 'lucide-react';
 import { useCNAMDossiers } from '@/hooks/useCNAMDossiers';
 import SaleDetailsCNAMTab from './SaleDetailsCNAMTab';
 

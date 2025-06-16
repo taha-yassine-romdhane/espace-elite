@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ShoppingCart, CreditCard, ClipboardCheck, Banknote, FileText, FileSpreadsheet, Building, FileCheck } from 'lucide-react';
 
 interface StepInfo {

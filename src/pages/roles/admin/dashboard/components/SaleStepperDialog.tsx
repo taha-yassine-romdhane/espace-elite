@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ClientSelectionStep } from "./steps/ClientSelectionStep";
-import { PaymentStep } from "./steps/PaymentStep";
+import { PaymentStep } from "@/components/steps/PaymentStep";
 import { ProductDialog } from "./dialogs/ProductDialog";
 import { useQuery } from "@tanstack/react-query";
 import { MedicalDeviceForm } from "@/pages/roles/admin/appareils/components/forms/MedicalDeviceForm";

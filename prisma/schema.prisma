@@ -414,7 +414,7 @@ model MedicalDevice {
   type                String // CPAP, DIAGNOSTIC_DEVICE, etc.
   brand               String?
   model               String?
-  serialNumber        String?                  @unique
+  serialNumber        String?
   description         String?
   technicalSpecs      String? // Technical specifications
   configuration       String? // Device configuration
@@ -463,6 +463,12 @@ model DiagnosticResult {
   updatedAt DateTime @updatedAt
 }
 
+enum DiagnosticStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
 model Diagnostic {
   id               String            @id @default(cuid())
   medicalDeviceId  String // The diagnostic device used
@@ -473,6 +479,7 @@ model Diagnostic {
   notes            String? // Additional notes about the diagnostic
   diagnosticDate   DateTime // Date of the diagnostic
   performedById    String? // The user who performed the diagnostic
+  status           DiagnosticStatus  @default(PENDING)
   performedBy      User?             @relation(fields: [performedById], references: [id], name: "PerformedDiagnostics")
   followUpRequired Boolean           @default(false)
   followUpDate     DateTime?
@@ -542,6 +549,13 @@ model Appointment {
   companyId String?
 }
 
+enum RentalStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+  EXPIRED
+}
+
 model Rental {
   id              String        @id @default(cuid())
   medicalDeviceId String
@@ -550,6 +564,8 @@ model Rental {
   patient         Patient       @relation(fields: [patientId], references: [id])
   startDate       DateTime
   endDate         DateTime
+  invoiceNumber   String?
+  status          RentalStatus  @default(PENDING)
   notes           String?
   paymentId       String?
   payment         Payment?

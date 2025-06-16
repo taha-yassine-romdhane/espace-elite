@@ -20,7 +20,7 @@ import {
   PatientPayments,
   PatientRentals,
   PatientAppointments
-} from './components';
+} from '@/components/patient';
 
 export default function PatientDetailsPage() {
   const router = useRouter();

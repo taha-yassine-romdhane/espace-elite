@@ -15,6 +15,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           id: true,
           firstName: true,
           lastName: true,
+          diagnostics: {
+            select: {
+              id: true,
+              createdAt: true,
+              result: {
+                select: {
+                  id: true,
+                  status: true
+                }
+              }
+            },
+            where: {
+              result: {
+                status: "PENDING" // Only include diagnostics with PENDING status
+              }
+            },
+            orderBy: {
+              createdAt: 'desc'
+            },
+            take: 1 // Only need the most recent ongoing diagnostic
+          }
         },
         orderBy: {
           lastName: "asc",
@@ -25,6 +46,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         patients.map((patient) => ({
           id: patient.id,
           name: `${patient.lastName} ${patient.firstName}`,
+          hasOngoingDiagnostic: patient.diagnostics && patient.diagnostics.length > 0,
+          ongoingDiagnosticId: patient.diagnostics && patient.diagnostics.length > 0 ? patient.diagnostics[0].id : null,
         }))
       );
     } else if (type === "societe") {

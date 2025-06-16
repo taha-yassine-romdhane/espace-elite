@@ -93,16 +93,16 @@ export default async function handler(
         }
       });
 
-      // Define the type for the parameters to avoid TypeScript errors
+      // Define the type for the parameters to match Prisma schema
       type DeviceParameter = {
         id: string;
-        deviceType?: string;
-        pressionRampe?: string;
-        dureeRampe?: number;
-        pression?: string;
-        ipap?: string;
-        epap?: string;
-        debit?: string;
+        deviceType: string | null;
+        pressionRampe: string | null;
+        dureeRampe: number | null;
+        pression: string | null;
+        ipap: string | null;
+        epap: string | null;
+        debit: string | null;
       };
       
       // Transform the data to match our expected interface

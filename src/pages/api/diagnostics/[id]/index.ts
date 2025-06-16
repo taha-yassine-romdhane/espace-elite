@@ -34,6 +34,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 }
 
+// Define extended diagnostic type to match what we're using
+type ExtendedDiagnostic = any; // This is a temporary solution; ideally we would define the full type
+
 // GET: Fetch a diagnostic by ID with all related information
 async function getDiagnostic(req: NextApiRequest, res: NextApiResponse, id: string, session: any) {
   try {
@@ -55,8 +58,6 @@ async function getDiagnostic(req: NextApiRequest, res: NextApiResponse, id: stri
         result: true,
         // Include tasks related to this diagnostic
         Task: true,
-        // Note: documents relation doesn't exist in the schema yet
-        // We'll need to create a Document model and relation in the schema
       },
     });
 
@@ -72,25 +73,44 @@ async function getDiagnostic(req: NextApiRequest, res: NextApiResponse, id: stri
       return res.status(403).json({ error: 'Vous n\'avez pas la permission d\'accéder à ce diagnostic' });
     }
 
+    // Fetch related files/documents for this diagnostic
+    const files = await prisma.file.findMany({
+      where: {
+        patientId: diagnostic.patientId,
+        type: { contains: `DIAGNOSTIC_DOCUMENT_${id}` }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    
+    console.log(`Found ${files.length} documents for diagnostic ${id}:`, 
+      files.map(f => ({ id: f.id, url: f.url, type: f.type })));
+    
+    // Cast diagnostic to any to avoid TypeScript errors with potentially missing fields
+    // This is a temporary solution until we can update the Prisma schema or types
+    const typedDiagnostic = diagnostic as ExtendedDiagnostic;
+    
     // Add debug information about the diagnostic result
     const diagnosticWithDebug = {
       ...diagnostic,
+      documents: files, // Add the documents to the response
       _debug: {
-        hasResult: !!diagnostic.result,
-        resultStatus: diagnostic.result?.status || 'NO_RESULT',
-        followUpRequired: diagnostic.followUpRequired,
-        followUpDate: diagnostic.followUpDate,
-        taskCount: diagnostic.Task?.length || 0
+        hasResult: !!typedDiagnostic.result,
+        resultStatus: typedDiagnostic.result?.status || 'NO_RESULT',
+        followUpRequired: typedDiagnostic.followUpRequired,
+        followUpDate: typedDiagnostic.followUpDate,
+        taskCount: typedDiagnostic.Task?.length || 0,
+        documentCount: files.length
       }
     };
     
     console.log('Returning diagnostic with result:', {
-      id: diagnostic.id,
-      hasResult: !!diagnostic.result,
-      resultStatus: diagnostic.result?.status || 'NO_RESULT',
-      iah: diagnostic.result?.iah,
-      idValue: diagnostic.result?.idValue,
-      remarque: diagnostic.result?.remarque
+      id: typedDiagnostic.id,
+      hasResult: !!typedDiagnostic.result,
+      resultStatus: typedDiagnostic.result?.status || 'NO_RESULT',
+      iah: typedDiagnostic.result?.iah,
+      idValue: typedDiagnostic.result?.idValue,
+      remarque: typedDiagnostic.result?.remarque,
+      documentCount: files.length
     });
     
     // Return the diagnostic data with debug info

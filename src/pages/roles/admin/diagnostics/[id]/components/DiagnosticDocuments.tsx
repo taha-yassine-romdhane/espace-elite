@@ -1,22 +1,24 @@
 import React, { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileUp, File, Download, Trash2, FileText, Image, FileArchive } from "lucide-react";
+import { FileUp, File as FileIcon, Download, Trash2, FileText, Image, FileArchive, Loader2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { toast } from "@/components/ui/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { UploadDropzone } from "@/utils/uploadthing";
 
 interface DiagnosticDocumentsProps {
   documents: any[];
   diagnosticId: string;
 }
 
-export function DiagnosticDocuments({ documents, diagnosticId }: DiagnosticDocumentsProps) {
-  const [, setIsUploading] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+export function DiagnosticDocuments({ documents = [], diagnosticId }: DiagnosticDocumentsProps) {
+  // Log documents for debugging
+  console.log('Documents received in component:', documents);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   // Format date
@@ -34,70 +36,97 @@ export function DiagnosticDocuments({ documents, diagnosticId }: DiagnosticDocum
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  // Get file icon based on mime type
-  const getFileIcon = (mimeType: string) => {
-    if (mimeType.startsWith('image/')) {
+  // Get file icon based on mime type or file extension
+  const getFileIcon = (typeOrUrl: string) => {
+    // Check if it's a MIME type
+    if (typeOrUrl.includes('/')) {
+      if (typeOrUrl.startsWith('image/')) {
+        return <Image className="h-6 w-6 text-purple-600" />;
+      } else if (typeOrUrl.startsWith('application/pdf')) {
+        return <FileText className="h-6 w-6 text-red-600" />;
+      } else if (typeOrUrl.startsWith('application/zip') || typeOrUrl.startsWith('application/x-rar')) {
+        return <FileArchive className="h-6 w-6 text-yellow-600" />;
+      }
+    } 
+    
+    // Check file extension from URL
+    const url = typeOrUrl.toLowerCase();
+    if (url.endsWith('.jpg') || url.endsWith('.jpeg') || url.endsWith('.png') || url.endsWith('.gif')) {
       return <Image className="h-6 w-6 text-purple-600" />;
-    } else if (mimeType.startsWith('application/pdf')) {
+    } else if (url.endsWith('.pdf')) {
       return <FileText className="h-6 w-6 text-red-600" />;
-    } else if (mimeType.startsWith('application/zip') || mimeType.startsWith('application/x-rar')) {
+    } else if (url.endsWith('.zip') || url.endsWith('.rar')) {
       return <FileArchive className="h-6 w-6 text-yellow-600" />;
-    } else {
-      return <File className="h-6 w-6 text-blue-600" />;
     }
+    
+    // Default icon
+    return <FileIcon className="h-6 w-6 text-blue-600" />;
   };
 
-  // Handle file selection
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setSelectedFile(file);
-      
-      // Create preview URL for images
-      if (file.type.startsWith('image/')) {
-        const url = URL.createObjectURL(file);
-        setPreviewUrl(url);
-      } else {
-        setPreviewUrl(null);
-      }
-    }
-  };
-
-  // Upload document mutation
-  const uploadDocumentMutation = useMutation({
-    mutationFn: async (formData: FormData) => {
-      const response = await fetch(`/api/diagnostics/${diagnosticId}/documents`, {
+  // Handle successful upload
+  const handleUploadComplete = (res: Array<any>) => {
+    if (!res || res.length === 0) return;
+    
+    console.log('Upload complete response:', res);
+    const fileData = res[0];
+    
+    // Now save the file reference in our database
+    try {
+      // Make API call to save the file reference
+      fetch(`/api/diagnostics/${diagnosticId}/documents`, {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fileUrl: fileData.ufsUrl || fileData.url, // Use ufsUrl (v9) with fallback to url (v8)
+          fileName: fileData.name,
+          fileType: fileData.type,
+          fileSize: fileData.size
+        }),
+      }).then(response => {
+        if (!response.ok) {
+          throw new Error('Failed to save file reference');
+        }
+        return response.json();
+      }).then(() => {
+        // Success
+        queryClient.invalidateQueries({ queryKey: ["diagnostic", diagnosticId] });
+        setIsUploading(false);
+        setUploadError(null);
+        toast({
+          title: "Document téléchargé",
+          description: "Le document a été téléchargé avec succès.",
+          variant: "default",
+        });
+      }).catch(error => {
+        console.error('Error saving file reference:', error);
+        toast({
+          title: "Erreur",
+          description: "Le fichier a été téléchargé mais n'a pas pu être associé au diagnostic.",
+          variant: "destructive",
+        });
+        setIsUploading(false);
+        setUploadError(error.message);
       });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to upload document');
-      }
-      
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["diagnostic", diagnosticId] });
-      setSelectedFile(null);
-      setPreviewUrl(null);
+    } catch (error: any) {
+      console.error('Error in upload process:', error);
       setIsUploading(false);
-      toast({
-        title: "Document téléchargé",
-        description: "Le document a été téléchargé avec succès.",
-        variant: "default",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Erreur",
-        description: error.message || "Une erreur s'est produite lors du téléchargement du document.",
-        variant: "destructive",
-      });
-      setIsUploading(false);
-    },
-  });
+      setUploadError(error.message);
+    }
+  };
+  
+  // Handle upload error
+  const handleUploadError = (error: Error) => {
+    console.error('Upload error:', error);
+    setUploadError(error.message || "Une erreur s'est produite lors du téléchargement du document.");
+    setIsUploading(false);
+    toast({
+      title: "Erreur de téléchargement",
+      description: error.message || "Une erreur s'est produite lors du téléchargement du document.",
+      variant: "destructive",
+    });
+  };
 
   // Delete document mutation
   const deleteDocumentMutation = useMutation({
@@ -130,18 +159,9 @@ export function DiagnosticDocuments({ documents, diagnosticId }: DiagnosticDocum
     },
   });
 
-  // Handle document upload
-  const handleUpload = () => {
-    if (!selectedFile) return;
-    
-    const formData = new FormData();
-    formData.append('document', selectedFile);
-    
-    uploadDocumentMutation.mutate(formData);
-  };
-
   // Handle document deletion
   const handleDelete = (documentId: string) => {
+    console.log('Deleting document with ID:', documentId);
     if (confirm('Êtes-vous sûr de vouloir supprimer ce document?')) {
       deleteDocumentMutation.mutate(documentId);
     }
@@ -149,93 +169,54 @@ export function DiagnosticDocuments({ documents, diagnosticId }: DiagnosticDocum
 
   return (
     <Card>
-      <CardHeader className="bg-gray-50 border-b border-gray-100 flex flex-row items-center justify-between">
-        <CardTitle className="text-lg flex items-center gap-2">
-          <FileText className="h-5 w-5 text-blue-600" />
-          Documents
-        </CardTitle>
-        
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle className="text-xl font-bold">Documents</CardTitle>
+          <CardDescription>Documents associés à ce diagnostic</CardDescription>
+        </div>
         <Dialog>
           <DialogTrigger asChild>
-            <Button 
-              variant="outline" 
-              size="sm"
-              className="flex items-center gap-1"
-            >
-              <FileUp className="h-4 w-4 mr-1" />
+            <Button variant="outline" className="flex items-center gap-2">
+              <FileUp className="h-4 w-4" />
               Ajouter un document
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Télécharger un document</DialogTitle>
+              <DialogTitle>Ajouter un document</DialogTitle>
             </DialogHeader>
-            
-            <div className="space-y-4 py-4">
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                {previewUrl ? (
-                  <div className="space-y-4">
-                    <img 
-                      src={previewUrl} 
-                      alt="Preview" 
-                      className="max-h-48 mx-auto object-contain" 
-                    />
-                    <div className="text-sm text-gray-600">
-                      {selectedFile?.name} ({formatFileSize(selectedFile?.size || 0)})
-                    </div>
-                  </div>
-                ) : selectedFile ? (
-                  <div className="flex flex-col items-center justify-center space-y-2">
-                    {getFileIcon(selectedFile.type)}
-                    <div className="text-sm text-gray-600">
-                      {selectedFile.name} ({formatFileSize(selectedFile.size)})
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center space-y-2">
-                    <FileUp className="h-8 w-8 text-gray-400" />
-                    <div className="text-sm text-gray-600">
-                      Glissez-déposez un fichier ici ou cliquez pour parcourir
-                    </div>
-                  </div>
-                )}
-                
-                <input
-                  type="file"
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                  onChange={handleFileChange}
-                />
-              </div>
+            <div className="space-y-4">
+              {/* UploadThing Dropzone */}
+              <UploadDropzone
+                endpoint="documentUploader"
+                onClientUploadComplete={(res) => {
+                  handleUploadComplete(res);
+                }}
+                onUploadError={(error: Error) => {
+                  handleUploadError(error);
+                }}
+                onUploadBegin={() => {
+                  setIsUploading(true);
+                  setUploadError(null);
+                }}
+                className="ut-label:text-lg ut-allowed-content:text-gray-500 ut-upload-icon:text-primary ut-button:bg-primary ut-button:ut-readying:bg-primary/80"
+              />
               
-              <div className="flex justify-end space-x-2">
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    setSelectedFile(null);
-                    setPreviewUrl(null);
-                  }}
-                  disabled={!selectedFile || uploadDocumentMutation.isPending}
-                >
-                  Annuler
-                </Button>
-                <Button 
-                  onClick={handleUpload}
-                  disabled={!selectedFile || uploadDocumentMutation.isPending}
-                  className="bg-blue-900 hover:bg-blue-800 text-white"
-                >
-                  {uploadDocumentMutation.isPending ? (
-                    <div className="flex items-center gap-1">
-                      <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-1"></div>
-                      Téléchargement...
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1">
-                      <FileUp className="h-4 w-4 mr-1" />
-                      Télécharger
-                    </div>
-                  )}
-                </Button>
-              </div>
+              {/* Error display */}
+              {uploadError && (
+                <div className="text-red-500 text-sm mt-2 flex items-center">
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {uploadError}
+                </div>
+              )}
+              
+              {/* Loading indicator */}
+              {isUploading && !uploadError && (
+                <div className="text-blue-500 text-sm mt-2 flex items-center">
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Téléchargement en cours...
+                </div>
+              )}
             </div>
           </DialogContent>
         </Dialog>
@@ -249,14 +230,13 @@ export function DiagnosticDocuments({ documents, diagnosticId }: DiagnosticDocum
             {documents.map((doc: any) => (
               <div key={doc.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
                 <div className="flex items-center gap-3">
-                  {getFileIcon(doc.mimeType || 'application/octet-stream')}
+                  {getFileIcon(doc.type || 'application/octet-stream')}
                   
                   <div>
-                    <h3 className="font-medium text-gray-900">{doc.filename}</h3>
+                    <h3 className="font-medium text-gray-900">{doc.url?.split('/').pop() || 'Document'}</h3>
                     <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <span>{formatFileSize(doc.size || 0)}</span>
-                      <span>•</span>
                       <span>Ajouté le {formatDate(doc.createdAt)}</span>
+                      <span className="text-xs bg-gray-100 px-2 py-1 rounded">{formatFileSize(doc.fileSize || 0)}</span>
                     </div>
                   </div>
                 </div>
@@ -266,7 +246,7 @@ export function DiagnosticDocuments({ documents, diagnosticId }: DiagnosticDocum
                     variant="outline" 
                     size="sm"
                     className="flex items-center gap-1"
-                    onClick={() => window.open(`/api/diagnostics/${diagnosticId}/documents/${doc.id}/download`, '_blank')}
+                    onClick={() => window.open(doc.url || doc.ufsUrl, '_blank')}
                   >
                     <Download className="h-4 w-4" />
                     <span className="hidden sm:inline">Télécharger</span>
@@ -277,7 +257,7 @@ export function DiagnosticDocuments({ documents, diagnosticId }: DiagnosticDocum
                     size="sm"
                     className="flex items-center gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
                     onClick={() => handleDelete(doc.id)}
-                    disabled={deleteDocumentMutation.isPending}
+                    disabled={false}
                   >
                     <Trash2 className="h-4 w-4" />
                     <span className="hidden sm:inline">Supprimer</span>

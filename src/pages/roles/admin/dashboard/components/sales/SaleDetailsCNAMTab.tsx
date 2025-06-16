@@ -4,7 +4,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useCNAMDossiers } from '@/hooks/useCNAMDossiers';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import CNAMDossierManager from '../steps/payment/components/CNAMDossierManager';
+import CNAMDossierManager from '@/components/payment/components/CNAMDossierManager';
 import { Button } from '@/components/ui/button';
 
 interface SaleDetailsCNAMTabProps {

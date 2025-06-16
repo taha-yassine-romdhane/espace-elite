@@ -23,7 +23,6 @@ export * from './models/Rental';
 export * from './models/Payment';
 export * from './models/File';
 export * from './models/MedicalDevice';
-export * from './models/ParameterValue';
 export * from './models/Diagnostic';
 export * from './models/Doctor';
 export * from './models/Notification';

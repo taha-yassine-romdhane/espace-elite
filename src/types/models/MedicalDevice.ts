@@ -5,8 +5,8 @@ import { Company } from './Company';
 import { Diagnostic } from './Diagnostic';
 import { Rental } from './Rental';
 import { RepairLog } from './RepairLog';
-import { DiagnosticParameter } from './DiagnosticParameter';
-import { ParameterValue } from './ParameterValue';
+import { MedicalDeviceParametre } from './MedicalDeviceParametre';
+import { SaleItem } from './SaleItem';
 
 export interface MedicalDevice {
   id: string;
@@ -20,9 +20,9 @@ export interface MedicalDevice {
   configuration?: string;
   warranty?: string;
   maintenanceInterval?: string;
-  purchasePrice?: number;
-  sellingPrice?: number;
-  rentalPrice?: number;
+  purchasePrice?: string | number;
+  sellingPrice?: string | number;
+  rentalPrice?: string | number;
   stockLocationId?: string;
   stockLocation?: StockLocation;
   stockQuantity: number;
@@ -32,8 +32,8 @@ export interface MedicalDevice {
   installationDate?: Date;
   reservedUntil?: Date;
   location?: string;
-  parameters?: DiagnosticParameter[];
-  parameterValues?: ParameterValue[];
+
+  deviceParameters?: MedicalDeviceParametre[];
   patientId?: string;
   patient?: Patient;
   companyId?: string;
@@ -41,6 +41,7 @@ export interface MedicalDevice {
   diagnostics?: Diagnostic[];
   rentals?: Rental[];
   repairLogs?: RepairLog[];
+  saleItems?: SaleItem[];
   createdAt: Date;
   updatedAt: Date;
 }

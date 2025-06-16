@@ -2,133 +2,60 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/pages/api/auth/[...nextauth]';
 import { prisma } from '@/lib/prisma';
-import fs from 'fs';
-import path from 'path';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // Set headers to prevent caching
-  res.setHeader('Cache-Control', 'no-store, max-age=0');
-  res.setHeader('Pragma', 'no-cache');
-  res.setHeader('Expires', '0');
-  
   // Check authentication
   const session = await getServerSession(req, res, authOptions);
   if (!session) {
-    return res.status(401).json({ error: 'Vous devez être connecté pour accéder à cette ressource' });
+    return res.status(401).json({ error: 'Unauthorized' });
   }
 
   const { id, documentId } = req.query;
+  const diagnosticId = String(id);
+  const fileId = String(documentId);
 
-  if (!id || typeof id !== 'string' || !documentId || typeof documentId !== 'string') {
-    return res.status(400).json({ error: 'ID de diagnostic ou de document invalide' });
+  // Verify the diagnostic exists
+  const diagnostic = await prisma.diagnostic.findUnique({
+    where: { id: diagnosticId }
+  });
+
+  if (!diagnostic) {
+    return res.status(404).json({ error: 'Diagnostic not found' });
   }
 
-  // Handle different HTTP methods
-  switch (req.method) {
-    case 'GET':
-      return getDocument(req, res, id, documentId, session);
-    case 'DELETE':
-      return deleteDocument(req, res, id, documentId, session);
-    default:
-      return res.status(405).json({ error: 'Méthode non autorisée' });
+  // Verify the file exists
+  const file = await prisma.file.findUnique({
+    where: { id: fileId }
+  });
+
+  if (!file) {
+    return res.status(404).json({ error: 'File not found' });
   }
-}
 
-// GET: Fetch a specific document
-async function getDocument(req: NextApiRequest, res: NextApiResponse, diagnosticId: string, documentId: string, session: any) {
-  try {
-    // Check if the diagnostic exists and user has permission
-    const diagnostic = await prisma.diagnostic.findUnique({
-      where: { id: diagnosticId },
-      select: {
-        id: true,
-        performedById: true,
-      },
-    });
+  // DELETE - Delete a document
+  if (req.method === 'DELETE') {
+    try {
+      await prisma.file.delete({
+        where: { id: fileId }
+      });
 
-    if (!diagnostic) {
-      return res.status(404).json({ error: 'Diagnostic non trouvé' });
+      return res.status(200).json({ message: 'Document deleted successfully' });
+    } catch (error) {
+      console.error('Error deleting document:', error);
+      return res.status(500).json({ error: 'Error deleting document' });
     }
-
-    // Check if the user has permission to access this diagnostic
-    const userId = session.user.id;
-    const userRole = session.user.role;
-
-    if (userRole !== 'ADMIN' && diagnostic.performedById !== userId) {
-      return res.status(403).json({ error: 'Vous n\'avez pas la permission d\'accéder à ce diagnostic' });
-    }
-
-    // Get the document
-    const document = await prisma.document.findUnique({
-      where: { 
-        id: documentId,
-        diagnosticId,
-      },
-    });
-
-    if (!document) {
-      return res.status(404).json({ error: 'Document non trouvé' });
-    }
-
-    return res.status(200).json(document);
-  } catch (error) {
-    console.error('Error fetching document:', error);
-    return res.status(500).json({ error: 'Une erreur est survenue lors de la récupération du document' });
   }
-}
 
-// DELETE: Delete a document
-async function deleteDocument(req: NextApiRequest, res: NextApiResponse, diagnosticId: string, documentId: string, session: any) {
-  try {
-    // Check if the diagnostic exists and user has permission
-    const diagnostic = await prisma.diagnostic.findUnique({
-      where: { id: diagnosticId },
-      select: {
-        id: true,
-        performedById: true,
-      },
-    });
-
-    if (!diagnostic) {
-      return res.status(404).json({ error: 'Diagnostic non trouvé' });
+  // GET - Download a document
+  if (req.method === 'GET') {
+    try {
+      // Just redirect to the file URL for download
+      return res.redirect(file.url);
+    } catch (error) {
+      console.error('Error downloading document:', error);
+      return res.status(500).json({ error: 'Error downloading document' });
     }
-
-    // Check if the user has permission to modify this diagnostic
-    const userId = session.user.id;
-    const userRole = session.user.role;
-
-    if (userRole !== 'ADMIN' && diagnostic.performedById !== userId) {
-      return res.status(403).json({ error: 'Vous n\'avez pas la permission de modifier ce diagnostic' });
-    }
-
-    // Get the document
-    const document = await prisma.document.findUnique({
-      where: { 
-        id: documentId,
-        diagnosticId,
-      },
-    });
-
-    if (!document) {
-      return res.status(404).json({ error: 'Document non trouvé' });
-    }
-
-    // Delete the file from the filesystem
-    if (document.path) {
-      const filePath = path.join(process.cwd(), 'public', document.path);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
-    }
-
-    // Delete the document from the database
-    await prisma.document.delete({
-      where: { id: documentId },
-    });
-
-    return res.status(200).json({ message: 'Document supprimé avec succès' });
-  } catch (error) {
-    console.error('Error deleting document:', error);
-    return res.status(500).json({ error: 'Une erreur est survenue lors de la suppression du document' });
   }
+
+  return res.status(405).json({ error: 'Method not allowed' });
 }
