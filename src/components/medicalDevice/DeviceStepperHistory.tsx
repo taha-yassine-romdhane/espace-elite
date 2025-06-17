@@ -1,6 +1,6 @@
 import React from 'react';
 import { MedicalDevice, Sale, Rental, Diagnostic } from '@prisma/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { HistoryIcon, ShoppingCartIcon, HomeIcon, StethoscopeIcon } from 'lucide-react';

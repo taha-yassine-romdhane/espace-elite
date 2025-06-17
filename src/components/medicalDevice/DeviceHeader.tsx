@@ -1,7 +1,7 @@
 import React from 'react';
 import { MedicalDevice } from '@prisma/client';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 
 interface DeviceHeaderProps {
   device: MedicalDevice;
