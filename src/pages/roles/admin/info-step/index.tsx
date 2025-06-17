@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/Card";
 import { ShoppingCart, Calendar, Activity } from 'lucide-react';
 import SaleStepperInfo from './components/SaleStepperInfo';
 import RentStepperInfo from './components/RentStepperInfo';

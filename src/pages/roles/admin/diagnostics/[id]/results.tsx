@@ -5,7 +5,7 @@ import { format } from 'date-fns';
 import { prisma } from '@/lib/prisma';
 import AdminLayout from '@/pages/roles/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/badge';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 import { ChevronRight, FileText, ArrowLeft, Save, Printer } from 'lucide-react';

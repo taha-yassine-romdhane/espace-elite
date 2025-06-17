@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
+import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/badge";
 import { Search, MapPin, Stethoscope, Puzzle, Cog, Activity, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";

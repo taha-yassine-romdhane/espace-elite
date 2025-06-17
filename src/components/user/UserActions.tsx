@@ -1,6 +1,6 @@
 import React from 'react';
 import { User } from '@prisma/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/button';
 import { 
   ClipboardIcon, 

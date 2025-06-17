@@ -1,6 +1,6 @@
 import React from 'react';
 import { Product } from '@prisma/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/badge';
 import { PackageIcon, TagIcon, CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';

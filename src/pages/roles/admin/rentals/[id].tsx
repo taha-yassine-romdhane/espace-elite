@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import { useQuery } from '@tanstack/react-query';
 import { Loader2, ArrowLeft, CalendarRange } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 

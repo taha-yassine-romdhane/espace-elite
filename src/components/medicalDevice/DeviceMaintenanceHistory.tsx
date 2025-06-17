@@ -1,6 +1,6 @@
 import React from 'react';
 import { MedicalDevice, RepairLog } from '@prisma/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { WrenchIcon } from 'lucide-react';
 
