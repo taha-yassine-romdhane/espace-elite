@@ -15,51 +15,14 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3001
-      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@espace-elite-db:5432/espace_elite
+      # Update this to point to your existing database on the VPS
+      # Format: postgresql://username:password@host:port/database_name
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:${POSTGRES_PASSWORD}@localhost:5432/espace_elite}
       - NEXTAUTH_URL=https://assistance.elitemedicaleservices.tn
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-elitemedicaleservices_secret_key}
-    depends_on:
-      - espace-elite-db
-    networks:
-      - espace-elite-net
+    # Using host network to easily connect to the local database on the VPS
+    network_mode: "host"
 
-  # PostgreSQL Database
-  espace-elite-db:
-    image: postgres:14-alpine
-    container_name: espace-elite-db
-    restart: always
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=espace_elite
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - espace-elite-net
+# No volumes needed since we're not running the database in Docker
 
-  # Backup service (optional)
-  backup:
-    image: postgres:14-alpine
-    container_name: espace-elite-backup
-    command: |
-      sh -c 'exec pg_dump -h espace-elite-db -U postgres espace_elite > /backups/espace_elite_`date +"%Y-%m-%d"`.sql'
-    environment:
-      - PGPASSWORD=${POSTGRES_PASSWORD}
-    volumes:
-      - backup_data:/backups
-    depends_on:
-      - espace-elite-db
-    networks:
-      - espace-elite-net
-
-volumes:
-  postgres_data:
-    name: espace-elite-postgres-data
-  backup_data:
-    name: espace-elite-backups
-
-networks:
-  espace-elite-net:
-    driver: bridge
+# No custom networks needed with host network mode
