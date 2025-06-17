@@ -9,11 +9,14 @@ RUN yarn install --frozen-lockfile --production=false
 # Copy application code
 COPY . .
 
+# Fix file case sensitivity issues
+RUN find src/components/ui -name "*.tsx*" -exec sh -c 'mv "$1" "${1%.tsx*}.tsx"' _ {} \;
+
 # Generate Prisma client
 RUN yarn prisma generate
 
-# Build the Next.js app
-RUN yarn build
+# Build the Next.js app with verbose output to debug issues
+RUN yarn build || (echo "Build failed, showing component directory:" && ls -la src/components/ui && exit 1)
 
 # Stage 2: Run-time image
 FROM node:18-alpine AS runner
