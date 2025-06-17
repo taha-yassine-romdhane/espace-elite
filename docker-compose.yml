@@ -17,11 +17,14 @@ services:
       - PORT=3001
       # Update this to point to your existing database on the VPS
       # Format: postgresql://username:password@host:port/database_name
-      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:${POSTGRES_PASSWORD}@localhost:5432/espace_elite}
+      # Use host.docker.internal to access the host machine from Docker
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:${POSTGRES_PASSWORD}@host.docker.internal:5432/espace_elite}
       - NEXTAUTH_URL=https://assistance.elitemedicaleservices.tn
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-elitemedicaleservices_secret_key}
-    # Using host network to easily connect to the local database on the VPS
-    network_mode: "host"
+    # Using host network mode for Linux
+    # For Linux hosts, we need to add extra_hosts to map host.docker.internal
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
 # No volumes needed since we're not running the database in Docker
 
