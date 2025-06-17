@@ -15,6 +15,10 @@ RUN find src/components/ui -name "*.tsx*" -exec sh -c 'mv "$1" "${1%.tsx*}.tsx"'
 # Generate Prisma client
 RUN yarn prisma generate
 
+# Set environment variables to skip database validation during build
+ENV SKIP_ENV_VALIDATION=true
+ENV NEXT_PUBLIC_SKIP_DB_VALIDATION=true
+
 # Build the Next.js app with verbose output to debug issues
 RUN yarn build || (echo "Build failed, showing component directory:" && ls -la src/components/ui && exit 1)
 
