@@ -15,7 +15,11 @@ RUN apk add --no-cache libc6-compat
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Generate Prisma Client
+# Set environment variables for build
+ENV NODE_ENV=development
+ENV DATABASE_URL=postgresql://dummy:dummy@dummy:5432/dummy?schema=public
+
+# Generate Prisma Client (this will use the dummy URL)
 RUN npx prisma generate
 
 # Build the application
@@ -27,15 +31,14 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=3001
+# This will be overridden by docker-compose
+ENV DATABASE_URL=postgresql://postgres:admin@localhost:5432/elite_sante?schema=public
 
-# Install runtime dependencies
 RUN apk add --no-cache libc6-compat
 
-# Create non-root user
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Copy necessary files from builder
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
 COPY --from=builder --chown=nextjs:nodejs /app/next.config.js ./
@@ -43,7 +46,6 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
 
-# Switch to non-root user
 USER nextjs
 
 EXPOSE 3001
