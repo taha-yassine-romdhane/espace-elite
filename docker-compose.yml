@@ -12,9 +12,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3001
-      - DATABASE_URL=postgresql://postgres:admin@host.docker.internal:5432/elite_sante?schema=public
+      - DATABASE_URL=postgresql://postgres:admin@localhost:5432/elite_sante?schema=public
       - NEXTAUTH_URL=https://assistance.elitemedicaleservices.tn
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-elitemedicaleservices_secret_key}
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     network_mode: "host"
