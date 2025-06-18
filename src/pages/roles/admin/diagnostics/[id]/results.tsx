@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { GetServerSideProps } from 'next';
 import { useRouter } from 'next/router';
 import { format } from 'date-fns';
-import { prisma } from '@/lib/prisma';
+import prisma from '@/lib/db';
 import AdminLayout from '@/pages/roles/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';

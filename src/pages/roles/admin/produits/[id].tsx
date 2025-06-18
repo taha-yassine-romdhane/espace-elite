@@ -1,7 +1,7 @@
 import React from 'react';
 import { GetServerSideProps } from 'next';
 import { Product, Stock, StockLocation, StockTransfer, SaleItem } from '@prisma/client';
-import { prisma } from '@/lib/prisma';
+import prisma from '@/lib/db';
 import { ProductHeader } from '@/components/product/ProductHeader';
 import { StockInfo } from '@/components/product/StockInfo';
 import { MovementHistory } from '@/components/product/MovementHistory';

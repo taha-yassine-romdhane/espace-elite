@@ -1,6 +1,6 @@
 import { GetServerSideProps } from 'next';
 import { useRouter } from 'next/router';
-import { prisma } from '@/lib/prisma';
+import prisma from '@/lib/db';
 import { MedicalDevice, MedicalDeviceParametre, Patient, Company, Rental, Diagnostic, DiagnosticResult, RepairLog, RepairLocation, Technician } from '@prisma/client';
 import { DeviceHeader } from '@/components/medicalDevice/DeviceHeader';
 import { DeviceParameters } from '@/components/medicalDevice/DeviceParameters';

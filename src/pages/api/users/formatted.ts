@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]';
-import { prisma } from '@/lib/prisma';
+import prisma from '@/lib/db';
 
 /**
  * API endpoint that returns users in a format optimized for dropdown menus and selects

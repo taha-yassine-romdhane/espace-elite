@@ -1,17 +1,28 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { PrismaClient } from '@prisma/client';
+import prisma from '@/lib/db';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '../auth/[...nextauth]';
+import type { Notification } from '@prisma/client';
 
-const prisma = new PrismaClient();
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  try {
+    if (req.method === 'GET') {
+      const session = await getServerSession(req, res, authOptions);
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // Handle GET request to fetch notifications
-  if (req.method === 'GET') {
-    try {
+      if (!session) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
       const { type = 'all', status, startDate, endDate } = req.query;
-      
+
       // Build query conditions
-      const where: any = {};
-      
+      const where: any = {
+        userId: session.user.id
+      };
+
       // Filter by type if specified
       if (type !== 'all') {
         const typeMap: Record<string, string> = {
@@ -22,18 +33,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           'other': 'OTHER',
           'appointment': 'APPOINTMENT'
         };
-        
+
         const notificationType = typeMap[type as string];
         if (notificationType) {
           where.type = notificationType;
         }
       }
-      
+
       // Filter by status if specified
       if (status) {
         where.status = status;
       }
-      
+
       // Filter by date range if specified
       if (startDate && endDate) {
         where.dueDate = {
@@ -41,20 +52,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           lte: new Date(endDate as string)
         };
       }
-      
-      // Query notifications from database
+
       const notifications = await prisma.notification.findMany({
         where,
-        orderBy: [
-          { dueDate: 'asc' },
-          { createdAt: 'desc' }
-        ],
         include: {
           patient: true,
           company: true
-        }
+        },
+        orderBy: [
+          { dueDate: 'asc' },
+          { createdAt: 'desc' }
+        ]
       });
-      
+
       // Format the response
       const formattedNotifications = notifications.map(notification => {
         // Parse the message field if it contains JSON data
@@ -69,7 +79,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         } catch  {
           // If parsing fails, just use the message as is
         }
-        
+
         return {
           id: notification.id,
           title: notification.title,
@@ -88,15 +98,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
 
       return res.status(200).json(formattedNotifications);
-    } catch (error) {
-      console.error('Error fetching notifications:', error);
-      return res.status(500).json({ message: 'Error fetching notifications' });
     }
-  }
 
-  // Handle POST request to create a new notification
-  if (req.method === 'POST') {
-    try {
+    if (req.method === 'POST') {
+      const session = await getServerSession(req, res, authOptions);
+
+      if (!session) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
       const { 
         title, 
         message, 
@@ -120,7 +130,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       // Store additional data as JSON in the message field if needed
       let messageContent = message || '';
-      
+
       // If we have additional data for diagnostic results, store it in the message field
       if (type === 'DIAGNOSTIC_RESULT' && (deviceId || parameterId)) {
         const diagnosticData = {
@@ -133,7 +143,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         messageContent = JSON.stringify(diagnosticData);
       }
 
-      // Create notification in the database
       const notification = await prisma.notification.create({
         data: {
           title,
@@ -143,36 +152,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           dueDate: dueDate ? new Date(dueDate) : undefined,
           patientId,
           companyId,
+          userId: session.user.id
         }
       });
 
       return res.status(201).json(notification);
-    } catch (error) {
-      console.error('Error creating notification:', error);
-      return res.status(500).json({ message: 'Error creating notification', error: error instanceof Error ? error.message : String(error) });
     }
-  }
-  
-  // Handle PUT request to update a notification status
-  if (req.method === 'PUT') {
-    try {
+
+    if (req.method === 'PUT') {
+      const session = await getServerSession(req, res, authOptions);
+
+      if (!session) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
       const { id, status } = req.body;
-      
+
       if (!id || !status) {
         return res.status(400).json({ message: 'Missing required fields: id and status are required' });
       }
-      
+
       const notification = await prisma.notification.update({
         where: { id },
         data: { status }
       });
-      
-      return res.status(200).json(notification);
-    } catch (error) {
-      console.error('Error updating notification:', error);
-      return res.status(500).json({ message: 'Error updating notification' });
-    }
-  }
 
-  return res.status(405).json({ message: 'Method not allowed' });
+      return res.status(200).json(notification);
+    }
+
+    return res.status(405).json({ error: 'Method not allowed' });
+  } catch (error) {
+    console.error('Error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
 }

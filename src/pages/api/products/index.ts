@@ -1,13 +1,8 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { PrismaClient, ProductType } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '@/lib/db';
+import type { ProductType } from '@prisma/client';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (!prisma) {
-    return res.status(500).json({ error: 'Database connection not initialized' });
-  }
-
   try {
     // CREATE product
     if (req.method === 'POST') {
