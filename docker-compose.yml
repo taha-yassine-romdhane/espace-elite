@@ -1,7 +1,6 @@
 version: '3.8'
 
 services:
-  # Next.js application
   espace-elite-app:
     build: 
       context: .
@@ -15,14 +14,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3001
-      # Update this to point to your existing database on the VPS
-      # Format: postgresql://username:password@host:port/database_name
-      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:${POSTGRES_PASSWORD}@172.17.0.1:5432/espace_elite}
+      - DATABASE_URL=postgresql://postgres:admin@localhost:5432/elite_sante?schema=public
       - NEXTAUTH_URL=https://assistance.elitemedicaleservices.tn
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-elitemedicaleservices_secret_key}
-    # Using network_mode: host is the simplest solution for Linux
     network_mode: "host"
-
-# No volumes needed since we're not running the database in Docker
-
-# No custom networks needed with host network mode
