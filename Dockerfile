@@ -2,31 +2,27 @@
 FROM node:18-alpine AS builder
 WORKDIR /app
 
-# Install dependencies for building
+# Copy package files and env early so prisma can access env vars during build
 COPY package.json yarn.lock* ./
+COPY .env .env
+
+# Install dependencies for building
 RUN yarn install --frozen-lockfile --production=false
 
-# Copy application code
+# Copy the rest of the application code
 COPY . .
 
-# Fix file case sensitivity issues
-RUN find src/components/ui -name "*.tsx*" -exec sh -c 'mv "$1" "${1%.tsx*}.tsx"' _ {} \;
-
-# Generate Prisma client
+# Generate Prisma client (needs DB connection)
 RUN yarn prisma generate
 
-# Set environment variables to skip database validation during build
-ENV SKIP_ENV_VALIDATION=true
-ENV NEXT_PUBLIC_SKIP_DB_VALIDATION=true
-
-# Build the Next.js app with verbose output to debug issues
-RUN yarn build || (echo "Build failed, showing component directory:" && ls -la src/components/ui && exit 1)
+# Build the Next.js app
+RUN yarn build
 
 # Stage 2: Run-time image
 FROM node:18-alpine AS runner
 WORKDIR /app
 
-# Set to production environment
+# Set production environment
 ENV NODE_ENV=production
 ENV PORT=3001
 
@@ -34,17 +30,17 @@ ENV PORT=3001
 RUN addgroup --system --gid 1001 nodejs \
     && adduser --system --uid 1001 nextjs
 
-# Copy package.json and yarn.lock
+# Copy package files and env to runner
 COPY package.json yarn.lock* ./
+COPY .env .env
 
-# Install production dependencies only
+# Install only production dependencies
 RUN yarn install --frozen-lockfile --production=true
 
-# Copy built app from builder stage
+# Copy built app and static files from builder
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/next.config.ts ./next.config.ts
-COPY --from=builder --chown=nextjs:nodejs /app/.env* ./
 
 # Copy Prisma client and engines
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma /app/node_modules/@prisma
@@ -54,7 +50,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 # Switch to non-root user
 USER nextjs
 
-# Expose the port
+# Expose port
 EXPOSE 3001
 
 # Start the app
