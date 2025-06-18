@@ -1,7 +1,7 @@
 import React from 'react';
 import { GetServerSideProps } from 'next';
+import prisma from '@/lib/db';
 import { User, Doctor, Technician, Task, StockLocation, Patient, Company } from '@prisma/client';
-import { prisma } from '@/lib/prisma';
 import { UserHeader } from '@/components/user/UserHeader';
 import { UserDetails } from '@/components/user/UserDetails';
 import { UserRelations } from '@/components/user/UserRelations';

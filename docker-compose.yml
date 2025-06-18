@@ -1,18 +1,10 @@
 version: '3.8'
 
 services:
-  espace-elite-app:
-    build: 
-      context: .
-      dockerfile: Dockerfile
+  app:
     container_name: espace-elite-app
+    build: .
     restart: always
-    ports:
-      - "3001:3001"
-    environment:
-      - NODE_ENV=production
-      - PORT=3001
-      - DATABASE_URL=postgresql://postgres:admin@localhost:5432/elite_sante?schema=public
-      - NEXTAUTH_URL=https://assistance.elitemedicaleservices.tn
-      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-elitemedicaleservices_secret_key}
     network_mode: "host"
+    env_file:
+      - .env

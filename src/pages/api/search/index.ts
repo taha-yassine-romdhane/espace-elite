@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/pages/api/auth/[...nextauth]';
-import { prisma } from '@/lib/prisma';
+import prisma from '@/lib/db';
 import { SearchResult, SearchResultType } from '@/components/search/GlobalSearch';
 import { Patient, Product, Diagnostic, Sale, Rental, User, MedicalDevice } from '@prisma/client';
 

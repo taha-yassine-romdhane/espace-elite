@@ -1,8 +1,9 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '../../auth/[...nextauth]';
-import { prisma } from '@/lib/prisma';
-import { Affiliation, BeneficiaryType, Prisma } from '@prisma/client';
+import { authOptions } from '../../../../pages/api/auth/[...nextauth]';
+import prisma from '@/lib/db';
+import { Prisma } from '@prisma/client';
+import { Affiliation, BeneficiaryType } from '@prisma/client';
 import formidable from 'formidable';
 
 export const config = {

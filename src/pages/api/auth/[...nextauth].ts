@@ -1,7 +1,7 @@
 import NextAuth, { NextAuthOptions } from 'next-auth';
 import { PrismaAdapter } from '@next-auth/prisma-adapter';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import { prisma } from '@/lib/prisma';
+import prisma from '@/lib/db';
 import bcrypt from 'bcryptjs';
 
 // Add custom user properties to session
@@ -102,4 +102,3 @@ export const authOptions: NextAuthOptions = {
 
 // Export the NextAuth handler with our configuration
 export default NextAuth(authOptions);
-

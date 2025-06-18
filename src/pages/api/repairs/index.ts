@@ -1,21 +1,46 @@
 import { NextApiRequest, NextApiResponse } from 'next';
+import { Prisma } from '@prisma/client';
+import prisma from '@/lib/db';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]';
-import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
+import type { RepairLog, DeviceStatus } from '@prisma/client';
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  const session = await getServerSession(req, res, authOptions);
+  try {
+    if (req.method === 'GET') {
+      const repairs = await prisma.repairLog.findMany({
+        include: {
+          medicalDevice: true,
+          location: true,
+          technician: {
+            include: {
+              user: true
+            }
+          },
+          spareParts: {
+            include: {
+              product: true
+            }
+          }
+        },
+        orderBy: {
+          repairDate: 'desc',
+        },
+      });
 
-  if (!session) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
+      return res.status(200).json(repairs);
+    }
 
-  if (req.method === 'POST') {
-    try {
+    if (req.method === 'POST') {
+      const session = await getServerSession(req, res, authOptions);
+
+      if (!session) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
       const { 
         medicalDeviceId, 
         notes, 
@@ -79,7 +104,6 @@ export default async function handler(
                 id: technician.id
               }
             },
-            // Add spare parts if any
             spareParts: spareParts?.length > 0 ? {
               create: spareParts.map((part: { id: string; quantity: number }) => ({
                 product: {
@@ -133,44 +157,11 @@ export default async function handler(
       }
 
       return res.status(201).json(repair);
-    } catch (error) {
-      console.error('Error creating repair:', error);
-      return res.status(500).json({ error: 'Failed to create repair record' });
     }
+
+    return res.status(405).json({ error: 'Method not allowed' });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Internal server error' });
   }
-
-  if (req.method === 'GET') {
-    try {
-      const { medicalDeviceId } = req.query;
-
-      const repairs = await prisma.repairLog.findMany({
-        where: medicalDeviceId ? {
-          medicalDeviceId: medicalDeviceId as string
-        } : {},
-        include: {
-          medicalDevice: true,
-          location: true,
-          technician: {
-            include: {
-              user: true
-            }
-          },
-          spareParts: {
-            include: {
-              product: true
-            }
-          }
-        },
-        orderBy: {
-          repairDate: 'desc',
-        },
-      });
-      return res.status(200).json(repairs);
-    } catch (error) {
-      console.error('Error fetching repairs:', error);
-      return res.status(500).json({ error: 'Failed to fetch repairs' });
-    }
-  }
-
-  return res.status(405).json({ error: 'Method not allowed' });
 }

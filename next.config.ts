@@ -5,8 +5,11 @@ const nextConfig: NextConfig = {
     // Disable ESLint during builds
     ignoreDuringBuilds: true,
   },
+  // Add this output configuration
+  output: 'standalone', // Required for Docker deployment
+  // Keep your existing image config
   images: {
-    domains: ['1q2z9d946v.ufs.sh'], // Allow images from the uploadthing server
+    domains: ['1q2z9d946v.ufs.sh'],
     remotePatterns: [
       {
         protocol: 'https',
@@ -16,6 +19,8 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Optional: Add transpilePackages if using Prisma
+  transpilePackages: ['@prisma/client'],
 };
 
 export default nextConfig;
