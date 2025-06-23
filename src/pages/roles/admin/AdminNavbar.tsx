@@ -183,7 +183,8 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
     };
 
     const handleLogout = () => {
-        signOut({ callbackUrl: '/welcome' });
+        // Use relative path instead of hardcoded URL to ensure it works in all environments
+        signOut({ callbackUrl: `${router.basePath}/welcome` });
     };
 
     const formatTime = (date: Date) => {

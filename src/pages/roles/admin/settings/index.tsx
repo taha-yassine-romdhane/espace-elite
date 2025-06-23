@@ -1,12 +1,11 @@
 import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UserManagement } from "./components/UserManagement";
-import { RolePermissions } from "./components/RolePermissions";
 import { GeneralSettings } from "./components/GeneralSettings";
 import { Card } from "@/components/ui/Card";
-import { Settings, Users, Shield, Database } from "lucide-react";
+import { Settings, Users, Database } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
-import { BackupRestore } from "./components/BackupRestore";
+import { BackupRestore } from "./components/BackupRestoreNew";
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("users");
@@ -38,13 +37,6 @@ export default function SettingsPage() {
                 Gestion des Utilisateurs
               </TabsTrigger>
               <TabsTrigger 
-                value="roles" 
-                className="w-full justify-start text-left px-3 py-2 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700"
-              >
-                <Shield className="h-4 w-4 mr-2" />
-                Rôles et Permissions
-              </TabsTrigger>
-              <TabsTrigger 
                 value="general" 
                 className="w-full justify-start text-left px-3 py-2 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700"
               >
@@ -63,9 +55,8 @@ export default function SettingsPage() {
         </Card>
         <div className="flex-1">
           {activeTab === "users" && <UserManagement />}
-          {activeTab === "roles" && <RolePermissions />}
           {activeTab === "general" && <GeneralSettings />}
-          {activeTab === "backup" && <BackupRestore />}
+          {activeTab === "backup" && <BackupRestore/>}
         </div>
       </div>
     </div>

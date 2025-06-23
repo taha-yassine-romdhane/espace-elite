@@ -694,3 +694,33 @@ model SaleItem {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+// Application Settings model for storing global configuration
+model AppSettings {
+  id                     String   @id @default(cuid())
+  
+  // Company Information
+  companyName            String
+  companyAddress         String
+  companyPhone           String
+  companyEmail           String
+  companyLogo            String?
+  
+  // Timestamps
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+}
+
+// Database Backup model for tracking backups
+model DatabaseBackup {
+  id                     String   @id @default(cuid())
+  fileName               String   // Name of the backup file
+  filePath               String   // Path to the backup file
+  fileSize               Int      // Size of the backup in bytes
+  format                 String   @default("json") // Format of the backup file (e.g., "json", "sql")
+  source                 String   @default("remote") // Source of the backup (e.g., "local", "remote")
+  description            String?  // Optional description of the backup
+  createdBy              String   // User ID who created the backup
+  createdAt              DateTime @default(now())
+  restoredAt             DateTime? // When this backup was last restored (if ever)
+}

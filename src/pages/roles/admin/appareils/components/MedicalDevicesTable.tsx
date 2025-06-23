@@ -108,6 +108,20 @@ export function MedicalDevicesTable({
     return device.stockLocation.name;
   };
 
+  const formatDate = (dateString: string | Date | null) => {
+    if (!dateString) return 'N/A';
+    
+    const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
+    
+    return date.toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
   if (allMedicalDevices.length === 0) {
     return (
       <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
@@ -140,6 +154,7 @@ export function MedicalDevicesTable({
               <TableHead>Marque/Modèle</TableHead>
               <TableHead>Emplacement</TableHead>
               <TableHead>Statut</TableHead>
+              <TableHead>Réservé jusqu'à</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -158,6 +173,9 @@ export function MedicalDevicesTable({
                 <Badge variant={getStatusBadgeVariant(device.status)}>
                   {device.status}
                 </Badge>
+              </TableCell>
+              <TableCell className="text-sm">
+                {device.reservedUntil ? formatDate(device.reservedUntil) : 'Non réservé'}
               </TableCell>
               <TableCell className="py-1">
                 <div className="flex items-center justify-end gap-2">
