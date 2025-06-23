@@ -9,7 +9,6 @@ const nextConfig: NextConfig = {
   output: 'standalone', // Required for Docker deployment
   // Keep your existing image config
   images: {
-    domains: ['1q2z9d946v.ufs.sh'],
     remotePatterns: [
       {
         protocol: 'https',

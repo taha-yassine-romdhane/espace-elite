@@ -28,7 +28,7 @@ export function UserManagement() {
   const [searchQuery, setSearchQuery] = useState("");
 
   // Fetch users
-  const { data: users = [], isLoading } = useQuery({
+  const { data: users, isLoading } = useQuery<User[]>({
     queryKey: ["users"],
     queryFn: async () => {
       try {
@@ -38,7 +38,8 @@ export function UserManagement() {
           throw new Error(error.message || "Failed to fetch users");
         }
         
-        return response.json();
+        const data = await response.json();
+        return Array.isArray(data) ? data : [];
       } catch (error) {
         toast({
           title: "Erreur",
@@ -51,7 +52,7 @@ export function UserManagement() {
   });
 
   // Filter users based on search query
-  const filteredUsers = users.filter((user: User) => {
+  const filteredUsers = Array.isArray(users) ? users.filter((user: User) => {
     if (!user) return false;
     
     const searchTerm = searchQuery.toLowerCase();
@@ -60,7 +61,7 @@ export function UserManagement() {
       (user.email?.toLowerCase() || '').includes(searchTerm) ||
       (user.role?.toLowerCase() || '').includes(searchTerm)
     );
-  });
+  }) : [];
 
   // Role badge color mapping
   const getRoleBadgeColor = (role: string) => {

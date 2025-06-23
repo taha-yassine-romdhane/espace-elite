@@ -24,4 +24,6 @@ export interface Product {
   repairSpareParts?: RepairSparePart[];
   createdAt: Date;
   updatedAt: Date;
+  reservedUntil?: Date | string | null;
+  isReserved?: boolean;
 }

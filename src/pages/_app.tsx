@@ -35,7 +35,7 @@ type AppPropsWithLayout = AppProps & {
   Component: NextPageWithLayout;
 };
 
-// Navigation state management
+// Navigation state management - improved for production compatibility
 function NavigationEvents() {
   const router = useRouter();
   
@@ -44,20 +44,11 @@ function NavigationEvents() {
     let isNavigating = false;
     let navigationTimeout: NodeJS.Timeout;
     
-    // Problematic route pairs that need special handling
-    const problematicRoutePairs = [
-      // Add specific route pairs that have navigation issues
-      ['/roles/admin/renseignement', '/roles/admin/appareils'],
-      ['/roles/admin/appareils', '/roles/admin/renseignement']
+    // Routes that need cache clearing on navigation
+    const cacheSensitiveRoutes = [
+      '/roles/admin/renseignement',
+      '/roles/admin/appareils'
     ];
-    
-    // Check if navigation is between problematic routes
-    const isProblematicNavigation = (from: string, to: string) => {
-      return problematicRoutePairs.some(pair => 
-        (pair[0] === from && pair[1] === to) || 
-        (pair[0] === to && pair[1] === from)
-      );
-    };
     
     const handleStart = (url: string) => {
       // Clear any existing timeout
@@ -65,11 +56,10 @@ function NavigationEvents() {
       
       // Parse the URL to get just the pathname
       const targetPath = new URL(url, window.location.origin).pathname;
-      const currentPath = router.pathname;
       
-      // Check if this is a problematic navigation
-      if (isProblematicNavigation(currentPath, targetPath)) {
-        // For problematic routes, clear all query cache
+      // Check if this is a cache-sensitive route
+      if (cacheSensitiveRoutes.includes(targetPath)) {
+        // Clear query cache for sensitive routes
         queryClient.clear();
       }
       
@@ -79,12 +69,7 @@ function NavigationEvents() {
       // Set a timeout to reset the state if navigation takes too long
       navigationTimeout = setTimeout(() => {
         isNavigating = false;
-        
-        // If still on the same page after timeout, force reload
-        if (router.pathname === currentPath && isProblematicNavigation(currentPath, targetPath)) {
-          window.location.href = url; // Force hard reload
-        }
-      }, 3000); // 3 seconds timeout
+      }, 5000); // 5 seconds timeout
     };
     
     const handleComplete = (url: string) => {
@@ -93,28 +78,16 @@ function NavigationEvents() {
       isNavigating = false;
     };
     
-    const handleBeforeHistoryChange = (url: string) => {
-      // This event fires right before the URL changes
-      // We can use it to ensure the navigation completes
-      if (isNavigating) {
-        // Force a hard navigation if needed
-        // This is a last resort to ensure navigation completes
-        if (navigationTimeout) clearTimeout(navigationTimeout);
-      }
-    };
-    
     // Add event listeners
     router.events.on('routeChangeStart', handleStart);
     router.events.on('routeChangeComplete', handleComplete);
     router.events.on('routeChangeError', handleComplete); // Also reset on error
-    router.events.on('beforeHistoryChange', handleBeforeHistoryChange);
     
     // Clean up event listeners
     return () => {
       router.events.off('routeChangeStart', handleStart);
       router.events.off('routeChangeComplete', handleComplete);
       router.events.off('routeChangeError', handleComplete);
-      router.events.off('beforeHistoryChange', handleBeforeHistoryChange);
       if (navigationTimeout) clearTimeout(navigationTimeout);
     };
   }, [router]);
@@ -137,10 +110,7 @@ export default function App({
       <QueryClientProvider client={queryClient}>
         <Head>
           <link rel="icon" href="/health-icon.svg" type="image/svg+xml" />
-          <link rel="apple-touch-icon" sizes="180x180" href="/favicons/apple-touch-icon.png" />
-          <link rel="icon" type="image/png" sizes="32x32" href="/favicons/favicon-32x32.png" />
-          <link rel="icon" type="image/png" sizes="16x16" href="/favicons/favicon-16x16.png" />
-          <link rel="manifest" href="/site.webmanifest" />
+          <link rel="manifest" href="/site.webmanifest" type="application/manifest+json" />
           <meta name="theme-color" content="#1E88E5" />
         </Head>
         <SEO />

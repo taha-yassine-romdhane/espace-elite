@@ -215,18 +215,14 @@ export default function SaleDetailsPage() {
                             )}
                             {item.medicalDevice && (
                               <div className="mt-1 text-sm">
-                                <div className="text-blue-600 font-medium">Appareil médical</div>
-                                {item.medicalDevice.brand && (
-                                  <div className="text-xs">Marque: {item.medicalDevice.brand}</div>
+                                {item.medicalDevice.name && (
+                                  <div className="text-xs">Nom: {item.medicalDevice.name}</div>
                                 )}
                                 {item.medicalDevice.model && (
                                   <div className="text-xs">Modèle: {item.medicalDevice.model}</div>
                                 )}
                                 {item.medicalDevice.serialNumber && (
                                   <div className="text-xs">N° Série: {item.medicalDevice.serialNumber}</div>
-                                )}
-                                {item.medicalDevice.type && (
-                                  <div className="text-xs">Type: {item.medicalDevice.type}</div>
                                 )}
                               </div>
                             )}
@@ -286,23 +282,33 @@ export default function SaleDetailsPage() {
                         <th className="text-left p-2 border-b">Détails</th>
                       </tr>
                     </thead>
-                    <tbody>
-                      {/* Main payment */}
-                      <tr className="border-b">
-                        <td className="p-2 font-medium">{sale?.payment?.method}</td>
-                        <td className="p-2">{typeof sale?.payment?.amount === 'number' ? sale.payment.amount.toFixed(3) : parseFloat(String(sale?.payment?.amount || 0)).toFixed(3)} DT</td>
-                        <td className="p-2">{sale?.payment?.createdAt ? new Date(sale.payment.createdAt).toLocaleDateString('fr-TN') : '-'}</td>
-                        <td className="p-2">{sale?.payment?.notes ? 'Voir détails ci-dessous' : '-'}</td>
-                      </tr>
-                      
+                    <tbody>                      
                       {/* Payment details */}
-                      {sale?.payment?.paymentDetails && sale?.payment?.paymentDetails.length > 0 && (
-                        sale?.payment?.paymentDetails.map((detail: any, idx: number) => (
+                      {sale?.payment?.paymentDetails?.map((detail: any, idx: number) => {
+                        // Log the detail object for debugging
+                        console.log(`Payment Detail [${idx}]:`, detail);
+                        
+                        // Extract date from payment ID (format: 'payment-{timestamp}') or use available date fields
+                        const extractDateFromId = (id: string) => {
+                          const timestamp = id.replace('payment-', '');
+                          const timestampNum = parseInt(timestamp, 10);
+                          return !isNaN(timestampNum) ? new Date(timestampNum) : null;
+                        };
+                        
+                        // Try to get date from various possible fields, then fall back to ID
+                        const dateFromId = extractDateFromId(detail?.id || '');
+                        let dateValue = detail?.date || detail?.createdAt || detail?.timestamp || detail?.paymentDate || dateFromId;
+                        
+                        return (
                           <tr key={idx} className={`border-b ${detail?.method?.toLowerCase() === 'cnam' ? 'bg-blue-50' : ''}`}>
                             <td className="p-2">
                               {detail?.method}
                               {detail?.method?.toLowerCase() === 'cnam' && detail?.etatDossier && (
-                                <span className={`ml-2 text-xs px-2 py-1 rounded ${detail?.etatDossier === 'accepte' ? 'bg-green-100 text-green-800' : detail?.etatDossier === 'refuse' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}`}>
+                                <span className={`ml-2 text-xs px-2 py-1 rounded ${
+                                  detail?.etatDossier === 'accepte' ? 'bg-green-100 text-green-800' : 
+                                  detail?.etatDossier === 'refuse' ? 'bg-red-100 text-red-800' : 
+                                  'bg-amber-100 text-amber-800'
+                                }`}>
                                   {detail?.etatDossier === 'accepte' ? 'Accepté' : 
                                    detail?.etatDossier === 'refuse' ? 'Refusé' : 
                                    detail?.etatDossier === 'en_attente' ? 'En attente' : 
@@ -312,16 +318,24 @@ export default function SaleDetailsPage() {
                                 </span>
                               )}
                             </td>
-                            <td className="p-2">{typeof detail?.amount === 'number' ? detail.amount.toFixed(3) : parseFloat(String(detail?.amount || 0)).toFixed(3)} DT</td>
-                            <td className="p-2">{detail?.timestamp ? new Date(detail.timestamp).toLocaleDateString('fr-TN') : '-'}</td>
+                            <td className="p-2">
+                              {typeof detail?.amount === 'number' 
+                                ? detail.amount.toFixed(3) 
+                                : parseFloat(String(detail?.amount || 0)).toFixed(3)} DT
+                            </td>
+                            <td className="p-2">
+                              {dateValue 
+                                ? new Date(dateValue).toLocaleDateString('fr-TN') 
+                                : '-'}
+                            </td>
                             <td className="p-2">
                               {detail?.classification && <span className="mr-2">{detail.classification}</span>}
                               {detail?.reference && <span className="text-gray-500">Réf: {detail.reference}</span>}
                               {detail?.dossierReference && <span className="block text-blue-600">Dossier: {detail.dossierReference}</span>}
                             </td>
                           </tr>
-                        ))
-                      )}
+                        );
+                      })}
                     </tbody>
                   </table>
                   

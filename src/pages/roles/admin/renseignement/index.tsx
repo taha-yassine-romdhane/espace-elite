@@ -1,11 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { useRouter } from 'next/router';
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import PatientForm from '@/components/forms/PatientForm';
 import SocieteForm from '@/components/forms/SocieteForm';
-import { RenseignementTable } from './components/RenseignementTable';
-import { FileViewer } from './components/FileViewer';
+// Lazy load heavy components
+const RenseignementTable = lazy(() => import('./components/RenseignementTable'));
+const FileViewer = lazy(() => import('./components/FileViewer'));
+
+// Loading fallback component
+const LoadingFallback = () => (
+  <div className="flex items-center justify-center h-64 w-full">
+    <div className="flex flex-col items-center space-y-4">
+      <div className="h-12 w-12 border-4 border-t-blue-500 border-b-blue-500 border-l-gray-200 border-r-gray-200 rounded-full animate-spin"></div>
+      <p className="text-gray-500 font-medium">Chargement en cours...</p>
+    </div>
+  </div>
+);
 import { BeneficiaryType } from '@prisma/client';
 import { CaisseAffiliation, Renseignement, RenseignementFormData } from '@/types/renseignement';
 import { Building, Filter, Search, User, X } from 'lucide-react';
@@ -20,6 +31,7 @@ export default function RenseignementPage() {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Add loading state
   const [formData, setFormData] = useState<RenseignementFormData>({
     type: 'Patient',
     nomComplet: '',
@@ -64,10 +76,36 @@ export default function RenseignementPage() {
   const [availableDoctors, setAvailableDoctors] = useState<{ id: string, name: string }[]>([]);
   const [availableTechnicians, setAvailableTechnicians] = useState<{ id: string, name: string }[]>([]);
 
+  // Use a single useEffect for initial data loading
   useEffect(() => {
+    // Only fetch on component mount, not on filter changes
     fetchRenseignements();
-  }, [filters]);
+  }, []); // Empty dependency array for initial load only
 
+  // Add fetchRenseignements function
+  const fetchRenseignements = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch('/api/renseignements');
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      setRenseignements(data);
+    } catch (error) {
+      console.error('Error fetching renseignements:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger les données",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
   // Apply filters and search whenever renseignements, searchQuery, or filters change
   useEffect(() => {
     applyFiltersAndSearch();
@@ -449,25 +487,9 @@ export default function RenseignementPage() {
       });
     }
   };
-
-  const fetchRenseignements = async () => {
-    try {
-      const response = await fetch('/api/renseignements');
-      const data = await response.json();
-      setRenseignements(data);
-    } catch (error) {
-      console.error('Error fetching renseignements:', error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de charger les renseignements",
-        variant: "destructive",
-      });
-    }
-  };
-
-  return (
-    <div className="container mx-auto py-6">
-      <div className="flex justify-between items-center">
+     return (
+     <div className="container mx-auto py-6">
+     <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Renseignements</h1>
         <div className="space-x-2">
           {selectedItems.length > 0 && (
@@ -606,16 +628,22 @@ export default function RenseignementPage() {
         </div>
       </div>
 
-      <RenseignementTable
-        data={filteredRenseignements}
-        selectedItems={selectedItems}
-        onSelect={handleSelect}
-        onSelectAll={handleSelectAll}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        onViewFiles={(files) => handleViewFiles(files)}
-        onViewDetails={handleViewDetails}
-      />
+      {isLoading ? (
+        <LoadingFallback />
+      ) : (
+        <Suspense fallback={<LoadingFallback />}>
+          <RenseignementTable
+            data={filteredRenseignements}
+            selectedItems={selectedItems}
+            onSelect={handleSelect}
+            onSelectAll={handleSelectAll}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onViewFiles={(files) => handleViewFiles(files)}
+            onViewDetails={handleViewDetails}
+          />
+        </Suspense>
+      )}
 
       {isOpen && (
         <div className="fixed inset-0 flex items-center justify-center z-50">
@@ -664,11 +692,13 @@ export default function RenseignementPage() {
         </div>
       )}
 
-      <FileViewer
-        files={selectedFiles}
-        isOpen={showFilesDialog}
-        onClose={() => setShowFilesDialog(false)}
-      />
+      <Suspense fallback={<LoadingFallback />}>
+        <FileViewer
+          files={selectedFiles}
+          isOpen={showFilesDialog}
+          onClose={() => setShowFilesDialog(false)}
+        />
+      </Suspense>
     </div>
   );
 }
