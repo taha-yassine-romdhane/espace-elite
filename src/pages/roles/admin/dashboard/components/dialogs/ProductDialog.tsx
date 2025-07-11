@@ -5,8 +5,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/badge";
-import { Search, MapPin, Stethoscope, Puzzle, Cog, Activity, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
+import { Search, MapPin, Stethoscope, Puzzle, Cog, Activity, CheckCircle2, XCircle, AlertCircle, HeartPulse, Package, Wrench } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getDeviceStatusInfo } from "@/utils/statusUtils";
+import { DeviceStatus, ProductType } from "@prisma/client";
+
+const getIconForType = (type: ProductType) => {
+  switch (type) {
+    case ProductType.MEDICAL_DEVICE:
+      return <HeartPulse className="h-6 w-6 text-gray-500" />;
+    case ProductType.ACCESSORY:
+      return <Package className="h-6 w-6 text-gray-500" />;
+    case ProductType.SPARE_PART:
+      return <Wrench className="h-6 w-6 text-gray-500" />;
+    case ProductType.DIAGNOSTIC_DEVICE:
+      return <Stethoscope className="h-6 w-6 text-gray-500" />;
+    default:
+      return null;
+  }
+};
 
 interface ProductDialogProps {
   isOpen: boolean;
@@ -18,6 +35,7 @@ interface ProductDialogProps {
 export function ProductDialog({ isOpen, onClose, type, onSelect }: ProductDialogProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLocation, setSelectedLocation] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<DeviceStatus | 'all'>('all');
 
   // Fetch stock locations
   const { data: stockLocations } = useQuery({
@@ -113,14 +131,20 @@ export function ProductDialog({ isOpen, onClose, type, onSelect }: ProductDialog
       product.stockLocation?.name
     ].filter(Boolean);
 
-    const matchesSearch = !searchQuery || searchFields.some(
+    const searchMatch = !searchQuery || searchFields.some(
       field => field?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     // Location filtering
-    const matchesLocation = selectedLocation === "all" || product.stockLocationId === selectedLocation;
+    const locationMatch =
+      selectedLocation === "all" ||
+      product.stock?.locationId === selectedLocation ||
+      product.stockLocationId === selectedLocation;
 
-    return matchesSearch && matchesLocation;
+    // Status filtering
+    const statusMatch = statusFilter === 'all' || product.status === statusFilter;
+
+    return searchMatch && locationMatch && statusMatch;
   });
 
   const getTitle = () => {
@@ -177,7 +201,7 @@ export function ProductDialog({ isOpen, onClose, type, onSelect }: ProductDialog
                 />
               </div>
             </div>
-            <div className="w-48">
+            <div className="flex-1">
               <Select value={selectedLocation} onValueChange={setSelectedLocation}>
                 <SelectTrigger>
                   <SelectValue placeholder="Tous les stocks" />
@@ -192,6 +216,19 @@ export function ProductDialog({ isOpen, onClose, type, onSelect }: ProductDialog
                 </SelectContent>
               </Select>
             </div>
+            <div className="flex-1">
+              <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as DeviceStatus | 'all')}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Filtrer par statut" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous les statuts</SelectItem>
+                  {Object.values(DeviceStatus).map(status => (
+                    <SelectItem key={status} value={status}>{getDeviceStatusInfo(status).label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Products List */}
@@ -201,108 +238,70 @@ export function ProductDialog({ isOpen, onClose, type, onSelect }: ProductDialog
             ) : filteredProducts?.length === 0 ? (
               <div className="text-center py-4 text-gray-500">Aucun produit trouvé</div>
             ) : (
-              filteredProducts?.map((product: any) => (
-                <Card
-                  key={`${product.id}-${product.stockLocationId || 'no-location'}`}
-                  className="p-3 cursor-pointer hover:border-[#1e3a8a] transition-colors"
-                  onClick={() => {
-                    onSelect(product);
-                    onClose();
-                  }}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-medium truncate">{product.name}</h4>
-                        {/* Type Badge */}
-                        {type === "medical-device" && (
-                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 flex items-center gap-1">
-                            <Stethoscope className="h-3 w-3" />
-                            <span className="text-xs">Appareil</span>
-                          </Badge>
-                        )}
-                        {type === "accessory" && (
-                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 flex items-center gap-1">
-                            <Puzzle className="h-3 w-3" />
-                            <span className="text-xs">Accessoire</span>
-                          </Badge>
-                        )}
-                        {type === "spare-part" && (
-                          <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 flex items-center gap-1">
-                            <Cog className="h-3 w-3" />
-                            <span className="text-xs">Pièce</span>
-                          </Badge>
-                        )}
-                        {type === "diagnostic" && (
-                          <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 flex items-center gap-1">
-                            <Activity className="h-3 w-3" />
-                            <span className="text-xs">Diagnostic</span>
-                          </Badge>
-                        )}
+              filteredProducts?.map((product: any) => {
+                const isStockable = product.type === 'ACCESSORY' || product.type === 'SPARE_PART';
+                const isAvailable = isStockable ? product.stockQuantity > 0 : product.status === DeviceStatus.ACTIVE;
+                const statusInfo = getDeviceStatusInfo(isStockable ? (product.stockQuantity > 0 ? DeviceStatus.ACTIVE : DeviceStatus.SOLD) : product.status);
+
+                return (
+                  <Card
+                    key={product.id}
+                    className={cn(
+                      "transition-all",
+                      isAvailable 
+                        ? "cursor-pointer hover:bg-gray-50 hover:shadow-md" 
+                        : "bg-gray-100 opacity-60 cursor-not-allowed"
+                    )}
+                    onClick={() => {
+                      if (isAvailable) {
+                        onSelect(product);
+                      }
+                    }}
+                  >
+                    <div className="p-4 flex items-center gap-4">
+                      <div className="flex-shrink-0 h-12 w-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                        {getIconForType(product.type as ProductType)}
                       </div>
-                      <div className="text-sm text-gray-500 truncate">
-                        {product.brand} {product.model}
-                        {product.serialNumber && ` • N°${product.serialNumber}`}
-                      </div>
-                      <div className="flex items-center gap-1 mt-1 text-sm text-gray-500">
-                        <MapPin className="h-3.5 w-3.5" />
-                        {getStockLocationName(product)}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      {product.sellingPrice && (
-                        <div className="font-medium text-[#1e3a8a]">
-                          {product.sellingPrice} DT
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold truncate">{product.name}</div>
+                        <div className="text-sm text-gray-500 truncate">
+                          {product.brand} {product.model}
+                          {product.serialNumber && ` • N°${product.serialNumber}`}
                         </div>
-                      )}
-                      <div className="flex flex-col gap-1 mt-1">
-                        {/* Stock Badge */}
-                        <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">
-                          Stock: {product.stockQuantity || 1}
-                        </Badge>
-                        
-                        {/* Status Badge */}
-                        {product.status && (
+                        <div className="flex items-center gap-1 mt-1 text-sm text-gray-500">
+                          <MapPin className="h-3.5 w-3.5" />
+                          {getStockLocationName(product)}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        {product.sellingPrice && (
+                          <div className="font-medium text-[#1e3a8a]">
+                            {product.sellingPrice} DT
+                          </div>
+                        )}
+                        <div className="flex flex-col gap-1 mt-1">
+                          {isStockable && (
+                            <Badge variant="outline" className={cn(
+                              "bg-gray-50 text-gray-700 border-gray-200",
+                              product.stockQuantity === 0 && "bg-red-100 text-red-700 border-red-200"
+                            )}>
+                              Stock: {product.stockQuantity || 0}
+                            </Badge>
+                          )}
+                          
                           <Badge 
                             variant="outline" 
-                            className={cn(
-                              "flex items-center gap-1",
-                              (product.status === "AVAILABLE" || product.status === "ACTIVE") && "bg-green-50 text-green-700 border-green-200",
-                              product.status === "RESERVED" && "bg-amber-50 text-amber-700 border-amber-200",
-                              (product.status === "UNAVAILABLE" || product.status === "MAINTENANCE" || product.status === "RETIRED") && "bg-red-50 text-red-700 border-red-200",
-                              !product.status || product.status === "UNKNOWN" && "bg-gray-50 text-gray-700 border-gray-200"
-                            )}
+                            className={cn("flex items-center gap-1", statusInfo.color)}
                           >
-                            {(product.status === "AVAILABLE" || product.status === "ACTIVE") && <CheckCircle2 className="h-3 w-3" />}
-                            {product.status === "RESERVED" && <AlertCircle className="h-3 w-3" />}
-                            {(product.status === "UNAVAILABLE" || product.status === "MAINTENANCE" || product.status === "RETIRED") && <XCircle className="h-3 w-3" />}
-                            {!product.status || product.status === "UNKNOWN" && <span className="h-3 w-3" />}
-                            <span className="text-xs">
-                              {product.status === "AVAILABLE" || product.status === "ACTIVE" ? "Disponible" : 
-                               product.status === "RESERVED" ? "Réservé" : 
-                               product.status === "MAINTENANCE" ? "En maintenance" :
-                               product.status === "RETIRED" ? "Retiré" :
-                               product.status === "UNAVAILABLE" ? "Indisponible" : 
-                               "État inconnu"}
-                            </span>
+                            <statusInfo.Icon className="h-3 w-3" />
+                            <span className="text-xs">{isStockable ? (product.stockQuantity > 0 ? 'Disponible' : 'En rupture') : statusInfo.label}</span>
                           </Badge>
-                        )}
-                        
-                        {/* If no status is provided, show a default available badge */}
-                        {!product.status && product.stockQuantity && product.stockQuantity > 0 && (
-                          <Badge 
-                            variant="outline" 
-                            className="bg-green-50 text-green-700 border-green-200 flex items-center gap-1"
-                          >
-                            <CheckCircle2 className="h-3 w-3" />
-                            <span className="text-xs">Disponible</span>
-                          </Badge>
-                        )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </Card>
-              ))
+                  </Card>
+                )
+              })
             )}
           </div>
         </div>

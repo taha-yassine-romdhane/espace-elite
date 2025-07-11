@@ -11,20 +11,25 @@ export default async function handler(
 ) {
   try {
     if (req.method === 'GET') {
+      const { medicalDeviceId } = req.query;
+
       const repairs = await prisma.repairLog.findMany({
+        where: medicalDeviceId
+          ? { medicalDeviceId: medicalDeviceId as string }
+          : {},
         include: {
           medicalDevice: true,
           location: true,
           technician: {
             include: {
-              user: true
-            }
+              user: true,
+            },
           },
           spareParts: {
             include: {
-              product: true
-            }
-          }
+              product: true,
+            },
+          },
         },
         orderBy: {
           repairDate: 'desc',

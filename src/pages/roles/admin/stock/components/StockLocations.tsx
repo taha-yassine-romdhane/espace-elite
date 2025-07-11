@@ -17,20 +17,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { useToast } from "@/components/ui/use-toast";
 import { Plus, Eye, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import StockViewDialog from './StockViewDialog';
 import { LocationForm } from '@/pages/roles/admin/appareils/components/LocationForm';
-
-// Product types enum to match the database
-enum ProductType {
-  MEDICAL_DEVICE = 'MEDICAL_DEVICE',
-  DIAGNOSTIC_DEVICE = 'DIAGNOSTIC_DEVICE',
-  ACCESSORY = 'ACCESSORY',
-  SPARE_PART = 'SPARE_PART'
-}
 
 interface StockLocation {
   id: string;
@@ -47,7 +38,6 @@ interface StockLocation {
     products: number;
     medicalDevices: number;
   };
-  // Additional counts and quantities for specific product types
   accessoryCount?: number;
   sparePartCount?: number;
   accessoryQuantity?: number;
@@ -59,7 +49,6 @@ interface StockLocation {
 }
 
 export default function StockLocations() {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   
@@ -92,11 +81,6 @@ export default function StockLocations() {
       setFilteredLocations(locations);
     }
   }, [locations]);
-
-  // Handle dialog close
-  const handleDialogClose = () => {
-    setIsDialogOpen(false);
-  };
   
   // Handle successful location creation
   const handleLocationCreated = () => {

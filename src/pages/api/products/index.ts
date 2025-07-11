@@ -55,6 +55,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         } : {},
         include: {
           stocks: {
+            where: {
+              status: 'EN_VENTE'
+            },
             include: {
               location: true
             }
@@ -74,6 +77,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           brand: product.brand,
           model: product.model,
           serialNumber: product.serialNumber,
+          type: product.type,
           purchasePrice: product.purchasePrice,
           sellingPrice: product.sellingPrice,
           stockLocation: primaryStock?.location || null,

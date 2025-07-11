@@ -83,7 +83,7 @@ export default function SaleDetailsPage() {
 
       <h1 className="text-3xl font-bold mb-6 text-blue-900">Détails de la Vente</h1>
 
-      <SaleDetailsTabsWithCNAM saleId={saleId}>
+      <SaleDetailsTabsWithCNAM saleId={saleId} sale={sale}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Sale Information */}
           <Card>
@@ -92,8 +92,8 @@ export default function SaleDetailsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <h3 className="font-medium text-gray-700">Référence</h3>
-                <p>{sale.reference || '-'}</p>
+                <h3 className="font-medium text-gray-700">Numéro de Recu</h3>
+                <p>{sale.invoiceNumber || '-'}</p>
               </div>
               <div>
                 <h3 className="font-medium text-gray-700">Date</h3>

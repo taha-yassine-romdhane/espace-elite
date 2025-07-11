@@ -86,88 +86,11 @@ export default function NotificationsPage() {
         description: 'Impossible de récupérer les notifications',
         variant: 'destructive',
       });
-      
-      // For development purposes, use mock data
-      setNotifications(getMockNotifications(activeTab));
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Mock data for development
-  const getMockNotifications = (type: string): Notification[] => {
-    const allNotifications: Notification[] = [
-      {
-        id: '1',
-        title: 'Résultat d\'échographie en attente',
-        description: 'Le résultat d\'échographie pour Mohamed Ben Ali est attendu',
-        createdAt: new Date(Date.now() - 2 * 86400000).toISOString(),
-        status: 'PENDING',
-        priority: 'MEDIUM',
-        type: 'DIAGNOSTIC_RESULT',
-        deviceId: 'dev-001',
-        deviceName: 'Scanner à ultrasons XYZ',
-        patientId: 'pat-001',
-        patientName: 'Mohamed Ben Ali',
-        parameterId: 'param-001',
-        parameterName: 'Résultat d\'échographie',
-        dueDate: new Date(Date.now() + 86400000).toISOString(), // Tomorrow
-      },
-      {
-        id: '2',
-        title: 'Résultat d\'électrocardiogramme en retard',
-        description: 'Le résultat d\'électrocardiogramme pour Fatima Trabelsi est en retard',
-        createdAt: new Date(Date.now() - 5 * 86400000).toISOString(),
-        status: 'PENDING',
-        priority: 'HIGH',
-        type: 'DIAGNOSTIC_RESULT',
-        deviceId: 'dev-002',
-        deviceName: 'Appareil ECG CardioPlus',
-        patientId: 'pat-002',
-        patientName: 'Fatima Trabelsi',
-        parameterId: 'param-002',
-        parameterName: 'Résultat d\'électrocardiogramme',
-        dueDate: new Date(Date.now() - 86400000).toISOString(), // Yesterday (overdue)
-      },
-      {
-        id: '3',
-        title: 'Maintenance du respirateur artificiel',
-        description: 'Tâche de maintenance programmée pour le respirateur artificiel',
-        createdAt: new Date(Date.now() - 1 * 86400000).toISOString(),
-        status: 'PENDING',
-        priority: 'HIGH',
-        type: 'TASK',
-        taskId: 'task-001',
-        assigneeId: 'tech-001',
-        assigneeName: 'Ahmed Technicien',
-        dueDate: new Date(Date.now() + 2 * 86400000).toISOString(), // In 2 days
-      },
-      {
-        id: '4',
-        title: 'Réparation du moniteur cardiaque',
-        description: 'Réparation en cours pour le moniteur cardiaque de la chambre 203',
-        createdAt: new Date(Date.now() - 3 * 86400000).toISOString(),
-        status: 'IN_PROGRESS',
-        priority: 'MEDIUM',
-        type: 'REPAIR',
-        deviceId: 'dev-003',
-        deviceName: 'Moniteur cardiaque BedSide',
-        repairId: 'rep-001',
-        technicianId: 'tech-002',
-        technicianName: 'Sami Réparateur',
-      },
-    ];
-
-    if (type === 'all') {
-      return allNotifications;
-    }
-    
-    return allNotifications.filter(notification => 
-      type === 'diagnostic' ? notification.type === 'DIAGNOSTIC_RESULT' :
-      type === 'task' ? notification.type === 'TASK' :
-      type === 'repair' ? notification.type === 'REPAIR' : true
-    );
-  };
 
   const handleNotificationAction = (notification: Notification) => {
     setSelectedNotification(notification);

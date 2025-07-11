@@ -5,26 +5,20 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
     User,
     Bell,
-    Search,
     Settings,
     LogOut,
     ChevronDown,
-    Moon,
-    Sun,
     Menu,
     X,
     Calendar,
-    MessageSquare,
     HelpCircle,
-    Shield,
-    Activity,
     Link,
-    Check,
-    AlertCircle
+    AlertCircle,
+    RotateCw
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import axios from 'axios';
-import { format, formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import GlobalSearch from '@/components/search/GlobalSearch';
 
@@ -53,8 +47,6 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
     const router = useRouter();
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [isDarkMode, setIsDarkMode] = useState(false);
     const [currentTime, setCurrentTime] = useState(new Date());
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
@@ -260,26 +252,54 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
 
                             {/* Notifications Dropdown */}
                             {isNotificationsOpen && (
-                                <div className="absolute right-0 mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-lg py-2 z-50">
-                                    <div className="px-4 py-2 border-b border-gray-100">
-                                        <div className="flex items-center justify-between">
+                                <div className="absolute right-0 mt-2 w-[38rem] max-w-[95vw] bg-white border border-gray-200 rounded-lg shadow-lg py-2 z-50">
+                                    <div className="px-4 py-2 border-b border-gray-100 flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
                                             <h3 className="text-sm font-semibold text-gray-900">Notifications</h3>
                                             <span className="text-xs text-gray-500">{unreadCount} non lues</span>
                                         </div>
+                                        <button
+                                            className="p-1 rounded hover:bg-blue-100 transition-colors"
+                                            title="Rafraîchir"
+                                            onClick={fetchNotifications}
+                                            disabled={isLoading}
+                                        >
+                                            {isLoading ? (
+                                                <span className="inline-block h-5 w-5 align-middle">
+                                                    <svg className="animate-spin text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                                                    </svg>
+                                                </span>
+                                            ) : (
+                                                <RotateCw className="h-5 w-5 text-blue-600" />
+                                            )}
+                                        </button>
                                     </div>
-                                    <div className="max-h-64 overflow-y-auto">
-                                        {notifications.length > 0 ? notifications.map((notification) => (
-                                            <div
-                                                key={notification.id}
-                                                className={cn(
-                                                    "px-4 py-3 hover:bg-gray-50 cursor-pointer border-l-4 transition-colors",
-                                                    !notification.isRead
-                                                        ? "border-l-blue-500 bg-blue-50/30"
-                                                        : "border-l-transparent"
-                                                )}
-                                                onClick={() => markNotificationAsRead(notification.id)}
-                                            >
-                                                <div className="flex items-start space-x-3">
+                                    <div className="max-h-[32rem] overflow-y-auto divide-y divide-gray-100">
+                                        {notifications.length === 0 ? (
+                                            <div className="px-4 py-6 text-center text-gray-500">
+                                                <Bell className="h-5 w-5 mx-auto mb-2 opacity-50" />
+                                                <p className="text-sm">Aucune notification</p>
+                                            </div>
+                                        ) : (
+                                            // Sort: unread first, then read; both by date desc
+                                            [...notifications].sort((a, b) => {
+                                                if (a.isRead === b.isRead) {
+                                                    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                                                }
+                                                return a.isRead ? 1 : -1;
+                                            }).map((notification) => (
+                                                <div
+                                                    key={notification.id}
+                                                    className={cn(
+                                                        "px-4 py-3 flex gap-3 items-start cursor-pointer border-l-4 transition-colors group",
+                                                        !notification.isRead
+                                                            ? "border-l-blue-500 bg-blue-50/40 hover:bg-blue-100/60"
+                                                            : "border-l-transparent hover:bg-gray-50"
+                                                    )}
+                                                    onClick={() => markNotificationAsRead(notification.id)}
+                                                >
                                                     <div className="flex-shrink-0 mt-1">
                                                         <div className="p-1 bg-blue-100 rounded-full text-blue-600">
                                                             {getNotificationIcon(notification.type)}
@@ -287,28 +307,20 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
                                                     </div>
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center justify-between">
-                                                            <p className="text-sm font-medium text-gray-900 truncate">
-                                                                {notification.title}
-                                                            </p>
-                                                            <span className="text-xs text-gray-500 ml-2">
-                                                                {getRelativeTime(notification.createdAt)}
-                                                            </span>
+                                                            <p className={cn("text-sm font-medium truncate", !notification.isRead ? "text-blue-900" : "text-gray-900")}>{notification.title}</p>
+                                                            <span className="text-xs text-gray-500 ml-2">{getRelativeTime(notification.createdAt)}</span>
                                                         </div>
-                                                        <p className="text-sm text-gray-600 mt-1">
-                                                            {notification.message}
-                                                        </p>
+                                                        <p className="text-sm text-gray-600 mt-1">{notification.message}</p>
+                                                        {notification.isRead && (
+                                                            <span className="inline-block mt-1 text-xs text-gray-400 bg-gray-100 rounded px-2 py-0.5">Lu</span>
+                                                        )}
                                                     </div>
                                                 </div>
-                                            </div>
-                                        )) : (
-                                            <div className="px-4 py-6 text-center text-gray-500">
-                                                <Bell className="h-5 w-5 mx-auto mb-2 opacity-50" />
-                                                <p className="text-sm">Aucune notification</p>
-                                            </div>
+                                            ))
                                         )}
                                     </div>
                                     <div className="px-4 py-2 border-t border-gray-100">
-                                        <button className="text-sm text-[#1e3a8a] font-medium hover:underline">
+                                        <button className="text-sm text-[#1e3a8a] font-medium hover:underline w-full text-left">
                                             Voir toutes les notifications
                                         </button>
                                     </div>

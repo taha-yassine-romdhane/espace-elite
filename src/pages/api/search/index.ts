@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/pages/api/auth/[...nextauth]';
 import prisma from '@/lib/db';
 import { SearchResult, SearchResultType } from '@/components/search/GlobalSearch';
-import { Patient, Product, Diagnostic, Sale, Rental, User, MedicalDevice } from '@prisma/client';
+import { Patient, Product, Diagnostic, Sale, Rental, User, MedicalDevice, Company } from '@prisma/client';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Check if user is authenticated
@@ -47,6 +47,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         subtitle: patient.telephone || patient.telephoneTwo || 'Patient',
         type: 'patient',
         url: `/roles/admin/renseignement/patient/${patient.id}`
+      });
+    });
+
+     // Search company
+     const companies = await prisma.company.findMany({
+      where: {
+        OR: [
+          { companyName: { contains: searchQuery, mode: 'insensitive' } },
+          { address: { contains: searchQuery, mode: 'insensitive' } },
+          { telephone: { contains: searchQuery, mode: 'insensitive' } },
+        ]
+      },
+      take: 5,
+    });
+
+    companies.forEach((company: Company) => {
+      results.push({
+        id: company.id,
+        title: company.companyName,
+        subtitle: company.address || 'Company',
+        type: 'company' as SearchResultType,
+        url: `/roles/admin/renseignement/company/${company.id}`
       });
     });
 
@@ -173,15 +195,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       take: 5,
     });
 
-    rentals.forEach((rental: Rental & { patient?: Patient }) => {
-      results.push({
-        id: rental.id,
-        title: `Location: ID-${rental.id}`,
-        subtitle: rental.patient ? `${rental.patient.firstName} ${rental.patient.lastName}` : 'Location',
-        type: 'rental' as SearchResultType,
-        url: `/roles/admin/rentals/${rental.id}`
-      });
-    });
+    rentals.forEach(
+      (rental: Rental & { patient?: Patient; medicalDevice: MedicalDevice }) => {
+        results.push({
+          id: rental.id,
+          title: `Location: ${rental.medicalDevice.name}`,
+          subtitle: rental.patient
+            ? `${rental.patient.firstName} ${rental.patient.lastName}`
+            : 'Location',
+          type: 'rental' as SearchResultType,
+          url: `/roles/admin/rentals/${rental.id}`,
+        });
+      }
+    );
 
     // Search users
     const users = await prisma.user.findMany({

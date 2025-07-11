@@ -6,7 +6,6 @@ import type { Diagnostic } from '@prisma/client';
 import formidable from 'formidable';
 import fs from 'fs';
 import path from 'path';
-import { Files } from 'lucide-react';
 
 // Enable bodyParser for all methods except POST with multipart/form-data
 export const config = {
@@ -109,13 +108,13 @@ export default async function handler(
           id: diagnostic.id,
           deviceName,
           patientName,
-          companyName: 'N/A', // Always N/A since we only use patients
+          companyName: 'N/A',
           date: diagnostic.diagnosticDate,
           followUpDate: diagnostic.followUpDate,
           followUpRequired: diagnostic.followUpRequired,
           notes: diagnostic.notes,
           performedBy,
-          result: diagnostic.result, // Include the full diagnostic result
+          result: diagnostic.result,
           status: diagnostic.result?.status || 'PENDING',
         };
       });

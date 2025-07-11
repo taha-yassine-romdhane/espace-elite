@@ -53,27 +53,46 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
       const { title, description, status, priority, startDate, endDate } = req.body;
 
-      const task = await prisma.task.create({
-        data: {
-          title,
-          description,
-          status,
-          priority,
-          userId: session.user.id, // Always use the logged-in user's ID
-          startDate: startDate ? new Date(startDate) : new Date(),
-          endDate: endDate ? new Date(endDate) : new Date(),
-        },
-        include: {
-          assignedTo: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-              role: true
+      const task = await prisma.$transaction(async (tx) => {
+        const newTask = await tx.task.create({
+          data: {
+            title,
+            description,
+            status,
+            priority,
+            userId: session.user.id, // Always use the logged-in user's ID
+            startDate: startDate ? new Date(startDate) : new Date(),
+            endDate: endDate ? new Date(endDate) : new Date(),
+          },
+          include: {
+            assignedTo: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                role: true
+              }
             }
           }
-        }
+        });
+
+        await tx.userActionHistory.create({
+          data: {
+            userId: session.user.id,
+            actionType: 'TASK_CREATION',
+            relatedItemId: newTask.id,
+            relatedItemType: 'Task',
+            details: {
+              title: newTask.title,
+              status: newTask.status,
+              priority: newTask.priority,
+              assignedTo: newTask.assignedTo?.id,
+            },
+          },
+        });
+
+        return newTask;
       });
 
       return res.status(201).json(task);
@@ -87,43 +106,107 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
       const { id, title, description, status, priority, startDate, endDate } = req.body;
 
-      // Verify the user owns this task
-      const existingTask = await prisma.task.findUnique({
-        where: { id },
-        select: { userId: true }
-      });
+      const task = await prisma.$transaction(async (tx) => {
+        const existingTask = await tx.task.findUnique({
+          where: { id },
+        });
 
-      if (!existingTask || existingTask.userId !== session.user.id) {
-        return res.status(403).json({ error: 'Not authorized to modify this task' });
-      }
-
-      const task = await prisma.task.update({
-        where: { id },
-        data: {
-          title,
-          description,
-          status,
-          priority,
-          startDate: startDate ? new Date(startDate) : undefined,
-          endDate: endDate ? new Date(endDate) : undefined,
-        },
-        include: {
-          assignedTo: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-              role: true
-            }
-          }
+        if (!existingTask || existingTask.userId !== session.user.id) {
+          throw new Error('Not authorized to modify this task');
         }
+
+        const updatedTask = await tx.task.update({
+          where: { id },
+          data: {
+            title,
+            description,
+            status,
+            priority,
+            startDate: startDate ? new Date(startDate) : undefined,
+            endDate: endDate ? new Date(endDate) : undefined,
+          },
+          include: {
+            assignedTo: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                role: true,
+              },
+            },
+          },
+        });
+
+        const changes = Object.keys(req.body).reduce((acc: { [key: string]: any }, key) => {
+          if (req.body[key] !== undefined && (existingTask as any)[key] !== req.body[key]) {
+            acc[key] = { old: (existingTask as any)[key], new: req.body[key] };
+          }
+          return acc;
+        }, {});
+
+        if (Object.keys(changes).length > 0) {
+          await tx.userActionHistory.create({
+            data: {
+              userId: session.user.id,
+              actionType: 'TASK_UPDATE',
+              relatedItemId: updatedTask.id,
+              relatedItemType: 'Task',
+              details: {
+                changes,
+              },
+            },
+          });
+        }
+
+        return updatedTask;
       });
 
       return res.status(200).json(task);
     } catch (error) {
       console.error('Error updating task:', error);
       return res.status(500).json({ error: 'Failed to update task' });
+    }
+  }
+
+  if (req.method === 'DELETE') {
+    try {
+      const { id } = req.body;
+
+      const task = await prisma.$transaction(async (tx) => {
+        const existingTask = await tx.task.findUnique({
+          where: { id },
+        });
+
+        if (!existingTask) {
+          throw new Error('Task not found');
+        }
+
+        if (existingTask.userId !== session.user.id) {
+          throw new Error('Not authorized to delete this task');
+        }
+
+        await tx.userActionHistory.create({
+          data: {
+            userId: session.user.id,
+            actionType: 'TASK_DELETION',
+            relatedItemId: id,
+            relatedItemType: 'Task',
+            details: {
+              deletedTask: existingTask,
+            },
+          },
+        });
+
+        await tx.task.delete({ where: { id } });
+
+        return existingTask;
+      });
+
+      return res.status(200).json({ message: 'Task deleted successfully', task });
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      return res.status(500).json({ error: 'Failed to delete task' });
     }
   }
 

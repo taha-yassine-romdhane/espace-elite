@@ -39,30 +39,46 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ message: 'Le statut de vérification est requis' });
     }
 
-    // Update the transfer with verification status
-    const updatedTransfer = await prisma.stockTransfer.update({
-      where: { id },
-      data: {
-        isVerified: verified,
-        verifiedById: user.id,
-        verificationDate: new Date(),
-      },
-    });
-
-    // If verification is rejected, create a notification for the transfer creator
-    if (verified === false) {
-      await prisma.notification.create({
+    const updatedTransfer = await prisma.$transaction(async (tx) => {
+      const transfer = await tx.stockTransfer.update({
+        where: { id },
         data: {
-          title: 'Transfert rejeté',
-          message: `Votre transfert de stock a été rejeté par un administrateur. Consultez les détails du transfert pour plus d'informations.`,
-          userId: updatedTransfer.transferredById,
-          type: NotificationType.TRANSFER,
-          isRead: false,
-          status: NotificationStatus.PENDING,
-          metadata: { transferId: id },
+          isVerified: verified,
+          verifiedById: user.id,
+          verificationDate: new Date(),
         },
       });
-    }
+
+      await tx.userActionHistory.create({
+        data: {
+          userId: user.id,
+          actionType: 'UPDATE',
+          relatedItemId: transfer.id,
+          relatedItemType: 'StockTransfer',
+          details: {
+            action: 'Verification',
+            status: verified ? 'Approved' : 'Rejected',
+            message: `Stock transfer verification status updated to ${verified ? 'approved' : 'rejected'}.`,
+          },
+        },
+      });
+
+      if (verified === false) {
+        await tx.notification.create({
+          data: {
+            title: 'Transfert rejeté',
+            message: `Votre transfert de stock a été rejeté par un administrateur. Consultez les détails du transfert pour plus d'informations.`,
+            userId: transfer.transferredById,
+            type: NotificationType.TRANSFER,
+            isRead: false,
+            status: NotificationStatus.PENDING,
+            metadata: { transferId: id },
+          },
+        });
+      }
+
+      return transfer;
+    });
 
     return res.status(200).json(updatedTransfer);
   } catch (error) {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,7 +6,6 @@ import { Label } from "@/components/ui/label";
 import { DatePicker } from "@/components/ui/date-picker";
 import { cn } from "@/lib/utils";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Plus } from "lucide-react";
 
 interface TraiteFormProps {
   onSubmit: (data: any) => void;
@@ -15,7 +14,7 @@ interface TraiteFormProps {
 }
 
 export default function TraiteForm({ onSubmit, initialValues, className }: TraiteFormProps) {
-  const [classification, setClassification] = useState<"principal" | "garantie" | "complement">("principal");
+  const [classification, setClassification] = useState<"principale" | "garantie" | "complement">("principale");
   const [payeeToSociete, setPayeeToSociete] = useState<"oui" | "no">(initialValues?.payeeToSociete || "oui");
   
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm({
@@ -27,10 +26,16 @@ export default function TraiteForm({ onSubmit, initialValues, className }: Trait
       lieuCreation: "",
       banque: "",
       rib: "",
+      acompte: "",
+      reste: "",
+      dateReste: null,
+      nomTireur: "",
+      adresseNomTireur: "",
+      nomTire: "",
+      adresseNomTire: "",
       nomCedant: "",
       domiciliation: "",
       aval: "",
-      adresseNomTire: "",
       payeeToSociete: "oui",
       nomPrenom: "",
       telephone: "",
@@ -38,12 +43,30 @@ export default function TraiteForm({ onSubmit, initialValues, className }: Trait
     }
   });
 
+  // Watch for changes in montantTotal and acompte to calculate reste
+  const montantTotal = watch("montantTotal");
+  const acompte = watch("acompte");
+
+  useEffect(() => {
+    const total = parseFloat(montantTotal) || 0;
+    const acompteValue = parseFloat(acompte) || 0;
+    const reste = Math.max(0, total - acompteValue);
+    setValue("reste", reste.toString());
+  }, [montantTotal, acompte, setValue]);
+
   const handleFormSubmit = (data: any) => {
+    const montantTotal = parseFloat(data.montantTotal) || 0;
+    const acompte = parseFloat(data.acompte) || 0;
+    const reste = parseFloat(data.reste) || 0;
+
     onSubmit({
       ...data,
       type: "traite",
       classification,
-      payeeToSociete
+      payeeToSociete,
+      amount: montantTotal,
+      acompte,
+      reste
     });
   };
 
@@ -53,12 +76,31 @@ export default function TraiteForm({ onSubmit, initialValues, className }: Trait
 
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className={cn("space-y-6", className)}>
-      <h2 className="text-xl font-semibold">Paiement Traite</h2>
-      
-
 
       {/* Form Fields */}
       <div className="space-y-4">
+        <div>
+          <Label className="font-medium italic">Classification</Label>
+          <RadioGroup 
+            defaultValue={classification} 
+            onValueChange={(value) => setClassification(value as "principale" | "garantie" | "complement")}
+            className="flex items-center space-x-4 pt-2"
+          >
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="principale" id="principale" />
+              <Label htmlFor="principale">Principale</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="garantie" id="garantie" />
+              <Label htmlFor="garantie">Garantie</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="complement" id="complement" />
+              <Label htmlFor="complement">Complément</Label>
+            </div>
+          </RadioGroup>
+        </div>
+
         <div>
           <Label htmlFor="nomTraite" className="font-medium italic">Nom Traite</Label>
           <Input 
@@ -81,6 +123,39 @@ export default function TraiteForm({ onSubmit, initialValues, className }: Trait
           {errors.montantTotal && (
             <p className="text-sm text-red-500 mt-1">{errors.montantTotal.message as string}</p>
           )}
+        </div>
+
+        <div>
+          <Label htmlFor="acompte" className="font-medium italic">Acompte</Label>
+          <Input 
+            id="acompte"
+            placeholder="Valeur"
+            {...register("acompte")}
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="reste" className="font-medium italic">Reste</Label>
+          <Input 
+            id="reste"
+            placeholder="Calculé automatiquement"
+            className="bg-gray-100"
+            disabled
+            {...register("reste")}
+          />
+          {parseFloat(watch("reste")) > 0 && !watch("dateReste") && (
+            <p className="text-sm text-amber-500 mt-1">Date d'échéance requise pour les paiements partiels</p>
+          )}
+        </div>
+
+        <div>
+          <Label htmlFor="dateReste" className="font-medium italic">Date Reste</Label>
+          <DatePicker
+            id="dateReste"
+            value={watch("dateReste")}
+            onChange={(date) => setValue("dateReste", date)}
+            placeholder="Choisir Date"
+          />
         </div>
 
         <div>
@@ -215,15 +290,6 @@ export default function TraiteForm({ onSubmit, initialValues, className }: Trait
           </>
         )}
       </div>
-
-      {/* Add More Button - for multiple traites */}
-      <div className="flex justify-center">
-        <Button type="button" variant="outline" size="sm" className="flex items-center gap-1">
-          <Plus className="h-4 w-4" />
-          <span>Ajouter une autre traite</span>
-        </Button>
-      </div>
-
       <Button type="submit" className="w-full">Sauvegarder</Button>
     </form>
   );

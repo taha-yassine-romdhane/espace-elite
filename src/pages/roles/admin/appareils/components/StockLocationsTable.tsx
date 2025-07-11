@@ -35,7 +35,10 @@ interface StockLocation {
   isActive: boolean;
 }
 
-
+interface LocationContents {
+  products: number;
+  medicalDevices: number;
+}
 
 export function StockLocationsTable({ initialItemsPerPage = 10 }: { initialItemsPerPage?: number }) {
   const { toast } = useToast();
@@ -44,9 +47,12 @@ export function StockLocationsTable({ initialItemsPerPage = 10 }: { initialItems
   const [locationToDelete, setLocationToDelete] = useState<StockLocation | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  
+
   // Search and pagination state
   const [searchQuery, setSearchQuery] = useState('');
+  const [locationContents, setLocationContents] = useState<LocationContents | null>(null);
+  const [deleteCheckLoading, setDeleteCheckLoading] = useState(false);
+  const [deleteCheckError, setDeleteCheckError] = useState<string | null>(null);
   const [filteredLocations, setFilteredLocations] = useState<StockLocation[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(initialItemsPerPage);
@@ -65,19 +71,19 @@ export function StockLocationsTable({ initialItemsPerPage = 10 }: { initialItems
       return data;
     },
   });
-  
+
   // Filter locations based on search query
   useEffect(() => {
     if (!locations) {
       setFilteredLocations([]);
       return;
     }
-    
+
     if (searchQuery.trim() === '') {
       setFilteredLocations(locations);
     } else {
       const query = searchQuery.toLowerCase().trim();
-      const filtered = locations.filter((location: StockLocation) => 
+      const filtered = locations.filter((location: StockLocation) =>
         (location.name && location.name.toLowerCase().includes(query)) ||
         (location.description && location.description.toLowerCase().includes(query)) ||
         (location.user && location.user.firstName && location.user.firstName.toLowerCase().includes(query)) ||
@@ -88,7 +94,7 @@ export function StockLocationsTable({ initialItemsPerPage = 10 }: { initialItems
     // Reset to first page when search changes
     setCurrentPage(1);
   }, [searchQuery, locations]);
-  
+
   // Update paginated data when filtered data changes or pagination settings change
   useEffect(() => {
     if (!filteredLocations) {
@@ -96,29 +102,29 @@ export function StockLocationsTable({ initialItemsPerPage = 10 }: { initialItems
       setTotalPages(1);
       return;
     }
-    
+
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
     setPaginatedData(filteredLocations.slice(startIndex, endIndex));
     setTotalPages(Math.max(1, Math.ceil(filteredLocations.length / itemsPerPage)));
-    
+
     // Reset to page 1 if current page is out of bounds after data change
     if (currentPage > Math.ceil(filteredLocations.length / itemsPerPage) && filteredLocations.length > 0) {
       setCurrentPage(1);
     }
   }, [filteredLocations, currentPage, itemsPerPage]);
-  
+
   // Handle search input change
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
   };
-  
+
   // Handle items per page change
   const handleItemsPerPageChange = (value: string) => {
     setItemsPerPage(Number(value));
     setCurrentPage(1); // Reset to first page when changing items per page
   };
-  
+
   // Pagination navigation functions
   const goToFirstPage = () => setCurrentPage(1);
   const goToLastPage = () => setCurrentPage(totalPages);
@@ -183,9 +189,25 @@ export function StockLocationsTable({ initialItemsPerPage = 10 }: { initialItems
     setIsEditDialogOpen(true);
   };
 
-  const handleDelete = (location: StockLocation) => {
+  const handleDelete = async (location: StockLocation) => {
     setLocationToDelete(location);
     setIsDeleteDialogOpen(true);
+    setDeleteCheckLoading(true);
+    setDeleteCheckError(null);
+    setLocationContents(null);
+
+    try {
+      const response = await fetch(`/api/stock-locations/${location.id}/contents`);
+      if (!response.ok) {
+        throw new Error('Échec de la vérification du contenu du lieu.');
+      }
+      const data: LocationContents = await response.json();
+      setLocationContents(data);
+    } catch (error) {
+      setDeleteCheckError(error instanceof Error ? error.message : 'Une erreur inconnue est survenue.');
+    } finally {
+      setDeleteCheckLoading(false);
+    }
   };
 
   const handleEditSuccess = () => {
@@ -208,14 +230,14 @@ export function StockLocationsTable({ initialItemsPerPage = 10 }: { initialItems
           />
         </div>
       </div>
-      <div className="rounded-md border">
+      <div className=" shadow-md rounded-lg overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Nom</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead>Responsable</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead className="text-blue-600 ">Nom</TableHead>
+              <TableHead className="text-blue-600 ">Description</TableHead>
+              <TableHead className="text-blue-600 ">Responsable</TableHead>
+              <TableHead className="text-right text-blue-600 ">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -224,12 +246,24 @@ export function StockLocationsTable({ initialItemsPerPage = 10 }: { initialItems
                 <TableCell>{location.name}</TableCell>
                 <TableCell>{location.description || '-'}</TableCell>
                 <TableCell>{getUserDisplayName(location.user)}</TableCell>
-                <TableCell className="text-right space-x-2">
-                  <Button variant="ghost" size="sm" onClick={() => handleEdit(location)}>
-                    <Edit className="h-4 w-4 mr-1" /> 
+                <TableCell className="text-right space-x-1 ">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handleEdit(location)}
+                    className="h-9 w-9 rounded-md border border-gray-200 bg-white hover:bg-gray-100"
+                    title="Modifier l'emplacement"
+                  >
+                    <Edit className="h-5 w-5" />
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => handleDelete(location)}>
-                    <Trash2 className="h-4 w-4 mr-1" /> 
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handleDelete(location)}
+                    className="h-9 w-9 rounded-md border border-gray-200 bg-white hover:bg-gray-100"
+                    title="Supprimer l'emplacement"
+                  >
+                    <Trash2 className="h-5 w-5 text-gray-900" />
                   </Button>
                 </TableCell>
               </TableRow>
@@ -261,27 +295,52 @@ export function StockLocationsTable({ initialItemsPerPage = 10 }: { initialItems
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Confirmer la suppression</DialogTitle>
+            <DialogTitle>
+              {locationContents && (locationContents.products > 0 || locationContents.medicalDevices > 0)
+                ? "Suppression impossible"
+                : "Confirmer la suppression"}
+            </DialogTitle>
+          </DialogHeader>
+          {deleteCheckLoading ? (
+            <div className="flex items-center justify-center p-4">
+              <p>Vérification du contenu de l'emplacement...</p>
+            </div>
+          ) : deleteCheckError ? (
+            <div className="p-4 text-red-600 bg-red-50 rounded-md">
+              <p>Erreur: {deleteCheckError}</p>
+            </div>
+          ) : locationContents && (locationContents.products > 0 || locationContents.medicalDevices > 0) ? (
+            <div>
+              <p>Cet emplacement ne peut pas être supprimé car il contient encore des éléments :</p>
+              <ul className="list-disc pl-6 mt-2 text-sm text-gray-700">
+                {locationContents.products > 0 && <li>{locationContents.products} produit(s)</li>}
+                {locationContents.medicalDevices > 0 && <li>{locationContents.medicalDevices} appareil(s) médical(ux)</li>}
+              </ul>
+              <p className="mt-4 text-sm">Veuillez d'abord déplacer ou supprimer ces éléments.</p>
+            </div>
+          ) : (
             <DialogDescription>
               Êtes-vous sûr de vouloir supprimer l&apos;emplacement &quot;{locationToDelete?.name}&quot; ?
               Cette action ne peut pas être annulée.
             </DialogDescription>
-          </DialogHeader>
+          )}
           <DialogFooter className="flex justify-end space-x-2 pt-4">
             <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
-              Annuler
+              {locationContents && (locationContents.products > 0 || locationContents.medicalDevices > 0) ? "Fermer" : "Annuler"}
             </Button>
-            <Button
-              variant="destructive"
-              onClick={() => locationToDelete && deleteLocationMutation.mutate(locationToDelete.id)}
-              disabled={deleteLocationMutation.isPending}
-            >
-              {deleteLocationMutation.isPending ? "Suppression..." : "Supprimer"}
-            </Button>
+            {!(locationContents && (locationContents.products > 0 || locationContents.medicalDevices > 0)) && !deleteCheckLoading && !deleteCheckError && (
+              <Button
+                variant="destructive"
+                onClick={() => locationToDelete && deleteLocationMutation.mutate(locationToDelete.id)}
+                disabled={deleteLocationMutation.isPending}
+              >
+                {deleteLocationMutation.isPending ? "Suppression..." : "Supprimer"}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
+
       {/* Pagination controls */}
       {filteredLocations && filteredLocations.length > 0 && (
         <div className="flex items-center justify-between px-2 py-4 border-t">
@@ -290,7 +349,7 @@ export function StockLocationsTable({ initialItemsPerPage = 10 }: { initialItems
               Affichage de {paginatedData.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} à {Math.min(currentPage * itemsPerPage, filteredLocations.length)} sur {filteredLocations.length} emplacements
             </span>
           </div>
-          
+
           <div className="flex items-center space-x-6">
             <div className="flex items-center space-x-2">
               <span className="text-sm text-gray-700">Lignes par page:</span>
@@ -309,7 +368,7 @@ export function StockLocationsTable({ initialItemsPerPage = 10 }: { initialItems
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div className="flex items-center space-x-2">
               <Button
                 variant="outline"
@@ -329,11 +388,11 @@ export function StockLocationsTable({ initialItemsPerPage = 10 }: { initialItems
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              
+
               <span className="text-sm">
                 Page {currentPage} sur {totalPages}
               </span>
-              
+
               <Button
                 variant="outline"
                 size="icon"

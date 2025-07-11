@@ -71,6 +71,21 @@ export default async function handler(
                 }
               }
             }
+          },
+          sale: {
+            include: {
+              items: {
+                include: {
+                  medicalDevice: {
+                    select: {
+                      id: true,
+                      name: true,
+                      type: true
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         orderBy: {

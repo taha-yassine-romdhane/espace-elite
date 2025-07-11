@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Loader2, User, Package, FileText, Calendar, Activity, X } from 'lucide-react';
+import { Search, Loader2, User, Package, FileText, Calendar, Activity, X, Building } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useDebounce } from '@/hooks/useDebounce';
 import { cn } from '@/lib/utils';
 
 // Define search result types
-export type SearchResultType = 'patient' | 'product' | 'diagnostic' | 'sale' | 'rental' | 'user' | 'medicalDevice';
+export type SearchResultType = 'patient' | 'product' | 'diagnostic' | 'company' | 'sale' | 'rental' | 'user' | 'medicalDevice';
 
 export interface SearchResult {
   id: string;
@@ -15,12 +15,6 @@ export interface SearchResult {
   url: string;
 }
 
-interface SearchResultGroup {
-  type: SearchResultType;
-  label: string;
-  icon: React.ReactNode;
-  results: SearchResult[];
-}
 
 interface GlobalSearchProps {
   className?: string;
@@ -50,6 +44,12 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
       label: 'Patients',
       icon: <User className="h-4 w-4" />,
       results: results.filter(r => r.type === 'patient')
+    },
+    {
+      type: 'company' as SearchResultType,
+      label: 'Entreprises',
+      icon: <Building className="h-4 w-4" />,
+      results: results.filter(r => r.type === 'company')
     },
     {
       type: 'product' as SearchResultType,

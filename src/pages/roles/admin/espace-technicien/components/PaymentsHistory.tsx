@@ -45,6 +45,19 @@ interface Payment {
       type: string;
     };
   };
+  saleId?: string;
+  sale?: {
+    id: string;
+    items: {
+      id: string;
+      medicalDeviceId?: string;
+      medicalDevice?: {
+        id: string;
+        name: string;
+        type: string;
+      };
+    }[];
+  };
 }
 
 export function PaymentsHistory({ technicianId }: PaymentsHistoryProps) {
@@ -61,7 +74,7 @@ export function PaymentsHistory({ technicianId }: PaymentsHistoryProps) {
   };
 
   const formatAmount = (amount: number) => {
-    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(amount);
+    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'TND' }).format(amount);
   };
 
   const getPaymentStatusBadge = (status: string) => {
@@ -82,8 +95,10 @@ export function PaymentsHistory({ technicianId }: PaymentsHistoryProps) {
   const getPaymentType = (payment: Payment) => {
     if (payment.rental) {
       return "Location";
+    } else if (payment.sale) {
+      return "Vente";
     }
-    return "Vente";
+    return "N/A";
   };
 
   if (isLoading) {
@@ -145,7 +160,15 @@ export function PaymentsHistory({ technicianId }: PaymentsHistoryProps) {
                     }
                   </TableCell>
                   <TableCell>
-                    {payment.rental?.medicalDevice?.name || 'N/A'}
+                    {
+                      payment.rental?.medicalDevice?.name ||
+                      (payment.sale?.items && payment.sale.items.length > 0
+                        ? payment.sale.items
+                            .map((item) => item.medicalDevice?.name)
+                            .filter(Boolean)
+                            .join(', ') || 'N/A'
+                        : 'N/A')
+                    }
                   </TableCell>
                   <TableCell>{getPaymentType(payment)}</TableCell>
                   <TableCell>{formatAmount(payment.amount)}</TableCell>

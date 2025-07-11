@@ -18,7 +18,7 @@ export default function DashboardPage() {
   const router = useRouter();
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto py-10 px-4">
         <h1 className="text-3xl font-bold mb-8 text-blue-900">Tableau de Bord</h1>
         

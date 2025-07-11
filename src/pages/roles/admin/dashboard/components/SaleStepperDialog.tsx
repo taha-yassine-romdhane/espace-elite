@@ -13,17 +13,20 @@ import { toast } from "@/components/ui/use-toast";
 
 // Import the product selection components
 import { ProductSelectionStep } from "./steps/ProductSelectionStep";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 interface StepperDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  action: "location" | "vente" | "diagnostique" | null;
+  action:  "vente" | null ;
 }
 
 const steps = [
   { id: 1, name: "Type de Renseignement", description: "Sélectionner le type de client et le client" },
   { id: 2, name: "Ajout Produits", description: "Sélectionner ou créer des produits" },
   { id: 3, name: "Ajout Paiement", description: "Configurer les détails du paiement" },
+  { id: 4, name: "Récapitulatif", description: "Vérifier et finaliser la vente" },
 ] as const;
 
 export function SaleStepperDialog({ isOpen, onClose, action }: StepperDialogProps) {
@@ -45,6 +48,8 @@ export function SaleStepperDialog({ isOpen, onClose, action }: StepperDialogProp
   const [currentProductType, setCurrentProductType] = useState<
     "medical-device" | "accessory" | "spare-part" | "diagnostic" | null
   >(null);
+
+  const [notes, setNotes] = useState("");
 
   // Calculate total price
   const calculateTotalPrice = useCallback(() => {
@@ -139,7 +144,30 @@ export function SaleStepperDialog({ isOpen, onClose, action }: StepperDialogProp
 
   // Product Selection Handlers
   const handleProductSelect = (product: any) => {
-    setSelectedProducts([...selectedProducts, product]);
+    const isDevice = product.type === 'MEDICAL_DEVICE' || product.type === 'DIAGNOSTIC_DEVICE';
+    const existingProductIndex = selectedProducts.findIndex(p => p.id === product.id);
+    const isAlreadySelected = existingProductIndex !== -1;
+
+    if (isAlreadySelected) {
+      if (isDevice) {
+        toast({
+          title: "Appareil déjà sélectionné",
+          description: "Cet appareil a déjà été ajouté à la vente.",
+          variant: "destructive",
+        });
+        return;
+      } else {
+        const updatedProducts = [...selectedProducts];
+        const currentProduct = updatedProducts[existingProductIndex];
+        updatedProducts[existingProductIndex] = { ...currentProduct, quantity: (currentProduct.quantity || 1) + 1 };
+        setSelectedProducts(updatedProducts);
+      }
+    } else {
+      setSelectedProducts(prev => [...prev, { ...product, quantity: 1 }]);
+    }
+
+    setProductDialogOpen(false);
+    setCurrentProductType(null);
   };
 
   const handleRemoveProduct = (index: number) => {
@@ -186,11 +214,38 @@ export function SaleStepperDialog({ isOpen, onClose, action }: StepperDialogProp
     setCurrentProductType(null);
     setProductDialogOpen(false);
     setIsCreateFormOpen(false);
+    setNotes("");
     onClose();
   };
 
-  // Handle payment completion
+  // Payment completion state
+  const [paymentData, setPaymentData] = useState<any>(null);
+
+  // Handle payment completion - now advances to recap step
   const handlePaymentComplete = async (paymentData: any) => {
+    try {
+      // Store payment data for the recap step
+      setPaymentData(paymentData);
+      
+      // Advance to recap step
+      setCurrentStep(4);
+      
+      toast({
+        title: "Paiement configuré",
+        description: "Vérifiez le récapitulatif avant de finaliser la vente.",
+      });
+    } catch (error: any) {
+      console.error('Error processing payment:', error);
+      toast({
+        title: "Erreur",
+        description: `Une erreur est survenue: ${error.message || 'Erreur inconnue'}`,
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle final sale creation from recap step
+  const handleFinalizeSale = async () => {
     try {
       // Calculate totals
       const totalAmount = calculateTotalPrice();
@@ -199,7 +254,7 @@ export function SaleStepperDialog({ isOpen, onClose, action }: StepperDialogProp
       
       // Process all payments
       let paymentDetails = null;
-      if (paymentData.payments && paymentData.payments.length > 0) {
+      if (paymentData?.payments && paymentData.payments.length > 0) {
         // Get the primary payment if available
         const primaryPayment = paymentData.payments.find((p: any) => p.classification === 'principale') || paymentData.payments[0];
         
@@ -258,9 +313,8 @@ export function SaleStepperDialog({ isOpen, onClose, action }: StepperDialogProp
         totalAmount,
         discount,
         finalAmount,
-        status: paymentData.status === 'COMPLETED' ? 'COMPLETED' : 'PENDING',
-        notes: `Created via ${action === 'location' ? 'rental' : 'sale'} stepper`,
-        processedById: '', // Will be filled by the API with the current user's ID
+        status: paymentData?.status === 'COMPLETED' ? 'COMPLETED' : 'PENDING',
+        notes: notes,
         patientId: clientType === 'patient' ? clientDetails?.id : null,
         companyId: clientType === 'societe' ? clientDetails?.id : null,
         payment: paymentDetails,
@@ -294,12 +348,12 @@ export function SaleStepperDialog({ isOpen, onClose, action }: StepperDialogProp
       
       // Show success message
       toast({
-        title: "Opération terminée",
+        title: "Vente créée avec succès",
         description: "La vente a été enregistrée avec succès.",
       });
       
       // Close the dialog
-      onClose();
+      handleClose();
     } catch (error: any) {
       console.error('Error creating sale:', error);
       toast({
@@ -310,18 +364,6 @@ export function SaleStepperDialog({ isOpen, onClose, action }: StepperDialogProp
     }
   };
 
-  const getActionTitle = () => {
-    switch (action) {
-      case "location":
-        return "Nouvelle Location";
-      case "vente":
-        return "Nouvelle Vente";
-      case "diagnostique":
-        return "Nouveau Diagnostic";
-      default:
-        return "";
-    }
-  };
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -340,7 +382,7 @@ export function SaleStepperDialog({ isOpen, onClose, action }: StepperDialogProp
 
           <div className="flex-1 overflow-hidden flex flex-col">
             <DialogHeader className="flex-shrink-0 p-4 pb-4 border-b">
-              <DialogTitle>{getActionTitle()}</DialogTitle>
+              <DialogTitle>Nouvelle Vente</DialogTitle>
             </DialogHeader>
 
             <div className="flex-1 overflow-y-auto">
@@ -373,13 +415,29 @@ export function SaleStepperDialog({ isOpen, onClose, action }: StepperDialogProp
                 )}
 
                 {currentStep === 3 && (
-                  <PaymentStep
-                    onBack={handleBack}
-                    onComplete={handlePaymentComplete}
-                    selectedClient={clientDetails}
-                    selectedProducts={selectedProducts}
-                    calculateTotal={calculateTotalPrice}
-                  />
+                  <div className="flex flex-col h-full">
+                    <div className="flex-grow p-6 space-y-6 overflow-y-auto">
+                      <PaymentStep
+                        onBack={handleBack}
+                        onComplete={handlePaymentComplete}
+                        selectedClient={clientDetails}
+                        selectedProducts={selectedProducts}
+                        calculateTotal={calculateTotalPrice}
+                      />
+                    </div>
+                    <div className="p-6 border-t bg-gray-50">
+                      <Label htmlFor="sale-notes" className="text-base font-semibold text-gray-800">
+                        Notes (facultatif)
+                      </Label>
+                      <Textarea
+                        id="sale-notes"
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                        placeholder="Ajouter des notes sur la vente (par exemple, conditions spéciales, instructions de livraison, etc.)"
+                        className="mt-2 min-h-[100px] text-base"
+                      />
+                    </div>
+                  </div>
                 )}
               </div>
             </div>

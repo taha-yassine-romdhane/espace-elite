@@ -1,6 +1,5 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -23,7 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Switch } from "@/components/ui/switch";
 import { useState } from "react";
-import { Eye, X } from "lucide-react";
+import { Eye} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -31,7 +30,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogClose,
 } from "@/components/ui/dialog";
 
 // Import parameter form components
@@ -41,27 +39,33 @@ import {
   ParametreConcentrateurForm,
   ParametreBouteilleForm,
   ParametreVIForm
-} from "../../../../../../components/MedicaleDevicesParametreForms";
+} from "@/components/MedicaleDevicesParametreForms";
 
 // Form validation schema for medical devices
 const medicalDeviceSchema = z.object({
-  name: z.string().min(2, "Le nom doit contenir au moins 2 caractères"),
+  name: z.string({ required_error: "Veuillez sélectionner un nom." }),
+  customName: z.string().optional(),
   type: z.literal("MEDICAL_DEVICE"),
   brand: z.string().optional().nullable(),
   model: z.string().optional().nullable(),
   serialNumber: z.string().optional().nullable(),
-
   stockLocationId: z.string().optional().nullable(),
-
   purchasePrice: z.string().transform(val => val ? parseFloat(val) : null).nullable(),
   sellingPrice: z.string().transform(val => val ? parseFloat(val) : null).nullable(),
-
   technicalSpecs: z.string().optional().nullable(),
   configuration: z.string().optional().nullable(),
-
   status: z.enum(["ACTIVE", "MAINTENANCE", "RETIRED", "RESERVED"]).default("ACTIVE"),
   availableForRent: z.boolean().default(false),
+  rentalPrice: z.string().transform(val => val ? parseFloat(val) : null).nullable(),
   requiresMaintenance: z.boolean().default(false),
+}).refine((data) => {
+  if (data.name === 'Autre') {
+    return !!data.customName && data.customName.length >= 2;
+  }
+  return true;
+}, {
+  message: "Le nom personnalisé doit contenir au moins 2 caractères.",
+  path: ['customName'],
 });
 
 type MedicalDeviceFormValues = z.infer<typeof medicalDeviceSchema>;
@@ -77,10 +81,15 @@ export function MedicalDeviceForm({ initialData, onSubmit, stockLocations, isEdi
   // State to control parameter preview dialog
   const [dialogOpen, setDialogOpen] = useState(false);
 
+  const standardDeviceNames = ["CPAP", "VNI", "Concentrateur O²", "Vi", "Bouteil O²"];
+  const isCustomName = isEditMode && initialData?.name && !standardDeviceNames.includes(initialData.name);
+
   const form = useForm<MedicalDeviceFormValues>({
     resolver: zodResolver(medicalDeviceSchema),
     defaultValues: {
       ...initialData,
+      name: isCustomName ? 'Autre' : initialData?.name,
+      customName: isCustomName ? initialData.name : undefined,
       type: "MEDICAL_DEVICE",
       availableForRent: initialData?.availableForRent || false,
       requiresMaintenance: initialData?.requiresMaintenance || false,
@@ -90,7 +99,14 @@ export function MedicalDeviceForm({ initialData, onSubmit, stockLocations, isEdi
 
   const handleSubmit = async (values: MedicalDeviceFormValues) => {
     try {
-      const cleanedValues = Object.entries(values).reduce((acc, [key, value]) => {
+      const { customName, ...rest } = values;
+      const submissionValues = { ...rest };
+
+      if (values.name === 'Autre') {
+        submissionValues.name = customName || '';
+      }
+      
+      const cleanedValues = Object.entries(submissionValues).reduce((acc, [key, value]) => {
         acc[key] = value === "" ? null : value;
         return acc;
       }, {} as any);
@@ -157,6 +173,7 @@ export function MedicalDeviceForm({ initialData, onSubmit, stockLocations, isEdi
                                 <SelectItem value="Concentrateur O²">Concentrateur O²</SelectItem>
                                 <SelectItem value="Vi">Vi</SelectItem>
                                 <SelectItem value="Bouteil O²">Bouteil O²</SelectItem>
+                                <SelectItem value="Autre">Autre</SelectItem>
                               </SelectContent>
                             </Select>
                           </FormControl>
@@ -164,6 +181,22 @@ export function MedicalDeviceForm({ initialData, onSubmit, stockLocations, isEdi
                         </FormItem>
                       )}
                     />
+
+                    {selectedName === 'Autre' && (
+                      <FormField
+                        control={form.control}
+                        name="customName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Nom de l'appareil personnalisé</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Ex: Lit médical" {...field} value={field.value || ''} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
 
                     <div className="grid grid-cols-2 gap-4">
                       <FormField
@@ -270,6 +303,19 @@ export function MedicalDeviceForm({ initialData, onSubmit, stockLocations, isEdi
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Prix de Vente</FormLabel>
+                            <FormControl>
+                              <Input type="number" step="0.01" min="0" {...field} value={field.value || ''} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                           <FormField
+                        control={form.control}
+                        name="rentalPrice"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Prix de Location par jour</FormLabel>
                             <FormControl>
                               <Input type="number" step="0.01" min="0" {...field} value={field.value || ''} />
                             </FormControl>

@@ -301,7 +301,7 @@ export default function RepairLocations() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <div className="bg-white rounded-lg shadow">
+      <div className="rounded-lg shadow">
         <Table>
           <TableHeader>
             <TableRow>

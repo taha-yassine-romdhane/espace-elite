@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/router';
+import Link from 'next/link';
 import {
   Table,
   TableBody,
@@ -12,25 +14,29 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Product, ProductType } from "@/types";
-import { History, Sliders, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Settings } from "lucide-react";
+import { History, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+
+import { Info } from 'lucide-react';
 
 interface MedicalDevicesTableProps {
   products: Product[];
   onViewHistory: (product: Product) => void;
-  onViewParameters?: (product: Product) => void;
   renderActionButtons: (product: Product) => React.ReactNode;
   initialItemsPerPage?: number;
 }
 
-export function MedicalDevicesTable({ 
+export const MedicalDevicesTable: React.FC<MedicalDevicesTableProps> = ({ 
   products = [], 
   onViewHistory,
-  onViewParameters,
   renderActionButtons,
   initialItemsPerPage = 10
-}: MedicalDevicesTableProps) {
-  // Filter medical devices from all products
-  const allMedicalDevices = products?.filter(p => p?.type === ProductType.MEDICAL_DEVICE) || [];
+}: MedicalDevicesTableProps) => {
+  const router = useRouter();
+
+  // Memoize the filtering of medical devices to prevent re-renders
+  const allMedicalDevices = useMemo(() => 
+    products?.filter(p => p?.type === ProductType.MEDICAL_DEVICE) || []
+  , [products]);
   
   // Search and pagination state
   const [searchQuery, setSearchQuery] = useState('');
@@ -98,6 +104,10 @@ export function MedicalDevicesTable({
         return 'secondary';
       case 'RETIRED':
         return 'destructive';
+      case 'RESERVED':
+        return 'warning';
+      case 'SOLD':
+        return 'success';
       default:
         return 'outline';
     }
@@ -152,6 +162,7 @@ export function MedicalDevicesTable({
             <TableRow>
               <TableHead>Nom</TableHead>
               <TableHead>Marque/Modèle</TableHead>
+              <TableHead>Num Serie</TableHead>
               <TableHead>Emplacement</TableHead>
               <TableHead>Statut</TableHead>
               <TableHead>Réservé jusqu'à</TableHead>
@@ -168,6 +179,7 @@ export function MedicalDevicesTable({
                   {device.model && <span> / {device.model}</span>}
                 </div>
               </TableCell>
+              <TableCell>{device.serialNumber}</TableCell>
               <TableCell>{getLocationName(device)}</TableCell>
               <TableCell>
                 <Badge variant={getStatusBadgeVariant(device.status)}>
@@ -179,6 +191,16 @@ export function MedicalDevicesTable({
               </TableCell>
               <TableCell className="py-1">
                 <div className="flex items-center justify-end gap-2">
+                  <Link href={`/roles/admin/appareils/medical-device/${device.id}`} passHref>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      title="Voir les détails"
+                      className="h-9 w-9 rounded-md border border-gray-200 bg-white hover:bg-gray-100 flex items-center justify-center"
+                    >
+                      <Info className="h-5 w-5" />
+                    </Button>
+                  </Link>
                   <Button
                     variant="outline"
                     size="icon"
@@ -188,17 +210,6 @@ export function MedicalDevicesTable({
                   >
                     <History className="h-5 w-5" />
                   </Button>
-                  {onViewParameters && (
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => onViewParameters(device)}
-                      title="Voir les paramètres de l'appareil"
-                      className="h-9 w-9 rounded-md border border-gray-200 bg-white hover:bg-gray-100 flex items-center justify-center"
-                    >
-                      <Settings className="h-5 w-5" />
-                    </Button>
-                  )}
                   {renderActionButtons && (
                     <div className="flex items-center gap-2">
                       {renderActionButtons(device)}

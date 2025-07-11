@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DatePicker } from "@/components/ui/date-picker";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { cn } from "@/lib/utils";
 
 interface MondatFormProps {
@@ -13,7 +14,7 @@ interface MondatFormProps {
 }
 
 export default function MondatForm({ onSubmit, initialValues, className }: MondatFormProps) {
-  const [classification, setClassification] = useState<"principal" | "garantie" | "complement">("principal");
+  const [classification, setClassification] = useState<"principale" | "garantie" | "complement">("principale");
   
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm({
     defaultValues: initialValues || {
@@ -27,6 +28,17 @@ export default function MondatForm({ onSubmit, initialValues, className }: Monda
     }
   });
 
+  // Watch for changes in montantTotal and acompte to calculate reste
+  const montantTotal = watch("montantTotal");
+  const acompte = watch("acompte");
+
+  useEffect(() => {
+    const total = parseFloat(montantTotal) || 0;
+    const acompteValue = parseFloat(acompte) || 0;
+    const reste = Math.max(0, total - acompteValue);
+    setValue("reste", reste.toString());
+  }, [montantTotal, acompte, setValue]);
+
   const handleFormSubmit = (data: any) => {
     onSubmit({
       ...data,
@@ -37,12 +49,31 @@ export default function MondatForm({ onSubmit, initialValues, className }: Monda
 
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className={cn("space-y-6", className)}>
-      <h2 className="text-xl font-semibold">Paiement Par Mondât</h2>
-      
- 
 
       {/* Form Fields */}
       <div className="space-y-4">
+        <div>
+          <Label className="font-medium italic">Classification</Label>
+          <RadioGroup 
+            defaultValue={classification} 
+            onValueChange={(value) => setClassification(value as "principale" | "garantie" | "complement")}
+            className="flex items-center space-x-4 pt-2"
+          >
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="principale" id="principale" />
+              <Label htmlFor="principale">Principale</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="garantie" id="garantie" />
+              <Label htmlFor="garantie">Garantie</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="complement" id="complement" />
+              <Label htmlFor="complement">Complément</Label>
+            </div>
+          </RadioGroup>
+        </div>
+
         <div>
           <Label htmlFor="montantTotal" className="font-medium italic">Montant Total</Label>
           <Input 
@@ -68,9 +99,14 @@ export default function MondatForm({ onSubmit, initialValues, className }: Monda
           <Label htmlFor="reste" className="font-medium italic">Reste</Label>
           <Input 
             id="reste"
-            placeholder="Valeur"
+            placeholder="Calculé automatiquement"
+            className="bg-gray-100"
+            disabled
             {...register("reste")}
           />
+          {parseFloat(watch("reste")) > 0 && !watch("dateReste") && (
+            <p className="text-sm text-amber-500 mt-1">Date d'échéance requise pour les paiements partiels</p>
+          )}
         </div>
 
         <div>

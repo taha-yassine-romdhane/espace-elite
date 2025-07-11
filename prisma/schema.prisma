@@ -7,50 +7,58 @@ generator client {
   provider = "prisma-client-js"
 }
 
+enum ClientType {
+  PATIENT
+  COMPANY
+}
 enum Role {
   ADMIN
   EMPLOYEE
   MANAGER
   DOCTOR
 }
-
 enum PaymentMethod {
   CNAM
   CHEQUE
   CASH
+  TRAITE
+  MANDAT
+  VIREMENT
 }
-
-enum PaymentStatus {
-  PENDING
-  PAID
-  GUARANTEE
-  PARTIAL
-}
-
 enum BeneficiaryType {
   ASSURE_SOCIAL
   CONJOINT
   ENFANT
   ASSANDANT
 }
-
 enum Affiliation {
   CNSS
   CNRPS
 }
-
-enum DeviceStatus {
-  ACTIVE
-  MAINTENANCE
-  RETIRED
-  RESERVED
-}
-
 enum ProductType {
   ACCESSORY
   SPARE_PART
   DIAGNOSTIC_DEVICE
   MEDICAL_DEVICE
+}
+enum PaymentStatus {
+  PENDING
+  PAID
+  GUARANTEE
+  PARTIAL
+  CANCELLED
+}
+enum ProductStatus {
+  ACTIVE
+  RETIRED
+  SOLD
+}
+enum DeviceStatus {
+  ACTIVE
+  MAINTENANCE
+  RETIRED
+  RESERVED
+  SOLD
 }
 
 enum StockStatus {
@@ -59,24 +67,16 @@ enum StockStatus {
   EN_REPARATION
   HORS_SERVICE
 }
-
-enum ClientType {
-  PATIENT
-  COMPANY
-}
-
 enum TaskStatus {
   TODO
   IN_PROGRESS
   COMPLETED
 }
-
 enum TaskPriority {
   LOW
   MEDIUM
   HIGH
 }
-
 enum ActionType {
   CREATE
   UPDATE
@@ -86,10 +86,12 @@ enum ActionType {
   PAYMENT
   MAINTENANCE
   APPOINTMENT
-  TASK
+  TASK_CREATION
+  TASK_UPDATE
+  TASK_DELETION
   SALE
+  TRANSFER
 }
-
 enum SaleStatus {
   PENDING
   ON_PROGRESS
@@ -98,14 +100,12 @@ enum SaleStatus {
   RETURNED
   PARTIALLY_RETURNED
 }
-
 enum NotificationStatus {
   PENDING
   COMPLETED
   DISMISSED
   READ
 }
-
 enum NotificationType {
   FOLLOW_UP
   MAINTENANCE
@@ -193,6 +193,8 @@ model Stock {
   status     StockStatus   @default(EN_VENTE)
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt
+
+  @@unique([locationId, productId])
 }
 
 model StockTransfer {
@@ -237,7 +239,7 @@ model Product {
   serialNumber       String?           @unique
   purchaseDate       DateTime?
   warrantyExpiration DateTime?
-  status             DeviceStatus      @default(ACTIVE)
+  status             ProductStatus      @default(ACTIVE)
   notes              String?
   stocks             Stock[]
   stockLocation      StockLocation?    @relation(fields: [stockLocationId], references: [id])
@@ -426,7 +428,7 @@ model MedicalDevice {
   stockLocationId     String?
   stockLocation       StockLocation?           @relation(fields: [stockLocationId], references: [id])
   stockQuantity       Int                      @default(1)
-  status              String                   @default("ACTIVE") // ACTIVE, MAINTENANCE, RETIRED
+  status              DeviceStatus             @default(ACTIVE) // ACTIVE, MAINTENANCE, RETIRED
   availableForRent    Boolean                  @default(false)
   requiresMaintenance Boolean                  @default(false)
   installationDate    DateTime?

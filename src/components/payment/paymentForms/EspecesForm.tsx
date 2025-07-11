@@ -87,8 +87,6 @@ export default function EspecesForm({ onSubmit, initialValues, className, onCanc
 
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className={cn("space-y-6", className)}>
-      <h2 className="text-xl font-semibold">Paiement Par Espèces</h2>
-      
       {/* Classification buttons */}
       <div className="flex space-x-2 mb-4">
         {["principale", "garantie", "complement"].map((type) => (

@@ -13,7 +13,7 @@ const EmployeeLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =
   };
 
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-screen bg-gray-100 employee-theme">
       {/* Sidebar */}
       <EmployeeSidebar />
 

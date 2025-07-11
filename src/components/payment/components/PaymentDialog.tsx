@@ -18,6 +18,7 @@ export interface PaymentDialogProps {
   onComplete: (payments: any[]) => void;
   selectedProducts?: any[];
   isRental?: boolean;
+  isCompany?: boolean;
 }
 
 /**
@@ -27,12 +28,14 @@ const PaymentDialogContent = ({
   onOpenChange, 
   onComplete,
   selectedProducts = [],
-  isRental = false
+  isRental = false,
+  isCompany = false
 }: { 
   onOpenChange: (open: boolean) => void;
   onComplete: (payments: any[]) => void;
   selectedProducts?: any[];
   isRental?: boolean;
+  isCompany?: boolean;
 }) => {
   // State for the payment form
   const [selectedType, setSelectedType] = useState<string | null>(null);
@@ -226,7 +229,14 @@ const PaymentDialogContent = ({
 
             <TabsContent value="types" className="space-y-4 pt-2">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {PAYMENT_TYPES.map((type) => (
+                {PAYMENT_TYPES.filter(type => {
+                  // For companies, only show especes, virement, cheque, and traite
+                  if (isCompany) {
+                    return ['especes', 'virement', 'cheque', 'traite'].includes(type.id);
+                  }
+                  // For patients, show all payment types
+                  return true;
+                }).map((type) => (
                   <PaymentTypeCard
                     key={type.id}
                     id={type.id}
@@ -280,7 +290,8 @@ const PaymentDialog: React.FC<PaymentDialogProps> = ({
   totalAmount, 
   onComplete,
   selectedProducts = [],
-  isRental = false
+  isRental = false,
+  isCompany = false
 }) => {
   // No need for reset logic here as it's handled in the inner component
 
@@ -297,6 +308,7 @@ const PaymentDialog: React.FC<PaymentDialogProps> = ({
             onComplete={onComplete}
             selectedProducts={selectedProducts}
             isRental={isRental}
+            isCompany={isCompany}
           />
         </PaymentProvider>
       </DialogContent>

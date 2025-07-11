@@ -20,14 +20,9 @@ export default async function handler(
         const [medicalDevices, products] = await Promise.all([
           prisma.medicalDevice.findMany({
             include: {
-              stockLocation: {
-                select: {
-                  id: true,
-                  name: true,
-                  description: true,
-                }
-              }
-            }
+              stockLocation: true,
+              Patient: true,
+            },
           }),
           prisma.product.findMany({
             where: {
@@ -40,7 +35,8 @@ export default async function handler(
                 include: {
                   location: true
                 }
-              }
+              },
+              stockLocation: true
             }
           })
         ]);
@@ -81,6 +77,7 @@ export default async function handler(
             brand: device.brand,
             model: device.model,
             serialNumber: device.serialNumber,
+            rentalPrice: device.rentalPrice,
             purchasePrice: device.purchasePrice,
             sellingPrice: device.sellingPrice,
             technicalSpecs: device.technicalSpecs,
@@ -95,7 +92,8 @@ export default async function handler(
             patientId: device.patientId,
             reservedUntil: device.reservedUntil,
             location: device.location,
-            isReserved: isReserved
+            isReserved: isReserved,
+            patient: device.Patient
           };
         });
 
@@ -110,10 +108,10 @@ export default async function handler(
           purchasePrice: product.purchasePrice,
           sellingPrice: product.sellingPrice,
           technicalSpecs: null,
-          stockLocation: product.stocks[0]?.location.name || 'Non assigné',
-          stockLocationId: product.stocks[0]?.location.id,
-          stockQuantity: product.stocks.reduce((acc, stock) => acc + stock.quantity, 0),
-          status: product.stocks[0]?.status || 'EN_VENTE'
+          stockLocation: product.stockLocation,
+          stockLocationId: product.stockLocationId,
+          status: product.status, // Use product's own status
+          stocks: product.stocks // Include the full stocks array
         }));
 
         // Combine both types of products
@@ -133,6 +131,7 @@ export default async function handler(
                 brand: data.brand,
                 model: data.model,
                 serialNumber: data.serialNumber,
+                rentalPrice: data.rentalPrice ? parseFloat(data.rentalPrice) : null,
                 purchasePrice: data.purchasePrice ? parseFloat(data.purchasePrice) : null,
                 sellingPrice: data.sellingPrice ? parseFloat(data.sellingPrice) : null,
                 technicalSpecs: data.technicalSpecs,
@@ -189,6 +188,7 @@ export default async function handler(
               sellingPrice: newMedicalDevice.sellingPrice,
               technicalSpecs: newMedicalDevice.technicalSpecs,
               availableForRent: newMedicalDevice.availableForRent,
+              rentalPrice: newMedicalDevice.rentalPrice,
               requiresMaintenance: newMedicalDevice.requiresMaintenance,
               stockLocation: newMedicalDevice.stockLocation,
               stockLocationId: newMedicalDevice.stockLocationId,
@@ -242,6 +242,7 @@ export default async function handler(
               serialNumber: newProduct.serialNumber,
               purchasePrice: newProduct.purchasePrice,
               sellingPrice: newProduct.sellingPrice,
+              warrantyExpiration: newProduct.warrantyExpiration,
               stockLocation: stock.location.name,
               stockLocationId: stock.location.id,
               stockQuantity: stock.quantity,
@@ -269,15 +270,16 @@ export default async function handler(
               brand: updateData.brand,
               model: updateData.model,
               serialNumber: updateData.serialNumber,
-              purchasePrice: updateData.purchasePrice ? parseFloat(updateData.purchasePrice) : null,
-              sellingPrice: updateData.sellingPrice ? parseFloat(updateData.sellingPrice) : null,
+              rentalPrice: updateData.rentalPrice ? parseFloat(updateData.rentalPrice.toString()) : null,
+              purchasePrice: updateData.purchasePrice ? parseFloat(updateData.purchasePrice.toString()) : null,
+              sellingPrice: updateData.sellingPrice ? parseFloat(updateData.sellingPrice.toString()) : null,
               technicalSpecs: updateData.technicalSpecs,
               availableForRent: updateData.availableForRent,
               requiresMaintenance: updateData.requiresMaintenance,
-              configuration: updateData.specifications,
+              configuration: updateData.configuration || updateData.specifications,
               status: updateData.status || 'ACTIVE',
-              stockLocationId: updateData.stockLocation,
-              stockQuantity: updateData.stockQuantity ? parseInt(updateData.stockQuantity) : 1,
+              stockLocationId: updateData.stockLocationId || updateData.stockLocation,
+              stockQuantity: updateData.stockQuantity ? parseInt(updateData.stockQuantity.toString()) : 1,
             },
             include: {
               stockLocation: true
@@ -321,6 +323,7 @@ export default async function handler(
             brand: updatedMedicalDevice.brand,
             model: updatedMedicalDevice.model,
             serialNumber: updatedMedicalDevice.serialNumber,
+            rentalPrice: updatedMedicalDevice.rentalPrice,
             purchasePrice: updatedMedicalDevice.purchasePrice,
             sellingPrice: updatedMedicalDevice.sellingPrice,
             technicalSpecs: updatedMedicalDevice.technicalSpecs,
@@ -343,6 +346,7 @@ export default async function handler(
               serialNumber: updateData.serialNumber,
               purchasePrice: updateData.purchasePrice ? parseFloat(updateData.purchasePrice) : null,
               sellingPrice: updateData.sellingPrice ? parseFloat(updateData.sellingPrice) : null,
+              warrantyExpiration: updateData.warrantyExpiration ? new Date(updateData.warrantyExpiration) : null,
             },
           });
 
@@ -365,7 +369,7 @@ export default async function handler(
             brand: updatedProduct.brand,
             serialNumber: updatedProduct.serialNumber,
             purchasePrice: updatedProduct.purchasePrice,
-            sellingPrice: null,
+            sellingPrice: updatedProduct.sellingPrice,
             technicalSpecs: null,
             stockLocation: stock?.location.name || 'Non assigné',
             stockLocationId: stock?.location.id,

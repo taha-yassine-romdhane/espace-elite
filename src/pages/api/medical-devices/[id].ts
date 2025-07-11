@@ -36,6 +36,7 @@ export default async function handler(
             serialNumber: device.serialNumber,
             purchasePrice: device.purchasePrice,
             sellingPrice: device.sellingPrice,
+            rentalPrice: device.rentalPrice,
             technicalSpecs: device.technicalSpecs,
             warranty: device.warranty,
             availableForRent: device.availableForRent,
@@ -74,6 +75,7 @@ export default async function handler(
           serialNumber: product.serialNumber,
           purchasePrice: product.purchasePrice,
           sellingPrice: product.sellingPrice,
+          warrantyExpiration: product.warrantyExpiration,
           stockLocation: product.stocks[0]?.location.name || 'Non assigné',
           stockLocationId: product.stocks[0]?.location.id,
           stockQuantity: product.stocks.reduce((acc, stock) => acc + stock.quantity, 0),
@@ -156,6 +158,7 @@ export default async function handler(
                   serialNumber: data.serialNumber,
                   purchasePrice: data.purchasePrice ? parseFloat(data.purchasePrice) : null,
                   sellingPrice: data.sellingPrice ? parseFloat(data.sellingPrice) : null,
+                  rentalPrice: data.rentalPrice ? parseFloat(data.rentalPrice) : null,
                   technicalSpecs: data.technicalSpecs,
                   warranty: data.warranty,
                   availableForRent: data.availableForRent || false,
@@ -217,48 +220,30 @@ export default async function handler(
           } else {
             // Update product
             try {
-              // First, find the existing stock if any
-              const existingStock = await prisma.stock.findFirst({
-                where: {
-                  productId: id as string,
-                  locationId: data.stockLocationId
-                }
-              });
+              const { warrantyExpiration, purchasePrice, sellingPrice, status, stockLocationId, stockQuantity, ...productData } = data;
+
+              const updatePayload: any = {
+                ...productData,
+              };
+
+              if (purchasePrice) {
+                updatePayload.purchasePrice = parseFloat(purchasePrice);
+              }
+              if (sellingPrice) {
+                updatePayload.sellingPrice = parseFloat(sellingPrice);
+              }
+              if (warrantyExpiration) {
+                updatePayload.warrantyExpiration = new Date(warrantyExpiration);
+              }
+              if (status) {
+                updatePayload.status = status === 'EN_VENTE' ? 'ACTIVE' :
+                                     status === 'VENDU' ? 'SOLD' :
+                                     status === 'HORS_SERVICE' ? 'RETIRED' : 'ACTIVE';
+              }
 
               const updatedProduct = await prisma.product.update({
                 where: { id: id as string },
-                data: {
-                  name: data.name,
-                  brand: data.brand || null,
-                  model: data.model || null,
-                  serialNumber: data.serialNumber || null,
-                  purchasePrice: data.purchasePrice ? parseFloat(data.purchasePrice.toString()) : null,
-                  sellingPrice: data.sellingPrice ? parseFloat(data.sellingPrice.toString()) : null,
-                  type: data.type,
-                  status: data.status === 'EN_VENTE' ? 'ACTIVE' :
-                    data.status === 'EN_REPARATION' ? 'MAINTENANCE' :
-                      data.status === 'HORS_SERVICE' ? 'RETIRED' : 'ACTIVE',
-                  ...(data.stockLocationId ? {
-                    stocks: {
-                      upsert: {
-                        where: {
-                          id: existingStock?.id || 'new'
-                        },
-                        create: {
-                          quantity: parseInt(data.stockQuantity?.toString() || '1'),
-                          status: data.status || 'EN_VENTE',
-                          location: {
-                            connect: { id: data.stockLocationId }
-                          }
-                        },
-                        update: {
-                          quantity: parseInt(data.stockQuantity?.toString() || '1'),
-                          status: data.status || 'EN_VENTE'
-                        }
-                      }
-                    }
-                  } : {})
-                },
+                data: updatePayload,
                 include: {
                   stocks: {
                     include: {
@@ -268,9 +253,38 @@ export default async function handler(
                 }
               });
 
+              if (stockLocationId) {
+                const existingStock = await prisma.stock.findFirst({
+                  where: {
+                    productId: id as string,
+                    locationId: stockLocationId
+                  }
+                });
+
+                await prisma.stock.upsert({
+                  where: {
+                    id: existingStock?.id || 'new-id'
+                  },
+                  create: {
+                    quantity: parseInt(stockQuantity?.toString() || '1'),
+                    status: status || 'EN_VENTE',
+                    product: {
+                      connect: { id: id as string }
+                    },
+                    location: {
+                      connect: { id: stockLocationId }
+                    }
+                  },
+                  update: {
+                    quantity: parseInt(stockQuantity?.toString() || '1'),
+                    status: status || 'EN_VENTE'
+                  }
+                });
+              }
+
               // Map the status back to the frontend format
               const mappedStatus = updatedProduct.status === 'ACTIVE' ? 'EN_VENTE' :
-                updatedProduct.status === 'MAINTENANCE' ? 'EN_REPARATION' :
+                updatedProduct.status === 'SOLD' ? 'VENDU' :
                   updatedProduct.status === 'RETIRED' ? 'HORS_SERVICE' : 'EN_VENTE';
 
               return res.status(200).json({
@@ -282,6 +296,7 @@ export default async function handler(
                 serialNumber: updatedProduct.serialNumber,
                 purchasePrice: updatedProduct.purchasePrice,
                 sellingPrice: updatedProduct.sellingPrice,
+                warrantyExpiration: updatedProduct.warrantyExpiration,
                 stockLocation: updatedProduct.stocks[0]?.location?.name || 'Non assigné',
                 stockLocationId: updatedProduct.stocks[0]?.location?.id,
                 stockQuantity: updatedProduct.stocks[0]?.quantity || 0,

@@ -100,12 +100,9 @@ export function DiagnosticDeviceForm({ initialData, onSubmit, stockLocations, is
     },
   });
 
-  const [parameters, setParameters] = useState<Parameter[]>(initialData?.parameters || []);
-
   const handleSubmit = async (values: DiagnosticDeviceFormValues) => {
     try {
       console.log('DiagnosticDeviceForm handleSubmit called with values:', values);
-      console.log('Current parameters:', parameters);
       
       // Force type to be DIAGNOSTIC_DEVICE
       values.type = "DIAGNOSTIC_DEVICE";
@@ -136,27 +133,8 @@ export function DiagnosticDeviceForm({ initialData, onSubmit, stockLocations, is
 
       console.log('Cleaned values:', cleanedValues);
       
-      // Create a properly structured parameters array with all necessary fields
-      const formattedParameters = parameters.map(param => ({
-        id: param.id,
-        title: param.title,
-        type: param.type,
-        unit: param.unit || null,
-        minValue: param.minValue || null,
-        maxValue: param.maxValue || null,
-        isRequired: param.isRequired || false,
-        isAutomatic: param.isAutomatic || false,
-        value: param.value || null,
-        parameterType: param.parameterType, // Ensure this is included
-        resultDueDate: param.resultDueDate || null
-      }));
-      
-      // Log the formatted parameters to verify they're correctly structured
-      console.log('Formatted parameters:', formattedParameters);
-      
       const formData = {
         ...cleanedValues,
-        parameters: formattedParameters,
         type: "DIAGNOSTIC_DEVICE" // Ensure type is explicitly set
       };
 
@@ -167,30 +145,6 @@ export function DiagnosticDeviceForm({ initialData, onSubmit, stockLocations, is
       const savedDevice: { id: string } = await onSubmit(formData) || {};
       console.log('Device saved successfully:', savedDevice);
       
-      // If we have parameters and a device ID, explicitly save parameters via the dedicated API
-      if (formattedParameters.length > 0 && savedDevice && savedDevice.id) {
-        console.log('Saving parameters separately via API for device ID:', savedDevice.id);
-        try {
-          const paramResponse = await fetch('/api/diagnostic-parameters', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              deviceId: savedDevice.id,
-              parameters: formattedParameters
-            }),
-          });
-          
-          if (!paramResponse.ok) {
-            console.error('Failed to save parameters:', await paramResponse.text());
-          } else {
-            console.log('Parameters saved successfully via dedicated API');
-          }
-        } catch (paramError) {
-          console.error('Error saving parameters via API:', paramError);
-        }
-      }
       
       console.log('onSubmit completed successfully');
       return savedDevice;
@@ -200,30 +154,7 @@ export function DiagnosticDeviceForm({ initialData, onSubmit, stockLocations, is
     }
   };
 
-  const handleParameterSave = async (newParameters: Parameter[]) => {
-    setParameters(newParameters);
-    
-    if (form.getValues('id')) {
-      try {
-        const response = await fetch('/api/diagnostic-parameters', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            deviceId: form.getValues('id'),
-            parameters: newParameters
-          }),
-        });
 
-        if (!response.ok) {
-          throw new Error('Failed to save parameters');
-        }
-      } catch (error) {
-        console.error('Error saving parameters:', error);
-      }
-    }
-  };
 
   return (
     <div className="p-6">
@@ -233,10 +164,10 @@ export function DiagnosticDeviceForm({ initialData, onSubmit, stockLocations, is
             <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
               <Tabs defaultValue="basic" className="w-full">
                 <TabsList className="grid w-full grid-cols-4 mb-4">
-                  <TabsTrigger value="basic" className="text-base py-1.5">Info de Base</TabsTrigger>
-                  <TabsTrigger value="stock" className="text-base py-1.5">Stock</TabsTrigger>
-                  <TabsTrigger value="finance" className="text-base py-1.5">Finance</TabsTrigger>
-                  <TabsTrigger value="technical" className="text-base py-1.5">Technique</TabsTrigger>
+                  <TabsTrigger value="basic" className="text-base py-1">Info de Base</TabsTrigger>
+                  <TabsTrigger value="stock" className="text-base py-1">Stock</TabsTrigger>
+                  <TabsTrigger value="finance" className="text-base py-1">Finance</TabsTrigger>
+                  <TabsTrigger value="technical" className="text-base py-1">Technique</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="basic">
@@ -461,7 +392,6 @@ export function DiagnosticDeviceForm({ initialData, onSubmit, stockLocations, is
                       const formData = {
                         ...values,
                         type: "DIAGNOSTIC_DEVICE" as const,
-                        parameters: parameters,
                         purchasePrice: values.purchasePrice ? parseFloat(values.purchasePrice.toString()) : null,
                         sellingPrice: values.sellingPrice ? parseFloat(values.sellingPrice.toString()) : null,
                         stockQuantity: values.stockQuantity ? parseInt(values.stockQuantity.toString()) : 1,

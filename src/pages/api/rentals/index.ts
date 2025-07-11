@@ -102,7 +102,7 @@ export default async function handler(
         
         try {
           // Start a transaction to ensure all operations succeed or fail together
-          const result = await prisma.$transaction(async (prisma) => {
+          const result = await prisma.$transaction(async (tx) => {
             // Create payment record if payment data is provided
             let paymentRecord = null;
             if (payment) {
@@ -130,7 +130,7 @@ export default async function handler(
                 }
               }
               
-              paymentRecord = await prisma.payment.create({
+              paymentRecord = await tx.payment.create({
                 data: {
                   amount: payment.amount || totalPrice,
                   method: paymentMethod,
@@ -152,7 +152,7 @@ export default async function handler(
             
             for (const product of products) {
               // Create the rental record
-              const rental = await prisma.rental.create({
+              const rental = await tx.rental.create({
                 data: {
                   medicalDeviceId: product.productId,
                   patientId: clientType === 'patient' ? clientId : null,
@@ -172,17 +172,44 @@ export default async function handler(
               
               // Update the medical device to associate it with the patient/company
               if (clientType === 'patient' && clientId) {
-                await prisma.medicalDevice.update({
+                await tx.medicalDevice.update({
                   where: { id: product.productId },
                   data: { patientId: clientId }
                 });
               } else if (clientType === 'societe' && clientId) {
-                await prisma.medicalDevice.update({
+                await tx.medicalDevice.update({
                   where: { id: product.productId },
                   data: { companyId: clientId }
                 });
               }
               
+              // Create patient history record for the rental
+              if (rental.patientId) {
+                const patient = await tx.patient.findUnique({
+                  where: { id: rental.patientId },
+                  select: { doctorId: true }
+                });
+
+                await tx.patientHistory.create({
+                  data: {
+                    patientId: rental.patientId,
+                    actionType: 'RENTAL',
+                    performedById: session.user.id,
+                    relatedItemId: rental.id,
+                    relatedItemType: 'Rental',
+                    details: {
+                      rentalId: rental.id,
+                      deviceId: rental.medicalDeviceId,
+                      deviceName: rental.medicalDevice.name,
+                      startDate: rental.startDate,
+                      endDate: rental.endDate,
+                      notes: rental.notes,
+                      responsibleDoctorId: patient?.doctorId,
+                    },
+                  },
+                });
+              }
+
               rentalRecords.push(rental);
             }
             

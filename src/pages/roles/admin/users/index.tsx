@@ -1,31 +1,23 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Dialog, Transition } from '@headlessui/react';
-import { Fragment } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import UserForm from '@/components/forms/UserForm';
 import { useToast } from "@/components/ui/use-toast";
-import { Badge } from "@/components/ui/badge";
-import { UserPlus, Pencil, Trash2, Loader2, Search } from "lucide-react";
-import { Card } from '@/components/ui/Card';
+import { UserPlus, Loader2 } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Role as PrismaRole } from '@prisma/client';
+import { columns } from './components/columns';
+import { UsersTable } from './components/UsersTable';
 
-interface User {
+export interface User {
   id: string;
   name: string;
   email: string;
-  telephone: string;
-  role: string;
+  role: PrismaRole;
+  telephone?: string | null;
+  address?: string | null;
+  speciality?: string | null;
   isActive: boolean;
-  address?: string;
-  speciality?: string;
 }
 
 type Role = 'ADMIN' | 'MANAGER' | 'DOCTOR' | 'EMPLOYEE';
@@ -33,9 +25,12 @@ type Role = 'ADMIN' | 'MANAGER' | 'DOCTOR' | 'EMPLOYEE';
 const UsersPage = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
+  const [userRelations, setUserRelations] = useState<Record<string, number> | null>(null);
+  const [hasRelations, setHasRelations] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
@@ -67,8 +62,34 @@ const UsersPage = () => {
     setIsEditMode(false);
   };
 
-  const handleEdit = (user: User) => {
-    // Split the name into firstName and lastName
+  const fetchUsers = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/users');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch users');
+      }
+      const data = await response.json();
+      setUsers(data || []);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to load users. Please try again.",
+        variant: "destructive",
+      });
+      setUsers([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  const handleEdit = useCallback((user: User) => {
     const [firstName = '', ...lastNameParts] = user.name.split(' ');
     const lastName = lastNameParts.join(' ');
 
@@ -77,8 +98,8 @@ const UsersPage = () => {
       firstName,
       lastName,
       email: user.email,
-      password: '', // Don't set password when editing
-      telephone: user.telephone,
+      password: '',
+      telephone: user.telephone || '',
       role: user.role as Role,
       isActive: user.isActive,
       address: user.address || '',
@@ -86,38 +107,85 @@ const UsersPage = () => {
     });
     setIsEditMode(true);
     setIsOpen(true);
-  };
+  }, []);
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this user?')) {
-      return;
-    }
-
+  const handleDelete = useCallback(async (id: string) => {
+    setDeleteUserId(id);
     try {
-      const response = await fetch(`/api/users?id=${id}`, {
-        method: 'DELETE',
-      });
-
+      const response = await fetch(`/api/users/${id}/relations`);
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to delete user');
+        throw new Error('Failed to fetch user relations');
       }
-
-      toast({
-        title: "Success",
-        description: "User deleted successfully",
-      });
-
-      fetchUsers();
+      const data = await response.json();
+      setUserRelations(data.relations);
+      setHasRelations(data.hasRelations);
+      setIsDeleteDialogOpen(true);
     } catch (error) {
-      console.error('Error deleting user:', error);
+      console.error('Error checking user relations:', error);
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to delete user",
+        title: "Erreur",
+        description: "Impossible de vérifier les relations de l'utilisateur.",
         variant: "destructive",
       });
     }
-  };
+  }, [toast]);
+
+  const confirmAction = useCallback(async (action: 'soft-delete' | 'hard-delete') => {
+    if (!deleteUserId) return;
+
+    if (action === 'soft-delete') {
+      try {
+        const userToUpdate = users.find(user => user.id === deleteUserId);
+        if (!userToUpdate) throw new Error("User not found");
+
+        const nameParts = userToUpdate.name.split(' ');
+        const updatedUserPayload = {
+          ...userToUpdate,
+          firstName: nameParts[0],
+          lastName: nameParts.slice(1).join(' '),
+          isActive: false,
+        };
+        delete (updatedUserPayload as any).name;
+
+        const response = await fetch(`/api/users`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedUserPayload),
+        });
+
+        if (!response.ok) throw new Error((await response.json()).error || 'Failed to deactivate user');
+
+        toast({ title: "Succès", description: "Utilisateur désactivé avec succès" });
+        fetchUsers();
+        setIsDeleteDialogOpen(false);
+      } catch (error) {
+        console.error('Error deactivating user:', error);
+        toast({ title: "Erreur", description: error instanceof Error ? error.message : "Échec de la désactivation", variant: "destructive" });
+      }
+    } else if (action === 'hard-delete') {
+      try {
+        const response = await fetch(`/api/users?id=${deleteUserId}`, { method: 'DELETE' });
+
+        if (!response.ok) throw new Error((await response.json()).error || 'Failed to delete user');
+
+        toast({ title: "Succès", description: "Utilisateur supprimé définitivement" });
+        fetchUsers();
+        setIsDeleteDialogOpen(false);
+      } catch (error) {
+        console.error('Error deleting user permanently:', error);
+        toast({ title: "Erreur", description: error instanceof Error ? error.message : "Échec de la suppression définitive", variant: "destructive" });
+      }
+    }
+  }, [deleteUserId, users, toast, fetchUsers]);
+
+  const cancelDelete = useCallback(() => {
+    setIsDeleteDialogOpen(false);
+    setDeleteUserId(null);
+    setUserRelations(null);
+    setHasRelations(false);
+  }, []);
+
+  const userColumns = useMemo(() => columns(handleEdit, handleDelete), [handleEdit, handleDelete]);
 
   const handleSubmit = async () => {
     try {
@@ -129,7 +197,6 @@ const UsersPage = () => {
         },
         body: JSON.stringify({
           ...formData,
-          // Only include password in the request if it's provided
           password: formData.password || undefined,
         }),
       });
@@ -169,46 +236,6 @@ const UsersPage = () => {
     }));
   };
 
-  useEffect(() => {
-    fetchUsers();
-  }, [searchQuery]);
-
-  // Filter users based on search query
-  const filteredUsers = useMemo(() => {
-    if (!searchQuery.trim()) return users;
-    
-    const query = searchQuery.toLowerCase();
-    return users.filter(user => 
-      user.name.toLowerCase().includes(query) || 
-      user.email.toLowerCase().includes(query) || 
-      user.role.toLowerCase().includes(query) ||
-      user.telephone.toLowerCase().includes(query)
-    );
-  }, [users, searchQuery]);
-
-  const fetchUsers = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch('/api/users');
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to fetch users');
-      }
-      const data = await response.json();
-      setUsers(data || []);
-    } catch (error) {
-      console.error('Error fetching users:', error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to load users. Please try again.",
-        variant: "destructive",
-      });
-      setUsers([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-gray-100 to-white">
@@ -234,156 +261,70 @@ const UsersPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-100 to-white">
       <div className="container mx-auto p-6">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-blue-900">Utilisateurs</h1>
-          <Button 
-            variant="default" 
-            onClick={() => setIsOpen(true)}
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            <UserPlus className="w-5 h-5 mr-2" />
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold text-blue-900">Gestion des utilisateurs</h1>
+          <Button onClick={() => {
+            resetForm();
+            setIsOpen(true);
+          }} className="bg-blue-600 hover:bg-blue-700 text-white">
+            <UserPlus className="mr-2 h-4 w-4" />
             Ajouter un utilisateur
           </Button>
         </div>
 
-        {/* Search Bar */}
-        <div className="relative mb-6">
-          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-            <Search className="h-4 w-4 text-gray-500" />
-          </div>
-          <Input
-            type="text"
-            placeholder="Rechercher par nom, email, rôle ou téléphone..."
-            className="pl-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
+        <UsersTable columns={userColumns} data={users} />
 
-        <Card className="overflow-hidden border-blue-100">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader className="bg-blue-50">
-                <TableRow>
-                  <TableHead className="text-blue-900">Nom</TableHead>
-                  <TableHead className="text-blue-900">Email</TableHead>
-                  <TableHead className="text-blue-900">Téléphone</TableHead>
-                  <TableHead className="text-blue-900">Rôle</TableHead>
-                  <TableHead className="text-blue-900">Statut</TableHead>
-                  <TableHead className="text-blue-900 text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-10">
-                      <div className="flex justify-center">
-                        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-                      </div>
-                      <p className="mt-2 text-sm text-gray-500">Chargement des utilisateurs...</p>
-                    </TableCell>
-                  </TableRow>
-                ) : filteredUsers.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-10">
-                      {searchQuery ? (
-                        <p className="text-gray-500">Aucun utilisateur ne correspond à votre recherche</p>
-                      ) : (
-                        <p className="text-gray-500">Aucun utilisateur disponible</p>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredUsers.map((user) => (
-                    <TableRow key={user.id} className="hover:bg-blue-50/50">
-                      <TableCell className="font-medium">{user.name}</TableCell>
-                      <TableCell>{user.email}</TableCell>
-                      <TableCell>{user.telephone}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="border-blue-200 text-blue-700 bg-blue-50">
-                          {user.role}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant={user.isActive ? "default" : "secondary"}
-                          className={user.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}
-                        >
-                          {user.isActive ? 'Actif' : 'Inactif'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEdit(user)}
-                          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 mr-2"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(user.id)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </Card>
-      </div>
-
-      <Transition appear show={isOpen} as={Fragment}>
-        <Dialog as="div" className="relative z-10" onClose={handleCancel}>
-          <Transition.Child
-            as={Fragment}
-            enter="ease-out duration-300"
-            enterFrom="opacity-0"
-            enterTo="opacity-100"
-            leave="ease-in duration-200"
-            leaveFrom="opacity-100"
-            leaveTo="opacity-0"
-          >
-            <div className="fixed inset-0 bg-black bg-opacity-25" />
-          </Transition.Child>
-
-          <div className="fixed inset-0 overflow-y-auto">
-            <div className="flex min-h-full items-center justify-center p-4 text-center">
-              <Transition.Child
-                as={Fragment}
-                enter="ease-out duration-300"
-                enterFrom="opacity-0 scale-95"
-                enterTo="opacity-100 scale-100"
-                leave="ease-in duration-200"
-                leaveFrom="opacity-100 scale-100"
-                leaveTo="opacity-0 scale-95"
-              >
-                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
-                  <Dialog.Title
-                    as="h3"
-                    className="text-lg font-medium leading-6 text-blue-900 mb-4"
-                  >
-                    {isEditMode ? 'Modifier l\'utilisateur' : 'Ajouter un utilisateur'}
-                  </Dialog.Title>
-                  <UserForm
-                    formData={formData}
-                    onChange={handleInputChange}
-                    onSubmit={handleSubmit}
-                    onCancel={handleCancel}
-                    isEditMode={isEditMode}
-                  />
-                </Dialog.Panel>
-              </Transition.Child>
-            </div>
-          </div>
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{isEditMode ? 'Modifier l\'utilisateur' : 'Ajouter un utilisateur'}</DialogTitle>
+            </DialogHeader>
+            <UserForm
+              formData={formData}
+              onChange={handleInputChange}
+              onSubmit={handleSubmit}
+              onCancel={handleCancel}
+              isEditMode={isEditMode}
+            />
+          </DialogContent>
         </Dialog>
-      </Transition>
+
+        <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                {hasRelations ? 'Action Requise' : 'Confirmation de Suppression'}
+              </DialogTitle>
+              <DialogDescription>
+                {hasRelations ? (
+                  <div className="space-y-4">
+                    <p className="text-red-600 font-semibold">Cet utilisateur est lié à des données importantes et ne peut pas être supprimé directement :</p>
+                    <ul className="list-disc list-inside bg-gray-100 p-3 rounded-md">
+                      {userRelations && Object.entries(userRelations).map(([key, value]) => (
+                        <li key={key}>{`${key}: ${value}`}</li>
+                      ))}
+                    </ul>
+                    <p>La suppression permanente entraînera la perte de ces données. Nous vous recommandons de désactiver l'utilisateur à la place.</p>
+                  </div>
+                ) : (
+                  'Êtes-vous sûr de vouloir supprimer définitivement cet utilisateur ? Cette action est irréversible.'
+                )}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2 sm:justify-end">
+              <Button variant="outline" onClick={cancelDelete}>Annuler</Button>
+              {hasRelations ? (
+                <>
+                  <Button variant="destructive" onClick={() => confirmAction('hard-delete')}>Supprimer quand même</Button>
+                  <Button onClick={() => confirmAction('soft-delete')}>Désactiver (Recommandé)</Button>
+                </>
+              ) : (
+                <Button variant="destructive" onClick={() => confirmAction('hard-delete')}>Supprimer Définitivement</Button>
+              )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   );
 };

@@ -96,11 +96,11 @@ export function RepairForm({ medicalDeviceId, productName, onSuccess }: RepairFo
   }, [selectedSpareParts, additionalCost, setValue]);
 
   // Fetch repair locations
-  const { data: locations } = useQuery<Location[]>({
+  const { data: repairLocations } = useQuery<Location[]>({
     queryKey: ["repair-locations"],
     queryFn: async () => {
-      const response = await fetch("/api/locations");
-      if (!response.ok) throw new Error("Failed to fetch locations");
+      const response = await fetch("/api/repair-locations");
+      if (!response.ok) throw new Error("Failed to fetch repair locations");
       return response.json();
     },
   });
@@ -229,7 +229,7 @@ export function RepairForm({ medicalDeviceId, productName, onSuccess }: RepairFo
             <SelectValue placeholder="Sélectionner un lieu" />
           </SelectTrigger>
           <SelectContent>
-            {locations?.map((location) => (
+            {repairLocations?.map((location) => (
               <SelectItem key={location.id} value={location.id}>
                 {location.name} {location.type && `(${location.type})`}
               </SelectItem>

@@ -106,24 +106,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         });
 
         // 3. Update or create destination location stock
-        //        const destStock = await tx.stock.upsert({
-        //          where: {
-        //            locationId_productId: {
-        //              locationId: toLocationId,
-        //              productId,
-        //            }
-        //          },
-        //          create: {
-        //            locationId: toLocationId,
-        //            productId,
-        //            quantity,
-        //            status: newStatus || sourceStock.status,
-        //          },
-        //          update: {
-        //            quantity: { increment: quantity },
-        //            ...(newStatus ? { status: newStatus } : {})
-        //          }
-        //        });
+        const destStock = await tx.stock.upsert({
+          where: {
+            locationId_productId: {
+              locationId: toLocationId,
+              productId,
+            }
+          },
+          create: {
+            locationId: toLocationId,
+            productId,
+            quantity,
+            status: newStatus || sourceStock.status,
+          },
+          update: {
+            quantity: { increment: quantity },
+            ...(newStatus ? { status: newStatus } : {})
+          }
+        });
 
         // 4. Create transfer record
         const transfer = await tx.stockTransfer.create({
@@ -145,6 +145,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 firstName: true,
                 lastName: true,
               }
+            }
+          }
+        });
+
+        await tx.userActionHistory.create({
+          data: {
+            userId: session.user.id,
+            actionType: 'TRANSFER',
+            relatedItemId: transfer.id,
+            relatedItemType: 'StockTransfer',
+            details: {
+              fromLocationId,
+              toLocationId,
+              productId,
+              quantity,
+              notes,
+              message: `User initiated a stock transfer of ${quantity} unit(s) of product ${productId} from location ${fromLocationId} to ${toLocationId}.`
             }
           }
         });
