@@ -2,9 +2,11 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, Printer, Save, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/components/ui/use-toast";
 
 // Import the new payment system
 import { PaymentData } from "@/components/payment/paymentForms";
+import { transformPaymentData, validatePaymentData } from "@/lib/payment-utils";
 // Import PaymentDialog dynamically to prevent SSR issues
 import dynamic from 'next/dynamic';
 
@@ -33,7 +35,8 @@ export function PaymentStep({
 }: PaymentStepProps) {
   const [paymentDetailsOpen, setPaymentDetailsOpen] = useState(false);
   const [savedPayments, setSavedPayments] = useState<PaymentData[]>([]);
-  
+  const { toast } = useToast();
+
   // Check if selected client is a patient
   const isPatient = selectedClient?.type === "patient";
 
@@ -66,43 +69,98 @@ export function PaymentStep({
   };
 
   // Handle payment completion
-  const handlePaymentComplete = (payments: PaymentData[]) => {
-    // Add timestamp to payments if they don't have one
-    const paymentsWithTimestamp = payments.map(payment => ({
-      ...payment,
-      timestamp: payment.timestamp || new Date().toISOString()
-    }));
-    
-    // Save the payments
-    setSavedPayments(paymentsWithTimestamp);
-    
-    // Check if we have any CNAM payments with pending status
-    const hasPendingCNAM = paymentsWithTimestamp.some(
-      payment => payment.type === 'cnam' && payment.isPending
-    );
-    
-    // Calculate if payment is financially complete (even if CNAM is pending)
-    const isFinanciallyComplete = paidAmount >= totalAmount;
-    
-    // If we have a complete payment, finalize it
-    if (isFinanciallyComplete) {
-      // Prepare the payment data to be sent to the parent component
-      const paymentData = {
-        payments: paymentsWithTimestamp,
-        totalAmount: calculateTotal(),
-        paidAmount,
-        remainingAmount,
-        status: hasPendingCNAM ? 'COMPLETED_WITH_PENDING_CNAM' : 'COMPLETED',
-        client: selectedClient,
-        products: selectedProducts,
-        hasPendingCNAM,
-        pendingCNAMDetails: hasPendingCNAM ? 
-          paymentsWithTimestamp.filter(p => p.type === 'cnam' && p.isPending) : 
-          []
-      };
+  const handlePaymentComplete = async (payments: PaymentData[]) => {
+    try {
+      // Validate payment data
+      const validation = validatePaymentData(payments);
+      if (!validation.isValid) {
+        toast({
+          title: "Erreur de validation",
+          description: validation.errors.join(", "),
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Add timestamp to payments if they don't have one
+      const paymentsWithTimestamp = payments.map(payment => ({
+        ...payment,
+        timestamp: payment.timestamp || new Date().toISOString()
+      }));
       
-      // Call the onComplete callback with the payment data
-      onComplete(paymentData);
+      // Transform payment data to API format
+      const apiPayload = transformPaymentData(
+        paymentsWithTimestamp,
+        isPatient ? selectedClient?.id : undefined,
+        !isPatient ? selectedClient?.id : undefined,
+        undefined, // saleId - will be set by parent component
+        isRental ? "temp-rental-id" : undefined, // rentalId - will be set by parent component
+        undefined // diagnosticId
+      );
+
+      // Save to database
+      const response = await fetch('/api/payments/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(apiPayload)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erreur lors de la sauvegarde du paiement');
+      }
+
+      const result = await response.json();
+      
+      // Save the payments locally for UI display
+      setSavedPayments(paymentsWithTimestamp);
+      
+      // Check if we have any CNAM payments with pending status
+      const hasPendingCNAM = paymentsWithTimestamp.some(
+        payment => payment.type === 'cnam' && payment.isPending
+      );
+      
+      // Calculate if payment is financially complete (even if CNAM is pending)
+      const newPaidAmount = paymentsWithTimestamp.reduce((sum, payment) => sum + (payment.amount || 0), 0);
+      const isFinanciallyComplete = newPaidAmount >= totalAmount;
+      
+      // Show success message
+      toast({
+        title: "Paiement enregistré avec succès",
+        description: `Montant: ${newPaidAmount.toFixed(2)} DT`
+      });
+
+      // If we have a complete payment, finalize it
+      if (isFinanciallyComplete) {
+        // Prepare the payment data to be sent to the parent component
+        const paymentData = {
+          payments: paymentsWithTimestamp,
+          paymentRecord: result.data, // Include the database record
+          totalAmount: calculateTotal(),
+          paidAmount: newPaidAmount,
+          remainingAmount: Math.max(0, totalAmount - newPaidAmount),
+          status: hasPendingCNAM ? 'COMPLETED_WITH_PENDING_CNAM' : 'COMPLETED',
+          client: selectedClient,
+          products: selectedProducts,
+          hasPendingCNAM,
+          pendingCNAMDetails: hasPendingCNAM ? 
+            paymentsWithTimestamp.filter(p => p.type === 'cnam' && p.isPending) : 
+            []
+        };
+        
+        // Call the onComplete callback with the payment data
+        onComplete(paymentData);
+      }
+    } catch (error) {
+      console.error('Error saving payment:', error);
+      const errorMessage = error instanceof Error ? error.message : "Une erreur inattendue s'est produite";
+      toast({
+        title: "Erreur lors de la sauvegarde",
+        description: errorMessage,
+        variant: "destructive"
+      });
     }
   };
 
@@ -115,18 +173,73 @@ export function PaymentStep({
   };
 
   // Handle save partial payment
-  const handleSavePartial = () => {
-    const paymentData = {
-      payments: savedPayments,
-      totalAmount,
-      paidAmount,
-      remainingAmount,
-      status: 'PARTIAL',
-      client: selectedClient,
-      products: selectedProducts
-    };
-    
-    onComplete(paymentData);
+  const handleSavePartial = async () => {
+    try {
+      if (savedPayments.length === 0) {
+        toast({
+          title: "Aucun paiement à sauvegarder",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Transform and save partial payment
+      const apiPayload = transformPaymentData(
+        savedPayments,
+        isPatient ? selectedClient?.id : undefined,
+        !isPatient ? selectedClient?.id : undefined,
+        undefined,
+        isRental ? "temp-rental-id" : undefined,
+        undefined
+      );
+
+      // Update status to indicate partial payment
+      apiPayload.status = 'PENDING';
+      apiPayload.notes = JSON.stringify({
+        ...JSON.parse(apiPayload.notes || '{}'),
+        isPartialPayment: true,
+        savedAt: new Date().toISOString()
+      });
+
+      const response = await fetch('/api/payments/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(apiPayload)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erreur lors de la sauvegarde');
+      }
+
+      toast({
+        title: "Paiement partiel sauvegardé",
+        description: "Vous pouvez continuer plus tard"
+      });
+
+      const paymentData = {
+        payments: savedPayments,
+        totalAmount,
+        paidAmount,
+        remainingAmount,
+        status: 'PARTIAL',
+        client: selectedClient,
+        products: selectedProducts,
+        isPartialSave: true
+      };
+      
+      onComplete(paymentData);
+    } catch (error) {
+      console.error('Error saving partial payment:', error);
+      const errorMessage = error instanceof Error ? error.message : "Une erreur inattendue s'est produite";
+      toast({
+        title: "Erreur lors de la sauvegarde",
+        description: errorMessage,
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -304,6 +417,7 @@ export function PaymentStep({
         onComplete={handlePaymentComplete}
         selectedProducts={selectedProducts}
         isRental={isRental}
+        isCompany={!isPatient}
       />
     </div>
   );

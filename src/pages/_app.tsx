@@ -5,26 +5,13 @@ import Layout from '@/pages/roles/admin/AdminLayout';
 import { Toaster } from "@/components/ui/toaster";
 import '@/styles/globals.css';
 import { NextPage } from 'next';
-import { ReactElement, ReactNode, useEffect } from 'react';
+import { ReactElement, ReactNode, useEffect, useState } from 'react';
 import SEO from '@/components/layout/SEO';
 import Head from 'next/head';
 import { Session } from 'next-auth';
 import { useRouter } from 'next/router';
 
-// Configure QueryClient with more aggressive cache invalidation
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      // Shorter staleTime for faster invalidation
-      staleTime: 10 * 1000, // 10 seconds
-      // Don't retry failed queries to avoid hanging
-      retry: false,
-      // Disable caching by default - use gcTime instead of cacheTime (updated property name)
-      gcTime: 5 * 60 * 1000, // 5 minutes
-      refetchOnWindowFocus: false,
-    },
-  },
-});
+
 
 // Add layout support
 export type NextPageWithLayout<P = {session: Session}, IP = P> = NextPage<P, IP> & {
@@ -36,7 +23,7 @@ type AppPropsWithLayout = AppProps & {
 };
 
 // Navigation state management - improved for production compatibility
-function NavigationEvents() {
+function NavigationEvents({ queryClient }: { queryClient: QueryClient }) {
   const router = useRouter();
   
   useEffect(() => {
@@ -90,7 +77,7 @@ function NavigationEvents() {
       router.events.off('routeChangeError', handleComplete);
       if (navigationTimeout) clearTimeout(navigationTimeout);
     };
-  }, [router]);
+  }, [router, queryClient]);
   
   return null;
 }
@@ -99,6 +86,16 @@ export default function App({
   Component,
   pageProps: { session, ...pageProps },
 }: AppPropsWithLayout) {
+  const [queryClient] = useState(() => new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: 10 * 1000, // 10 seconds
+        retry: false,
+        gcTime: 5 * 60 * 1000, // 5 minutes
+        refetchOnWindowFocus: false,
+      },
+    },
+  }));
   // Use the layout defined at the page level, if available
   const getLayout = Component.getLayout ?? ((page) => <Layout>{page}</Layout>);
 
@@ -110,11 +107,10 @@ export default function App({
       <QueryClientProvider client={queryClient}>
         <Head>
           <link rel="icon" href="/health-icon.svg" type="image/svg+xml" />
-          <link rel="manifest" href="/site.webmanifest" type="application/manifest+json" />
           <meta name="theme-color" content="#1E88E5" />
         </Head>
         <SEO />
-        <NavigationEvents />
+        <NavigationEvents queryClient={queryClient} />
         {getLayout(<Component key={router.pathname} {...pageProps} />)}
         <Toaster />
       </QueryClientProvider>

@@ -3,6 +3,7 @@ import { Stock } from './Stock';
 import { StockTransfer } from './StockTransfer';
 import { RepairSparePart } from './RepairSparePart';
 import { StockLocation } from './StockLocation';
+import { Patient } from './Patient';
 
 export interface Product {
   id: string;
@@ -25,5 +26,6 @@ export interface Product {
   createdAt: Date;
   updatedAt: Date;
   reservedUntil?: Date | string | null;
-  isReserved?: boolean;
+    isReserved?: boolean;
+  patient?: Patient;
 }

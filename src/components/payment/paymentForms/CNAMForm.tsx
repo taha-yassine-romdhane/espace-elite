@@ -350,10 +350,6 @@ export default function CNAMForm({ onSubmit, initialValues, className, onCancel,
 
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className={cn("space-y-6", className)}>
-      <h2 className="text-xl font-semibold flex items-center gap-2">
-        {/* getStatusIcon() */}
-        Paiement CNAM
-      </h2>
       
       <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 p-2 rounded-md">
         <span className="font-medium">Classification:</span> Principal (uniquement)

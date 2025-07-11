@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Table,
   TableBody,
@@ -12,7 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Product, ProductType } from "@/types";
-import { History, Sliders, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { Sliders, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Info } from "lucide-react";
+import Link from 'next/link';
 
 interface SparePartsTableProps {
   products: Product[];
@@ -29,8 +30,10 @@ export function SparePartsTable({
   renderActionButtons,
   initialItemsPerPage = 10
 }: SparePartsTableProps) {
-  // Filter spare parts from all products
-  const allSpareParts = products?.filter(p => p?.type === ProductType.SPARE_PART) || [];
+  // Memoize the filtering of spare parts to prevent re-renders
+  const allSpareParts = useMemo(() => 
+    products?.filter(p => p?.type === ProductType.SPARE_PART) || []
+  , [products]);
   
   // Search and pagination state
   const [searchQuery, setSearchQuery] = useState('');
@@ -125,10 +128,16 @@ export function SparePartsTable({
   };
 
   const getLocationName = (part: Product) => {
-    if (!part?.stockLocation) return "Non assigné";
-    return typeof part.stockLocation === 'string' 
-      ? part.stockLocation 
-      : part.stockLocation.name || "Non assigné";
+    // Prefer the name from the primary stockLocation object if it exists
+    if (part.stockLocation && part.stockLocation.name) {
+      return part.stockLocation.name;
+    }
+    // Fallback to the location name from the first entry in the stocks array
+    if (part.stocks && part.stocks.length > 0 && part.stocks[0].location && part.stocks[0].location.name) {
+      return part.stocks[0].location.name;
+    }
+    // If no location can be determined, return "Non assigné"
+    return "Non assigné";
   };
 
   if (allSpareParts.length === 0) {
@@ -155,15 +164,16 @@ export function SparePartsTable({
         </div>
       </div>
       
-      <div className="rounded-md border p-4">
+      <div className="rounded-md border">
         <Table>
           <TableHeader>
             <TableRow className="h-8">
               <TableHead className="py-1">Nom</TableHead>
               <TableHead className="py-1">Marque</TableHead>
               <TableHead className="py-1">Modèle</TableHead>
-              <TableHead className="py-1">Emplacement</TableHead>
-              <TableHead className="py-1">État</TableHead>
+              <TableHead className="py-1">Lieu de stockage</TableHead>
+              <TableHead className="py-1">Quantité en Stock</TableHead>
+              <TableHead className="py-1">Statut</TableHead>
               <TableHead className="py-1">Prix d&apos;achat</TableHead>
               <TableHead className="py-1">Prix de vente</TableHead>
               <TableHead className="py-1 text-right">Actions</TableHead>
@@ -175,36 +185,44 @@ export function SparePartsTable({
               <TableCell className="py-1">{part.name}</TableCell>
               <TableCell className="py-1">{part.brand || '-'}</TableCell>
               <TableCell className="py-1">{part.model || '-'}</TableCell>
-              <TableCell className="py-1">{getLocationName(part)}</TableCell>
-              <TableCell className="py-1">
+              <TableCell>{getLocationName(part)}</TableCell>
+              <TableCell className="py-1">{part.stocks ? part.stocks.reduce((acc, stock) => acc + stock.quantity, 0) : 0}</TableCell>
+              <TableCell>
                 <Badge variant={getStatusBadgeVariant(part.status)}>
                   {getStatusLabel(part.status)}
                 </Badge>
               </TableCell>
               <TableCell className="py-1">{part.purchasePrice ? `${part.purchasePrice} DT` : '-'}</TableCell>
               <TableCell className="py-1">{part.sellingPrice ? `${part.sellingPrice} DT` : '-'}</TableCell>
-              <TableCell className="py-1 text-right">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => onViewHistory(part)}
-                  title="Voir l'historique des réparations"
-                  className="h-6 w-6"
-                >
-                  <History className="h-3 w-3" />
-                </Button>
-                {onViewParameters && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => onViewParameters(part)}
-                    title="Voir les paramètres"
-                    className="h-6 w-6"
-                  >
-                    <Sliders className="h-3 w-3" />
-                  </Button>
-                )}
-                {renderActionButtons(part)}
+              <TableCell className="py-2 text-right">
+                <div className="flex items-center justify-end gap-2">
+                  <Link href={`/roles/admin/appareils/spare-part/${part.id}`} passHref>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      title="Voir les détails"
+                      className="h-9 w-9 rounded-md border border-gray-200 bg-white hover:bg-gray-100 flex items-center justify-center"
+                    >
+                      <Info className="h-5 w-5" />
+                    </Button>
+                  </Link>
+                  {onViewParameters && (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => onViewParameters(part)}
+                      title="Voir les paramètres"
+                      className="h-9 w-9 rounded-md border border-gray-200 bg-white hover:bg-gray-100 flex items-center justify-center"
+                    >
+                      <Sliders className="h-5 w-5" />
+                    </Button>
+                  )}
+                  {renderActionButtons && (
+                    <div className="flex items-center gap-2">
+                      {renderActionButtons(part)}
+                    </div>
+                  )}
+                </div>
               </TableCell>
             </TableRow>
           ))}

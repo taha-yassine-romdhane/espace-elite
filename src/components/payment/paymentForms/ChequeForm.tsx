@@ -64,7 +64,6 @@ export default function ChequeForm({ onSubmit, initialValues, className }: Chequ
 
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className={cn("space-y-6", className)}>
-      <h2 className="text-xl font-semibold">Paiement Par Chèque</h2>
       
       {/* Payment Classification */}
       <div className="flex flex-wrap gap-2 mb-4">
@@ -208,15 +207,6 @@ export default function ChequeForm({ onSubmit, initialValues, className }: Chequ
           )}
         </div>
       </div>
-
-      {/* Add More Button - for multiple cheques */}
-      <div className="flex justify-center">
-        <Button type="button" variant="outline" size="sm" className="flex items-center gap-1">
-          <Plus className="h-4 w-4" />
-          <span>Ajouter un autre chèque</span>
-        </Button>
-      </div>
-
       <Button type="submit" className="w-full">Sauvegarder</Button>
     </form>
   );

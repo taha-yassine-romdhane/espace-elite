@@ -59,7 +59,6 @@ export default function VirementForm({ onSubmit, initialValues, className }: Vir
 
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className={cn("space-y-6", className)}>
-      <h2 className="text-xl font-semibold">Paiement Par Virement</h2>
       
       {/* Payment Classification */}
       <div className="flex flex-wrap gap-2 mb-4">

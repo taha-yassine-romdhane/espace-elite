@@ -1,13 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/router';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 import { ChevronRight, Plus, Stethoscope } from 'lucide-react';
 import DiagnosticTable from '@/pages/roles/admin/dashboard/components/tables/DiagnosticTable';
+import { DiagnosticStepperDialog } from '../dashboard/components/DiagnosticStepperDialog';
 
 export default function DiagnosticsPage() {
   const router = useRouter();
+  const [isDiagnosticStepperOpen, setIsDiagnosticStepperOpen] = useState(false);
 
   const handleViewDetails = (id: string) => {
     router.push(`/roles/admin/diagnostics/${id}`);
@@ -22,11 +24,20 @@ export default function DiagnosticsPage() {
   };
 
   const handleNewDiagnostic = () => {
-    router.push('/roles/admin/dashboard/new-diagnostic');
+    setIsDiagnosticStepperOpen(true);
+  };
+
+  const handleDialogClose = () => {
+    setIsDiagnosticStepperOpen(false);
+    router.reload(); // Reload to see the new diagnostic
   };
 
   return (
     <>
+      <DiagnosticStepperDialog 
+        isOpen={isDiagnosticStepperOpen} 
+        onClose={handleDialogClose} 
+      />
       <div className="container mx-auto py-6 space-y-6">
         {/* Breadcrumb */}
         <Breadcrumb className="mb-6">

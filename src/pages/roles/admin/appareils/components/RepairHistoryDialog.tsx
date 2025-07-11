@@ -36,6 +36,12 @@ interface Repair {
       lastName: string;
     };
   };
+  medicalDevice: {
+    name: string;
+    brand: string | null;
+    model: string | null;
+    serialNumber: string;
+  };
 }
 
 export function RepairHistoryDialog({
@@ -56,11 +62,25 @@ export function RepairHistoryDialog({
     enabled: isOpen, // Only fetch when dialog is open
   });
 
+  const deviceName =
+    repairs && repairs.length > 0 ? repairs[0].medicalDevice.name : "";
+  const deviceInfo =
+    repairs && repairs.length > 0
+      ? `${repairs[0].medicalDevice.brand || ""} ${
+          repairs[0].medicalDevice.model || ""
+        } (S/N: ${repairs[0].medicalDevice.serialNumber})`.trim()
+      : "";
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-4xl">
         <DialogHeader>
-          <DialogTitle>Historique des Réparations</DialogTitle>
+          <DialogTitle>
+            Historique des Réparations: {deviceName}
+          </DialogTitle>
+          {deviceInfo && (
+            <p className="text-sm text-muted-foreground">{deviceInfo}</p>
+          )}
         </DialogHeader>
         {isLoading ? (
           <div className="flex items-center justify-center py-8">

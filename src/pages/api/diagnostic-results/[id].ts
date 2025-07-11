@@ -79,55 +79,85 @@ async function getDiagnosticResult(req: NextApiRequest, res: NextApiResponse, id
 // PUT: Update a diagnostic result
 async function updateDiagnosticResult(req: NextApiRequest, res: NextApiResponse, id: string, session: any) {
   try {
-    // Get the diagnostic result to check permissions
-    const existingResult = await prisma.diagnosticResult.findUnique({
-      where: { id },
-      include: {
-        diagnostic: {
-          select: {
-            performedById: true,
-          },
-        },
-      },
-    });
-
-    if (!existingResult) {
-      return res.status(404).json({ error: 'Résultat de diagnostic non trouvé' });
-    }
-
-    // Check user permissions
-    const userRole = session.user.role;
-    const userId = session.user.id;
-
-    // Only allow admins or the user who performed the diagnostic to update the result
-    if (userRole !== 'ADMIN' && existingResult.diagnostic.performedById !== userId) {
-      return res.status(403).json({ error: 'Vous n\'avez pas la permission de modifier ce résultat' });
-    }
-
     const { iah, idValue, remarque, status } = req.body;
 
-    // Update the diagnostic result
-    const updatedResult = await prisma.diagnosticResult.update({
-      where: { id },
-      data: {
-        iah: iah !== undefined ? iah : null,
-        idValue: idValue !== undefined ? idValue : null,
-        remarque: remarque !== undefined ? remarque : null,
-        status: status || 'PENDING',
-      },
-      include: {
-        diagnostic: {
-          include: {
-            patient: true,
-            medicalDevice: true,
+    const updatedResult = await prisma.$transaction(async (tx) => {
+      // 1. Fetch the diagnostic and related data for validation
+      const diagnosticResult = await tx.diagnosticResult.findUnique({
+        where: { id },
+        include: {
+          diagnostic: {
+            include: {
+              performedBy: {
+                include: {
+                  stockLocation: true,
+                },
+              },
+            },
           },
         },
-      },
+      });
+
+      if (!diagnosticResult) {
+        throw new Error('Résultat de diagnostic non trouvé');
+      }
+
+      // 2. Check user permissions
+      const userRole = session.user.role;
+      const userId = session.user.id;
+      if (userRole !== 'ADMIN' && diagnosticResult.diagnostic.performedById !== userId) {
+        throw new Error('Vous n\'avez pas la permission de modifier ce résultat');
+      }
+
+      // 3. Update the DiagnosticResult itself
+      const result = await tx.diagnosticResult.update({
+        where: { id },
+        data: {
+          iah: iah !== undefined ? iah : null,
+          idValue: idValue !== undefined ? idValue : null,
+          remarque: remarque !== undefined ? remarque : null,
+          status: status || 'PENDING',
+        },
+      });
+
+      // 4. If results are being marked as COMPLETED, update parent Diagnostic and MedicalDevice
+      if (status === 'COMPLETED') {
+        // Update parent Diagnostic status
+        await tx.diagnostic.update({
+          where: { id: diagnosticResult.diagnosticId },
+          data: { status: 'COMPLETED' },
+        });
+
+        // Update the associated MedicalDevice
+        const deviceId = diagnosticResult.diagnostic.medicalDeviceId;
+        if (deviceId) {
+          const technicianStockLocationId = diagnosticResult.diagnostic.performedBy?.stockLocation?.id;
+
+          await tx.medicalDevice.update({
+            where: { id: deviceId },
+            data: {
+              status: 'ACTIVE',
+              patientId: null,
+              reservedUntil: null,
+              // Return device to technician's stock location if available
+              ...(technicianStockLocationId && { stockLocationId: technicianStockLocationId }),
+            },
+          });
+        }
+      }
+
+      return result;
     });
 
     return res.status(200).json(updatedResult);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error updating diagnostic result:', error);
+    // Distinguish between permission errors and other server errors
+    if (error.message.includes('permission')) {
+      return res.status(403).json({ error: error.message });
+    } else if (error.message.includes('non trouvé')) {
+      return res.status(404).json({ error: error.message });
+    }
     return res.status(500).json({ error: 'Une erreur est survenue lors de la mise à jour du résultat de diagnostic' });
   }
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react';
 import { useRouter } from 'next/router';
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -105,13 +105,7 @@ export default function RenseignementPage() {
       setIsLoading(false);
     }
   };
-  
-  // Apply filters and search whenever renseignements, searchQuery, or filters change
-  useEffect(() => {
-    applyFiltersAndSearch();
-  }, [renseignements, searchQuery, filters, activeFilters, availableDoctors, availableTechnicians]);
 
-  // Extract unique doctors and technicians from renseignements
   useEffect(() => {
     if (renseignements.length > 0) {
       const doctors = renseignements
@@ -133,18 +127,17 @@ export default function RenseignementPage() {
     }
   }, [renseignements]);
 
-  const applyFiltersAndSearch = () => {
+  const applyFiltersAndSearch = useCallback(() => {
     let filtered = [...renseignements];
 
     // Apply search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
       filtered = filtered.filter(item =>
-        item.nom.toLowerCase().includes(query) ||
-        item.telephone.toLowerCase().includes(query) ||
-        (item.adresse && item.adresse.toLowerCase().includes(query)) ||
-        (item.type === 'Patient' && item.cin && item.cin.toLowerCase().includes(query)) ||
-        (item.type === 'Société' && item.matriculeFiscale && item.matriculeFiscale.toLowerCase().includes(query))
+        (item.nom && item.nom.toLowerCase().includes(query)) ||
+        (item.telephone && item.telephone.includes(query)) ||
+        (item.cin && item.cin.includes(query)) ||
+        (item.matriculeFiscale && item.matriculeFiscale.includes(query))
       );
     }
 
@@ -183,7 +176,14 @@ export default function RenseignementPage() {
 
     setActiveFilters(newActiveFilters);
     setFilteredRenseignements(filtered);
-  };
+  }, [renseignements, searchQuery, filters, availableDoctors, availableTechnicians]);
+
+  // Apply filters and search whenever the memoized function changes
+  useEffect(() => {
+    applyFiltersAndSearch();
+  }, [applyFiltersAndSearch]);
+
+
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);

@@ -5,9 +5,9 @@ import { getToken } from "next-auth/jwt";
 import { Role } from "@prisma/client";
 
 export async function middleware(req: NextRequest) {
-  console.log('Middleware - Request path:', req.nextUrl.pathname);
+ // console.log('Middleware - Request path:', req.nextUrl.pathname);
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-  console.log('Middleware - Auth token:', token);
+ // console.log('Middleware - Auth token:', token);
   const path = req.nextUrl.pathname;
 
   // Public paths that don't require authentication
@@ -28,7 +28,7 @@ export async function middleware(req: NextRequest) {
   
   // NextAuth stores the role in userRole property after our changes
   const roleValue = token?.userRole;
-  console.log('Middleware - Role from token.userRole:', roleValue);
+  //console.log('Middleware - Role from token.userRole:', roleValue);
   
   // Convert role to string for path construction
   let rolePath = '';
@@ -38,11 +38,11 @@ export async function middleware(req: NextRequest) {
     rolePath = String(roleValue).toLowerCase();
   } else {
     // Look at token for debugging
-    console.log('Middleware - Full token contents:', JSON.stringify(token));
+   // console.log('Middleware - Full token contents:', JSON.stringify(token));
     rolePath = 'employee'; // Default fallback
   }
   
-  console.log('Middleware - Path for redirection:', `/roles/${rolePath}`);
+ // console.log('Middleware - Path for redirection:', `/roles/${rolePath}`);
   
   // For role checks, convert string back to Role enum
   let role: Role;
@@ -113,6 +113,6 @@ export const config = {
      * - public folder assets (images, etc.)
      * - api routes - VERY IMPORTANT to avoid breaking auth
      */
-    '/((?!_next/static|_next/image|favicon.ico|\.jpg|\.png|\.svg|\.ico|api/).*)',
+    '/((?!_next/static|_next/image|favicon.ico|\\.jpg|\\.png|\\.svg|\\.ico|api/auth).*)',
   ],
 };

@@ -40,7 +40,6 @@ const Sidebar: React.FC = () => {
     const [isEditMode, setIsEditMode] = useState(false);
     const [draggedItem, setDraggedItem] = useState<string | null>(null);
     const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-    const dragRef = useRef<HTMLDivElement>(null);
 
     // Default menu items with unique IDs
     const defaultMenuItems: MenuItem[] = [
@@ -134,13 +133,7 @@ const Sidebar: React.FC = () => {
         setIsEditMode(false);
     };
 
-    // List of problematic route pairs that need hard navigation
-    const problematicRoutes = [
-        '/roles/admin/renseignement',
-        '/roles/admin/appareils'
-    ];
-
-    // Navigation handler with special handling for problematic routes
+    // Navigation handler
     const handleNavigation = useCallback((path: string) => {
         if (isEditMode) return; // Prevent navigation in edit mode
 
@@ -152,20 +145,8 @@ const Sidebar: React.FC = () => {
         }
 
         setLastNavigationTime(now);
-
-        // Check if current path is in the problematic routes list
-        const currentPathIsProblematic = problematicRoutes.includes(router.pathname);
-
-        // If navigating FROM a problematic route, always use hard navigation
-        // This ensures clean navigation both between problematic routes and from problematic routes to other pages
-        if (currentPathIsProblematic) {
-            console.log('Using hard navigation from problematic route');
-            window.location.href = path; // Force hard reload
-        } else {
-            // Use normal Next.js navigation for other routes
-            router.push(path);
-        }
-    }, [isNavigating, lastNavigationTime, router, isEditMode]);
+        router.push(path);
+    }, [isEditMode, isNavigating, lastNavigationTime, router]);
 
     // Drag and drop handlers
     const handleDragStart = (e: React.DragEvent, itemId: string) => {
@@ -234,7 +215,7 @@ const Sidebar: React.FC = () => {
                             width={150}
                             height={60}
                             priority
-                            className="object-contain"
+                            className="object-contain h-auto"
                         />
                     </div>
                 ) : (

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Table,
   TableBody,
@@ -12,7 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Product, ProductType } from "@/types";
-import { History, Sliders, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { History, Sliders, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Info } from "lucide-react";
+import Link from 'next/link';
 
 interface DiagnosticDevicesTableProps {
   products: Product[];
@@ -31,8 +32,10 @@ export function DiagnosticDevicesTable({
   renderActionButtons,
   initialItemsPerPage = 10
 }: DiagnosticDevicesTableProps) {
-  // Filter diagnostic devices from all products
-  const allDiagnosticDevices = products?.filter(p => p?.type === ProductType.DIAGNOSTIC_DEVICE) || [];
+  // Memoize the filtering of diagnostic devices to prevent re-renders
+  const allDiagnosticDevices = useMemo(() => 
+    products?.filter(p => p?.type === ProductType.DIAGNOSTIC_DEVICE) || []
+  , [products]);
   
   // Search and pagination state
   const [searchQuery, setSearchQuery] = useState('');
@@ -108,8 +111,13 @@ export function DiagnosticDevicesTable({
   };
 
   const getLocationName = (device: Product) => {
-    if (!device?.stockLocation) return "Non assigné";
-    return device.stockLocation.name;
+    if (device.isReserved && device.patient?.address) {
+      return device.patient.address;
+    }
+    if (device.stockLocation?.name) {
+      return device.stockLocation.name;
+    }
+    return "Non assigné";
   };
 
   if (allDiagnosticDevices.length === 0) {
@@ -163,28 +171,33 @@ export function DiagnosticDevicesTable({
                   {device.status}
                 </Badge>
               </TableCell>
-              <TableCell className="py-1 text-right">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => onViewHistory(device)}
-                  title="Voir l'historique des réparations"
-                  className="h-6 w-6"
-                >
-                  <History className="h-3 w-3" />
-                </Button>
-                {onViewParameters && (
+              <TableCell className="py-2 text-right">
+                <div className="flex items-center justify-end gap-2">
+                <Link href={`/roles/admin/appareils/diagnostic-device/${device.id}`} passHref>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      title="Voir les détails"
+                      className="h-9 w-9 rounded-md border border-gray-200 bg-white hover:bg-gray-100 flex items-center justify-center"
+                    >
+                      <Info className="h-5 w-5" />
+                    </Button>
+                  </Link>
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="icon"
-                    onClick={() => onViewParameters(device)}
-                    title="Voir les paramètres"
-                    className="h-6 w-6"
+                    onClick={() => onViewHistory(device)}
+                    title="Voir l'historique des réparations"
+                    className="h-9 w-9 rounded-md border border-gray-200 bg-white hover:bg-gray-100 flex items-center justify-center"
                   >
-                    <Sliders className="h-3 w-3" />
+                    <History className="h-5 w-5" />
                   </Button>
-                )}
-                {renderActionButtons(device)}
+                  {renderActionButtons && (
+                    <div className="flex items-center gap-2">
+                      {renderActionButtons(device)}
+                    </div>
+                  )}
+                </div>
               </TableCell>
             </TableRow>
           ))}

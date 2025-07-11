@@ -56,7 +56,7 @@ export default function AppareilsPage() {
   const queryClient = useQueryClient();
 
   // Fetch devices
-  const { data: products, isLoading } = useQuery({
+  const { data: products } = useQuery({
     queryKey: ["medical-devices"],
     queryFn: async () => {
       const response = await fetch("/api/medical-devices");
@@ -269,9 +269,6 @@ export default function AppareilsPage() {
     }
   };
 
-  if (isLoading) {
-    return <div>Chargement...</div>;
-  }
 
   const getFormComponent = () => {
     if (!currentProduct && !isEditMode) {
@@ -389,10 +386,6 @@ export default function AppareilsPage() {
               onViewHistory={(product) => {
                 setProductToViewHistory(product);
                 setIsHistoryDialogOpen(true);
-              }}
-              onViewParameters={(product) => {
-                setProductToViewParameters(product);
-                setIsParametersDialogOpen(true);
               }}
               renderActionButtons={renderActionButtons}
             />

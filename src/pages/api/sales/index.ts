@@ -277,16 +277,20 @@ export default async function handler(
             paymentId = payment.id;
           }
           
-          // 2. Create the sale
+          // 2. Generate invoice number and create the sale record
+          const salesCount = await tx.sale.count();
+          const newInvoiceNumber = (salesCount + 1).toString().padStart(5, '0');
+
           const sale = await tx.sale.create({
             data: {
+              invoiceNumber: newInvoiceNumber,
               saleDate: new Date(saleData.saleDate || new Date()),
               totalAmount: parseFloat(saleData.totalAmount),
               discount: saleData.discount ? parseFloat(saleData.discount) : 0,
               finalAmount: parseFloat(saleData.finalAmount),
               status: saleData.status || 'PENDING',
               notes: saleData.notes,
-              processedById: saleData.processedById,
+              processedById: saleData.processedById, // Use the user ID from the session
               patientId: saleData.patientId || null,
               companyId: saleData.companyId || null,
               paymentId: paymentId,
@@ -343,6 +347,31 @@ export default async function handler(
                 }
               });
             }
+          }
+          
+          // 5. Create patient history record if a patient is associated
+          if (sale.patientId) {
+            const patient = await tx.patient.findUnique({
+              where: { id: sale.patientId },
+              select: { doctorId: true }
+            });
+
+            await tx.patientHistory.create({
+              data: {
+                patientId: sale.patientId,
+                actionType: 'SALE',
+                performedById: sale.processedById,
+                relatedItemId: sale.id,
+                relatedItemType: 'Sale',
+                details: {
+                  saleId: sale.id,
+                  finalAmount: sale.finalAmount,
+                  notes: sale.notes,
+                  itemCount: saleData.items.length,
+                  responsibleDoctorId: patient?.doctorId,
+                },
+              },
+            });
           }
           
           // Return the created sale with its items

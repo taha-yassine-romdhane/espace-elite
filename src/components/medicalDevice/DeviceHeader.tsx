@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 
 interface DeviceHeaderProps {
-  device: MedicalDevice;
+  device: MedicalDevice & { stockLocation?: { name: string } | null };
 }
 
 export const DeviceHeader: React.FC<DeviceHeaderProps> = ({ device }) => {
@@ -62,7 +62,7 @@ export const DeviceHeader: React.FC<DeviceHeaderProps> = ({ device }) => {
           </div>
           <div>
             <h3 className="text-sm font-medium text-gray-500">Emplacement</h3>
-            <p>{device.location || 'Non défini'}</p>
+            <p>{device.stockLocation?.name || 'Non défini'}</p>
           </div>
         </div>
         {device.description && (

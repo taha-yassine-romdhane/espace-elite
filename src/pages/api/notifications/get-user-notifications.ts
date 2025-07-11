@@ -30,10 +30,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const notifications = await prisma.notification.findMany({
       where: {
         userId: user.id,
-        OR: [
-          { status: { not: 'DISMISSED' } },
-          { isRead: false }
-        ]
       },
       orderBy: {
         createdAt: 'desc'
@@ -45,7 +41,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const unreadCount = await prisma.notification.count({
       where: {
         userId: user.id,
-        isRead: false
       }
     });
 

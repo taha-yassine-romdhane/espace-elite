@@ -2,10 +2,16 @@ import { useRouter } from "next/router";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Breadcrumb, BreadcrumbItem, BreadcrumbLink } from "@/components/ui/breadcrumb";
+import { 
+  Breadcrumb, 
+  BreadcrumbItem, 
+  BreadcrumbLink, 
+  BreadcrumbList, 
+  BreadcrumbPage, 
+  BreadcrumbSeparator, 
+} from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { ArrowLeft, Printer, Edit, AlertCircle, History, FileText } from "lucide-react";
+import { ArrowLeft, Printer, Edit, AlertCircle } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { DiagnosticHeader } from "./components/DiagnosticHeader";
 import { PatientInformation } from "./components/PatientInformation";
@@ -22,7 +28,7 @@ export default function DiagnosticDetailsPage() {
 
   // State to manage the diagnostic data
   const [localDiagnostic, setLocalDiagnostic] = useState<any>(null);
-  
+
   // Fetch diagnostic details
   const { data: diagnostic, isLoading, error, refetch } = useQuery({
     queryKey: ["diagnostic", id],
@@ -54,7 +60,7 @@ export default function DiagnosticDetailsPage() {
         ...localDiagnostic,
         notes: newNotes
       });
-      
+
       toast({
         title: "Notes mises à jour",
         description: "Les notes du diagnostic ont été mises à jour avec succès",
@@ -133,15 +139,19 @@ export default function DiagnosticDetailsPage() {
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Breadcrumb */}
         <Breadcrumb className="mb-6">
-          <BreadcrumbItem>
-            <BreadcrumbLink href="/roles/admin/dashboard">Tableau de bord</BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbItem>
-            <BreadcrumbLink href="#">Diagnostic</BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbItem>
-            <BreadcrumbLink href="#" aria-current="page">Détails</BreadcrumbLink>
-          </BreadcrumbItem>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink href="/roles/admin/dashboard">Tableau de bord</BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbLink href="/roles/admin/diagnostics">Diagnostics</BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>Détails</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
         </Breadcrumb>
 
         {/* Actions */}
@@ -155,14 +165,6 @@ export default function DiagnosticDetailsPage() {
             Retour
           </Button>
           <div className="flex space-x-3">
-            <Button
-              variant="outline"
-              className="flex items-center"
-              onClick={() => window.print()}
-            >
-              <Printer className="h-4 w-4 mr-2" />
-              Imprimer
-            </Button>
             {localDiagnostic.status === "PENDING" && (
               <Button
                 className="bg-blue-900 hover:bg-blue-800 text-white flex items-center"
@@ -184,58 +186,43 @@ export default function DiagnosticDetailsPage() {
             <TabsList className="border-b border-gray-200 w-full rounded-none px-6 bg-gray-50">
               <TabsTrigger value="overview">Vue d&apos;ensemble</TabsTrigger>
               <TabsTrigger value="parameters">Paramètres et Résultats</TabsTrigger>
-              <TabsTrigger value="history">Historique</TabsTrigger>
               <TabsTrigger value="tasks">Tâches</TabsTrigger>
               <TabsTrigger value="documents">Documents</TabsTrigger>
             </TabsList>
-            
+
             <TabsContent value="overview" className="p-6 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <PatientInformation patient={formattedPatient} />
                 <DeviceInformation device={localDiagnostic.medicalDevice} />
               </div>
-              <DiagnosticNotes 
-                notes={localDiagnostic?.notes || null} 
+              <DiagnosticNotes
+                notes={localDiagnostic?.notes || null}
                 diagnosticId={id as string}
                 onNotesUpdated={handleNotesUpdated}
-              />  
+              />
             </TabsContent>
-            
+
             <TabsContent value="parameters" className="p-6">
-              <DiagnosticResultsForm 
+              <DiagnosticResultsForm
                 diagnosticResult={localDiagnostic.result || null}
                 status={localDiagnostic.status}
                 diagnosticId={id as string}
                 resultDueDate={localDiagnostic.resultDueDate ? new Date(localDiagnostic.resultDueDate) : null}
               />
             </TabsContent>
-            
-            <TabsContent value="history" className="p-6">
-              <Card>
-                <CardHeader className="bg-gray-50 border-b border-gray-100">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <History className="h-5 w-5 text-blue-600" />
-                    Historique
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-6">
-                  <div className="text-gray-500 italic">L&apos;historique n&apos;est pas disponible pour le moment</div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-            
+
             <TabsContent value="tasks" className="p-6">
-              <DiagnosticTasks 
-                diagnosticId={id as string} 
+              <DiagnosticTasks
+                diagnosticId={id as string}
                 resultDueDate={localDiagnostic.resultDueDate}
                 patientId={localDiagnostic.patient?.id}
               />
             </TabsContent>
-            
+
             <TabsContent value="documents" className="p-6">
-              <DiagnosticDocuments 
-                documents={localDiagnostic.documents || []} 
-                diagnosticId={id as string} 
+              <DiagnosticDocuments
+                documents={localDiagnostic.documents || []}
+                diagnosticId={id as string}
               />
             </TabsContent>
           </Tabs>

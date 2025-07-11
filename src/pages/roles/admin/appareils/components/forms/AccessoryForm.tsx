@@ -1,5 +1,11 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { fr } from 'date-fns/locale';
+import { Calendar as CalendarIcon } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -20,6 +26,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/Card";
+import { StockStatus } from "@prisma/client";
 
 // Form validation schema for accessories
 const accessorySchema = z.object({
@@ -32,6 +39,7 @@ const accessorySchema = z.object({
   stockQuantity: z.coerce.number().min(0).optional().default(1),
   purchasePrice: z.coerce.number().min(0).optional().nullable(),
   sellingPrice: z.coerce.number().min(0).optional().nullable(),
+  warrantyExpiration: z.date().optional().nullable(),
   status: z.enum(['EN_VENTE', 'EN_LOCATION', 'EN_REPARATION', 'HORS_SERVICE']).default('EN_VENTE'),
 });
 
@@ -57,6 +65,7 @@ export function AccessoryForm({ initialData, onSubmit, stockLocations, isEditMod
       stockQuantity: initialData?.stockQuantity || 1,
       purchasePrice: initialData?.purchasePrice || null,
       sellingPrice: initialData?.sellingPrice || null,
+      warrantyExpiration: initialData?.warrantyExpiration ? new Date(initialData.warrantyExpiration) : null,
       status: initialData?.status || "EN_VENTE",
     },
   });
@@ -83,7 +92,7 @@ export function AccessoryForm({ initialData, onSubmit, stockLocations, isEditMod
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Nom*</FormLabel>
+                      <FormLabel>Nom</FormLabel>
                       <FormControl>
                         <Input {...field} value={field.value ?? ''} />
                       </FormControl>
@@ -166,6 +175,30 @@ export function AccessoryForm({ initialData, onSubmit, stockLocations, isEditMod
                     </FormItem>
                   )}
                 />
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Status de produit</FormLabel>
+                      <FormControl>
+                        <Select onValueChange={field.onChange} defaultValue={field.value ?? ''}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Sélectionner le status" defaultValue={field.value ?? 'EN_VENTE'} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.values(StockStatus).map((status) => (
+                              <SelectItem key={status} value={status}>
+                                {status}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 <FormField
                   control={form.control}
@@ -188,6 +221,50 @@ export function AccessoryForm({ initialData, onSubmit, stockLocations, isEditMod
             <Card>
               <CardContent className="space-y-4 pt-4">
                 <div className="grid grid-cols-2 gap-4">
+                <FormField
+                    control={form.control}
+                    name="warrantyExpiration"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel>Fin de garantie</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant={"outline"}
+                                className={cn(
+                                  "w-full pl-3 text-left font-normal",
+                                  !field.value && "text-muted-foreground"
+                                )}
+                              >
+                                {field.value ? (
+                                  format(new Date(field.value), "PPP", { locale: fr })
+                                ) : (
+                                  <span>Choisir une date</span>
+                                )}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              captionLayout="dropdown-buttons"
+                              fromYear={new Date().getFullYear()}
+                              toYear={new Date().getFullYear() + 15}
+                              selected={field.value ?? undefined}
+                              onSelect={field.onChange}
+                              disabled={(date) =>
+                                date < new Date(new Date().setHours(0, 0, 0, 0))
+                              }
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   <FormField
                     control={form.control}
                     name="purchasePrice"

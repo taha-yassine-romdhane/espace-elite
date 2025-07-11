@@ -225,9 +225,25 @@ export default async function handler(
         if (data.identifiantCNAM) patientUpdateData.cnamId = data.identifiantCNAM;
         if (data.beneficiaire) patientUpdateData.beneficiaryType = data.beneficiaire;
         if (data.caisseAffiliation) patientUpdateData.affiliation = data.caisseAffiliation;
-        
-        // Update the patient
-        const updatedPatient = await prisma.patient.update({
+        if (data.doctorId) patientUpdateData.doctorId = data.doctorId;
+        if (data.technicianId) patientUpdateData.technicianId = data.technicianId;
+        if (data.assignedToId) patientUpdateData.userId = data.assignedToId;
+
+        const result = await prisma.$transaction(async (tx) => {
+          const existingPatient = await tx.patient.findUnique({
+            where: { id: id as string },
+            select: {
+              doctorId: true,
+              technicianId: true,
+              userId: true,
+            }
+          });
+
+          if (!existingPatient) {
+            throw new Error('Patient not found');
+          }
+
+          const updatedPatient = await tx.patient.update({
           where: { id },
           data: patientUpdateData,
           include: {
@@ -263,33 +279,95 @@ export default async function handler(
           },
         });
 
+          const historyRecords = [];
+
+          const getUserName = async (userId: string | null) => {
+            if (!userId) return 'None';
+            const user = await tx.user.findUnique({ where: { id: userId }, select: { firstName: true, lastName: true } });
+            return user ? `${user.firstName} ${user.lastName}` : 'Unknown';
+          };
+
+          if (existingPatient.doctorId !== updatedPatient.doctorId) {
+            historyRecords.push({
+              patientId: id as string,
+              actionType: 'TRANSFER' as const,
+              performedById: session.user.id,
+              details: {
+                changeType: 'Doctor Assignment',
+                from: await getUserName(existingPatient.doctorId),
+                to: await getUserName(updatedPatient.doctorId),
+                fromId: existingPatient.doctorId,
+                toId: updatedPatient.doctorId
+              }
+            });
+          }
+
+          if (existingPatient.technicianId !== updatedPatient.technicianId) {
+            historyRecords.push({
+              patientId: id as string,
+              actionType: 'TRANSFER' as const,
+              performedById: session.user.id,
+              details: {
+                changeType: 'Technician Assignment',
+                from: await getUserName(existingPatient.technicianId),
+                to: await getUserName(updatedPatient.technicianId),
+                fromId: existingPatient.technicianId,
+                toId: updatedPatient.technicianId
+              }
+            });
+          }
+
+          if (existingPatient.userId !== updatedPatient.userId) {
+            historyRecords.push({
+              patientId: id as string,
+              actionType: 'TRANSFER' as const,
+              performedById: session.user.id,
+              details: {
+                changeType: 'User Assignment',
+                from: await getUserName(existingPatient.userId),
+                to: await getUserName(updatedPatient.userId),
+                fromId: existingPatient.userId,
+                toId: updatedPatient.userId
+              }
+            });
+          }
+
+          if (historyRecords.length > 0) {
+            await tx.patientHistory.createMany({
+              data: historyRecords,
+            });
+          }
+
+          return updatedPatient;
+        });
+
         // Format the response to match the expected format
         const formattedPatient = {
-          id: updatedPatient.id,
+          id: result.id,
           type: 'Patient',
-          nom: `${updatedPatient.firstName} ${updatedPatient.lastName}`,
-          telephone: updatedPatient.telephone,
-          telephoneSecondaire: updatedPatient.telephoneTwo,
-          adresse: updatedPatient.address,
-          cin: updatedPatient.cin,
-          dateNaissance: updatedPatient.dateOfBirth,
-          taille: updatedPatient.height,
-          poids: updatedPatient.weight,
-          antecedant: updatedPatient.antecedant,
-          identifiantCNAM: updatedPatient.cnamId,
-          beneficiaire: updatedPatient.beneficiaryType,
-          caisseAffiliation: updatedPatient.affiliation,
-          doctor: updatedPatient.doctor ? {
-            id: updatedPatient.doctor.id,
-            name: updatedPatient.doctor.user ? `${updatedPatient.doctor.user.firstName} ${updatedPatient.doctor.user.lastName}` : 'Unknown',
+          nom: `${result.firstName} ${result.lastName}`,
+          telephone: result.telephone,
+          telephoneSecondaire: result.telephoneTwo,
+          adresse: result.address,
+          cin: result.cin,
+          dateNaissance: result.dateOfBirth,
+          taille: result.height,
+          poids: result.weight,
+          antecedant: result.antecedant,
+          identifiantCNAM: result.cnamId,
+          beneficiaire: result.beneficiaryType,
+          caisseAffiliation: result.affiliation,
+          doctor: result.doctor ? {
+            id: result.doctor.id,
+            name: result.doctor.user ? `${result.doctor.user.firstName} ${result.doctor.user.lastName}` : 'Unknown',
           } : null,
-          technician: updatedPatient.technician ? {
-            id: updatedPatient.technician.id,
-            name: `${updatedPatient.technician.firstName} ${updatedPatient.technician.lastName}`,
+          technician: result.technician ? {
+            id: result.technician.id,
+            name: `${result.technician.firstName} ${result.technician.lastName}`,
           } : null,
-          files: updatedPatient.files,
-          createdAt: updatedPatient.createdAt,
-          updatedAt: updatedPatient.updatedAt,
+          files: result.files,
+          createdAt: result.createdAt,
+          updatedAt: result.updatedAt,
         };
 
         return res.status(200).json(formattedPatient);
