@@ -37,6 +37,10 @@ import { PlusCircle } from "lucide-react";
 import { Wrench, Trash2, Pencil } from "lucide-react";
 import { RepairForm } from "./components/forms/RepairForm";
 import { RepairHistoryDialog } from "./components/RepairHistoryDialog";
+import AccessoryImportExport from "@/components/accessories/AccessoryImportExport";
+import SparePartImportExport from "@/components/spareparts/SparePartImportExport";
+import MedicalDeviceImportExport from "@/components/medicaldevices/MedicalDeviceImportExport";
+import DiagnosticDeviceImportExport from "@/components/diagnosticdevices/DiagnosticDeviceImportExport";
 
 export default function AppareilsPage() {
   const [activeTab, setActiveTab] = useState<string>("medical-devices");
@@ -350,22 +354,29 @@ export default function AppareilsPage() {
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-semibold">Appareils Médicaux</h2>
-              <Dialog
-                open={isOpen}
-                onOpenChange={(open) => {
-                  if (!open) {
-                    setCurrentProduct(null);
-                    setIsEditMode(false);
-                  }
-                  setIsOpen(open);
-                }}
-              >
-                <DialogTrigger asChild>
-                  <Button onClick={() => { setIsEditMode(false); setCurrentProduct(null); }}>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Ajouter un appareil médical
-                  </Button>
-                </DialogTrigger>
+              <div className="flex items-center gap-2">
+                <MedicalDeviceImportExport 
+                  onImportSuccess={() => {
+                    queryClient.invalidateQueries({ queryKey: ["medical-devices"] });
+                  }}
+                  stockLocations={stockLocations || []}
+                />
+                <Dialog
+                  open={isOpen}
+                  onOpenChange={(open) => {
+                    if (!open) {
+                      setCurrentProduct(null);
+                      setIsEditMode(false);
+                    }
+                    setIsOpen(open);
+                  }}
+                >
+                  <DialogTrigger asChild>
+                    <Button onClick={() => { setIsEditMode(false); setCurrentProduct(null); }}>
+                      <PlusCircle className="mr-2 h-4 w-4" />
+                      Ajouter un appareil médical
+                    </Button>
+                  </DialogTrigger>
                 <DialogContent className="max-w-4xl">
                   <DialogHeader>
                     <DialogTitle>
@@ -379,7 +390,8 @@ export default function AppareilsPage() {
                     {getFormComponent()}
                   </div>
                 </DialogContent>
-              </Dialog>
+                </Dialog>
+              </div>
             </div>
             <MedicalDevicesTable
               products={products || []}
@@ -395,22 +407,29 @@ export default function AppareilsPage() {
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-semibold">Appareils de Diagnostic</h2>
-              <Dialog
-                open={isOpen}
-                onOpenChange={(open) => {
-                  if (!open) {
-                    setCurrentProduct(null);
-                    setIsEditMode(false);
-                  }
-                  setIsOpen(open);
-                }}
-              >
-                <DialogTrigger asChild>
-                  <Button onClick={() => { setIsEditMode(false); setCurrentProduct(null); }}>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Ajouter un appareil de diagnostic
-                  </Button>
-                </DialogTrigger>
+              <div className="flex items-center gap-2">
+                <DiagnosticDeviceImportExport 
+                  onImportSuccess={() => {
+                    queryClient.invalidateQueries({ queryKey: ["medical-devices"] });
+                  }}
+                  stockLocations={stockLocations || []}
+                />
+                <Dialog
+                  open={isOpen}
+                  onOpenChange={(open) => {
+                    if (!open) {
+                      setCurrentProduct(null);
+                      setIsEditMode(false);
+                    }
+                    setIsOpen(open);
+                  }}
+                >
+                  <DialogTrigger asChild>
+                    <Button onClick={() => { setIsEditMode(false); setCurrentProduct(null); }}>
+                      <PlusCircle className="mr-2 h-4 w-4" />
+                      Ajouter un appareil de diagnostic
+                    </Button>
+                  </DialogTrigger>
                 <DialogContent className="max-w-4xl">
                   <DialogHeader>
                     <DialogTitle>
@@ -424,7 +443,8 @@ export default function AppareilsPage() {
                     {getFormComponent()}
                   </div>
                 </DialogContent>
-              </Dialog>
+                </Dialog>
+              </div>
             </div>
             <DiagnosticDevicesTable
               products={products || []}
@@ -443,22 +463,29 @@ export default function AppareilsPage() {
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-semibold">Accessoires</h2>
-              <Dialog
-                open={isOpen}
-                onOpenChange={(open) => {
-                  if (!open) {
-                    setCurrentProduct(null);
-                    setIsEditMode(false);
-                  }
-                  setIsOpen(open);
-                }}
-              >
-                <DialogTrigger asChild>
-                  <Button onClick={() => { setIsEditMode(false); setCurrentProduct(null); }}>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Ajouter un accessoire
-                  </Button>
-                </DialogTrigger>
+              <div className="flex items-center gap-2">
+                <AccessoryImportExport 
+                  onImportSuccess={() => {
+                    queryClient.invalidateQueries({ queryKey: ["medical-devices"] });
+                  }}
+                  stockLocations={stockLocations || []}
+                />
+                <Dialog
+                  open={isOpen}
+                  onOpenChange={(open) => {
+                    if (!open) {
+                      setCurrentProduct(null);
+                      setIsEditMode(false);
+                    }
+                    setIsOpen(open);
+                  }}
+                >
+                  <DialogTrigger asChild>
+                    <Button onClick={() => { setIsEditMode(false); setCurrentProduct(null); }}>
+                      <PlusCircle className="mr-2 h-4 w-4" />
+                      Ajouter un accessoire
+                    </Button>
+                  </DialogTrigger>
                 <DialogContent className="max-w-4xl">
                   <DialogHeader>
                     <DialogTitle>
@@ -472,7 +499,8 @@ export default function AppareilsPage() {
                     {getFormComponent()}
                   </div>
                 </DialogContent>
-              </Dialog>
+                </Dialog>
+              </div>
             </div>
             <AccessoriesTable
               products={products || []}
@@ -490,22 +518,29 @@ export default function AppareilsPage() {
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-semibold">Pièces de Rechange</h2>
-              <Dialog
-                open={isOpen}
-                onOpenChange={(open) => {
-                  if (!open) {
-                    setCurrentProduct(null);
-                    setIsEditMode(false);
-                  }
-                  setIsOpen(open);
-                }}
-              >
-                <DialogTrigger asChild>
-                  <Button onClick={() => { setIsEditMode(false); setCurrentProduct(null); }}>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Ajouter une pièce de rechange
-                  </Button>
-                </DialogTrigger>
+              <div className="flex items-center gap-2">
+                <SparePartImportExport 
+                  onImportSuccess={() => {
+                    queryClient.invalidateQueries({ queryKey: ["medical-devices"] });
+                  }}
+                  stockLocations={stockLocations || []}
+                />
+                <Dialog
+                  open={isOpen}
+                  onOpenChange={(open) => {
+                    if (!open) {
+                      setCurrentProduct(null);
+                      setIsEditMode(false);
+                    }
+                    setIsOpen(open);
+                  }}
+                >
+                  <DialogTrigger asChild>
+                    <Button onClick={() => { setIsEditMode(false); setCurrentProduct(null); }}>
+                      <PlusCircle className="mr-2 h-4 w-4" />
+                      Ajouter une pièce de rechange
+                    </Button>
+                  </DialogTrigger>
                 <DialogContent className="max-w-4xl">
                   <DialogHeader>
                     <DialogTitle>
@@ -519,7 +554,8 @@ export default function AppareilsPage() {
                     {getFormComponent()}
                   </div>
                 </DialogContent>
-              </Dialog>
+                </Dialog>
+              </div>
             </div>
             <SparePartsTable
               products={products || []}

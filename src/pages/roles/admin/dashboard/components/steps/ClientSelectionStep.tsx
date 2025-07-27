@@ -11,15 +11,24 @@ import SocieteForm from "../../../../../../components/forms/SocieteForm";
 import { BeneficiaryType } from "@/types";
 import { cn } from "@/lib/utils";
 import { ExistingFile } from "@/types/forms/PatientFormData";
+import { toast } from "@/components/ui/use-toast";
+
+interface Client {
+  id: string;
+  name: string;
+  hasOngoingDiagnostic?: boolean;
+  ongoingDiagnosticId?: string | null;
+}
 
 interface ClientSelectionStepProps {
   onNext: () => void;
   onClose: () => void;
   onClientTypeChange: (type: "patient" | "societe") => void;
   onClientSelect: (clientId: string) => void;
+  onClientAdd?: (newClient: Client) => void;
   clientType: "patient" | "societe" | null;
   selectedClient: string | null;
-  clients: any[];
+  clients: Client[];
   error: string | null;
   action: "location" | "vente" | "diagnostique" | null;
 }
@@ -29,6 +38,7 @@ export function ClientSelectionStep({
   onClose,
   onClientTypeChange,
   onClientSelect,
+  onClientAdd,
   clientType,
   selectedClient,
   clients,
@@ -120,43 +130,138 @@ export function ClientSelectionStep({
     onClientSelect(clientId);
   };
   
-  const handleCreateSuccess = (newClient: any) => {
-    handleClientSelect(newClient.id);
-    setIsCreateFormOpen(false);
-    setSearchQuery(""); // Reset search query
-    
-    // Reset form data
-    if (clientType === "patient") {
-      setPatientFormData({
-        nomComplet: "",
-        telephonePrincipale: "",
-        telephoneSecondaire: "",
-        adresseComplete: "",
-        cin: "",
-        identifiantCNAM: "",
-        technicienResponsable: "",
-        antecedant: "",
-        taille: "",
-        poids: "",
-        medecin: "",
-        dateNaissance: "",
-        beneficiaire: "" as BeneficiaryType,
-        caisseAffiliation: "CNSS",
-        cnam: false,
-        description1: "",
-        description2: "",
-      });
-    } else {
-      setSocieteFormData({
-        nomSociete: "",
-        telephonePrincipale: "",
-        telephoneSecondaire: "",
-        adresseComplete: "",
-        matriculeFiscale: "",
-        technicienResponsable: "",
-        descriptionNom: "",
-        descriptionTelephone: "",
-        descriptionAdresse: "",
+  const handleCreateSuccess = async (formData: any) => {
+    try {
+      // Create FormData object as the API expects multipart form data
+      const apiFormData = new FormData();
+      
+      if (clientType === "patient") {
+        // Map patient form data to API expected fields
+        Object.entries(formData).forEach(([key, value]) => {
+          if (value !== null && value !== undefined && value !== "") {
+            apiFormData.append(key, value as string);
+          }
+        });
+        
+        const response = await fetch('/api/renseignements/patients', {
+          method: 'POST',
+          body: apiFormData
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to create patient');
+        }
+        
+        const newPatient = await response.json();
+        
+        // Update the clients list with the new patient
+        const newClientData = {
+          id: newPatient.id,
+          name: `${newPatient.lastName} ${newPatient.firstName}`,
+          hasOngoingDiagnostic: false,
+          ongoingDiagnosticId: null
+        };
+        
+        // Add to clients list via callback
+        if (onClientAdd) {
+          onClientAdd(newClientData);
+        }
+        
+        // Select the new client
+        handleClientSelect(newPatient.id);
+        
+        // Show success message
+        toast({
+          title: "Succès",
+          description: "Patient créé avec succès",
+        });
+        
+      } else if (clientType === "societe") {
+        // Map company form data to API expected fields
+        Object.entries(formData).forEach(([key, value]) => {
+          if (value !== null && value !== undefined && value !== "") {
+            apiFormData.append(key, value as string);
+          }
+        });
+        
+        const response = await fetch('/api/renseignements/companies', {
+          method: 'POST',
+          body: apiFormData
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to create company');
+        }
+        
+        const newCompany = await response.json();
+        
+        // Update the clients list with the new company
+        const newClientData = {
+          id: newCompany.id,
+          name: newCompany.companyName
+        };
+        
+        // Add to clients list via callback
+        if (onClientAdd) {
+          onClientAdd(newClientData);
+        }
+        
+        // Select the new client
+        handleClientSelect(newCompany.id);
+        
+        // Show success message
+        toast({
+          title: "Succès",
+          description: "Société créée avec succès",
+        });
+      }
+      
+      setIsCreateFormOpen(false);
+      setSearchQuery(""); // Reset search query
+      
+      // Reset form data
+      if (clientType === "patient") {
+        setPatientFormData({
+          nomComplet: "",
+          telephonePrincipale: "",
+          telephoneSecondaire: "",
+          adresseComplete: "",
+          cin: "",
+          identifiantCNAM: "",
+          technicienResponsable: "",
+          antecedant: "",
+          taille: "",
+          poids: "",
+          medecin: "",
+          dateNaissance: "",
+          beneficiaire: "" as BeneficiaryType,
+          caisseAffiliation: "CNSS",
+          cnam: false,
+          description1: "",
+          description2: "",
+        });
+      } else {
+        setSocieteFormData({
+          nomSociete: "",
+          telephonePrincipale: "",
+          telephoneSecondaire: "",
+          adresseComplete: "",
+          matriculeFiscale: "",
+          technicienResponsable: "",
+          descriptionNom: "",
+          descriptionTelephone: "",
+          descriptionAdresse: "",
+        });
+      }
+      
+    } catch (error) {
+      console.error('Error creating client:', error);
+      toast({
+        title: "Erreur",
+        description: `Erreur lors de la création: ${error.message}`,
+        variant: "destructive"
       });
     }
   };
@@ -388,7 +493,7 @@ export function ClientSelectionStep({
                 onFileChange={handlePatientFileChange}
                 onBack={() => setIsCreateFormOpen(false)}
                 onNext={() => {
-                  handleCreateSuccess({ id: Date.now().toString(), name: patientFormData.nomComplet });
+                  handleCreateSuccess(patientFormData);
                 }}
               />
             ) : (
@@ -398,7 +503,7 @@ export function ClientSelectionStep({
                 onFileChange={handleSocieteFileChange}
                 onBack={() => setIsCreateFormOpen(false)}
                 onNext={() => {
-                  handleCreateSuccess({ id: Date.now().toString(), name: societeFormData.nomSociete });
+                  handleCreateSuccess(societeFormData);
                 }}
               />
             )}

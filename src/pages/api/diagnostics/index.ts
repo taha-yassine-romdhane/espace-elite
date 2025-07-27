@@ -65,6 +65,23 @@ export default async function handler(
               firstName: true,
               lastName: true,
               telephone: true,
+              governorate: true,
+              delegation: true,
+              detailedAddress: true,
+              technician: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                },
+              },
+              supervisor: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                },
+              },
             },
           },
           Company: {
@@ -116,6 +133,8 @@ export default async function handler(
           performedBy,
           result: diagnostic.result,
           status: diagnostic.result?.status || 'PENDING',
+          patient: diagnostic.patient,
+          medicalDevice: diagnostic.medicalDevice,
         };
       });
 

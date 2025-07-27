@@ -22,7 +22,45 @@ export default async function handler(
     return;
   }
 
-  if (req.method === 'POST') {
+  if (req.method === 'GET') {
+    try {
+      const patients = await prisma.patient.findMany({
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          telephone: true,
+          cin: true,
+        },
+        orderBy: {
+          lastName: 'asc',
+        },
+      });
+
+      // Transform data to match expected format
+      const transformedPatients = patients.map((patient) => {
+        const firstName = patient.firstName || '';
+        const lastName = patient.lastName || '';
+        const fullName = `${firstName} ${lastName}`.trim();
+        
+        return {
+          id: patient.id,
+          firstName: firstName,
+          lastName: lastName,
+          name: fullName || 'Patient sans nom',
+          telephone: patient.telephone,
+          cin: patient.cin,
+        };
+      });
+
+      console.log('Transformed patients for response:', transformedPatients);
+
+      return res.status(200).json({ patients: transformedPatients });
+    } catch (error) {
+      console.error('Error fetching patients:', error);
+      return res.status(500).json({ error: 'Failed to fetch patients' });
+    }
+  } else if (req.method === 'POST') {
     const form = formidable({});
     const [fields, ] = await form.parse(req);
     const data = Object.fromEntries(
@@ -78,7 +116,9 @@ export default async function handler(
           lastName: names.length > 1 ? names.slice(1).join(' ') : '',
           telephone: data.telephonePrincipale || '',
           telephoneTwo: data.telephoneSecondaire || '',
-          address: data.adresseComplete || '',
+          governorate: data.governorate || null,
+          delegation: data.delegation || null,
+          detailedAddress: data.detailedAddress || null,
           dateOfBirth: data.dateNaissance ? new Date(data.dateNaissance) : null,
           cin: data.cin || '',
           cnamId: data.identifiantCNAM || '',
@@ -95,6 +135,9 @@ export default async function handler(
           technician: data.technicienResponsable ? {
             connect: { id: data.technicienResponsable }
           } : undefined, // Properly handle technician connection/disconnection
+          supervisor: data.superviseur ? {
+            connect: { id: data.superviseur }
+          } : undefined, // Properly handle supervisor connection/disconnection
           assignedTo: {
             connect: {
               id: session.user.id
@@ -108,10 +151,49 @@ export default async function handler(
             }
           },
           technician: true,
+          supervisor: true,
           assignedTo: true,
           files: true
         }
       });
+      
+      // Handle temporary files if any
+      let tempFiles = [];
+      if (data.existingFiles) {
+        try {
+          tempFiles = typeof data.existingFiles === 'string' 
+            ? JSON.parse(data.existingFiles) 
+            : data.existingFiles;
+          console.log('Found temporary files to move:', tempFiles);
+        } catch (error) {
+          console.error('Error parsing existingFiles:', error);
+        }
+      }
+      
+      if (tempFiles.length > 0) {
+        try {
+          const moveResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/files/move-temp`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Cookie': req.headers.cookie || ''
+            },
+            body: JSON.stringify({
+              tempFiles,
+              patientId: patient.id
+            })
+          });
+          
+          if (!moveResponse.ok) {
+            console.error('Failed to move temporary files:', await moveResponse.text());
+          } else {
+            const movedFiles = await moveResponse.json();
+            console.log('Successfully moved temporary files for patient:', patient.id, movedFiles);
+          }
+        } catch (error) {
+          console.error('Error moving temporary files:', error);
+        }
+      }
       
       // Get the updated patient record with files included
       const updatedPatient = await prisma.patient.findUnique({
@@ -123,6 +205,7 @@ export default async function handler(
             }
           },
           technician: true,
+          supervisor: true,
           assignedTo: true,
           files: true
         }
@@ -279,7 +362,9 @@ export default async function handler(
           lastName: names.length > 1 ? names.slice(1).join(' ') : '',
           telephone: data.telephonePrincipale || '',
           telephoneTwo: data.telephoneSecondaire || '',
-          address: data.adresseComplete || '',
+          governorate: data.governorate || null,
+          delegation: data.delegation || null,
+          detailedAddress: data.detailedAddress || null,
           dateOfBirth: data.dateNaissance ? new Date(data.dateNaissance) : null,
           cin: data.cin || '',
           cnamId: data.identifiantCNAM || '',
@@ -295,6 +380,9 @@ export default async function handler(
           } : undefined, // Properly handle doctor connection/disconnection
           technician: data.technicienResponsable ? {
             connect: { id: data.technicienResponsable }
+          } : undefined, // Properly handle technician connection/disconnection
+          supervisor: data.superviseur ? {
+            connect: { id: data.superviseur }
           } : undefined
           // Removed updateFileData from here
         },
@@ -305,6 +393,7 @@ export default async function handler(
             }
           },
           technician: true,
+          supervisor: true,
           assignedTo: true,
           files: true
         }

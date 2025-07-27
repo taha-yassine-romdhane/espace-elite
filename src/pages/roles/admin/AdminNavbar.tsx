@@ -47,7 +47,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
     const router = useRouter();
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-    const [currentTime, setCurrentTime] = useState(new Date());
+    const [currentTime, setCurrentTime] = useState<Date | null>(null);
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
@@ -56,6 +56,9 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
 
     // Update time every minute and fetch notifications
     useEffect(() => {
+        // Set initial time on client side only
+        setCurrentTime(new Date());
+        
         const timer = setInterval(() => {
             setCurrentTime(new Date());
         }, 60000);
@@ -217,7 +220,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
                             <div className="text-xs text-gray-500 flex items-center space-x-1">
                                 <span>Elite Medicale Services</span>
                                 <span>•</span>
-                                <span className="font-medium">{formatTime(currentTime)}</span>
+                                <span className="font-medium">{currentTime ? formatTime(currentTime) : '--:--'}</span>
                             </div>
                         </div>
                     </div>
@@ -231,8 +234,8 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
                     <div className="flex items-center space-x-3">
                         {/* Current Date */}
                         <div className="hidden lg:block text-right">
-                            <div className="text-xs text-gray-500">{formatDate(currentTime)}</div>
-                            <div className="text-sm font-medium text-[#1e3a8a]">{formatTime(currentTime)}</div>
+                            <div className="text-xs text-gray-500">{currentTime ? formatDate(currentTime) : ''}</div>
+                            <div className="text-sm font-medium text-[#1e3a8a]">{currentTime ? formatTime(currentTime) : '--:--'}</div>
                         </div>
 
 

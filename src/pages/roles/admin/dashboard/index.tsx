@@ -3,33 +3,43 @@ import { useState } from "react";
 import { SaleStepperDialog } from "./components/SaleStepperDialog";
 import { DiagnosticStepperDialog } from "./components/DiagnosticStepperDialog";
 import { RentStepperDialog } from "./components/RentStepperDialog";
-import { Building2, ShoppingCart, Stethoscope } from "lucide-react";
+import { RdvStepperDialog } from "./components/RdvStepperDialog";
+import { Building2, ShoppingCart, Stethoscope, Calendar } from "lucide-react";
 import { useRouter } from "next/router";
+import AdminLayout from "../AdminLayout";
 
 // Import table components
+import { AppointmentsTable } from "./components/tables/AppointmentsTable";
 import { DiagnosticTable } from "./components/tables/DiagnosticTable";
-import { RentalTable } from "./components/tables/RentalTable";
 import { SalesTable } from "./components/tables/SalesTable";
+import { RentalTable } from "./components/tables/RentalTable";
 import { TabSwitcher } from "./components/TabSwitcher";
 
-export default function DashboardPage() {
-  const [selectedAction, setSelectedAction] = useState<"location" | "vente" | "diagnostique" | null>(null);
-  const [activeTab, setActiveTab] = useState<"diagnostics" | "rentals" | "sales">("diagnostics");
+function DashboardPage() {
+  const [selectedAction, setSelectedAction] = useState<"rdv" | "diagnostique" | "vente" | "location" | null>(null);
+  const [activeTab, setActiveTab] = useState<"appointments" | "diagnostics" | "sales" | "rentals">("appointments");
   const router = useRouter();
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto py-10 px-4">
+    <div className="container mx-auto py-6 px-4">
         <h1 className="text-3xl font-bold mb-8 text-blue-900">Tableau de Bord</h1>
         
-        {/* Action Buttons Row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        {/* Action Buttons Row - Reordered: RDV, Diagnostic, Sale, Rental */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <Button 
             className="w-full bg-blue-900 hover:bg-blue-700 text-white flex items-center justify-start gap-2"
-            onClick={() => setSelectedAction("location")}
+            onClick={() => setSelectedAction("rdv")}
           >
-            <Building2 className="h-5 w-5" />
-            <span>Commencer une Location</span>
+            <Calendar className="h-5 w-5" />
+            <span>Nouveau Rendez-vous</span>
+          </Button>
+          
+          <Button 
+            className="w-full bg-blue-900 hover:bg-blue-700 text-white flex items-center justify-start gap-2"
+            onClick={() => setSelectedAction("diagnostique")}
+          >
+            <Stethoscope className="h-5 w-5" />
+            <span>Commencer un Diagnostic</span>
           </Button>
           
           <Button 
@@ -42,10 +52,10 @@ export default function DashboardPage() {
           
           <Button 
             className="w-full bg-blue-900 hover:bg-blue-700 text-white flex items-center justify-start gap-2"
-            onClick={() => setSelectedAction("diagnostique")}
+            onClick={() => setSelectedAction("location")}
           >
-            <Stethoscope className="h-5 w-5" />
-            <span>Commencer un Diagnostic</span>
+            <Building2 className="h-5 w-5" />
+            <span>Commencer une Location</span>
           </Button>
         </div>
 
@@ -53,17 +63,14 @@ export default function DashboardPage() {
         <TabSwitcher activeTab={activeTab} onTabChange={(tab) => setActiveTab(tab as any)} />
         
         {/* Tables */}
+        {activeTab === "appointments" && (
+          <AppointmentsTable />
+        )}
+        
         {activeTab === "diagnostics" && (
           <DiagnosticTable 
             onViewDetails={(id) => router.push(`/roles/admin/diagnostics/${id}`)} 
             onEnterResults={(id) => router.push(`/roles/admin/diagnostics/${id}/results`)}
-          />
-        )}
-        
-        {activeTab === "rentals" && (
-          <RentalTable 
-            onViewDetails={(id) => router.push(`/roles/admin/rentals/${id}`)}
-            onEdit={(id) => router.push(`/roles/admin/rentals/${id}/edit`)}
           />
         )}
         
@@ -73,13 +80,19 @@ export default function DashboardPage() {
             onEdit={(id) => router.push(`/roles/admin/sales/${id}/edit`)}
           />
         )}
+        
+        {activeTab === "rentals" && (
+          <RentalTable 
+            onViewDetails={(id) => router.push(`/roles/admin/rentals/${id}`)}
+            onEdit={(id) => router.push(`/roles/admin/rentals/${id}/edit`)}
+          />
+        )}
 
         {/* Stepper Dialogs */}
-        {selectedAction === "vente" && (
-          <SaleStepperDialog
+        {selectedAction === "rdv" && (
+          <RdvStepperDialog
             isOpen={true}
             onClose={() => setSelectedAction(null)}
-            action={selectedAction}
           />
         )}
 
@@ -89,6 +102,14 @@ export default function DashboardPage() {
             onClose={() => setSelectedAction(null)}
           />
         )}
+
+        {selectedAction === "vente" && (
+          <SaleStepperDialog
+            isOpen={true}
+            onClose={() => setSelectedAction(null)}
+            action={selectedAction}
+          />
+        )}
         
         {selectedAction === "location" && (
           <RentStepperDialog
@@ -96,7 +117,13 @@ export default function DashboardPage() {
             onClose={() => setSelectedAction(null)}
           />
         )}
-      </div>
     </div>
   );
 }
+
+// Add layout wrapper
+DashboardPage.getLayout = function getLayout(page: React.ReactElement) {
+  return <AdminLayout>{page}</AdminLayout>;
+};
+
+export default DashboardPage;

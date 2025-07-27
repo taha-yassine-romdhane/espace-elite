@@ -34,7 +34,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           { telephone: { contains: searchQuery, mode: 'insensitive' } },
           { telephoneTwo: { contains: searchQuery, mode: 'insensitive' } },
           { cnamId: { contains: searchQuery, mode: 'insensitive' } },
-          { address: { contains: searchQuery, mode: 'insensitive' } },
+          { governorate: { contains: searchQuery, mode: 'insensitive' } },
+          { delegation: { contains: searchQuery, mode: 'insensitive' } },
+          { detailedAddress: { contains: searchQuery, mode: 'insensitive' } },
         ]
       },
       take: 5,
@@ -55,7 +57,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       where: {
         OR: [
           { companyName: { contains: searchQuery, mode: 'insensitive' } },
-          { address: { contains: searchQuery, mode: 'insensitive' } },
+          { governorate: { contains: searchQuery, mode: 'insensitive' } },
+          { delegation: { contains: searchQuery, mode: 'insensitive' } },
+          { detailedAddress: { contains: searchQuery, mode: 'insensitive' } },
           { telephone: { contains: searchQuery, mode: 'insensitive' } },
         ]
       },
@@ -66,7 +70,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       results.push({
         id: company.id,
         title: company.companyName,
-        subtitle: company.address || 'Company',
+        subtitle: `${company.governorate || ''} ${company.delegation || ''} ${company.detailedAddress || ''}`.trim() || 'Company',
         type: 'company' as SearchResultType,
         url: `/roles/admin/renseignement/company/${company.id}`
       });

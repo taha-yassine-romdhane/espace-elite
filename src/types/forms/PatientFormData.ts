@@ -36,7 +36,9 @@ export interface PersonalInfoFormValues extends BaseFormValues {
   nomComplet: string;
   telephonePrincipale: string;
   telephoneSecondaire?: string;
-  adresseComplete?: string;
+  governorate?: string;
+  delegation?: string;
+  detailedAddress?: string;
   addressCoordinates?: string | null;
   cin?: string;
   dateNaissance?: string;

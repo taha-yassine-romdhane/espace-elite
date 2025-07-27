@@ -59,8 +59,8 @@ export function BackupRestore() {
     });
   }
 
-  // Handle backup creation
-  const handleCreateBackup = async (format: BackupFormat = 'json', download: boolean = false) => {
+  // Handle backup creation (always downloads)
+  const handleCreateBackup = async (format: BackupFormat = 'json') => {
     try {
       setIsExporting(true);
       setExportProgress(0);
@@ -68,104 +68,54 @@ export function BackupRestore() {
       // Get current user ID from session
       const userId = session?.user?.id || 'admin';
       
-      // Start the backup process
-      if (download) {
-        // For direct download, use a different approach
-        // Create a hidden form to submit as POST and trigger download
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '/api/settings/backup';
-        form.target = '_blank'; // Open in new tab/trigger download
-        
-        // Add hidden fields
-        const addHiddenField = (name: string, value: string) => {
-          const field = document.createElement('input');
-          field.type = 'hidden';
-          field.name = name;
-          field.value = value;
-          form.appendChild(field);
-        };
-        
-        addHiddenField('userId', userId);
-        addHiddenField('format', format);
-        addHiddenField('download', 'true');
-        addHiddenField('description', `${format.toUpperCase()} backup created on ${new Date().toLocaleString()}`);
-        
-        // Submit the form
-        document.body.appendChild(form);
-        form.submit();
-        document.body.removeChild(form);
-        
-        // Simulate progress for better UX
-        const interval = setInterval(() => {
-          setExportProgress((prev) => {
-            if (prev >= 100) {
-              clearInterval(interval);
-              return 100;
-            }
-            return prev + 10;
-          });
-        }, 300);
-        
-        // Reset after a delay
-        setTimeout(() => {
-          setIsExporting(false);
-          setExportProgress(0);
-          refetchBackups();
-          
-          toast({
-            title: "Backup created successfully",
-            description: `${format.toUpperCase()} backup has been created and downloaded.`,
-          });
-        }, 3000);
-        
-        return;
-      }
+      // For direct download, use a different approach
+      // Create a hidden form to submit as POST and trigger download
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '/api/settings/backup';
+      form.target = '_blank'; // Open in new tab/trigger download
       
-      // Regular backup without download
-      const response = await fetch("/api/settings/backup", {
-        method: "POST",
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId,
-          format,
-          description: `${format.toUpperCase()} backup created on ${new Date().toLocaleString()}`
-        }),
-      });
+      // Add hidden fields
+      const addHiddenField = (name: string, value: string) => {
+        const field = document.createElement('input');
+        field.type = 'hidden';
+        field.name = name;
+        field.value = value;
+        form.appendChild(field);
+      };
       
-      if (!response.ok) {
-        throw new Error("Failed to create backup");
-      }
+      addHiddenField('userId', userId);
+      addHiddenField('format', format);
+      addHiddenField('description', `${format.toUpperCase()} backup created on ${new Date().toLocaleString()}`);
       
-      // Simulate progress
+      // Submit the form
+      document.body.appendChild(form);
+      form.submit();
+      document.body.removeChild(form);
+      
+      // Simulate progress for better UX
       const interval = setInterval(() => {
         setExportProgress((prev) => {
-          if (prev >= 90) {
+          if (prev >= 100) {
             clearInterval(interval);
-            return prev;
+            return 100;
           }
           return prev + 10;
         });
       }, 300);
       
-      const result = await response.json();
-      
-      // Complete progress
-      clearInterval(interval);
-      setExportProgress(100);
-      
+      // Reset after a delay
       setTimeout(() => {
         setIsExporting(false);
         setExportProgress(0);
         refetchBackups();
         
         toast({
-          title: "Backup created successfully",
-          description: `Backup ${result.fileName} has been created.`,
+          title: "Backup créé avec succès",
+          description: `Le backup ${format.toUpperCase()} a été créé et téléchargé.`,
         });
-      }, 500);
+      }, 3000);
+      
     } catch (error) {
       setIsExporting(false);
       setExportProgress(0);
@@ -205,18 +155,18 @@ export function BackupRestore() {
         });
       }, 300);
       
-      // TODO: Implement file upload and restore API endpoint
-      // const response = await fetch("/api/settings/backup/restore-file", {
-      //   method: "POST",
-      //   body: formData,
-      // });
+      // Call the actual restore API endpoint
+      const response = await fetch("/api/settings/backup/restore-file", {
+        method: "POST",
+        body: formData,
+      });
       
-      // if (!response.ok) {
-      //   throw new Error("Failed to restore from file");
-      // }
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to restore from file");
+      }
       
-      // Simulate API call for now
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      const result = await response.json();
       
       // Complete progress
       clearInterval(interval);
@@ -230,7 +180,7 @@ export function BackupRestore() {
         
         toast({
           title: "Restore completed",
-          description: "Database has been restored from the uploaded file.",
+          description: result.message || "Database has been restored from the uploaded file.",
         });
       }, 500);
     } catch (error) {
@@ -308,33 +258,6 @@ export function BackupRestore() {
     }
   };
 
-  // Handle backup deletion
-  const handleDeleteBackup = async (backup: BackupItem) => {
-    if (!backup || !backup.id) return;
-    
-    try {
-      const response = await fetch(`/api/settings/backup/${backup.id}`, {
-        method: "DELETE",
-      });
-      
-      if (!response.ok) {
-        throw new Error("Failed to delete backup");
-      }
-      
-      refetchBackups();
-      
-      toast({
-        title: "Backup deleted",
-        description: `Backup ${backup.fileName} has been deleted.`,
-      });
-    } catch (error) {
-      toast({
-        title: "Error deleting backup",
-        description: error instanceof Error ? error.message : "Unknown error",
-        variant: "destructive",
-      });
-    }
-  };
 
   return (
     <Card>
@@ -380,8 +303,6 @@ export function BackupRestore() {
           backups={(backups || []) as BackupItem[]}
           isLoading={isLoading}
           onRestore={handleRestoreDatabase}
-          onDelete={handleDeleteBackup}
-          isDeleting={false}
         />
       </CardContent>
     </Card>

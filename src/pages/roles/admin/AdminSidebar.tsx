@@ -45,7 +45,6 @@ const Sidebar: React.FC = () => {
     const defaultMenuItems: MenuItem[] = [
         { id: 'dashboard', icon: <LayoutDashboard size={20} />, label: "Accueil", path: "/roles/admin/dashboard" },
         { id: 'tasks', icon: <CalendarCheck size={20} />, label: "Gestion des taches", path: "/roles/admin/tasks" },
-        { id: 'info-step', icon: <HelpCircle size={20} />, label: "info des steps", path: "/roles/admin/info-step" },
         { id: 'notifications', icon: <ClipboardCheck size={20} />, label: "Gestion des Notifications", path: "/roles/admin/notifications" },
         { id: 'users', icon: <ContactRound size={20} />, label: "Utilisateurs", path: "/roles/admin/users" },
         { id: 'espace-technicien', icon: <UserCog size={20} />, label: "Espace Technicien", path: "/roles/admin/espace-technicien" },

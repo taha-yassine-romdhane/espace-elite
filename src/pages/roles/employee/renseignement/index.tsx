@@ -7,12 +7,13 @@ import { RenseignementTable } from './components/RenseignementTable';
 import { FileViewer } from './components/FileViewer';
 import { BeneficiaryType } from '@prisma/client';
 import { CaisseAffiliation, Renseignement, RenseignementFormData } from '@/types/renseignement';
-import { Building, Filter, Search, User, X } from 'lucide-react';
+import { Building, Filter, Search, User, X, FileSpreadsheet } from 'lucide-react';
 import { ExistingFile } from '@/types/forms/PatientFormData';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import ImportExportModal from '@/components/forms/ImportExportModal';
 import EmployeeLayout from '../EmployeeLayout';
 
 
@@ -52,6 +53,8 @@ export default function RenseignementPage() {
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [showFilesDialog, setShowFilesDialog] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
+  const [showImportExportModal, setShowImportExportModal] = useState(false);
+  const [importExportType, setImportExportType] = useState<'patients' | 'companies'>('patients');
   
   // Search and filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -397,12 +400,14 @@ export default function RenseignementPage() {
         });
       }
 
-      // Add existing files if editing
+      // Add existing files (includes temporary files for new patients/companies)
+      if (formData.existingFiles && formData.existingFiles.length > 0) {
+        formDataObj.append('existingFiles', JSON.stringify(formData.existingFiles));
+      }
+      
+      // Add ID if editing
       if (isEdit && formData.id) {
         formDataObj.append('id', formData.id);
-        if (formData.existingFiles) {
-          formDataObj.append('existingFiles', JSON.stringify(formData.existingFiles));
-        }
       }
 
       console.log('Submitting form data:', {
@@ -490,6 +495,30 @@ export default function RenseignementPage() {
           >
             <Building className="mr-2 h-4 w-4" />
             Ajouter Société
+          </Button>
+          
+          {/* Import/Export Buttons */}
+          <Button
+            onClick={() => {
+              setImportExportType('patients');
+              setShowImportExportModal(true);
+            }}
+            variant="outline"
+            className="border-green-600 text-green-600 hover:bg-green-50"
+          >
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            Excel Patients
+          </Button>
+          <Button
+            onClick={() => {
+              setImportExportType('companies');
+              setShowImportExportModal(true);
+            }}
+            variant="outline"
+            className="border-green-600 text-green-600 hover:bg-green-50"
+          >
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            Excel Sociétés
           </Button>
         </div>
       </div>
@@ -658,6 +687,13 @@ export default function RenseignementPage() {
         files={selectedFiles}
         isOpen={showFilesDialog}
         onClose={() => setShowFilesDialog(false)}
+      />
+
+      <ImportExportModal
+        isOpen={showImportExportModal}
+        onClose={() => setShowImportExportModal(false)}
+        type={importExportType}
+        onImportComplete={fetchRenseignements}
       />
     </div>
   );

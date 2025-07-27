@@ -12,28 +12,53 @@ import InsuranceDetailsBlock from './patientSections/InsuranceDetailsBlock';
 import BiometricsBlock from './patientSections/BiometricsBlock';
 import AdditionalInfoBlock from './patientSections/AdditionalInfoBlock';
 import ResponsiblePersonBlock from './patientSections/ResponsiblePersonBlock';
-import FileManager from './components/FileManager';
+import FileUpload from './components/FileUpload';
 import { Doctor } from '@/types/models/Doctor';
 import { Technician } from '@/types/models/Technician';
 import { PatientFormProps } from '@/types/forms/PatientFormProps';
 import { PatientFormData, ExistingFile } from '@/types/forms/PatientFormData';
 import { Patient } from '@/types';
 
-// Create a more flexible Zod schema
+// Tunisian validation patterns
+const TUNISIAN_PHONE_REGEX = /^(\+216|216)?[2-9]\d{7}$/;
+const TUNISIAN_CIN_REGEX = /^\d{8}$/;
+
+// Create validation schema with Tunisian-specific rules
 const formSchema = z.object({
   // Required fields with validation
   nomComplet: z.string().min(2, "Le nom doit contenir au moins 2 caractères"),
-  telephonePrincipale: z.string().min(8, "Le numéro doit contenir au moins 8 chiffres"),
+  telephonePrincipale: z.string()
+    .min(8, "Le numéro doit contenir au moins 8 chiffres")
+    .regex(TUNISIAN_PHONE_REGEX, "Format invalide. Utilisez le format tunisien (+216xxxxxxxx ou 216xxxxxxxx)"),
   
-  // Optional fields
-  telephoneSecondaire: z.string().optional(),
-  adresseComplete: z.string().optional(), // Made optional to fix type error
-  cin: z.string().optional(),
+  // Optional fields with specific validations
+  telephoneSecondaire: z.string()
+    .optional()
+    .refine((val) => !val || val === '' || TUNISIAN_PHONE_REGEX.test(val), {
+      message: "Format invalide. Utilisez le format tunisien (+216xxxxxxxx ou 216xxxxxxxx)"
+    }),
+  governorate: z.string().optional(),
+  delegation: z.string().optional(),
+  detailedAddress: z.string().optional(),
+  cin: z.string()
+    .optional()
+    .refine((val) => !val || val === '' || TUNISIAN_CIN_REGEX.test(val), {
+      message: "Le CIN doit contenir exactement 8 chiffres"
+    }),
   identifiantCNAM: z.string().optional(),
   technicienResponsable: z.string().optional(),
+  superviseur: z.string().optional(),
   antecedant: z.string().optional(),
-  taille: z.string().optional(),
-  poids: z.string().optional(),
+  taille: z.string()
+    .optional()
+    .refine((val) => !val || val === '' || (!isNaN(Number(val)) && Number(val) > 0 && Number(val) < 300), {
+      message: "La taille doit être un nombre valide entre 1 et 300 cm"
+    }),
+  poids: z.string()
+    .optional()
+    .refine((val) => !val || val === '' || (!isNaN(Number(val)) && Number(val) > 0 && Number(val) < 500), {
+      message: "Le poids doit être un nombre valide entre 1 et 500 kg"
+    }),
   medecin: z.string().optional(),
   dateNaissance: z.string().optional(),
   beneficiaire: z.nativeEnum(BeneficiaryType).optional(),
@@ -43,7 +68,7 @@ const formSchema = z.object({
   descriptionTelephone: z.string().optional(),
   descriptionAdresse: z.string().optional(),
   
-  // File fields
+  // File fields (keeping as-is per instructions)
   files: z.any().optional(),
   existingFiles: z.any().optional(),
   
@@ -93,10 +118,13 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
       nomComplet: formData.nomComplet || '',
       telephonePrincipale: formData.telephonePrincipale || '',
       telephoneSecondaire: formData.telephoneSecondaire || '',
-      adresseComplete: formData.adresseComplete || '',
+      governorate: (formData as any).governorate || '',
+      delegation: (formData as any).delegation || '',
+      detailedAddress: (formData as any).detailedAddress || '',
       cin: formData.cin || '',
       identifiantCNAM: formData.identifiantCNAM || '',
       technicienResponsable: formData.technicienResponsable || '',
+      superviseur: (formData as any).superviseur || '',
       antecedant: formData.antecedant || '',
       taille: formData.taille || '',
       poids: formData.poids || '',
@@ -232,6 +260,11 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
     // Update technician field if it exists
     if (patient.technicianId) {
       form.setValue('technicienResponsable', patient.technicianId);
+    }
+    
+    // Update supervisor field if it exists
+    if ((patient as any).supervisorId) {
+      form.setValue('superviseur', (patient as any).supervisorId);
     }
     
     // Set basic patient information
@@ -500,11 +533,13 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
               />
 
               {/* File Upload Section */}
-              <FileManager 
+              <FileUpload 
                 form={form} 
-                existingFiles={existingFiles}
+                existingFiles={existingFiles as any}
                 onFileChange={setExistingFiles}
                 onRemoveExistingFile={handleRemoveFile}
+                maxFiles={10}
+                maxFileSize={16}
               />
             </div>
           </div>

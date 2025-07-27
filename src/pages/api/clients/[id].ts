@@ -27,7 +27,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           lastName: true,
           telephone: true,
           telephoneTwo: true,
-          address: true,
+          governorate: true,
+          delegation: true,
+          detailedAddress: true,
           dateOfBirth: true,
           cin: true,
           cnamId: true,
@@ -54,7 +56,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           lastName: patient.lastName,
           telephone: patient.telephone,
           telephoneTwo: patient.telephoneTwo,
-          address: patient.address,
+          address: `${patient.governorate || ''} ${patient.delegation || ''} ${patient.detailedAddress || ''}`.trim(),
           type: 'PATIENT',
           dateOfBirth: patient.dateOfBirth,
           cin: patient.cin,
@@ -73,7 +75,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           companyName: true,
           telephone: true,
           telephoneSecondaire: true,
-          address: true,
+          governorate: true,
+          delegation: true,
+          detailedAddress: true,
           taxId: true
         }
       });
@@ -85,7 +89,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           lastName: '',
           telephone: company.telephone,
           telephoneTwo: company.telephoneSecondaire,
-          address: company.address,
+          address: `${company.governorate || ''} ${company.delegation || ''} ${company.detailedAddress || ''}`.trim(),
           type: 'COMPANY',
           taxId: company.taxId
         });

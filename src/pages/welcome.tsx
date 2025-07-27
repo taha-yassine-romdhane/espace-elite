@@ -1,11 +1,13 @@
 import Header from "@/components/welcome/Header";
 import HeroSection from "@/components/welcome/HeroSection";
-import FeaturesSection from "@/components/welcome/FeaturesSection";
-import TestimonialsSection from "@/components/welcome/TestimonialsSection";
+import AnimatedFeaturesShowcase from "@/components/welcome/AnimatedFeaturesShowcase";
+import PartnershipSection from "@/components/welcome/PartnershipSection";
+import PricingSection from "@/components/welcome/PricingSection";
+import ContactSection from "@/components/welcome/ContactSection";
 import CTASection from "@/components/welcome/CTASection";
 import Footer from "@/components/welcome/Footer";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "next/router";
 import { useEffect } from "react";
 
 // Main Welcome Page Component
@@ -24,8 +26,10 @@ export default function Welcome() {
     <div>
       <Header />
       <HeroSection />
-      <FeaturesSection />
-      <TestimonialsSection />
+      <AnimatedFeaturesShowcase />
+      <PartnershipSection />
+      <PricingSection />
+      <ContactSection />
       <CTASection />
       <Footer />
     </div>

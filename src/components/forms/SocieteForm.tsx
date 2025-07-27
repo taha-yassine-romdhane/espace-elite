@@ -5,7 +5,7 @@ import * as z from 'zod';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import FileManager from './components/FileManager';
+import FileUpload from './components/FileUpload';
 import { useToast } from "@/components/ui/use-toast";
 import {
   Form,
@@ -18,6 +18,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MapPin } from 'lucide-react';
 import { ExistingFile } from '@/types/forms/PatientFormData';
+import { TUNISIA_GOVERNORATES, getDelegationsByGovernorate } from '@/data/tunisia-locations';
 
 interface Technician {
   id: string;
@@ -25,19 +26,35 @@ interface Technician {
   role: string;
 }
 
-// Define a type for file data if not already defined in the project
+// Tunisian validation patterns
+const TUNISIAN_PHONE_REGEX = /^(\+216|216)?[2-9]\d{7}$/;
+const TUNISIAN_TAX_ID_REGEX = /^\d{7}[A-Z]{3}\d{3}$/; // Tunisian tax ID format: 7 digits + 3 letters + 3 digits
+
+// Define validation schema with Tunisian-specific rules
 const formSchema = z.object({
   id: z.string().optional(), // Add ID field for entity identification
   nomSociete: z.string().min(1, "Le nom de la société est requis"),
-  telephonePrincipale: z.string().min(8, "Le numéro de téléphone doit contenir au moins 8 chiffres"),
-  adresseComplete: z.string().min(1, "L'adresse est requise"),
-  telephoneSecondaire: z.string().optional(),
-  matriculeFiscale: z.string().optional(),
+  telephonePrincipale: z.string()
+    .min(8, "Le numéro de téléphone doit contenir au moins 8 chiffres")
+    .regex(TUNISIAN_PHONE_REGEX, "Format invalide. Utilisez le format tunisien (+216xxxxxxxx ou 216xxxxxxxx)"),
+  governorate: z.string().min(1, "Le gouvernorat est requis"),
+  delegation: z.string().min(1, "La délégation est requise"),
+  detailedAddress: z.string().optional(),
+  telephoneSecondaire: z.string()
+    .optional()
+    .refine((val) => !val || val === '' || TUNISIAN_PHONE_REGEX.test(val), {
+      message: "Format invalide. Utilisez le format tunisien (+216xxxxxxxx ou 216xxxxxxxx)"
+    }),
+  matriculeFiscale: z.string()
+    .optional()
+    .refine((val) => !val || val === '' || TUNISIAN_TAX_ID_REGEX.test(val), {
+      message: "Matricule fiscal invalide. Format attendu: 1234567ABC123"
+    }),
   technicienResponsable: z.string().optional(),
   descriptionNom: z.string().optional(),
   descriptionTelephone: z.string().optional(),
   descriptionAdresse: z.string().optional(),
-  // Add file fields to the schema
+  // Add file fields to the schema (keeping as-is per instructions)
   files: z.any().optional(),
   existingFiles: z.any().optional(),
 }).passthrough(); // Allow additional properties
@@ -48,7 +65,9 @@ export interface SocieteFormProps {
     matriculeFiscale?: string;
     telephonePrincipale?: string;
     telephoneSecondaire?: string;
-    adresseComplete?: string;
+    governorate?: string;
+    delegation?: string;
+    detailedAddress?: string;
     technicienResponsable?: string;
     descriptionNom?: string;
     descriptionTelephone?: string;
@@ -106,7 +125,9 @@ export default function SocieteForm({ formData, onInputChange, onFileChange, onB
       id: formData.id || '', // Include ID for file association
       nomSociete: formData.nomSociete || '',
       telephonePrincipale: formData.telephonePrincipale || '',
-      adresseComplete: formData.adresseComplete || '',
+      governorate: formData.governorate || '',
+      delegation: formData.delegation || '',
+      detailedAddress: formData.detailedAddress || '',
       telephoneSecondaire: formData.telephoneSecondaire || '',
       matriculeFiscale: formData.matriculeFiscale || '',
       technicienResponsable: formData.technicienResponsable || '',
@@ -239,25 +260,104 @@ export default function SocieteForm({ formData, onInputChange, onFileChange, onB
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="adresseComplete"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Adresse Complète</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <Input {...field} onChange={(e) => {
-                            field.onChange(e);
-                            onInputChange(e);
-                          }} />
-                          <MapPin className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-500" size={20} />
+                {/* Tunisia Address Fields */}
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Governorate Dropdown */}
+                    <FormField
+                      control={form.control}
+                      name="governorate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Gouvernorat *</FormLabel>
+                          <Select
+                            onValueChange={(value) => {
+                              field.onChange(value);
+                              form.setValue('delegation', ''); // Reset delegation when governorate changes
+                              onInputChange({ target: { name: 'governorate', value } } as any);
+                            }}
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Sélectionner un gouvernorat" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {TUNISIA_GOVERNORATES.map((gov) => (
+                                <SelectItem key={gov.id} value={gov.id}>
+                                  {gov.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* Delegation Dropdown */}
+                    <FormField
+                      control={form.control}
+                      name="delegation"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Délégation *</FormLabel>
+                          <Select
+                            onValueChange={(value) => {
+                              field.onChange(value);
+                              onInputChange({ target: { name: 'delegation', value } } as any);
+                            }}
+                            value={field.value}
+                            disabled={!form.watch('governorate')}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Sélectionner une délégation" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {form.watch('governorate') && getDelegationsByGovernorate(form.watch('governorate')).map((del) => (
+                                <SelectItem key={del.id} value={del.id}>
+                                  {del.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  {/* Detailed Address */}
+                  <FormField
+                    control={form.control}
+                    name="detailedAddress"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Adresse détaillée</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Input
+                              {...field}
+                              placeholder="Rue, numéro, bâtiment, etc."
+                              onChange={(e) => {
+                                field.onChange(e);
+                                onInputChange(e);
+                              }}
+                            />
+                            <MapPin className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-500" size={20} />
                         </div>
                       </FormControl>
                       <FormMessage />
+                      <p className="text-xs text-gray-500">
+                        Exemple: Avenue Habib Bourguiba, Immeuble Carthage, 2ème étage, Bureau 15
+                      </p>
                     </FormItem>
                   )}
                 />
+                </div>
 
                 <FormField
                   control={form.control}
@@ -348,13 +448,13 @@ export default function SocieteForm({ formData, onInputChange, onFileChange, onB
                     Documents
                   </label>
                   {/* File Upload Section */}
-                  <FileManager 
+                  <FileUpload 
                     form={form} 
-                    existingFiles={existingFiles}
+                    existingFiles={existingFiles as any}
                     onFileChange={setExistingFiles}
                     onRemoveExistingFile={handleRemoveFile}
-                    endpoint="documentUploader"
                     maxFiles={5}
+                    maxFileSize={16}
                   />
                 </div>
               </div>

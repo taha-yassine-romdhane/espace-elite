@@ -80,9 +80,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           type: product.type,
           purchasePrice: product.purchasePrice,
           sellingPrice: product.sellingPrice,
+          warrantyExpiration: product.warrantyExpiration,
+          createdAt: product.createdAt,
           stockLocation: primaryStock?.location || null,
           stockLocationId: primaryStock?.locationId || null,
           stockQuantity: product.stocks?.reduce((total, stock) => total + stock.quantity, 0) || 0,
+          stocks: product.stocks, // Include full stocks array for export
           status: product.status || 'ACTIVE' // Use the product's status field directly
         };
       });

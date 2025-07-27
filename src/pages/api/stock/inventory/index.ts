@@ -79,11 +79,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
       
       // 2. Get medical devices with patient information for RESERVED devices
+      // Exclude SOLD devices as they cannot be transferred
       const medicalDevicesPromise = prisma.medicalDevice.findMany({
         where: {
           ...locationCondition,
           ...deviceSearchCondition,
           ...productTypeCondition,
+          // Exclude SOLD devices from transfers
+          status: {
+            not: 'SOLD'
+          },
           // If productType is specified, only include matching devices
           ...(productType ? 
               productType === 'DIAGNOSTIC_DEVICE' ? 
@@ -138,6 +143,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // 3. Execute both queries in parallel
       const [stocks, medicalDevices] = await Promise.all([stocksPromise, medicalDevicesPromise]);
       
+      
       // 4. Transform medical devices to match the stock format and include patient information
       const medicalDeviceItems = medicalDevices.map(device => {
         // Get the most recent diagnostic for this device (if any)
@@ -171,6 +177,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             brand: device.brand || '',
             model: device.model || '',
             type: device.type === 'DIAGNOSTIC_DEVICE' ? 'DIAGNOSTIC_DEVICE' : 'MEDICAL_DEVICE',
+            originalType: device.type, // Keep original type for reference
             serialNumber: device.serialNumber
           },
           isDevice: true, // Flag to identify this as a device, not regular stock
@@ -201,6 +208,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                          a.product.name.localeCompare(b.product.name))
         .slice(skip, skip + itemsPerPage);
       
+
+
       // 8. Return paginated results with metadata
       return res.status(200).json({
         items: paginatedItems,

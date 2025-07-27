@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import prisma from '@/lib/db';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/pages/api/auth/[...nextauth]';
+import { authOptions } from '../../auth/[...nextauth]';
 import { PaymentMethod, PaymentStatus } from '@prisma/client';
 
 // Define types based on the Prisma schema
@@ -55,12 +55,197 @@ export default async function handler(
     return res.status(400).json({ error: 'Sale ID is required' });
   }
 
-  // Only allow GET requests
-  if (req.method !== 'GET') {
-    res.setHeader('Allow', ['GET']);
-    return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
+  // Handle different methods
+  switch (req.method) {
+    case 'GET':
+      return handleGetPayments(req, res, saleId);
+    case 'PUT':
+      return handleUpdatePayments(req, res, saleId);
+    default:
+      res.setHeader('Allow', ['GET', 'PUT']);
+      return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
   }
+}
 
+// Helper function to map frontend payment types to Prisma PaymentMethod enum
+function mapPaymentMethod(frontendMethod: string): PaymentMethod {
+  switch (frontendMethod?.toLowerCase()) {
+    case 'cheque':
+      return PaymentMethod.CHEQUE;
+    case 'especes':
+      return PaymentMethod.CASH;
+    case 'cnam':
+      return PaymentMethod.CNAM;
+    case 'virement':
+      return PaymentMethod.VIREMENT;
+    case 'traite':
+      return PaymentMethod.TRAITE;
+    case 'mandat':
+      return PaymentMethod.MANDAT;
+    default:
+      return PaymentMethod.CASH;
+  }
+}
+
+// Helper function to create a payment reference string
+function createPaymentReference(payment: any): string {
+  if (!payment || !payment.type) return '';
+  
+  switch (payment.type.toLowerCase()) {
+    case 'especes':
+      return `Espèces: ${payment.amount} DT`;
+    case 'cheque':
+      return `Chèque N°${payment.chequeNumber || ''} ${payment.bank || ''}: ${payment.amount} DT`;
+    case 'virement':
+      return `Virement Réf:${payment.reference || ''} ${payment.bank ? `(${payment.bank})` : ''}: ${payment.amount} DT`;
+    case 'mandat':
+      return `Mandat N°${payment.mandatNumber || payment.reference || ''}: ${payment.amount} DT`;
+    case 'traite':
+      return `Traite N°${payment.traiteNumber || ''} Échéance:${payment.dueDate ? new Date(payment.dueDate).toLocaleDateString() : ''}: ${payment.amount} DT`;
+    case 'cnam':
+      const cnamRef = payment.dossierNumber || '';
+      const bondType = payment.metadata?.cnamInfo?.bondType || '';
+      const step = payment.metadata?.cnamInfo?.currentStep || '';
+      return `CNAM ${bondType} Dossier:${cnamRef} Étape:${step}: ${payment.amount} DT`;
+    default:
+      return `${payment.type}: ${payment.amount} DT`;
+  }
+}
+
+async function handleUpdatePayments(req: NextApiRequest, res: NextApiResponse, saleId: string) {
+  try {
+    // Update sale payments
+    const { payments } = req.body;
+    
+    if (!Array.isArray(payments)) {
+      return res.status(400).json({ error: 'Payments must be an array' });
+    }
+
+    // Start a transaction to update payments atomically
+    const result = await prisma.$transaction(async (tx) => {
+      // Get the existing sale with payment
+      const sale = await tx.sale.findUnique({
+        where: { id: saleId },
+        include: { payment: { include: { paymentDetails: true } } }
+      });
+
+      if (!sale) {
+        throw new Error('Sale not found');
+      }
+
+      // Delete existing payment details if any
+      if (sale.payment?.id) {
+        await tx.paymentDetail.deleteMany({
+          where: { paymentId: sale.payment.id }
+        });
+      }
+
+      // Calculate total payment amount
+      const totalPaymentAmount = payments.reduce((sum: number, p: any) => 
+        sum + (Number(p.amount) || 0), 0
+      );
+
+      // Get the primary payment (first one or the one marked as 'principale')
+      const primaryPayment = payments.find((p: any) => 
+        p.classification === 'principale'
+      ) || payments[0];
+
+      // Update or create the payment record
+      let payment;
+      if (sale.paymentId && sale.payment) {
+        // Update existing payment
+        payment = await tx.payment.update({
+          where: { id: sale.paymentId },
+          data: {
+            amount: totalPaymentAmount,
+            method: mapPaymentMethod(primaryPayment?.type || 'cash'),
+            status: totalPaymentAmount >= Number(sale.finalAmount) ? PaymentStatus.PAID : PaymentStatus.PARTIAL,
+            chequeNumber: primaryPayment?.type === 'cheque' ? primaryPayment.chequeNumber || null : null,
+            bankName: primaryPayment?.type === 'cheque' ? primaryPayment.bank || null : null,
+            referenceNumber: ['virement', 'mandat', 'traite'].includes(primaryPayment?.type) ? 
+              (primaryPayment.reference || primaryPayment.mandatNumber || primaryPayment.traiteNumber || null) : null,
+            cnamCardNumber: primaryPayment?.type === 'cnam' ? primaryPayment.dossierNumber || null : null,
+            notes: primaryPayment?.notes || null,
+            paymentDate: primaryPayment?.paymentDate ? new Date(primaryPayment.paymentDate) : new Date(),
+            dueDate: primaryPayment?.dueDate ? new Date(primaryPayment.dueDate) : null,
+          }
+        });
+      } else {
+        // Create new payment
+        payment = await tx.payment.create({
+          data: {
+            amount: totalPaymentAmount,
+            method: mapPaymentMethod(primaryPayment?.type || 'cash'),
+            status: totalPaymentAmount >= Number(sale.finalAmount) ? PaymentStatus.PAID : PaymentStatus.PARTIAL,
+            chequeNumber: primaryPayment?.type === 'cheque' ? primaryPayment.chequeNumber || null : null,
+            bankName: primaryPayment?.type === 'cheque' ? primaryPayment.bank || null : null,
+            referenceNumber: ['virement', 'mandat', 'traite'].includes(primaryPayment?.type) ? 
+              (primaryPayment.reference || primaryPayment.mandatNumber || primaryPayment.traiteNumber || null) : null,
+            cnamCardNumber: primaryPayment?.type === 'cnam' ? primaryPayment.dossierNumber || null : null,
+            notes: primaryPayment?.notes || null,
+            paymentDate: primaryPayment?.paymentDate ? new Date(primaryPayment.paymentDate) : new Date(),
+            dueDate: primaryPayment?.dueDate ? new Date(primaryPayment.dueDate) : null,
+          }
+        });
+
+        // Update sale with payment ID
+        await tx.sale.update({
+          where: { id: saleId },
+          data: { paymentId: payment.id }
+        });
+      }
+
+      // Create payment details for each payment method
+      if (payments.length > 0) {
+        await tx.paymentDetail.createMany({
+          data: payments.map((p: any) => ({
+            paymentId: payment.id,
+            method: p.type,
+            amount: Number(p.amount),
+            classification: p.classification || 'principale',
+            reference: createPaymentReference(p),
+            metadata: {
+              ...p,
+              ...(p.metadata || {}),
+              // Store payment-specific details
+              ...(p.type === 'cheque' && {
+                chequeNumber: p.chequeNumber,
+                bank: p.bank
+              }),
+              ...(p.type === 'virement' && {
+                reference: p.reference,
+                bank: p.bank
+              }),
+              ...(p.type === 'traite' && {
+                traiteNumber: p.traiteNumber,
+                bank: p.bank,
+                dueDate: p.dueDate
+              }),
+              ...(p.type === 'mandat' && {
+                mandatNumber: p.mandatNumber
+              }),
+              ...(p.type === 'cnam' && p.metadata?.cnamInfo && {
+                cnamInfo: p.metadata.cnamInfo
+              })
+            }
+          }))
+        });
+      }
+
+      return payment;
+    });
+
+    return res.status(200).json({ 
+      message: 'Payments updated successfully',
+      payment: result 
+    });
+  } catch (error) {
+    console.error('API Error:', error);
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+}
+
+async function handleGetPayments(req: NextApiRequest, res: NextApiResponse, saleId: string) {
   try {
     console.log(`[PAYMENTS-API] Fetching sale and payments for sale ID: ${saleId}`);
     

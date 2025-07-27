@@ -32,6 +32,7 @@ export default async function handler(
             }
           },
           technician: true,
+          supervisor: true,
           assignedTo: true,
           files: true
         }

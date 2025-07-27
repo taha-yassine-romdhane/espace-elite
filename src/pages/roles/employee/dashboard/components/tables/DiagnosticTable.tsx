@@ -40,7 +40,6 @@ import {
   Trash2,
   Loader2,
 } from "lucide-react";
-import { DiagnosticResultDialog } from "../dialogs/DiagnosticResultDialog";
 
 interface DiagnosticTableProps {
   onViewDetails?: (id: string) => void;
@@ -205,7 +204,6 @@ export function DiagnosticTable({ onViewDetails, onEnterResults, onAddDocuments,
                   <TableHead>Appareil</TableHead>
                   <TableHead>Date de création</TableHead>
                   <TableHead>Date des résultats</TableHead>
-                  <TableHead>Paramètres</TableHead>
                   <TableHead>Statut</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
@@ -279,12 +277,6 @@ export function DiagnosticTable({ onViewDetails, onEnterResults, onAddDocuments,
                           </div>
                         </div>
                       </TableCell>
-                      
-                      <TableCell>
-                        <DiagnosticResultDialog result={operation.result} />
-                      </TableCell>
-                      
-
                       
                       <TableCell>
                         {!operation.result ? (

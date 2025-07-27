@@ -127,6 +127,29 @@ export default function ResponsiblePersonBlock({
             </button>
           </div>
         </div>
+
+        <div className="flex items-center gap-2">
+          <div className="flex-grow">
+            <SearchSelect
+              name="superviseur"
+              label="Superviseur (Technicien Régional)"
+              form={form}
+              options={technicians.map(t => ({ id: t.id, name: t.name || 'Unknown Technician' }))}
+              emptyOptionLabel="Sélectionnez un superviseur"
+              onParentChange={onInputChange}
+            />
+          </div>
+          <div className="flex items-center h-[38px] mt-6">
+            <button
+              type="button"
+              onClick={handleAddTechnician}
+              className="w-10 h-10 bg-white border rounded-md hover:bg-blue-600 hover:text-white focus:outline-none flex items-center justify-center"
+              title="Ajouter un superviseur"
+            >
+              <Plus size={18} />
+            </button>
+          </div>
+        </div>
       </div>
       
       {showDoctorForm && (

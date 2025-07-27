@@ -11,8 +11,6 @@ interface BackupHistoryModalProps {
   backups: BackupItem[];
   isLoading: boolean;
   onRestore: (backup: BackupItem) => Promise<void>;
-  onDelete: (backup: BackupItem) => Promise<void>;
-  isDeleting: boolean;
 }
 
 export function BackupHistoryModal({
@@ -20,9 +18,7 @@ export function BackupHistoryModal({
   onClose,
   backups,
   isLoading,
-  onRestore,
-  onDelete,
-  isDeleting
+  onRestore
 }: BackupHistoryModalProps) {
   const [selectedBackup, setSelectedBackup] = useState<BackupItem | null>(null);
   
@@ -32,7 +28,7 @@ export function BackupHistoryModal({
         <DialogHeader>
           <DialogTitle>Historique des sauvegardes</DialogTitle>
           <DialogDescription>
-            Sélectionnez une sauvegarde pour la restaurer ou la supprimer.
+            Historique des sauvegardes créées. Note: Les fichiers de sauvegarde ne sont pas stockés sur le serveur.
           </DialogDescription>
         </DialogHeader>
         
@@ -41,10 +37,10 @@ export function BackupHistoryModal({
             <thead>
               <tr className="border-b">
                 <th className="text-left p-2">Nom</th>
-                <th className="text-left p-2">Date</th>
+                <th className="text-left p-2">Date de création</th>
                 <th className="text-left p-2">Taille</th>
                 <th className="text-left p-2">Format</th>
-                <th className="text-left p-2">Actions</th>
+                <th className="text-left p-2">Description</th>
               </tr>
             </thead>
             <tbody>
@@ -72,53 +68,15 @@ export function BackupHistoryModal({
                       <td className="p-2">{backup.fileName}</td>
                       <td className="p-2">{createdDate}</td>
                       <td className="p-2">{typeof backup.fileSize === 'number' ? formatFileSize(backup.fileSize) : 'Taille inconnue'}</td>
-                      <td className="p-2">{backup.format || "SQL"}</td>
-                      <td className="p-2 flex gap-2">
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedBackup(backup);
-                          }}
-                        >
-                          <CheckCircle2 className="h-4 w-4 mr-1" />
-                          Sélectionner
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            // Create download URL
-                            const downloadUrl = `/api/settings/backup?id=${backup.id}&download=true`;
-                            // Open in new tab to trigger download
-                            window.open(downloadUrl, '_blank');
-                          }}
-                        >
-                          <Download className="h-4 w-4 mr-1" />
-                          Télécharger
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="destructive"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDelete(backup);
-                          }}
-                          disabled={isDeleting}
-                        >
-                          <Trash2 className="h-4 w-4 mr-1" />
-                          Supprimer
-                        </Button>
-                      </td>
+                      <td className="p-2 uppercase">{backup.format || "JSON"}</td>
+                      <td className="p-2 text-sm text-gray-600">{(backup as any).description || 'Aucune description'}</td>
                     </tr>
                   );
                 })
               ) : (
                 <tr>
                   <td colSpan={5} className="p-4 text-center">
-                    Aucune sauvegarde disponible.
+                    Aucune sauvegarde créée. Les sauvegardes sont téléchargées directement et ne sont pas stockées sur le serveur.
                   </td>
                 </tr>
               )}
@@ -135,9 +93,10 @@ export function BackupHistoryModal({
           </Button>
           <Button 
             onClick={() => selectedBackup && onRestore(selectedBackup)}
-            disabled={!selectedBackup || isDeleting}
+            disabled={!selectedBackup}
+            variant="destructive"
           >
-            Restaurer la sauvegarde sélectionnée
+            Créer une nouvelle sauvegarde
           </Button>
         </DialogFooter>
       </DialogContent>

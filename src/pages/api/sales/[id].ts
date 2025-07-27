@@ -48,7 +48,7 @@ export default async function handler(
                 telephoneTwo: true,
                 cin: true,
                 cnamId: true,
-                address: true,
+                detailedAddress: true,
                 affiliation: true,
                 beneficiaryType: true,
               },
@@ -132,6 +132,12 @@ export default async function handler(
             firstName: sale.patient.firstName,
             lastName: sale.patient.lastName,
             telephone: sale.patient.telephone,
+            telephoneTwo: sale.patient.telephoneTwo,
+            cin: sale.patient.cin,
+            cnamId: sale.patient.cnamId,
+            address: sale.patient.detailedAddress, // Map detailedAddress to address for frontend compatibility
+            affiliation: sale.patient.affiliation,
+            beneficiaryType: sale.patient.beneficiaryType,
             fullName: `${sale.patient.firstName} ${sale.patient.lastName}`,
           } : null,
           
@@ -197,6 +203,19 @@ export default async function handler(
             name: item.product 
               ? item.product.name 
               : (item.medicalDevice ? item.medicalDevice.name : 'Article inconnu'),
+            
+            // Extract device configuration from warranty field
+            deviceConfiguration: (() => {
+              try {
+                if (item.warranty && typeof item.warranty === 'string') {
+                  const parsed = JSON.parse(item.warranty);
+                  return parsed.deviceConfiguration || null;
+                }
+              } catch (e) {
+                // If parsing fails, return null
+              }
+              return null;
+            })(),
           })),
           
           createdAt: sale.createdAt,
@@ -248,29 +267,85 @@ export default async function handler(
         return res.status(200).json({ sale: updatedSale });
 
       case 'DELETE':
-        // Check if the sale can be deleted (e.g., not COMPLETED)
+        // Check if the sale exists and get its details
         const saleToDelete = await prisma.sale.findUnique({
           where: { id },
-          select: { status: true },
+          select: { 
+            status: true,
+            paymentId: true,
+            items: {
+              select: {
+                id: true,
+                productId: true,
+                medicalDeviceId: true,
+                quantity: true,
+              }
+            }
+          },
         });
 
         if (!saleToDelete) {
           return res.status(404).json({ error: 'Sale not found' });
         }
 
-        // Only allow deletion of sales that are not completed
-        if (saleToDelete.status === 'COMPLETED') {
-          return res.status(400).json({ 
-            error: 'Cannot delete a completed sale. Consider cancelling it instead.' 
+        // Use transaction to ensure all deletions succeed or all fail
+        await prisma.$transaction(async (tx) => {
+          // Delete sale items first (due to foreign key constraints)
+          await tx.saleItem.deleteMany({
+            where: { saleId: id },
           });
-        }
 
-        // Delete the sale
-        await prisma.sale.delete({
-          where: { id },
+          // Delete payment details if payment exists
+          if (saleToDelete.paymentId) {
+            await tx.paymentDetail.deleteMany({
+              where: { paymentId: saleToDelete.paymentId },
+            });
+
+            // Delete the payment record
+            await tx.payment.delete({
+              where: { id: saleToDelete.paymentId },
+            });
+          }
+
+          // Finally delete the sale
+          await tx.sale.delete({
+            where: { id },
+          });
+
+          // Optional: Update stock levels back if needed
+          // This would increment the stock for each item that was sold
+          for (const item of saleToDelete.items) {
+            if (item.productId) {
+              await tx.product.update({
+                where: { id: item.productId },
+                data: {
+                  stock: {
+                    increment: item.quantity
+                  }
+                }
+              }).catch(() => {
+                // Ignore if product doesn't have stock field or doesn't exist
+              });
+            }
+            
+            if (item.medicalDeviceId) {
+              // For medical devices, you might want to change status back to AVAILABLE
+              await tx.medicalDevice.update({
+                where: { id: item.medicalDeviceId },
+                data: {
+                  status: 'AVAILABLE'
+                }
+              }).catch(() => {
+                // Ignore if medical device doesn't exist
+              });
+            }
+          }
         });
 
-        return res.status(200).json({ message: 'Sale deleted successfully' });
+        return res.status(200).json({ 
+          message: 'Sale deleted successfully',
+          details: 'Sale and all related records have been removed, stock levels have been updated'
+        });
 
       default:
         res.setHeader('Allow', ['GET', 'PUT', 'DELETE']);

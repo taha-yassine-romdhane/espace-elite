@@ -26,7 +26,14 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/Card";
-import { StockStatus } from "@prisma/client";
+
+// Status mapping for better user experience
+const statusOptions = [
+  { value: "EN_VENTE", label: "En Vente" },
+  { value: "EN_LOCATION", label: "En Location" },
+  { value: "EN_REPARATION", label: "En Réparation" },
+  { value: "HORS_SERVICE", label: "Hors Service" },
+];
 
 // Form validation schema for accessories
 const accessorySchema = z.object({
@@ -34,7 +41,6 @@ const accessorySchema = z.object({
   type: z.literal("ACCESSORY"),
   brand: z.string().optional().nullable(),
   model: z.string().optional().nullable(),
-  serialNumber: z.string().optional().nullable(),
   stockLocationId: z.string().optional().nullable(),
   stockQuantity: z.coerce.number().min(0).optional().default(1),
   purchasePrice: z.coerce.number().min(0).optional().nullable(),
@@ -60,7 +66,6 @@ export function AccessoryForm({ initialData, onSubmit, stockLocations, isEditMod
       name: initialData?.name || "",
       brand: initialData?.brand || "",
       model: initialData?.model || "",
-      serialNumber: initialData?.serialNumber || "",
       stockLocationId: initialData?.stockLocationId || "",
       stockQuantity: initialData?.stockQuantity || 1,
       purchasePrice: initialData?.purchasePrice || null,
@@ -131,19 +136,6 @@ export function AccessoryForm({ initialData, onSubmit, stockLocations, isEditMod
                   />
                 </div>
 
-                <FormField
-                  control={form.control}
-                  name="serialNumber"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Numéro de Série</FormLabel>
-                      <FormControl>
-                        <Input {...field} value={field.value ?? ''} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
               </CardContent>
             </Card>
           </TabsContent>
@@ -187,9 +179,9 @@ export function AccessoryForm({ initialData, onSubmit, stockLocations, isEditMod
                             <SelectValue placeholder="Sélectionner le status" defaultValue={field.value ?? 'EN_VENTE'} />
                           </SelectTrigger>
                           <SelectContent>
-                            {Object.values(StockStatus).map((status) => (
-                              <SelectItem key={status} value={status}>
-                                {status}
+                            {statusOptions.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
                               </SelectItem>
                             ))}
                           </SelectContent>

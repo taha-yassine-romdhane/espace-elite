@@ -47,7 +47,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
     const router = useRouter();
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-    const [currentTime, setCurrentTime] = useState(new Date());
+    const [currentTime, setCurrentTime] = useState<Date | null>(null);
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
@@ -56,6 +56,9 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
 
     // Update time every minute and fetch notifications
     useEffect(() => {
+        // Set initial time on client side only
+        setCurrentTime(new Date());
+        
         const timer = setInterval(() => {
             setCurrentTime(new Date());
         }, 60000);
@@ -221,8 +224,8 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
                         <div className="flex items-center space-x-4">
                             {/* Current date and time */}
                             <div className="hidden lg:flex flex-col items-end mr-4">
-                                <span className="text-sm font-medium text-gray-700">{formatTime(currentTime)}</span>
-                                <span className="text-xs text-gray-500">{formatDate(currentTime)}</span>
+                                <span className="text-sm font-medium text-gray-700">{currentTime ? formatTime(currentTime) : '--:--'}</span>
+                                <span className="text-xs text-gray-500">{currentTime ? formatDate(currentTime) : ''}</span>
                             </div>
 
                             {/* Notifications dropdown */}
