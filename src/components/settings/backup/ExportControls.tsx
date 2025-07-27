@@ -18,17 +18,16 @@ import { Label } from "@/components/ui/label";
 export type BackupFormat = 'json' | 'sql' | 'xml' | 'csv' | 'xlsx';
 
 interface ExportControlsProps {
-  onCreateBackup: (format: BackupFormat, download: boolean) => Promise<void>;
+  onCreateBackup: (format: BackupFormat) => Promise<void>;
   isExporting: boolean;
   exportProgress: number;
 }
 
 export function ExportControls({ onCreateBackup, isExporting, exportProgress }: ExportControlsProps) {
   const [selectedFormat, setSelectedFormat] = useState<BackupFormat>('json');
-  const [downloadAfterCreation, setDownloadAfterCreation] = useState(true);
   
   const handleCreateBackup = () => {
-    onCreateBackup(selectedFormat, downloadAfterCreation);
+    onCreateBackup(selectedFormat);
   };
   
   return (
@@ -55,24 +54,18 @@ export function ExportControls({ onCreateBackup, isExporting, exportProgress }: 
                   <SelectContent>
                     <SelectGroup>
                       <SelectLabel>Format de sauvegarde</SelectLabel>
-                      <SelectItem value="json">JSON</SelectItem>
-                      <SelectItem value="sql">SQL</SelectItem>
-                      <SelectItem value="xml">XML</SelectItem>
-                      <SelectItem value="csv">CSV</SelectItem>
-                      <SelectItem value="xlsx">Excel (XLSX)</SelectItem>
+                      <SelectItem value="json">JSON - Format structuré universel</SelectItem>
+                      <SelectItem value="sql">SQL - Dump PostgreSQL complet</SelectItem>
+                      <SelectItem value="xml">XML - Format hiérarchique</SelectItem>
+                      <SelectItem value="csv">CSV - Tableur compatible</SelectItem>
+                      <SelectItem value="xlsx">Excel - Fichier Excel avec onglets</SelectItem>
                     </SelectGroup>
                   </SelectContent>
                 </Select>
               </div>
               
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="download" 
-                  checked={downloadAfterCreation} 
-                  onCheckedChange={() => setDownloadAfterCreation(!downloadAfterCreation)}
-                  disabled={isExporting}
-                />
-                <Label htmlFor="download" className="text-sm">Télécharger après création</Label>
+              <div className="text-sm text-gray-600">
+                💡 La sauvegarde sera automatiquement téléchargée
               </div>
             </div>
             
@@ -82,7 +75,7 @@ export function ExportControls({ onCreateBackup, isExporting, exportProgress }: 
               className="w-full sm:w-auto"
             >
               <Download className="mr-2 h-4 w-4" />
-              Créer une sauvegarde
+              {isExporting ? 'Création en cours...' : `Créer et télécharger (${selectedFormat.toUpperCase()})`}
             </Button>
             
             {isExporting && (

@@ -12,8 +12,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { toast } from '@/components/ui/use-toast';
-import { Building, Plus, Pencil, Trash2 } from 'lucide-react';
+import { Building, Plus, Pencil, Trash2, MapPin } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,6 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import AdminLayout from '../AdminLayout';
 
 type Location = {
   id: string;
@@ -34,7 +36,7 @@ type Location = {
   updatedAt: Date;
 };
 
-export default function RepairLocations() {
+function RepairLocations() {
   const [locations, setLocations] = useState<Location[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -176,15 +178,18 @@ export default function RepairLocations() {
   };
 
   return (
-    <div className="container mx-auto p-6">
+    <div className="container mx-auto py-6 px-4">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Building className="h-6 w-6" />
-          Gestion des Réparateurs
-        </h1>
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Building className="h-6 w-6 text-blue-600" />
+            Gestion des Réparateurs
+          </h1>
+          <p className="text-gray-600 mt-1">Gérez les lieux de réparation et ateliers</p>
+        </div>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="flex items-center gap-2">
+            <Button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700">
               <Plus className="h-4 w-4" />
               Ajouter un réparateur
             </Button>
@@ -301,43 +306,87 @@ export default function RepairLocations() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <div className="rounded-lg shadow">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nom</TableHead>
-              <TableHead>Adresse</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {locations.map((location) => (
-              <TableRow key={location.id}>
-                <TableCell>{location.name}</TableCell>
-                <TableCell>{location.address}</TableCell>
-                <TableCell>{location.type}</TableCell>
-                <TableCell className="flex items-center gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="icon"
-                    onClick={() => openEditDialog(location)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="icon"
-                    onClick={() => openDeleteDialog(location)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MapPin className="h-5 w-5" />
+            Liste des réparateurs ({locations.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {locations.length === 0 ? (
+            <div className="text-center py-8">
+              <Building className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Aucun réparateur</h3>
+              <p className="text-gray-600 mb-4">Commencez par ajouter votre premier lieu de réparation.</p>
+              <Button 
+                onClick={() => setIsAddDialogOpen(true)}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Ajouter un réparateur
+              </Button>
+            </div>
+          ) : (
+            <div className="rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nom</TableHead>
+                    <TableHead>Adresse</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead className="w-32">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {locations.map((location) => (
+                    <TableRow key={location.id}>
+                      <TableCell className="font-medium">{location.name}</TableCell>
+                      <TableCell className="text-gray-600">
+                        {location.address || <span className="text-gray-400 italic">Aucune adresse</span>}
+                      </TableCell>
+                      <TableCell>
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          {location.type}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => openEditDialog(location)}
+                            className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600"
+                            title="Modifier"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => openDeleteDialog(location)}
+                            className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
+                            title="Supprimer"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
+
+// Add layout wrapper
+RepairLocations.getLayout = function getLayout(page: React.ReactElement) {
+  return <AdminLayout>{page}</AdminLayout>;
+};
+
+export default RepairLocations;

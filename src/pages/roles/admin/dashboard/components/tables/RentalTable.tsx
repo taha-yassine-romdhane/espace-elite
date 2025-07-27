@@ -1,6 +1,6 @@
-import React from "react";
-import { useQuery } from "@tanstack/react-query";
-import { format } from "date-fns";
+import React, { useState, useEffect, useMemo } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { format, isAfter, isBefore, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
   Table,
@@ -12,14 +12,36 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   CalendarIcon,
   Building2,
   User,
   Clock,
-  FileText,
   Settings,
   Banknote,
+  Shield,
+  AlertTriangle,
+  CheckCircle,
+  Eye,
+  Edit,
+  Package,
+  CreditCard,
+  Trash2,
+  Loader2,
+  Search,
+  SortAsc,
+  SortDesc,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -29,7 +51,25 @@ interface RentalTableProps {
 }
 
 export function RentalTable({ onViewDetails, onEdit }: RentalTableProps) {
-  // Fetch rental operations data
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [rentalToDelete, setRentalToDelete] = useState<string | null>(null);
+
+  // Enhanced filtering states
+  const [filteredRentals, setFilteredRentals] = useState<any[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [clientTypeFilter, setClientTypeFilter] = useState<string>("all");
+  const [deviceTypeFilter, setDeviceTypeFilter] = useState<string>("all");
+  const [cnamFilter, setCnamFilter] = useState<string>("all");
+  const [dateFilter, setDateFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<string>("date");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+
+  // Fetch rental operations data with enhanced relationships
   const { data: rentalOperations, isLoading } = useQuery({
     queryKey: ["rental-operations"],
     queryFn: async () => {
@@ -47,45 +87,142 @@ export function RentalTable({ onViewDetails, onEdit }: RentalTableProps) {
     },
   });
 
+  // Initialize filtered rentals when data loads
+  useEffect(() => {
+    if (rentalOperations) {
+      setFilteredRentals(rentalOperations);
+    }
+  }, [rentalOperations]);
+
+  // Delete rental mutation
+  const deleteRental = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/rentals/${id}`, {
+        method: 'DELETE',
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete rental');
+      }
+      
+      return await response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Location supprimée",
+        description: "La location a été annulée avec succès.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["rental-operations"] });
+      setRentalToDelete(null);
+    },
+    onError: (error) => {
+      console.error('Error deleting rental:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de supprimer la location. Veuillez réessayer.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Handle delete button click
+  const handleDeleteClick = (id: string) => {
+    setRentalToDelete(id);
+    setIsDeleteDialogOpen(true);
+  };
+
+  // Handle confirm delete
+  const handleConfirmDelete = () => {
+    if (rentalToDelete) {
+      deleteRental.mutate(rentalToDelete);
+    }
+    setIsDeleteDialogOpen(false);
+  };
+
+  // Handle cancel delete
+  const handleCancelDelete = () => {
+    setRentalToDelete(null);
+    setIsDeleteDialogOpen(false);
+  };
+
   // Function to format date
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "-";
     return format(new Date(dateString), "PPP", { locale: fr });
   };
 
+  // Format date function for simple display
+  const formatSimpleDate = (dateString: string): string => {
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      return new Intl.DateTimeFormat('fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      }).format(date);
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return dateString;
+    }
+  };
+
+  // Function to format currency
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('fr-TN', {
+      style: 'currency',
+      currency: 'TND',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(Number(amount) || 0);
+  };
+
   // Function to calculate rental duration in days
   const calculateDuration = (startDate: string, endDate: string) => {
+    if (!startDate || !endDate) return "-";
     const start = new Date(startDate);
     const end = new Date(endDate);
     const differenceInTime = end.getTime() - start.getTime();
     return Math.ceil(differenceInTime / (1000 * 3600 * 24));
   };
 
-  // Function to get payment status badge
-  const getPaymentStatusBadge = (status: string) => {
+  // Function to get rental status badge
+  const getRentalStatusBadge = (status: string) => {
     switch (status) {
+      case "ACTIVE":
+        return (
+          <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
+            <CheckCircle className="h-3 w-3 mr-1" />
+            Actif
+          </Badge>
+        );
       case "PENDING":
         return (
           <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200">
+            <Clock className="h-3 w-3 mr-1" />
             En attente
           </Badge>
         );
-      case "PAID":
-        return (
-          <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
-            Payé
-          </Badge>
-        );
-      case "GUARANTEE":
-        return (
-          <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">
-            Garantie
-          </Badge>
-        );
-      case "PARTIAL":
+      case "PAUSED":
         return (
           <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200">
-            Partiel
+            <AlertTriangle className="h-3 w-3 mr-1" />
+            Suspendu
+          </Badge>
+        );
+      case "COMPLETED":
+        return (
+          <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">
+            <CheckCircle className="h-3 w-3 mr-1" />
+            Terminé
+          </Badge>
+        );
+      case "CANCELLED":
+        return (
+          <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">
+            <AlertTriangle className="h-3 w-3 mr-1" />
+            Annulé
           </Badge>
         );
       default:
@@ -97,67 +234,467 @@ export function RentalTable({ onViewDetails, onEdit }: RentalTableProps) {
     }
   };
 
-  // Function to determine if a rental is active, expired, or upcoming
-  const getRentalStatus = (startDate: string, endDate: string) => {
-    const now = new Date();
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+  // Function to get CNAM info summary
+  const getCnamSummary = (rental: any) => {
+    const metadata = rental.metadata || {};
+    const cnamEligible = metadata.cnamEligible || false;
+    const cnamBonds = rental.cnamBonds || [];
+    const urgentRental = metadata.urgentRental || false;
     
-    if (now < start) {
+    if (!cnamEligible || cnamBonds.length === 0) {
       return {
-        status: "UPCOMING",
+        eligible: false,
+        bonds: 0,
         badge: (
-          <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200">
-            À venir
-          </Badge>
-        )
-      };
-    } else if (now > end) {
-      return {
-        status: "EXPIRED",
-        badge: (
-          <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">
-            Expiré
-          </Badge>
-        )
-      };
-    } else {
-      return {
-        status: "ACTIVE",
-        badge: (
-          <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
-            Actif
+          <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-200">
+            Non éligible
           </Badge>
         )
       };
     }
+
+    // Get the status of CNAM bonds
+    const approvedBonds = cnamBonds.filter((bond: any) => bond.status === 'APPROUVE');
+    const pendingBonds = cnamBonds.filter((bond: any) => bond.status === 'EN_ATTENTE_APPROBATION');
+    
+    let badgeColor = "bg-blue-100 text-blue-800 border-blue-200";
+    let statusText = "CNAM";
+    
+    if (approvedBonds.length > 0) {
+      badgeColor = "bg-green-100 text-green-800 border-green-200";
+      statusText = `${approvedBonds.length} Approuvé${approvedBonds.length > 1 ? 's' : ''}`;
+    } else if (pendingBonds.length > 0) {
+      badgeColor = "bg-yellow-100 text-yellow-800 border-yellow-200";
+      statusText = `${pendingBonds.length} En Attente`;
+    }
+    
+    return {
+      eligible: true,
+      bonds: cnamBonds.length,
+      badge: (
+        <Badge variant="outline" className={badgeColor}>
+          <Shield className="h-3 w-3 mr-1" />
+          {statusText}
+          {urgentRental && (
+            <AlertTriangle className="h-3 w-3 ml-1 text-orange-500" />
+          )}
+        </Badge>
+      )
+    };
   };
 
-  return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-      <div className="p-6">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">Locations</h2>
+  // Function to get device parameters summary
+  const getDeviceParametersSummary = (rental: any) => {
+    const metadata = rental.metadata || {};
+    const deviceParameters = metadata.deviceParameters || {};
+    const paramKeys = Object.keys(deviceParameters);
+    
+    if (paramKeys.length === 0) {
+      return "Aucun paramètre";
+    }
+
+    // Show key parameters based on device type
+    const deviceType = rental.medicalDevice?.type || 'UNKNOWN';
+    let summary = '';
+    
+    if (deviceParameters.pression) {
+      summary += `Pression: ${deviceParameters.pression}`;
+    }
+    if (deviceParameters.ipap) {
+      summary += `IPAP: ${deviceParameters.ipap}`;
+    }
+    if (deviceParameters.debit) {
+      summary += `Débit: ${deviceParameters.debit}`;
+    }
+    
+    return summary || `${paramKeys.length} paramètre${paramKeys.length > 1 ? 's' : ''}`;
+  };
+
+  // Function to calculate total rental amount
+  const getTotalAmount = (rental: any) => {
+    const metadata = rental.metadata || {};
+    return metadata.totalPaymentAmount || 0;
+  };
+
+  // Function to get deposit info
+  const getDepositInfo = (rental: any) => {
+    const metadata = rental.metadata || {};
+    const depositAmount = metadata.depositAmount || 0;
+    const depositMethod = metadata.depositMethod || 'N/A';
+    
+    return { amount: depositAmount, method: depositMethod };
+  };
+
+  // Get rentals statistics
+  const getRentalsStats = () => {
+    const stats = { 
+      total: filteredRentals.length,
+      active: 0, 
+      pending: 0, 
+      completed: 0,
+      cancelled: 0,
+      totalAmount: 0,
+      averageAmount: 0
+    };
+    
+    filteredRentals.forEach((rental: any) => {
+      switch (rental.status) {
+        case 'ACTIVE':
+          stats.active++;
+          break;
+        case 'PENDING':
+          stats.pending++;
+          break;
+        case 'COMPLETED':
+          stats.completed++;
+          break;
+        case 'CANCELLED':
+          stats.cancelled++;
+          break;
+      }
+      stats.totalAmount += getTotalAmount(rental);
+    });
+    
+    stats.averageAmount = stats.total > 0 ? stats.totalAmount / stats.total : 0;
+    
+    return stats;
+  };
+
+  // Filter and search rentals
+  useEffect(() => {
+    if (!rentalOperations) return;
+    
+    let filtered = rentalOperations;
+
+    // Apply search filter
+    if (searchTerm.trim()) {
+      filtered = filtered.filter((rental: any) => {
+        const clientName = rental.patient 
+          ? `${rental.patient.firstName} ${rental.patient.lastName}`
+          : rental.company?.companyName || "";
         
+        return (
+          clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          rental.patient?.telephone?.includes(searchTerm) ||
+          rental.patient?.cnamId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          rental.company?.telephone?.includes(searchTerm) ||
+          rental.medicalDevice?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          rental.medicalDevice?.serialNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          rental.id.toString().includes(searchTerm)
+        );
+      });
+    }
+
+    // Apply status filter
+    if (statusFilter !== "all") {
+      filtered = filtered.filter((rental: any) => rental.status === statusFilter);
+    }
+
+    // Apply client type filter
+    if (clientTypeFilter !== "all") {
+      if (clientTypeFilter === "patient") {
+        filtered = filtered.filter((rental: any) => rental.patient);
+      } else if (clientTypeFilter === "company") {
+        filtered = filtered.filter((rental: any) => rental.company);
+      }
+    }
+
+    // Apply device type filter
+    if (deviceTypeFilter !== "all") {
+      filtered = filtered.filter((rental: any) => rental.medicalDevice?.type === deviceTypeFilter);
+    }
+
+    // Apply CNAM filter
+    if (cnamFilter !== "all") {
+      if (cnamFilter === "eligible") {
+        filtered = filtered.filter((rental: any) => rental.patient?.cnamId);
+      } else if (cnamFilter === "not_eligible") {
+        filtered = filtered.filter((rental: any) => !rental.patient?.cnamId);
+      }
+    }
+
+    // Apply date filter
+    if (dateFilter !== "all") {
+      const today = new Date();
+      const filterDate = new Date();
+      
+      switch (dateFilter) {
+        case "today":
+          filterDate.setHours(0, 0, 0, 0);
+          filtered = filtered.filter((rental: any) => {
+            const rentalDate = new Date(rental.startDate);
+            rentalDate.setHours(0, 0, 0, 0);
+            return rentalDate.getTime() === filterDate.getTime();
+          });
+          break;
+        case "week":
+          filterDate.setDate(today.getDate() - 7);
+          filtered = filtered.filter((rental: any) => new Date(rental.startDate) >= filterDate);
+          break;
+        case "month":
+          filterDate.setMonth(today.getMonth() - 1);
+          filtered = filtered.filter((rental: any) => new Date(rental.startDate) >= filterDate);
+          break;
+        case "year":
+          filterDate.setFullYear(today.getFullYear() - 1);
+          filtered = filtered.filter((rental: any) => new Date(rental.startDate) >= filterDate);
+          break;
+      }
+    }
+
+    // Apply sorting
+    filtered.sort((a: any, b: any) => {
+      let aValue, bValue;
+      
+      switch (sortBy) {
+        case "client":
+          aValue = a.patient ? `${a.patient.firstName} ${a.patient.lastName}` : a.company?.companyName || "";
+          bValue = b.patient ? `${b.patient.firstName} ${b.patient.lastName}` : b.company?.companyName || "";
+          break;
+        case "amount":
+          aValue = getTotalAmount(a);
+          bValue = getTotalAmount(b);
+          break;
+        case "date":
+          aValue = new Date(a.startDate).getTime();
+          bValue = new Date(b.startDate).getTime();
+          break;
+        case "status":
+          aValue = a.status;
+          bValue = b.status;
+          break;
+        case "device":
+          aValue = a.medicalDevice?.name || "";
+          bValue = b.medicalDevice?.name || "";
+          break;
+        default:
+          aValue = a.id;
+          bValue = b.id;
+      }
+
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return sortOrder === "asc" 
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue);
+      }
+      
+      return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
+    });
+
+    setFilteredRentals(filtered);
+    setCurrentPage(1); // Reset to first page when filtering
+  }, [rentalOperations, searchTerm, statusFilter, clientTypeFilter, deviceTypeFilter, cnamFilter, dateFilter, sortBy, sortOrder]);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const handleSort = (field: string) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(field);
+      setSortOrder("desc");
+    }
+  };
+
+  const rentalsStats = getRentalsStats();
+
+  // Pagination
+  const totalItems = filteredRentals.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentRentals = filteredRentals.slice(startIndex, endIndex);
+
+  return (
+    <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+      <div className="bg-gradient-to-r from-blue-600 to-blue-800 px-6 py-4">
+        <div className="flex justify-between items-center">
+          <h3 className="text-xl font-bold text-white">Gestion des Locations</h3>
+          <div className="text-blue-100 text-sm">
+            {filteredRentals.length} location(s) trouvée(s)
+          </div>
+        </div>
+      </div>
+
+      {/* Search and Filters */}
+      <div className="p-6 border-b border-slate-200 bg-slate-50">
+        <div className="flex flex-col gap-4">
+          {/* Search bar */}
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-5 w-5 text-slate-400" />
+            </div>
+            <input
+              type="text"
+              placeholder="Rechercher par client, appareil, série, CNAM, téléphone, ID..."
+              className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 text-sm"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+
+          {/* Filters */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+            {/* Status Filter */}
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+            >
+              <option value="all">Tous les statuts</option>
+              <option value="ACTIVE">Actif</option>
+              <option value="PENDING">En attente</option>
+              <option value="PAUSED">Suspendu</option>
+              <option value="COMPLETED">Terminé</option>
+              <option value="CANCELLED">Annulé</option>
+            </select>
+
+            {/* Client Type Filter */}
+            <select
+              value={clientTypeFilter}
+              onChange={(e) => setClientTypeFilter(e.target.value)}
+              className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+            >
+              <option value="all">Tous les clients</option>
+              <option value="patient">Patients</option>
+              <option value="company">Entreprises</option>
+            </select>
+
+            {/* Device Type Filter */}
+            <select
+              value={deviceTypeFilter}
+              onChange={(e) => setDeviceTypeFilter(e.target.value)}
+              className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+            >
+              <option value="all">Tous les appareils</option>
+              <option value="CPAP">CPAP</option>
+              <option value="VNI">VNI</option>
+              <option value="CONCENTRATEUR_OXYGENE">Concentrateur O²</option>
+              <option value="BOUTEILLE_OXYGENE">Bouteille O²</option>
+            </select>
+
+            {/* CNAM Filter */}
+            <select
+              value={cnamFilter}
+              onChange={(e) => setCnamFilter(e.target.value)}
+              className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+            >
+              <option value="all">Tous CNAM</option>
+              <option value="eligible">Éligible CNAM</option>
+              <option value="not_eligible">Non éligible</option>
+            </select>
+
+            {/* Date Filter */}
+            <select
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+            >
+              <option value="all">Toutes les dates</option>
+              <option value="today">Aujourd'hui</option>
+              <option value="week">Cette semaine</option>
+              <option value="month">Ce mois</option>
+              <option value="year">Cette année</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Rentals Statistics */}
+        <div className="mt-4 grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+          <div className="flex items-center">
+            <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+            <span className="text-slate-600">Actives: {rentalsStats.active}</span>
+          </div>
+          <div className="flex items-center">
+            <div className="w-3 h-3 bg-yellow-500 rounded-full mr-2"></div>
+            <span className="text-slate-600">En attente: {rentalsStats.pending}</span>
+          </div>
+          <div className="flex items-center">
+            <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
+            <span className="text-slate-600">Terminées: {rentalsStats.completed}</span>
+          </div>
+          <div className="flex items-center">
+            <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
+            <span className="text-slate-600">Annulées: {rentalsStats.cancelled}</span>
+          </div>
+          <div className="flex items-center">
+            <div className="w-3 h-3 bg-purple-500 rounded-full mr-2"></div>
+            <span className="text-slate-600">Total: {formatCurrency(rentalsStats.totalAmount)}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-6">
         {isLoading ? (
           <div className="flex justify-center items-center h-40">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-900"></div>
           </div>
-        ) : rentalOperations && rentalOperations.length > 0 ? (
+        ) : currentRentals && currentRentals.length > 0 ? (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Appareil</TableHead>
-                  <TableHead>Période</TableHead>
-                  <TableHead>Durée</TableHead>
-                  <TableHead>Paiement</TableHead>
-                  <TableHead>Statut</TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-slate-100 transition-colors"
+                    onClick={() => handleSort("client")}
+                  >
+                    <div className="flex items-center">
+                      Client
+                      {sortBy === "client" && (
+                        sortOrder === "asc" ? 
+                          <SortAsc className="ml-1 h-4 w-4" /> : 
+                          <SortDesc className="ml-1 h-4 w-4" />
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-slate-100 transition-colors"
+                    onClick={() => handleSort("device")}
+                  >
+                    <div className="flex items-center">
+                      Appareil & Paramètres
+                      {sortBy === "device" && (
+                        sortOrder === "asc" ? 
+                          <SortAsc className="ml-1 h-4 w-4" /> : 
+                          <SortDesc className="ml-1 h-4 w-4" />
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-slate-100 transition-colors"
+                    onClick={() => handleSort("date")}
+                  >
+                    <div className="flex items-center">
+                      Période
+                      {sortBy === "date" && (
+                        sortOrder === "asc" ? 
+                          <SortAsc className="ml-1 h-4 w-4" /> : 
+                          <SortDesc className="ml-1 h-4 w-4" />
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead>CNAM & Montants</TableHead>
+                  <TableHead>Dépôt</TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-slate-100 transition-colors"
+                    onClick={() => handleSort("status")}
+                  >
+                    <div className="flex items-center">
+                      Statut
+                      {sortBy === "status" && (
+                        sortOrder === "asc" ? 
+                          <SortAsc className="ml-1 h-4 w-4" /> : 
+                          <SortDesc className="ml-1 h-4 w-4" />
+                      )}
+                    </div>
+                  </TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rentalOperations.map((rental: any) => {
+                {currentRentals.map((rental: any, index: number) => {
                   const clientName = rental.patient 
                     ? `${rental.patient.firstName} ${rental.patient.lastName}`
                     : rental.company
@@ -165,104 +702,181 @@ export function RentalTable({ onViewDetails, onEdit }: RentalTableProps) {
                       : "Client inconnu";
                       
                   const clientType = rental.patient ? "patient" : "company";
-                  const rentalStatus = getRentalStatus(rental.startDate, rental.endDate);
-                  const rentalDuration = calculateDuration(rental.startDate, rental.endDate);
+                  const cnamSummary = getCnamSummary(rental);
+                  const totalAmount = getTotalAmount(rental);
+                  const depositInfo = getDepositInfo(rental);
+                  const deviceParams = getDeviceParametersSummary(rental);
                   
                   return (
-                    <TableRow key={rental.id} className="hover:bg-gray-50">
+                    <TableRow key={rental.id} className={`hover:bg-slate-50 transition-colors duration-150 ${index % 2 === 0 ? 'bg-white' : 'bg-slate-25'}`}>
                       <TableCell>
-                        <div className="flex items-start gap-2">
-                          {clientType === "patient" ? (
-                            <User className="h-4 w-4 text-blue-600 mt-1" />
-                          ) : (
-                            <Building2 className="h-4 w-4 text-blue-600 mt-1" />
-                          )}
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0">
+                            {clientType === "patient" ? (
+                              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white font-semibold text-sm">
+                                {clientName.charAt(0)?.toUpperCase() || 'N'}
+                              </div>
+                            ) : (
+                              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-orange-500 to-orange-700 flex items-center justify-center text-white font-semibold text-sm">
+                                {clientName.charAt(0)?.toUpperCase() || 'E'}
+                              </div>
+                            )}
+                          </div>
                           <div>
-                            <div className="font-medium">{clientName}</div>
-                            <div className="text-xs text-gray-500">
+                            <div className="font-semibold text-slate-900">{clientName}</div>
+                            <div className="text-xs text-slate-500 flex items-center gap-1">
+                              {clientType === "patient" ? (
+                                <User className="h-3 w-3" />
+                              ) : (
+                                <Building2 className="h-3 w-3" />
+                              )}
                               {clientType === "patient" ? "Patient" : "Entreprise"}
+                              {rental.patient?.telephone && ` • ${rental.patient.telephone}`}
+                              {rental.company?.telephone && ` • ${rental.company.telephone}`}
                             </div>
+                            {rental.patient?.cnamId && (
+                              <div className="text-xs text-blue-600 mt-1 flex items-center gap-1">
+                                <Shield className="h-3 w-3" />
+                                CNAM: {rental.patient.cnamId}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </TableCell>
                       
                       <TableCell>
                         <div className="flex items-start gap-2">
-                          <Settings className="h-4 w-4 text-blue-600 mt-1" />
-                          <div>
+                          <Package className="h-4 w-4 text-blue-600 mt-1" />
+                          <div className="max-w-48">
                             <div className="font-medium">{rental.medicalDevice?.name || "Appareil inconnu"}</div>
-                            <div className="text-xs text-gray-500">
+                            <div className="text-xs text-gray-500 mb-1">
                               {rental.medicalDevice?.type || "Type inconnu"}
                             </div>
+                            <div className="text-xs text-blue-600 bg-blue-50 rounded px-2 py-1">
+                              {deviceParams}
+                            </div>
                           </div>
                         </div>
                       </TableCell>
                       
                       <TableCell>
-                        <div className="flex flex-col">
+                        <div className="flex flex-col space-y-1">
                           <div className="flex items-center space-x-1 text-sm">
                             <CalendarIcon className="h-3.5 w-3.5 text-green-600" />
-                            <span>Début: {formatDate(rental.startDate)}</span>
+                            <span className="font-medium">{formatSimpleDate(rental.startDate)}</span>
                           </div>
-                          <div className="flex items-center space-x-1 text-sm mt-1">
+                          <div className="flex items-center space-x-1 text-sm">
                             <CalendarIcon className="h-3.5 w-3.5 text-red-600" />
-                            <span>Fin: {formatDate(rental.endDate)}</span>
+                            <span>{rental.endDate ? formatSimpleDate(rental.endDate) : "Indéterminée"}</span>
+                          </div>
+                          {rental.metadata?.urgentRental && (
+                            <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200 text-xs">
+                              <AlertTriangle className="h-3 w-3 mr-1" />
+                              Urgent
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      
+                      <TableCell>
+                        <div className="flex flex-col space-y-2">
+                          {cnamSummary.badge}
+                          <div className="flex items-center space-x-1 text-sm">
+                            <CreditCard className="h-3.5 w-3.5 text-green-600" />
+                            <span className="font-medium">{totalAmount.toFixed(2)} TND</span>
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            Total location
                           </div>
                         </div>
                       </TableCell>
                       
                       <TableCell>
-                        <div className="flex items-center space-x-1">
-                          <Clock className="h-4 w-4 text-blue-600" />
-                          <span>{rentalDuration} jour{rentalDuration > 1 ? 's' : ''}</span>
+                        <div className="flex flex-col space-y-1">
+                          {depositInfo.amount > 0 ? (
+                            <>
+                              <div className="flex items-center space-x-1 text-sm">
+                                <Banknote className="h-3.5 w-3.5 text-blue-600" />
+                                <span className="font-medium">{depositInfo.amount} TND</span>
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {depositInfo.method}
+                              </div>
+                            </>
+                          ) : (
+                            <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-200">
+                              Aucun dépôt
+                            </Badge>
+                          )}
                         </div>
                       </TableCell>
                       
                       <TableCell>
-                        {rental.payment ? (
-                          <div className="flex flex-col">
-                            <div className="flex items-center space-x-1">
-                              <Banknote className="h-3.5 w-3.5 text-green-600" />
-                              <span>{rental.payment.amount || 0} TND</span>
-                            </div>
-                            <div className="mt-1">
-                              {getPaymentStatusBadge(rental.payment.status || "PENDING")}
-                            </div>
-                          </div>
-                        ) : (
-                          <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-200">
-                            Non payé
-                          </Badge>
-                        )}
-                      </TableCell>
-                      
-                      <TableCell>
-                        {rentalStatus.badge}
+                        {getRentalStatusBadge(rental.status)}
                       </TableCell>
                       
                       <TableCell>
                         <div className="flex space-x-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => onViewDetails && onViewDetails(rental.id)}
-                            className="flex items-center gap-1"
-                          >
-                            <FileText className="h-3.5 w-3.5" />
-                            <span>Détails</span>
-                          </Button>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => onViewDetails && onViewDetails(rental.id)}
+                                  className="flex items-center gap-1 text-xs"
+                                >
+                                  <Eye className="h-3.5 w-3.5" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Voir les détails complets</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                           
-                          {(rentalStatus.status === "UPCOMING" || rentalStatus.status === "ACTIVE") && (
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              className="border-blue-200 text-blue-800 hover:bg-blue-50 flex items-center gap-1"
-                              onClick={() => onEdit && onEdit(rental.id)}
-                            >
-                              <Settings className="h-3.5 w-3.5" />
-                              <span>Modifier</span>
-                            </Button>
+                          {(rental.status === "ACTIVE" || rental.status === "PENDING") && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    className="border-blue-200 text-blue-800 hover:bg-blue-50 flex items-center gap-1 text-xs"
+                                    onClick={() => onEdit && onEdit(rental.id)}
+                                  >
+                                    <Edit className="h-3.5 w-3.5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Modifier la location</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           )}
+
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => handleDeleteClick(rental.id)}
+                                  className="flex items-center gap-1 border-red-200 hover:bg-red-50 hover:text-red-600 text-xs"
+                                  disabled={deleteRental.isPending}
+                                >
+                                  {deleteRental.isPending && rentalToDelete === rental.id ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  )}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Supprimer la location</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -272,17 +886,103 @@ export function RentalTable({ onViewDetails, onEdit }: RentalTableProps) {
             </Table>
           </div>
         ) : (
-          <div className="border border-gray-200 rounded-lg p-8 text-center text-gray-500">
+          <div className="border border-slate-200 rounded-lg p-8 text-center text-slate-500">
             <div className="flex flex-col items-center justify-center space-y-3">
-              <Building2 className="h-12 w-12 text-gray-400" />
-              <h3 className="text-lg font-medium text-gray-900">Aucune location</h3>
-              <p className="max-w-md text-sm text-gray-500">
-                Commencez par créer une nouvelle location en utilisant le bouton &quot;Commencer une Location&quot; ci-dessus.
+              <Building2 className="h-12 w-12 text-slate-400" />
+              <h3 className="text-lg font-medium text-slate-900">Aucune location trouvée</h3>
+              <p className="max-w-md text-sm text-slate-500">
+                {searchTerm || statusFilter !== 'all' || clientTypeFilter !== 'all' || deviceTypeFilter !== 'all' || cnamFilter !== 'all' || dateFilter !== 'all'
+                  ? "Aucune location ne correspond aux critères de recherche. Essayez de modifier les filtres."
+                  : "Commencez par créer une nouvelle location en utilisant le bouton \"Commencer une Location\" ci-dessus."
+                }
               </p>
             </div>
           </div>
         )}
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="bg-slate-50 px-6 py-4 border-t border-slate-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center text-sm text-slate-600">
+              <span>
+                Affichage de {startIndex + 1} à {Math.min(endIndex, totalItems)} sur {totalItems} locations
+              </span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="px-3 py-1 rounded-md text-sm font-medium text-slate-500 hover:text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Précédent
+              </button>
+              
+              {Array.from({ length: Math.min(totalPages, 10) }, (_, i) => {
+                const page = i + 1;
+                const shouldShow = page === 1 || page === totalPages || 
+                  (page >= currentPage - 2 && page <= currentPage + 2);
+                
+                if (!shouldShow && page !== 2 && page !== totalPages - 1) {
+                  return null;
+                }
+                
+                if ((page === 2 && currentPage > 4) || (page === totalPages - 1 && currentPage < totalPages - 3)) {
+                  return <span key={page} className="px-2 text-slate-400">...</span>;
+                }
+                
+                return (
+                  <button
+                    key={page}
+                    onClick={() => handlePageChange(page)}
+                    className={`px-3 py-1 rounded-md text-sm font-medium ${
+                      currentPage === page
+                        ? 'bg-blue-600 text-white'
+                        : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                );
+              })}
+              
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1 rounded-md text-sm font-medium text-slate-500 hover:text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Suivant
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-600" />
+              Êtes-vous sûr de vouloir supprimer cette location?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette action annulera définitivement la location. L'appareil sera libéré et les bonds CNAM associés seront annulés.
+              Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelDelete}>Annuler</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmDelete}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

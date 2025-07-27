@@ -20,6 +20,44 @@ function formatDateForInput(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
+// Helper function to normalize Tunisian phone numbers
+function normalizeTunisianPhone(phone: string): string {
+  if (!phone) return '';
+  
+  // Remove all non-digit characters except +
+  const cleaned = phone.replace(/[^\d+]/g, '');
+  
+  // If it starts with +216, keep it as is
+  if (cleaned.startsWith('+216')) {
+    return cleaned;
+  }
+  
+  // If it starts with 216, add +
+  if (cleaned.startsWith('216')) {
+    return '+' + cleaned;
+  }
+  
+  // If it's 8 digits starting with 2-9, add +216
+  if (/^[2-9]\d{7}$/.test(cleaned)) {
+    return '+216' + cleaned;
+  }
+  
+  // Return as-is if doesn't match expected patterns
+  return phone;
+}
+
+// Helper function to validate Tunisian CIN
+function validateTunisianCIN(cin: string): boolean {
+  if (!cin) return true; // CIN is optional
+  return /^\d{8}$/.test(cin);
+}
+
+// Helper function to validate Tunisian tax ID
+function validateTunisianTaxId(taxId: string): boolean {
+  if (!taxId) return true; // Tax ID is optional
+  return /^\d{7}[A-Z]{3}\d{3}$/.test(taxId);
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const session = await getServerSession(req, res, authOptions);
 
@@ -42,6 +80,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       // Handle file upload if present
       let fileData = {};
+      
+      // Check for temporary files in the request data
+      let tempFiles = [];
+      if (data.existingFiles) {
+        try {
+          tempFiles = typeof data.existingFiles === 'string' 
+            ? JSON.parse(data.existingFiles) 
+            : data.existingFiles;
+          console.log('Found temporary files:', tempFiles);
+        } catch (error) {
+          console.error('Error parsing existingFiles:', error);
+        }
+      }
+      
+      // Handle direct file upload if present (legacy support)
       if (files.files) {
         const filesToUpload = Array.isArray(files.files) ? files.files : [files.files];
         console.log('Processing files:', filesToUpload.length, 'files');
@@ -75,6 +128,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       if (type === 'Patient') {
         try {
+          // Validate Tunisian-specific fields
+          if (data.cin && !validateTunisianCIN(data.cin)) {
+            res.status(400).json({ error: 'CIN invalide. Le CIN doit contenir exactement 8 chiffres.' });
+            return;
+          }
+
+          // Normalize phone numbers
+          const normalizedPhone = normalizeTunisianPhone(data.telephonePrincipale as string);
+          const normalizedPhoneTwo = data.telephoneSecondaire ? normalizeTunisianPhone(data.telephoneSecondaire as string) : null;
+
           const doctor = await prisma.doctor.findFirst({
             where: {
               userId: data.medecin || undefined
@@ -90,21 +153,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             data: {
               firstName: names[0] || '',
               lastName: names.slice(1).join(' '),
-              telephone: data.telephonePrincipale || '',
-              telephoneTwo: data.telephoneSecondaire || null,
-              address: data.adresseComplete || '',
-              dateOfBirth: data.dateNaissance || null,
+              telephone: normalizedPhone,
+              telephoneTwo: normalizedPhoneTwo, // Fixed: mapping telephoneSecondaire to telephoneTwo
+              governorate: data.governorate || null,
+              delegation: data.delegation || null,
+              detailedAddress: data.detailedAddress || null,
+              dateOfBirth: data.dateNaissance ? new Date(data.dateNaissance) : null,
               cin: data.cin || null,
               cnamId: data.identifiantCNAM || null,
               height: data.taille ? parseFloat(data.taille) : null,
               weight: data.poids ? parseFloat(data.poids) : null,
-              medicalHistory: data.antecedant,
-              descriptionNumOne: data.descriptionNom,
-              descriptionNumTwo: data.descriptionTelephone,
+              medicalHistory: data.antecedant || null,
+              descriptionNumOne: data.descriptionNom || null,
+              descriptionNumTwo: data.descriptionTelephone || null,
               affiliation: (data.caisseAffiliation as Affiliation) || null,
               beneficiaryType: data.beneficiaire as BeneficiaryType || null,
               doctorId: doctor.id,
               technicianId: data.technicienResponsable || null,
+              supervisorId: data.superviseur || null,
               userId: session.user.id,
               ...fileData
             },
@@ -115,6 +181,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 }
               },
               technician: true,
+              supervisor: true,
               assignedTo: true,
               files: true
             }
@@ -124,9 +191,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             id: patient.id,
             type: 'Patient',
             nom: `${patient.firstName} ${patient.lastName}`,
-            adresse: patient.address,
+            adresse: `${patient.governorate || ''} ${patient.delegation || ''} ${patient.detailedAddress || ''}`.trim(),
+            governorate: patient.governorate || '',
+            delegation: patient.delegation || '',
+            detailedAddress: patient.detailedAddress || '',
             telephone: patient.telephone,
-            telephoneSecondaire: patient.telephoneTwo,
+            telephoneSecondaire: patient.telephoneTwo || '',
             doctor: patient.doctor?.user ? {
               id: patient.doctor.user.id,
               name: `${patient.doctor.user.firstName} ${patient.doctor.user.lastName}`,
@@ -136,6 +206,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               id: patient.technician.id,
               name: `${patient.technician.firstName} ${patient.technician.lastName}`,
               role: patient.technician.role
+            } : null,
+            supervisor: patient.supervisor ? {
+              id: patient.supervisor.id,
+              name: `${patient.supervisor.firstName} ${patient.supervisor.lastName}`,
+              role: patient.supervisor.role
             } : null,
             dateNaissance: patient.dateOfBirth ? formatDateForInput(patient.dateOfBirth) : null,
             cin: patient.cin,
@@ -160,6 +235,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             })),
             createdAt: patient.createdAt
           });
+          
+          // Handle temporary files if any
+          if (tempFiles.length > 0) {
+            try {
+              const moveResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/files/move-temp`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Cookie': req.headers.cookie || '' // Pass cookies for authentication
+                },
+                body: JSON.stringify({
+                  tempFiles,
+                  patientId: patient.id
+                })
+              });
+              
+              if (!moveResponse.ok) {
+                console.error('Failed to move temporary files:', await moveResponse.text());
+              } else {
+                console.log('Successfully moved temporary files for patient:', patient.id);
+              }
+            } catch (error) {
+              console.error('Error moving temporary files:', error);
+              // Don't fail the patient creation if file moving fails
+            }
+          }
+          
           return;
         } catch (error) {
           console.error('Error creating patient:', error);
@@ -168,16 +270,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       } else if (type === 'Société') {
         try {
+          // Validate Tunisian-specific fields
+          if (data.matriculeFiscale && !validateTunisianTaxId(data.matriculeFiscale)) {
+            res.status(400).json({ error: 'Matricule fiscal invalide. Format attendu: 1234567ABC123' });
+            return;
+          }
+
+          // Normalize phone numbers
+          const normalizedPhone = normalizeTunisianPhone(data.telephonePrincipale as string);
+          const normalizedPhoneTwo = data.telephoneSecondaire ? normalizeTunisianPhone(data.telephoneSecondaire as string) : null;
+
           const company = await prisma.company.create({
             data: {
               companyName: data.nomSociete || '',
-              telephone: data.telephonePrincipale || '',
-              telephoneSecondaire: data.telephoneSecondaire || null,
-              address: data.adresseComplete || '',
+              telephone: normalizedPhone,
+              telephoneSecondaire: normalizedPhoneTwo,
+              governorate: data.governorate || null,
+              delegation: data.delegation || null,
+              detailedAddress: data.detailedAddress || null,
               taxId: data.matriculeFiscale || null,
-              nameDescription: data.descriptionNom,
-              phoneDescription: data.descriptionTelephone,
-              addressDescription: data.descriptionAdresse,
+              nameDescription: data.descriptionNom || null,
+              phoneDescription: data.descriptionTelephone || null,
+              addressDescription: data.descriptionAdresse || null,
               userId: session.user.id,
               technicianId: data.technicienResponsable || null,
               ...(fileData)
@@ -193,10 +307,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             id: company.id,
             type: 'Société',
             nom: company.companyName,
-            adresse: company.address,
+            adresse: `${company.governorate || ''} ${company.delegation || ''} ${company.detailedAddress || ''}`.trim(),
+            governorate: company.governorate || '',
+            delegation: company.delegation || '',
+            detailedAddress: company.detailedAddress || '',
             telephone: company.telephone,
-            telephoneSecondaire: company.telephoneSecondaire,
-            matriculeFiscale: company.taxId,
+            telephoneSecondaire: company.telephoneSecondaire || '',
+            matriculeFiscale: company.taxId || '',
             technician: company.technician ? {
               id: company.technician.id,
               name: `${company.technician.firstName} ${company.technician.lastName}`,
@@ -213,6 +330,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             })),
             createdAt: company.createdAt
           });
+          
+          // Handle temporary files if any
+          if (tempFiles.length > 0) {
+            try {
+              const moveResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/files/move-temp`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Cookie': req.headers.cookie || '' // Pass cookies for authentication
+                },
+                body: JSON.stringify({
+                  tempFiles,
+                  companyId: company.id
+                })
+              });
+              
+              if (!moveResponse.ok) {
+                console.error('Failed to move temporary files:', await moveResponse.text());
+              } else {
+                console.log('Successfully moved temporary files for company:', company.id);
+              }
+            } catch (error) {
+              console.error('Error moving temporary files:', error);
+              // Don't fail the company creation if file moving fails
+            }
+          }
+          
           return;
         } catch (error) {
           console.error('Error creating company:', error);
@@ -249,6 +393,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         try {
           const names = data.nomComplet?.split(' ') || [];
 
+          // Validate Tunisian-specific fields
+          if (data.cin && !validateTunisianCIN(data.cin)) {
+            res.status(400).json({ error: 'CIN invalide. Le CIN doit contenir exactement 8 chiffres.' });
+            return;
+          }
+
+          // Normalize phone numbers
+          const normalizedPhone = normalizeTunisianPhone(data.telephonePrincipale as string);
+          const normalizedPhoneTwo = data.telephoneSecondaire ? normalizeTunisianPhone(data.telephoneSecondaire) : null;
+
           // First verify the doctor exists if one is specified
           let doctorId = null;
           if (data.medecin) {
@@ -279,21 +433,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             data: {
               firstName: names[0] || '',
               lastName: names.slice(1).join(' '),
-              telephone: data.telephonePrincipale || '',
-              telephoneTwo: data.telephoneSecondaire || null,
-              address: data.adresseComplete || '',
-              dateOfBirth: data.dateNaissance || null,
+              telephone: normalizedPhone,
+              telephoneTwo: normalizedPhoneTwo, // Fixed: consistent field mapping
+              governorate: data.governorate || null,
+              delegation: data.delegation || null,
+              detailedAddress: data.detailedAddress || null,
+              dateOfBirth: data.dateNaissance ? new Date(data.dateNaissance) : null,
               cin: data.cin || null,
               cnamId: data.identifiantCNAM || null,
               height: data.taille ? parseFloat(data.taille) : null,
               weight: data.poids ? parseFloat(data.poids) : null,
-              medicalHistory: data.antecedant,
-              descriptionNumOne: data.descriptionNom,
-              descriptionNumTwo: data.descriptionTelephone,
+              medicalHistory: data.antecedant || null,
+              descriptionNumOne: data.descriptionNom || null,
+              descriptionNumTwo: data.descriptionTelephone || null,
               affiliation: (data.caisseAffiliation as Affiliation) || null,
               beneficiaryType: data.beneficiaire as BeneficiaryType || null,
               doctorId: doctorId,
               technicianId: data.technicienResponsable || null,
+              supervisorId: data.superviseur || null,
               ...(files.files ? {
                 files: {
                   // Don't delete existing files, just add new ones
@@ -321,6 +478,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 }
               },
               technician: true,
+              supervisor: true,
               assignedTo: true,
               files: true
             }
@@ -330,9 +488,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             id: patient.id,
             type: 'Patient',
             nom: `${patient.firstName} ${patient.lastName}`,
-            adresse: patient.address || '',
+            adresse: `${patient.governorate || ''} ${patient.delegation || ''} ${patient.detailedAddress || ''}`.trim(),
+            governorate: patient.governorate || '',
+            delegation: patient.delegation || '',
+            detailedAddress: patient.detailedAddress || '',
             telephone: patient.telephone,
-            telephoneSecondaire: patient.telephoneTwo,
+            telephoneSecondaire: patient.telephoneTwo || '',
             doctor: patient.doctor?.user ? {
               id: patient.doctor.user.id,
               name: `${patient.doctor.user.firstName} ${patient.doctor.user.lastName}`,
@@ -342,6 +503,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               id: patient.technician.id,
               name: `${patient.technician.firstName} ${patient.technician.lastName}`,
               role: patient.technician.role
+            } : null,
+            supervisor: patient.supervisor ? {
+              id: patient.supervisor.id,
+              name: `${patient.supervisor.firstName} ${patient.supervisor.lastName}`,
+              role: patient.supervisor.role
             } : null,
             dateNaissance: patient.dateOfBirth ? formatDateForInput(patient.dateOfBirth) : null,
             cin: patient.cin,
@@ -373,6 +539,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       } else if (type === 'Société') {
         try {
+          // Validate Tunisian-specific fields
+          if (data.matriculeFiscale && !validateTunisianTaxId(data.matriculeFiscale)) {
+            res.status(400).json({ error: 'Matricule fiscal invalide. Format attendu: 1234567ABC123' });
+            return;
+          }
+
+          // Normalize phone numbers
+          const normalizedPhone = normalizeTunisianPhone(data.telephonePrincipale as string);
+          const normalizedPhoneTwo = data.telephoneSecondaire ? normalizeTunisianPhone(data.telephoneSecondaire) : null;
+
           // Get existing files if this is an update
           let existingFiles: any[] = [];
           if (id) {
@@ -387,13 +563,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             where: { id },
             data: {
               companyName: data.nomSociete || '',
-              telephone: data.telephonePrincipale || '',
-              telephoneSecondaire: data.telephoneSecondaire || null,
-              address: data.adresseComplete || '',
+              telephone: normalizedPhone,
+              telephoneSecondaire: normalizedPhoneTwo,
+              governorate: data.governorate || null,
+              delegation: data.delegation || null,
+              detailedAddress: data.detailedAddress || null,
               taxId: data.matriculeFiscale || null,
-              nameDescription: data.descriptionNom,
-              phoneDescription: data.descriptionTelephone,
-              addressDescription: data.descriptionAdresse,
+              nameDescription: data.descriptionNom || null,
+              phoneDescription: data.descriptionTelephone || null,
+              addressDescription: data.descriptionAdresse || null,
               technicianId: data.technicienResponsable || null,
               ...(files.files ? {
                 files: {
@@ -426,10 +604,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             id: company.id,
             type: 'Société',
             nom: company.companyName,
-            adresse: company.address || '',
+            adresse: `${company.governorate || ''} ${company.delegation || ''} ${company.detailedAddress || ''}`.trim(),
+            governorate: company.governorate || '',
+            delegation: company.delegation || '',
+            detailedAddress: company.detailedAddress || '',
             telephone: company.telephone,
-            telephoneSecondaire: company.telephoneSecondaire,
-            matriculeFiscale: company.taxId,
+            telephoneSecondaire: company.telephoneSecondaire || '',
+            matriculeFiscale: company.taxId || '',
             technician: company.technician ? {
               id: company.technician.id,
               name: `${company.technician.firstName} ${company.technician.lastName}`,
@@ -472,6 +653,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               }
             },
             technician: true,
+            supervisor: true,
             assignedTo: true,
             files: true
           },
@@ -495,9 +677,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         id: patient.id,
         type: 'Patient' as const,
         nom: `${patient.firstName} ${patient.lastName}`,
-        adresse: patient.address || '',
+        adresse: `${patient.governorate || ''} ${patient.delegation || ''} ${patient.detailedAddress || ''}`.trim(),
+        governorate: patient.governorate || '',
+        delegation: patient.delegation || '',
+        detailedAddress: patient.detailedAddress || '',
         telephone: patient.telephone,
-        telephoneSecondaire: patient.telephoneTwo,
+        telephoneSecondaire: patient.telephoneTwo || '',
         doctor: patient.doctor?.user ? {
           id: patient.doctor.user.id,
           name: `${patient.doctor.user.firstName} ${patient.doctor.user.lastName}`,
@@ -507,6 +692,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           id: patient.technician.id,
           name: `${patient.technician.firstName} ${patient.technician.lastName}`,
           role: patient.technician.role
+        } : null,
+        supervisor: patient.supervisor ? {
+          id: patient.supervisor.id,
+          name: `${patient.supervisor.firstName} ${patient.supervisor.lastName}`,
+          role: patient.supervisor.role
         } : null,
         dateNaissance: patient.dateOfBirth ? formatDateForInput(patient.dateOfBirth) : null,
         cin: patient.cin,
@@ -536,10 +726,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         id: company.id,
         type: 'Société' as const,
         nom: company.companyName,
-        adresse: company.address || '',
+        adresse: `${company.governorate || ''} ${company.delegation || ''} ${company.detailedAddress || ''}`.trim(),
+        governorate: company.governorate || '',
+        delegation: company.delegation || '',
+        detailedAddress: company.detailedAddress || '',
         telephone: company.telephone,
-        telephoneSecondaire: company.telephoneSecondaire,
-        matriculeFiscale: company.taxId,
+        telephoneSecondaire: company.telephoneSecondaire || '',
+        matriculeFiscale: company.taxId || '',
         technician: company.technician ? {
           id: company.technician.id,
           name: `${company.technician.firstName} ${company.technician.lastName}`,

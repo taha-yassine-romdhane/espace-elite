@@ -8,6 +8,7 @@ import { CalendarIcon, Info } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { useState, useEffect } from "react";
 import { toast } from "@/components/ui/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface ParameterConfigurationDialogProps {
   isOpen: boolean;
@@ -28,6 +29,8 @@ export function ParameterConfigurationDialog({
   resultDueDate,
   onResultDueDateChange = () => {}
 }: ParameterConfigurationDialogProps) {
+  const queryClient = useQueryClient();
+  
   // Set default date to 7 days from now if not provided
   const defaultDate = resultDueDate || addDays(new Date(), 7);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(defaultDate);
@@ -77,6 +80,11 @@ export function ParameterConfigurationDialog({
       if (!response.ok) {
         throw new Error('Erreur lors de la sauvegarde des paramètres');
       }
+      
+      // Invalidate and refetch the diagnostic products query to show updated status
+      await queryClient.invalidateQueries({
+        queryKey: ["products", "diagnostic"]
+      });
       
       // Call the onSubmit callback with the selected date
       onSubmit(selectedDate);

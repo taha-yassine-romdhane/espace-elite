@@ -13,6 +13,7 @@ import { toast } from "@/components/ui/use-toast";
 
 // Import the product selection components
 import { ProductSelectionStep } from "./steps/ProductSelectionStep";
+import { RecapitulationStep } from "@/components/steps/RecapitulationStep";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -220,6 +221,7 @@ export function SaleStepperDialog({ isOpen, onClose, action }: StepperDialogProp
 
   // Payment completion state
   const [paymentData, setPaymentData] = useState<any>(null);
+  const [isFinalizingSale, setIsFinalizingsale] = useState(false);
 
   // Handle payment completion - now advances to recap step
   const handlePaymentComplete = async (paymentData: any) => {
@@ -246,65 +248,18 @@ export function SaleStepperDialog({ isOpen, onClose, action }: StepperDialogProp
 
   // Handle final sale creation from recap step
   const handleFinalizeSale = async () => {
+    setIsFinalizingsale(true);
     try {
       // Calculate totals
       const totalAmount = calculateTotalPrice();
       const discount = 0; // You could add discount handling in the future
       const finalAmount = totalAmount - discount;
       
-      // Process all payments
+      // Process all payments - pass the payment array directly to the API
       let paymentDetails = null;
-      if (paymentData?.payments && paymentData.payments.length > 0) {
-        // Get the primary payment if available
-        const primaryPayment = paymentData.payments.find((p: any) => p.classification === 'principale') || paymentData.payments[0];
-        
-        // Create payment reference string with details from all payments
-        const paymentReferences = paymentData.payments.map((p: any) => {
-          let details = '';
-          
-          // Add payment-specific details
-          switch (p.type) {
-            case 'especes':
-              details = `Espèces: ${p.amount} DT`;
-              break;
-            case 'cheque':
-              details = `Chèque N°${p.chequeNumber || ''} ${p.bankName || ''}: ${p.amount} DT`;
-              break;
-            case 'virement':
-              details = `Virement Réf:${p.reference || ''}: ${p.amount} DT`;
-              break;
-            case 'mondat':
-              details = `Mandat N°${p.mondatNumber || ''}: ${p.amount} DT`;
-              break;
-            case 'cnam':
-              details = `CNAM Dossier N°${p.fileNumber || ''}: ${p.amount} DT`;
-              break;
-            case 'traite':
-              details = `Traite Échéance:${p.echeance || ''}: ${p.amount} DT`;
-              break;
-            default:
-              details = `${p.type}: ${p.amount} DT`;
-          }
-          
-          // Add classification
-          return `${details} (${p.classification === 'principale' ? 'Principal' : 
-                           p.classification === 'garantie' ? 'Garantie' : 'Complément'})`;
-        }).join(' | ');
-        
-        // Create payment object for the database
-        paymentDetails = {
-          amount: paymentData.paidAmount,
-          method: primaryPayment.type,
-          status: paymentData.status === 'COMPLETED' ? 'PAID' : 'PARTIAL',
-          reference: paymentReferences,
-          notes: JSON.stringify({
-            payments: paymentData.payments,
-            totalAmount: paymentData.totalAmount,
-            paidAmount: paymentData.paidAmount,
-            remainingAmount: paymentData.remainingAmount,
-            status: paymentData.status
-          }),
-        };
+      if (Array.isArray(paymentData) && paymentData.length > 0) {
+        // paymentData is already an array of payments from the ProductPaymentMatrix
+        paymentDetails = paymentData;
       }
       
       // Prepare sale data
@@ -313,7 +268,7 @@ export function SaleStepperDialog({ isOpen, onClose, action }: StepperDialogProp
         totalAmount,
         discount,
         finalAmount,
-        status: paymentData?.status === 'COMPLETED' ? 'COMPLETED' : 'PENDING',
+        status: Array.isArray(paymentData) && paymentData.length > 0 ? 'COMPLETED' : 'PENDING',
         notes: notes,
         patientId: clientType === 'patient' ? clientDetails?.id : null,
         companyId: clientType === 'societe' ? clientDetails?.id : null,
@@ -361,6 +316,8 @@ export function SaleStepperDialog({ isOpen, onClose, action }: StepperDialogProp
         description: `Une erreur est survenue: ${error.message || 'Erreur inconnue'}`,
         variant: "destructive",
       });
+    } finally {
+      setIsFinalizingsale(false);
     }
   };
 
@@ -393,6 +350,7 @@ export function SaleStepperDialog({ isOpen, onClose, action }: StepperDialogProp
                     onClose={handleClose}
                     onClientTypeChange={handleClientTypeChange}
                     onClientSelect={setSelectedClient}
+                    onClientAdd={(newClient) => setClients(prev => [...prev, newClient])}
                     clientType={clientType}
                     selectedClient={selectedClient}
                     clients={clients}
@@ -438,6 +396,19 @@ export function SaleStepperDialog({ isOpen, onClose, action }: StepperDialogProp
                       />
                     </div>
                   </div>
+                )}
+
+                {currentStep === 4 && (
+                  <RecapitulationStep
+                    onBack={handleBack}
+                    onFinalize={handleFinalizeSale}
+                    selectedClient={clientDetails}
+                    selectedProducts={selectedProducts}
+                    paymentData={paymentData}
+                    notes={notes}
+                    calculateTotal={calculateTotalPrice}
+                    isLoading={isFinalizingSale}
+                  />
                 )}
               </div>
             </div>

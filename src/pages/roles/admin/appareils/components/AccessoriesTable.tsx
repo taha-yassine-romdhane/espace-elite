@@ -54,8 +54,7 @@ export function AccessoriesTable({
       const filtered = allAccessories.filter(item =>
         (item.name && item.name.toLowerCase().includes(query)) ||
         (item.brand && item.brand.toLowerCase().includes(query)) ||
-        (item.model && item.model.toLowerCase().includes(query)) ||
-        (item.serialNumber && item.serialNumber.toLowerCase().includes(query))
+        (item.model && item.model.toLowerCase().includes(query))
       );
       setFilteredAccessories(filtered);
     }
@@ -156,7 +155,7 @@ export function AccessoriesTable({
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
           <Input
             type="text"
-            placeholder="Rechercher par nom, marque, modèle ou numéro de série..."
+            placeholder="Rechercher par nom, marque ou modèle..."
             value={searchQuery}
             onChange={handleSearchChange}
             className="pl-8"
@@ -171,7 +170,6 @@ export function AccessoriesTable({
               <TableHead className="py-1">Nom</TableHead>
               <TableHead className="py-1">Marque</TableHead>
               <TableHead className="py-1">Modèle</TableHead>
-              <TableHead>N/S</TableHead>
               <TableHead>Lieu de stockage</TableHead>
               <TableHead>Quantité en Stock</TableHead>
               <TableHead>Statut</TableHead>
@@ -186,7 +184,6 @@ export function AccessoriesTable({
                 <TableCell className="py-1">{device.name}</TableCell>
                 <TableCell className="py-1">{device.brand || '-'}</TableCell>
                 <TableCell className="py-1">{device.model || '-'}</TableCell>
-                <TableCell className="py-1">{device.serialNumber || '-'}</TableCell>
                 <TableCell className="py-1">{getLocationName(device)}</TableCell>
                 <TableCell className="py-1">{device.stocks ? device.stocks.reduce((acc, stock) => acc + stock.quantity, 0) : 0}</TableCell>
                 <TableCell>

@@ -85,6 +85,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
       const { fromLocationId, toLocationId, productId, quantity, newStatus, notes } = req.body;
 
+      // Validate required fields
+      if (!fromLocationId || !toLocationId || !productId || !quantity) {
+        return res.status(400).json({ 
+          error: 'Missing required fields',
+          message: 'fromLocationId, toLocationId, productId, and quantity are required'
+        });
+      }
+
+      // Validate quantity is positive integer
+      if (quantity <= 0 || !Number.isInteger(quantity)) {
+        return res.status(400).json({ 
+          error: 'Invalid quantity',
+          message: 'Quantity must be a positive integer'
+        });
+      }
+
+      // Validate locations are different
+      if (fromLocationId === toLocationId) {
+        return res.status(400).json({ 
+          error: 'Invalid transfer',
+          message: 'Source and destination locations must be different'
+        });
+      }
+
       // Start a transaction
       const transfer = await prisma.$transaction(async (tx) => {
         // 1. Check if there's enough stock in the source location
@@ -92,11 +116,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           where: {
             locationId: fromLocationId,
             productId,
+          },
+          include: {
+            product: {
+              select: {
+                name: true,
+                type: true
+              }
+            },
+            location: {
+              select: {
+                name: true
+              }
+            }
           }
         });
 
-        if (!sourceStock || sourceStock.quantity < quantity) {
-          throw new Error('Insufficient stock in source location');
+        if (!sourceStock) {
+          const locationInfo = await tx.stockLocation.findUnique({
+            where: { id: fromLocationId },
+            select: { name: true }
+          });
+          const productInfo = await tx.product.findUnique({
+            where: { id: productId },
+            select: { name: true }
+          });
+          throw new Error(`No stock found for product "${productInfo?.name || 'Unknown'}" in source location "${locationInfo?.name || 'Unknown'}"`);
+        }
+
+        if (sourceStock.quantity < quantity) {
+          throw new Error(`Insufficient stock in source location "${sourceStock.location.name}". Available: ${sourceStock.quantity}, Requested: ${quantity}`);
         }
 
         // 2. Update source location stock

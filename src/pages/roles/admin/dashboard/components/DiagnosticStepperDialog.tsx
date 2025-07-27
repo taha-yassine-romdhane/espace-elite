@@ -3,16 +3,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { ClientSelectionStep } from "./steps/ClientSelectionStep";
 import { NewDiagnosticProductStep } from "./steps/diagnostic/NewDiagnosticProductStep";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Button } from "@/components/ui";
-import { CalendarIcon, AlertCircle, Loader2, PlusCircle, FileUp, Upload } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { CalendarIcon, AlertCircle, Loader2, PlusCircle, FileUp } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { DiagnosticStepperSidebar } from "./DiagnosticStepperSidebar";
 import { AddTaskButton } from "@/components/tasks/AddTaskButton";
 import { TaskFormDialog } from "@/components/tasks/TaskFormDialog";
 import { useToast } from "@/components/ui/use-toast";
-import FileManager from "@/components/forms/components/FileManager";
+import FileUpload from "@/components/forms/components/FileUpload";
 import { useForm } from "react-hook-form";
-import { ExistingFile } from "@/types/forms/PatientFormData";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface DiagnosticStepperDialogProps {
   isOpen: boolean;
@@ -26,18 +26,17 @@ const steps = [
 ] as const;
 
 export function DiagnosticStepperDialog({ isOpen, onClose }: DiagnosticStepperDialogProps) {
-  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
   // Form for file uploads
   const form = useForm();
   
   // Step Management
   const [currentStep, setCurrentStep] = useState(1);
 
-  // Client Selection State
-  const [clientType, setClientType] = useState<"patient" | "societe" | null>(null);
-  const [selectedClient, setSelectedClient] = useState<string | null>(null);
-  const [clients, setClients] = useState<[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  // Patient Selection State (diagnostics are only for patients)
+  const [selectedPatient, setSelectedPatient] = useState<string | null>(null);
+  const [patients, setPatients] = useState<[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   // Product Selection State
@@ -57,63 +56,60 @@ export function DiagnosticStepperDialog({ isOpen, onClose }: DiagnosticStepperDi
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   
-  // File Management State
-  const [existingFiles, setExistingFiles] = useState<ExistingFile[]>([]);
-  const [filesToUpload, setFilesToUpload] = useState<ExistingFile[]>([]);
-  const [isLoadingFiles, setIsLoadingFiles] = useState(false);
+  // File upload state management
+  const [existingFiles, setExistingFiles] = useState<any[]>([]);
+  
+  // File upload handlers
+  const handleFileChange = (files: any[]) => {
+    setExistingFiles(files);
+    form.setValue('existingFiles', files);
+  };
 
-  // Fetch stock locations for forms
-  const { data: stockLocations } = useQuery({
-    queryKey: ["stock-locations"],
+  const handleRemoveFile = (fileUrl: string) => {
+    const updatedFiles = existingFiles.filter(file => file.url !== fileUrl);
+    setExistingFiles(updatedFiles);
+    form.setValue('existingFiles', updatedFiles);
+  };
+  
+
+
+  // Fetch patient details when a patient is selected
+  const { data: patientDetails } = useQuery({
+    queryKey: ["patient-details", selectedPatient],
     queryFn: async () => {
-      const response = await fetch("/api/stock-locations");
+      if (!selectedPatient) return null;
+      const response = await fetch(`/api/renseignements/patients/${selectedPatient}`);
       if (!response.ok) {
-        throw new Error("Failed to fetch stock locations");
+        throw new Error("Failed to fetch patient details");
       }
       return response.json();
     },
+    enabled: !!selectedPatient,
   });
 
-  // Fetch client details when a client is selected
-  const { data: clientDetails } = useQuery({
-    queryKey: ["client-details", selectedClient],
-    queryFn: async () => {
-      if (!selectedClient) return null;
-      const response = await fetch(`/api/clients/${selectedClient}`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch client details");
-      }
-      return response.json();
-    },
-    enabled: !!selectedClient,
-  });
-
-  // Client Selection Handlers
-  const fetchClients = async (type: "patient" | "societe") => {
-    setIsLoading(true);
+  // Patient Selection Handlers
+  const fetchPatients = async () => {
     setError(null);
     try {
-      const response = await fetch(`/api/clients?type=${type}`);
+      const response = await fetch('/api/renseignements/patients');
       if (!response.ok) {
-        throw new Error("Failed to fetch clients");
+        throw new Error("Failed to fetch patients");
       }
       const data = await response.json();
-      setClients(data);
+      setPatients(data);
     } catch (error) {
-      console.error("Error fetching clients:", error);
-      setError("Erreur lors du chargement des données");
-      setClients([]);
-    } finally {
-      setIsLoading(false);
+      console.error("Error fetching patients:", error);
+      setError("Erreur lors du chargement des patients");
+      setPatients([]);
     }
   };
 
-  const handleClientTypeChange = (type: "patient" | "societe") => {
-    setClientType(type);
-    setSelectedClient(null);
-    setClients([]);
-    fetchClients(type);
-  };
+  // Auto-fetch patients when dialog opens
+  useEffect(() => {
+    if (isOpen) {
+      fetchPatients();
+    }
+  }, [isOpen]);
 
   // Product Selection Handlers
   const handleProductSelect = (product: any) => {
@@ -125,12 +121,6 @@ export function DiagnosticStepperDialog({ isOpen, onClose }: DiagnosticStepperDi
     setSelectedProducts((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // Handle updating product parameters
-  const handleUpdateProductParameters = (productIndex: number, parameters: any) => {
-    // In the new approach, we don't update parameters directly
-    // This function is kept for compatibility but may not be needed anymore
-    console.log('Product parameters update called, but using simplified approach now');
-  };
 
   // Create diagnostic record mutation
   const { mutate: createDiagnostic } = useMutation({
@@ -185,8 +175,19 @@ export function DiagnosticStepperDialog({ isOpen, onClose }: DiagnosticStepperDi
         return { success: response.ok };
       }
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       console.log('Diagnostic created successfully:', data);
+      
+      // Invalidate relevant queries to refresh the diagnostics table
+      await queryClient.invalidateQueries({
+        queryKey: ["diagnostics"]
+      });
+      
+      // Also invalidate any dashboard-related queries
+      await queryClient.invalidateQueries({
+        queryKey: ["dashboard"]
+      });
+      
       setSubmitting(false);
       // Close the dialog
       onClose();
@@ -209,89 +210,23 @@ export function DiagnosticStepperDialog({ isOpen, onClose }: DiagnosticStepperDi
 
   const handleClose = () => {
     setCurrentStep(1);
-    setClientType(null);
-    setSelectedClient(null);
-    setClients([]);
+    setSelectedPatient(null);
+    setPatients([]);
     setError(null);
     setSelectedProducts([]);
     setFollowUpDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
     setSubmitError(null);
+    setExistingFiles([]);
     onClose();
   };
 
-  // Calculate total price based on selected products
+  // Diagnostics are always free
   const calculateTotalPrice = () => {
-    return selectedProducts.reduce((total, product) => {
-      const price = parseFloat(product.sellingPrice || 0);
-      const quantity = product.quantity || 1;
-      return total + (price * quantity);
-    }, 0).toFixed(2);
+    return "0.00";
   };
 
-  // Load existing files for the selected patient
-  useEffect(() => {
-    const fetchPatientFiles = async () => {
-      if (selectedClient && clientType === 'patient') {
-        setIsLoadingFiles(true);
-        try {
-          const response = await fetch(`/api/files?patientId=${selectedClient}`);
-          if (response.ok) {
-            const data = await response.json();
-            setExistingFiles(data.files || []);
-          }
-        } catch (error) {
-          console.error('Error fetching patient files:', error);
-        } finally {
-          setIsLoadingFiles(false);
-        }
-      }
-    };
-    
-    fetchPatientFiles();
-  }, [selectedClient, clientType]);
 
-  // Handle file changes
-  const handleFileChange = (files: ExistingFile[]) => {
-    console.log('Files changed:', files);
-    setFilesToUpload(files);
-  };
 
-  // Handle removing existing files
-  const handleRemoveExistingFile = async (fileUrl: string) => {
-    try {
-      // Find the file by URL
-      const fileToRemove = existingFiles.find(file => file.url === fileUrl);
-      if (!fileToRemove) return;
-      
-      // Remove from UI first
-      setExistingFiles(prev => prev.filter(file => file.url !== fileUrl));
-      
-      // Call API to remove file
-      const response = await fetch(`/api/files`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ 
-          fileId: fileToRemove.id, 
-          fileUrl: fileUrl 
-        })
-      });
-      
-      if (!response.ok) {
-        // If deletion fails, add the file back to the UI
-        setExistingFiles(prev => [...prev, fileToRemove]);
-        throw new Error('Failed to delete file');
-      }
-    } catch (error) {
-      console.error('Error removing file:', error);
-      toast({
-        title: "Erreur",
-        description: "Impossible de supprimer le fichier",
-        variant: "destructive"
-      });
-    }
-  };
 
   // Handle form submission
   const handleSubmit = async () => {
@@ -299,7 +234,7 @@ export function DiagnosticStepperDialog({ isOpen, onClose }: DiagnosticStepperDi
     setSubmitError(null);
     
     // Validate required fields
-    if (!selectedClient) {
+    if (!selectedPatient) {
       setSubmitError("Veuillez sélectionner un patient");
       setSubmitting(false);
       return;
@@ -312,23 +247,8 @@ export function DiagnosticStepperDialog({ isOpen, onClose }: DiagnosticStepperDi
     }
     
     try {
-      // Collect all file URLs from UploadThing uploads
-      let uploadedFileUrls: string[] = [];
-      
-      if (filesToUpload.length > 0) {
-        console.log('Files to upload:', filesToUpload);
-        
-        // Collect all file URLs from UploadThing uploads
-        filesToUpload.forEach((file) => {
-          // For UploadThing files, the URL will be in the url property
-          if (file.url) {
-            console.log('Adding file URL to upload list:', file.url);
-            uploadedFileUrls.push(file.url);
-          }
-        });
-        
-        console.log('Final file URLs to save:', uploadedFileUrls);
-      }
+      // Get uploaded file URLs from the existingFiles state
+      const uploadedFileUrls = existingFiles.map(file => file.url);
       
       // Prepare data for submission
       // Make sure we have at least one selected product for the diagnostic
@@ -343,8 +263,8 @@ export function DiagnosticStepperDialog({ isOpen, onClose }: DiagnosticStepperDi
       const selectedDevice = selectedProducts[0];
       
       const diagnosticData = {
-        clientId: selectedClient,
-        clientType,
+        clientId: selectedPatient,
+        clientType: 'patient', // Always patient for diagnostics
         // Important: Pass the medical device ID directly instead of in a products array
         medicalDeviceId: selectedDevice.id,
         // Still keep the products array for any additional information
@@ -354,17 +274,17 @@ export function DiagnosticStepperDialog({ isOpen, onClose }: DiagnosticStepperDi
             resultDueDate: resultDueDate ? resultDueDate.toISOString() : null,
             type: product.type,
             name: product.name,
-            sellingPrice: product.sellingPrice
+            sellingPrice: 0 // Diagnostics are free
           };
         }),
         followUpDate: followUpDate,
-        totalPrice: calculateTotalPrice(),
+        totalPrice: 0, // Diagnostics are always free
         notes: notes,
         // Include patient information if available
-        patientInfo: clientType === 'patient' && clientDetails ? {
-          name: clientDetails.name || '',
-          phone: clientDetails.phone || '',
-          email: clientDetails.email || ''
+        patientInfo: patientDetails ? {
+          name: patientDetails.name || '',
+          phone: patientDetails.phone || '',
+          email: patientDetails.email || ''
         } : null,
         // Include file URLs if any were uploaded
         fileUrls: uploadedFileUrls
@@ -390,24 +310,29 @@ export function DiagnosticStepperDialog({ isOpen, onClose }: DiagnosticStepperDi
           <DiagnosticStepperSidebar 
             steps={steps}
             currentStep={currentStep}
-            clientDetails={clientDetails}
-            totalPrice={selectedProducts.length > 0 ? `${calculateTotalPrice()} DT` : undefined}
+            clientDetails={patientDetails}
+            totalPrice={undefined} // Remove price display for free diagnostics
           />
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto p-6">
             {currentStep === 1 && (
-              <ClientSelectionStep
-                onNext={handleNext}
-                onClose={handleClose}
-                onClientTypeChange={handleClientTypeChange}
-                onClientSelect={setSelectedClient}
-                clientType={clientType}
-                selectedClient={selectedClient}
-                clients={clients}
-                error={error}
-                action="diagnostique"
-              />
+              <div className="space-y-6">
+                <h2 className="text-xl font-semibold text-[#1e3a8a]">Sélection du Patient</h2>
+                <p className="text-gray-600">Les diagnostics sont uniquement disponibles pour les patients.</p>
+                
+                <ClientSelectionStep
+                  onNext={handleNext}
+                  onClose={handleClose}
+                  onClientTypeChange={() => {}} // Not used anymore
+                  onClientSelect={setSelectedPatient}
+                  clientType="patient" // Always patient
+                  selectedClient={selectedPatient}
+                  clients={patients}
+                  error={error}
+                  action="diagnostique"
+                />
+              </div>
             )}
 
             {currentStep === 2 && (
@@ -417,8 +342,8 @@ export function DiagnosticStepperDialog({ isOpen, onClose }: DiagnosticStepperDi
                 selectedProducts={selectedProducts}
                 onRemoveProduct={handleRemoveProduct}
                 onSelectProduct={handleProductSelect}
-                onUpdateProductParameters={handleUpdateProductParameters}
-                patientId={clientType === 'patient' && selectedClient ? selectedClient : undefined}
+                onUpdateProductParameters={() => {}} // Not used for diagnostics
+                patientId={selectedPatient || undefined}
                 resultDueDate={resultDueDate}
                 onResultDueDateChange={setResultDueDate}
               />
@@ -443,7 +368,7 @@ export function DiagnosticStepperDialog({ isOpen, onClose }: DiagnosticStepperDi
                             </div>
                           )}
                         </div>
-                        <span>{product.sellingPrice} DT</span>
+                        <span className="text-green-600 font-medium">Gratuit</span>
                       </div>
                     ))}
                   </div>
@@ -487,20 +412,18 @@ export function DiagnosticStepperDialog({ isOpen, onClose }: DiagnosticStepperDi
                       Ajoutez des documents liés à ce diagnostic. Les documents seront automatiquement associés au patient.
                     </p>
                     
-                    {clientType === 'patient' && selectedClient ? (
+                    {selectedPatient ? (
                       <>
-                        <FileManager
+                        <FileUpload
                           form={form}
                           existingFiles={existingFiles}
                           onFileChange={handleFileChange}
-                          onRemoveExistingFile={handleRemoveExistingFile}
+                          onRemoveExistingFile={handleRemoveFile}
                           className="w-full"
-                          endpoint="documentUploader"
                           maxFiles={5}
                         />
                         <div className="mt-4 text-sm text-gray-600">
                           <p>Les fichiers seront automatiquement associés au diagnostic et au patient lors de la soumission.</p>
-                          <p>Vous n'avez pas besoin de cliquer sur "Enregistrer les fichiers" - ils seront enregistrés avec le diagnostic.</p>
                         </div>
                       </>
                     ) : (
@@ -571,25 +494,21 @@ export function DiagnosticStepperDialog({ isOpen, onClose }: DiagnosticStepperDi
       </DialogContent>
       <DiagnosticTaskFormDialog 
         isOpen={isTaskModalOpen} 
-        patientId={selectedClient && clientType === 'patient' ? selectedClient : undefined} 
+        onClose={() => setIsTaskModalOpen(false)}
+        patientId={selectedPatient || undefined} 
         followUpDate={followUpDate} 
       />
     </Dialog>
   );
 }
 
-export function DiagnosticTaskFormDialog({ isOpen, patientId, followUpDate }: { isOpen: boolean, patientId?: string, followUpDate?: Date }) {
+export function DiagnosticTaskFormDialog({ isOpen, onClose, patientId, followUpDate }: { isOpen: boolean, onClose: () => void, patientId?: string, followUpDate?: Date }) {
   const { toast } = useToast();
-  const [isTaskModalOpen, setIsTaskModalOpen] = useState(isOpen);
-
-  useEffect(() => {
-    setIsTaskModalOpen(isOpen);
-  }, [isOpen]);
 
   return (
     <TaskFormDialog
-      open={isTaskModalOpen}
-      onClose={() => setIsTaskModalOpen(false)}
+      open={isOpen}
+      onClose={onClose}
       onSubmit={async (data) => {
         try {
           // Add patient ID if available
@@ -615,7 +534,9 @@ export function DiagnosticTaskFormDialog({ isOpen, patientId, followUpDate }: { 
             description: "La tâche a été créée avec succès",
           });
           
-          setIsTaskModalOpen(false);
+          // Close the dialog after successful task creation
+          onClose();
+          
         } catch (error) {
           console.error('Error creating task:', error);
           toast({

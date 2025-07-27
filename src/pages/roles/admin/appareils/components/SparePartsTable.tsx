@@ -53,7 +53,6 @@ export function SparePartsTable({
         (item.name && item.name.toLowerCase().includes(query)) ||
         (item.brand && item.brand.toLowerCase().includes(query)) ||
         (item.model && item.model.toLowerCase().includes(query)) ||
-        (item.serialNumber && item.serialNumber.toLowerCase().includes(query)) ||
         (item.stockLocation && typeof item.stockLocation === 'object' && 
          item.stockLocation.name && item.stockLocation.name.toLowerCase().includes(query))
       );
@@ -156,7 +155,7 @@ export function SparePartsTable({
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
           <Input
             type="text"
-            placeholder="Rechercher par nom, marque, modèle ou emplacement..."
+            placeholder="Rechercher par nom, marque ou modèle..."
             value={searchQuery}
             onChange={handleSearchChange}
             className="pl-8"

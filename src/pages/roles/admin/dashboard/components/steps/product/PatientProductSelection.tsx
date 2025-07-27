@@ -83,18 +83,26 @@ const ProductCard = ({
   product,
   onRemove,
   onConfigure,
-  onUpdatePrice
+  onUpdatePrice,
+  isRental = false
 }: {
   product: any;
   onRemove: () => void;
   onConfigure?: () => void;
   onUpdatePrice?: (price: number) => void;
+  isRental?: boolean;
 }) => {
   // Only show configure button for medical devices
   const showConfigureButton = product.type === "MEDICAL_DEVICE" && onConfigure;
   
   // Check if parameters are configured
   const hasParameters = product.parameters && Object.keys(product.parameters).length > 0;
+  
+  // Get the appropriate price field based on rental vs sale
+  const priceField = isRental ? 'rentalPrice' : 'sellingPrice';
+  const currentPrice = typeof product[priceField] === 'number' ? 
+    product[priceField] : 
+    parseFloat(product[priceField]) || 0;
   
   // Function to format parameters for display
   const formatParameters = (params: any) => {
@@ -150,7 +158,7 @@ const ProductCard = ({
                 <input
                   type="number"
                   className="w-20 text-right border border-gray-200 rounded px-2 py-1 text-sm"
-                  value={typeof product.sellingPrice === 'number' ? product.sellingPrice : parseFloat(product.sellingPrice) || 0}
+                  value={currentPrice}
                   onChange={(e) => {
                     const newPrice = parseFloat(e.target.value);
                     if (!isNaN(newPrice) && newPrice >= 0) {
@@ -160,12 +168,10 @@ const ProductCard = ({
                   step="0.01"
                   min="0"
                 />
-                <span className="ml-1 text-sm">DT</span>
+                <span className="ml-1 text-sm">{isRental ? 'TND/jour' : 'TND'}</span>
               </div>
             ) : (
-              <div className="font-medium">{typeof product.sellingPrice === 'number' ? 
-                product.sellingPrice.toFixed(2) : 
-                (parseFloat(product.sellingPrice) || 0).toFixed(2)} DT</div>
+              <div className="font-medium">{currentPrice.toFixed(2)} {isRental ? 'TND/jour' : 'TND'}</div>
             )}
           </div>
           
@@ -270,9 +276,10 @@ export function PatientProductSelection({
   // Handle updating product price
   const handleUpdatePrice = (index: number, price: number) => {
     if (onUpdateProduct) {
+      const priceField = isRental ? 'rentalPrice' : 'sellingPrice';
       const updatedProduct = {
         ...selectedProducts[index],
-        sellingPrice: price
+        [priceField]: price
       };
       onUpdateProduct(index, updatedProduct);
     }
@@ -280,8 +287,9 @@ export function PatientProductSelection({
   
   // Calculate total price - ensure it's always a number
   const totalPrice = (selectedProducts || []).reduce((total, product) => {
-    const price = typeof product.sellingPrice === 'number' ? product.sellingPrice : 
-                  parseFloat(product.sellingPrice) || 0;
+    const priceField = isRental ? 'rentalPrice' : 'sellingPrice';
+    const price = typeof product[priceField] === 'number' ? product[priceField] : 
+                  parseFloat(product[priceField]) || 0;
     return total + price;
   }, 0);
 
@@ -314,7 +322,7 @@ export function PatientProductSelection({
           <Card className="overflow-hidden border border-blue-100">
             <div className="bg-blue-50 px-4 py-2 border-b border-blue-100 flex justify-between items-center">
               <div className="font-medium text-blue-900">Récapitulatif des produits</div>
-              <div className="text-sm text-blue-700">Total: <span className="font-semibold">{typeof totalPrice === 'number' ? totalPrice.toFixed(2) : '0.00'} DT</span></div>
+              <div className="text-sm text-blue-700">Total: <span className="font-semibold">{typeof totalPrice === 'number' ? totalPrice.toFixed(2) : '0.00'} {isRental ? 'TND/jour' : 'TND'}</span></div>
             </div>
             
             <div className="divide-y divide-gray-100">
@@ -325,6 +333,7 @@ export function PatientProductSelection({
                   onRemove={() => onRemoveProduct(index)}
                   onConfigure={product.type === "MEDICAL_DEVICE" ? () => handleConfigureProduct(index) : undefined}
                   onUpdatePrice={(price) => handleUpdatePrice(index, price)}
+                  isRental={isRental}
                 />
               ))}
             </div>
@@ -346,7 +355,7 @@ export function PatientProductSelection({
         <div className="flex items-center gap-3">
           {(selectedProducts && selectedProducts.length > 0) && (
             <div className="text-sm text-gray-600">
-              <span className="font-medium text-blue-700">{selectedProducts.length}</span> produits pour un total de <span className="font-medium text-blue-700">{typeof totalPrice === 'number' ? totalPrice.toFixed(2) : '0.00'} DT</span>
+              <span className="font-medium text-blue-700">{selectedProducts.length}</span> produits pour un total de <span className="font-medium text-blue-700">{typeof totalPrice === 'number' ? totalPrice.toFixed(2) : '0.00'} {isRental ? 'TND/jour' : 'TND'}</span>
             </div>
           )}
           

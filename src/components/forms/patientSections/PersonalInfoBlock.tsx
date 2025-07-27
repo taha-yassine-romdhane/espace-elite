@@ -3,10 +3,12 @@ import { UseFormReturn } from 'react-hook-form';
 import { AlertCircle, Check } from 'lucide-react';
 import SmartInput from '../components/SmartInput';
 import FormSection from '../components/FormSection';
-import LocationPicker from '../components/LocationPicker';
 import axios from 'axios';
 import { debounce } from 'lodash';
 import { Patient } from '@/types';
+import { TUNISIA_GOVERNORATES, getDelegationsByGovernorate } from '@/data/tunisia-locations';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DatePicker } from '@/components/ui/date-picker';
 
 
 interface PersonalInfoBlockProps {
@@ -80,7 +82,9 @@ export default function PersonalInfoBlock({
     form.setValue('nomComplet', `${patient.firstName || ''} ${patient.lastName || ''}`);
     form.setValue('telephonePrincipale', patient.telephone || '');
     form.setValue('telephoneSecondaire', patient.telephoneTwo || '');
-    form.setValue('adresseComplete', patient.address || '');
+    form.setValue('governorate', (patient as any).governorate || '');
+    form.setValue('delegation', (patient as any).delegation || '');
+    form.setValue('detailedAddress', (patient as any).detailedAddress || '');
 
     if (patient.addressCoordinates) {
       setCoordinates(patient.addressCoordinates);
@@ -252,32 +256,84 @@ export default function PersonalInfoBlock({
           onParentChange={onInputChange}
         />
 
-        <div className="relative">
-          <label className="block text-sm font-medium text-gray-700">Adresse Complete</label>
-          <LocationPicker
-            initialAddress={form.watch('adresseComplete') || ''}
-            onAddressChange={(address) => {
-              form.setValue('adresseComplete', address);
-              const syntheticEvent = {
-                target: {
-                  name: 'adresseComplete',
-                  value: address
-                }
-              };
-              // eslint-disable-next-line no-unused-vars
-              onInputChange(syntheticEvent as any);
-            }}
-            onCoordinatesChange={(coords) => {
-              setCoordinates(coords);
-              // Instead of setting raw object, serialize coordinates to JSON string
-              // This prevents the [object Object] issue during form submission
-              if (coords) {
-                form.setValue('addressCoordinates', JSON.stringify(coords));
-              } else {
-                form.setValue('addressCoordinates', null);
-              }
-            }}
-          />
+        {/* Tunisia Address Fields */}
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Governorate Dropdown */}
+            <div className="space-y-2">
+              <label htmlFor="governorate" className="text-sm font-medium text-gray-700">
+                Gouvernorat *
+              </label>
+              <Select
+                value={form.watch('governorate') || ''}
+                onValueChange={(value) => {
+                  form.setValue('governorate', value);
+                  form.setValue('delegation', ''); // Reset delegation when governorate changes
+                  const syntheticEvent = {
+                    target: { name: 'governorate', value }
+                  };
+                  onInputChange(syntheticEvent as any);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Sélectionner un gouvernorat" />
+                </SelectTrigger>
+                <SelectContent>
+                  {TUNISIA_GOVERNORATES.map((gov) => (
+                    <SelectItem key={gov.id} value={gov.id}>
+                      {gov.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Delegation Dropdown */}
+            <div className="space-y-2">
+              <label htmlFor="delegation" className="text-sm font-medium text-gray-700">
+                Délégation *
+              </label>
+              <Select
+                value={form.watch('delegation') || ''}
+                onValueChange={(value) => {
+                  form.setValue('delegation', value);
+                  const syntheticEvent = {
+                    target: { name: 'delegation', value }
+                  };
+                  onInputChange(syntheticEvent as any);
+                }}
+                disabled={!form.watch('governorate')}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Sélectionner une délégation" />
+                </SelectTrigger>
+                <SelectContent>
+                  {form.watch('governorate') && getDelegationsByGovernorate(form.watch('governorate')).map((del) => (
+                    <SelectItem key={del.id} value={del.id}>
+                      {del.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Detailed Address */}
+          <div className="space-y-2">
+            <label htmlFor="detailedAddress" className="text-sm font-medium text-gray-700">
+              Adresse détaillée
+            </label>
+            <SmartInput
+              name="detailedAddress"
+              label=""
+              form={form}
+              placeholder="Rue, numéro, bâtiment, etc."
+              onParentChange={onInputChange}
+            />
+            <p className="text-xs text-gray-500">
+              Exemple: Avenue Habib Bourguiba, Immeuble Carthage, 2ème étage, Apt 15
+            </p>
+          </div>
         </div>
 
         <div className="relative">
@@ -298,13 +354,25 @@ export default function PersonalInfoBlock({
           )}
         </div>
 
-        <SmartInput
-          name="dateNaissance"
-          label="Date de naissance"
-          form={form}
-          type="date"
-          onParentChange={onInputChange}
-        />
+        <div className="space-y-2">
+          <label htmlFor="dateNaissance" className="text-sm font-medium text-gray-700">
+            Date de naissance
+          </label>
+          <DatePicker
+            value={form.watch('dateNaissance') ? new Date(form.watch('dateNaissance')) : undefined}
+            onChange={(date) => {
+              const dateString = date ? date.toISOString().split('T')[0] : '';
+              form.setValue('dateNaissance', dateString);
+              const syntheticEvent = {
+                target: { name: 'dateNaissance', value: dateString }
+              };
+              onInputChange(syntheticEvent as any);
+            }}
+            placeholder="Sélectionner une date"
+            className="w-full"
+            id="dateNaissance"
+          />
+        </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700">Antécédents médicaux</label>

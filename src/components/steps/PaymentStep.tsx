@@ -1,20 +1,30 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Printer, Save, Clock } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { ChevronLeft } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 
 // Import the new payment system
 import { PaymentData } from "@/components/payment/paymentForms";
 import { transformPaymentData, validatePaymentData } from "@/lib/payment-utils";
-// Import PaymentDialog dynamically to prevent SSR issues
-import dynamic from 'next/dynamic';
+// Import ProductPaymentMatrix
+import { ProductPaymentMatrix } from "@/components/payment/components/ProductPaymentMatrix";
+import { ProductPaymentMatrixEnhanced } from "@/components/payment/components/ProductPaymentMatrixEnhanced";
+import { cn } from "@/lib/utils";
 
-// Use dynamic import with SSR disabled to prevent rendering during build
-const PaymentDialog = dynamic(
-  () => import("@/components/payment/components/PaymentDialog"),
-  { ssr: false }
-);
+interface PaymentAssignment {
+  id: string;
+  productIds: string[];
+  groupName: string;
+  paymentMethod: string;
+  amount: number;
+  paymentDetails?: any;
+  cnamInfo?: {
+    bondType: string;
+    currentStep: number;
+    totalSteps: number;
+    status: string;
+  };
+}
 
 interface PaymentStepProps {
   onBack: () => void;
@@ -33,214 +43,101 @@ export function PaymentStep({
   calculateTotal,
   isRental = false
 }: PaymentStepProps) {
-  const [paymentDetailsOpen, setPaymentDetailsOpen] = useState(false);
-  const [savedPayments, setSavedPayments] = useState<PaymentData[]>([]);
+  const [paymentAssignments, setPaymentAssignments] = useState<PaymentAssignment[]>([]);
+  const [useEnhancedMatrix, setUseEnhancedMatrix] = useState(true);
   const { toast } = useToast();
 
   // Check if selected client is a patient
   const isPatient = selectedClient?.type === "patient";
 
+  // Transform products for ProductPaymentMatrix
+  const transformedProducts = selectedProducts.map(product => ({
+    id: product.id || product.productId || product.medicalDeviceId,
+    name: product.name || product.product?.name || product.medicalDevice?.name,
+    type: product.type || product.product?.type || 'UNKNOWN',
+    sellingPrice: Number(product.sellingPrice || product.product?.sellingPrice || product.medicalDevice?.sellingPrice || 0),
+    quantity: Number(product.quantity || 1)
+  }));
+
   // Calculate payment totals
   const totalAmount = calculateTotal();
-  const paidAmount = savedPayments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
+  const paidAmount = paymentAssignments.reduce((sum, assignment) => sum + assignment.amount, 0);
   const remainingAmount = Math.max(0, totalAmount - paidAmount);
   const isComplete = paidAmount >= totalAmount;
 
-  // Group payments by method
-  const groupedPayments = savedPayments.reduce((acc, payment) => {
-    if (!acc[payment.type]) {
-      acc[payment.type] = [];
-    }
-    acc[payment.type].push(payment);
-    return acc;
-  }, {} as Record<string, PaymentData[]>);
 
-  // Get payment method label
-  const getMethodLabel = (methodId: string) => {
-    const methodLabels: Record<string, string> = {
-      especes: "Espèces",
-      cheque: "Chèque",
-      virement: "Virement",
-      mondat: "Mandat",
-      cnam: "CNAM",
-      traite: "Traite"
-    };
-    return methodLabels[methodId] || methodId.charAt(0).toUpperCase() + methodId.slice(1);
+  // Payment assignment handlers
+  const handleCreatePaymentGroup = (assignment: PaymentAssignment) => {
+    setPaymentAssignments(prev => [...prev, assignment]);
   };
 
-  // Handle payment completion
-  const handlePaymentComplete = async (payments: PaymentData[]) => {
+  const handleUpdatePaymentGroup = (id: string, assignment: PaymentAssignment) => {
+    setPaymentAssignments(prev => 
+      prev.map(p => p.id === id ? assignment : p)
+    );
+  };
+
+  const handleDeletePaymentGroup = (id: string) => {
+    setPaymentAssignments(prev => prev.filter(p => p.id !== id));
+  };
+
+  // Handle payment completion for product matrix
+  const handleCompleteProductPayments = async () => {
     try {
-      // Validate payment data
-      const validation = validatePaymentData(payments);
-      if (!validation.isValid) {
+      if (paymentAssignments.length === 0) {
         toast({
-          title: "Erreur de validation",
-          description: validation.errors.join(", "),
+          title: "Aucun paiement configuré",
+          description: "Veuillez créer au moins un groupe de paiement",
           variant: "destructive"
         });
         return;
       }
 
-      // Add timestamp to payments if they don't have one
-      const paymentsWithTimestamp = payments.map(payment => ({
-        ...payment,
-        timestamp: payment.timestamp || new Date().toISOString()
+      // Check CNAM payments for required step information
+      const cnamPayments = paymentAssignments.filter(a => a.paymentMethod === 'cnam');
+      for (const cnamPayment of cnamPayments) {
+        if (!cnamPayment.cnamInfo || !cnamPayment.cnamInfo.currentStep || cnamPayment.cnamInfo.currentStep < 1) {
+          toast({
+            title: "Étape CNAM manquante",
+            description: `Veuillez sélectionner l'étape actuelle pour le paiement CNAM "${cnamPayment.groupName}"`,
+            variant: "destructive"
+          });
+          return;
+        }
+      }
+
+      // Convert payment assignments to PaymentData format
+      const payments: PaymentData[] = paymentAssignments.map(assignment => ({
+        type: assignment.paymentMethod as any,
+        amount: assignment.amount,
+        classification: 'principale',
+        timestamp: new Date().toISOString(),
+        ...assignment.paymentDetails, // Include payment-specific details (cheque number, reference, etc.)
+        ...(assignment.cnamInfo && {
+          cnamInfo: assignment.cnamInfo,
+          isPending: assignment.cnamInfo.status !== 'accepte'
+        }),
+        metadata: {
+          groupName: assignment.groupName,
+          productIds: assignment.productIds,
+          products: assignment.productIds.map(id => 
+            transformedProducts.find(p => p.id === id)
+          ).filter(Boolean)
+        }
       }));
-      
-      // Transform payment data to API format
-      const apiPayload = transformPaymentData(
-        paymentsWithTimestamp,
-        isPatient ? selectedClient?.id : undefined,
-        !isPatient ? selectedClient?.id : undefined,
-        undefined, // saleId - will be set by parent component
-        isRental ? "temp-rental-id" : undefined, // rentalId - will be set by parent component
-        undefined // diagnosticId
-      );
 
-      // Save to database
-      const response = await fetch('/api/payments/create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(apiPayload)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Erreur lors de la sauvegarde du paiement');
-      }
-
-      const result = await response.json();
-      
-      // Save the payments locally for UI display
-      setSavedPayments(paymentsWithTimestamp);
-      
-      // Check if we have any CNAM payments with pending status
-      const hasPendingCNAM = paymentsWithTimestamp.some(
-        payment => payment.type === 'cnam' && payment.isPending
-      );
-      
-      // Calculate if payment is financially complete (even if CNAM is pending)
-      const newPaidAmount = paymentsWithTimestamp.reduce((sum, payment) => sum + (payment.amount || 0), 0);
-      const isFinanciallyComplete = newPaidAmount >= totalAmount;
-      
-      // Show success message
-      toast({
-        title: "Paiement enregistré avec succès",
-        description: `Montant: ${newPaidAmount.toFixed(2)} DT`
-      });
-
-      // If we have a complete payment, finalize it
-      if (isFinanciallyComplete) {
-        // Prepare the payment data to be sent to the parent component
-        const paymentData = {
-          payments: paymentsWithTimestamp,
-          paymentRecord: result.data, // Include the database record
-          totalAmount: calculateTotal(),
-          paidAmount: newPaidAmount,
-          remainingAmount: Math.max(0, totalAmount - newPaidAmount),
-          status: hasPendingCNAM ? 'COMPLETED_WITH_PENDING_CNAM' : 'COMPLETED',
-          client: selectedClient,
-          products: selectedProducts,
-          hasPendingCNAM,
-          pendingCNAMDetails: hasPendingCNAM ? 
-            paymentsWithTimestamp.filter(p => p.type === 'cnam' && p.isPending) : 
-            []
-        };
-        
-        // Call the onComplete callback with the payment data
-        onComplete(paymentData);
-      }
+      // Process the payments using existing logic
+      onComplete(payments);
     } catch (error) {
-      console.error('Error saving payment:', error);
-      const errorMessage = error instanceof Error ? error.message : "Une erreur inattendue s'est produite";
+      console.error('Error completing product payments:', error);
       toast({
-        title: "Erreur lors de la sauvegarde",
-        description: errorMessage,
+        title: "Erreur lors de la finalisation",
+        description: "Une erreur est survenue lors de la finalisation des paiements",
         variant: "destructive"
       });
     }
   };
 
-  // Handle print receipt
-  const handlePrintReceipt = () => {
-    // In a real app, this would generate a receipt and print it
-    console.log('Printing receipt for payments:', savedPayments);
-    // For now, we'll just open a print dialog
-    window.print();
-  };
-
-  // Handle save partial payment
-  const handleSavePartial = async () => {
-    try {
-      if (savedPayments.length === 0) {
-        toast({
-          title: "Aucun paiement à sauvegarder",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // Transform and save partial payment
-      const apiPayload = transformPaymentData(
-        savedPayments,
-        isPatient ? selectedClient?.id : undefined,
-        !isPatient ? selectedClient?.id : undefined,
-        undefined,
-        isRental ? "temp-rental-id" : undefined,
-        undefined
-      );
-
-      // Update status to indicate partial payment
-      apiPayload.status = 'PENDING';
-      apiPayload.notes = JSON.stringify({
-        ...JSON.parse(apiPayload.notes || '{}'),
-        isPartialPayment: true,
-        savedAt: new Date().toISOString()
-      });
-
-      const response = await fetch('/api/payments/create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(apiPayload)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Erreur lors de la sauvegarde');
-      }
-
-      toast({
-        title: "Paiement partiel sauvegardé",
-        description: "Vous pouvez continuer plus tard"
-      });
-
-      const paymentData = {
-        payments: savedPayments,
-        totalAmount,
-        paidAmount,
-        remainingAmount,
-        status: 'PARTIAL',
-        client: selectedClient,
-        products: selectedProducts,
-        isPartialSave: true
-      };
-      
-      onComplete(paymentData);
-    } catch (error) {
-      console.error('Error saving partial payment:', error);
-      const errorMessage = error instanceof Error ? error.message : "Une erreur inattendue s'est produite";
-      toast({
-        title: "Erreur lors de la sauvegarde",
-        description: errorMessage,
-        variant: "destructive"
-      });
-    }
-  };
 
   return (
     <div className="space-y-8">
@@ -275,150 +172,49 @@ export function PaymentStep({
           <p className="text-gray-500">Montant total: {totalAmount.toFixed(2)} DT</p>
         </div>
 
-        {savedPayments.length > 0 ? (
-          <div className="space-y-6">
-            {/* Payment methods recapitulative */}
-            <div className="mt-6 bg-white rounded-lg border p-4">
-              <h4 className="font-medium mb-3">Récapitulatif des Paiements</h4>
-              
-              <div className="space-y-4">
-                {Object.entries(groupedPayments).map(([method, methodPayments]) => {
-                  const methodTotal = methodPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
-                  
-                  return (
-                    <div key={method} className="border-b pb-3 last:border-0">
-                      <div className="flex justify-between items-center mb-2">
-                        <h5 className="font-medium">{getMethodLabel(method)}</h5>
-                        <span className="font-bold text-blue-700">
-                          {methodTotal.toFixed(2)} DT
-                        </span>
-                      </div>
-                      
-                      {/* List individual payments within this method */}
-                      <div className="space-y-1 pl-4">
-                        {methodPayments.map((payment, idx) => {
-                          // Get payment details based on type
-                          let details = '';
-                          if (payment.type === 'cheque' && payment.chequeNumber) {
-                            details = ` - N° ${payment.chequeNumber}`;
-                          } else if (payment.type === 'virement' && payment.reference) {
-                            details = ` - Réf: ${payment.reference}`;
-                          } else if (payment.type === 'traite' && payment.echeance) {
-                            details = ` - Échéance: ${payment.echeance}`;
-                          }
-                          
-                          return (
-                            <div key={idx} className="flex justify-between text-sm group">
-                              <div className="flex items-center gap-1">
-                                <span className="text-gray-600">
-                                  {payment.classification === 'principale' ? 'Principal' : 
-                                  payment.classification === 'garantie' ? 'Garantie' : 'Complément'}
-                                  {details}
-                                </span>
-                                {payment.timestamp && (
-                                  <span className="text-xs text-gray-400 flex items-center">
-                                    <Clock className="h-3 w-3 mr-1" />
-                                    {new Date(payment.timestamp).toLocaleDateString()}
-                                  </span>
-                                )}
-                              </div>
-                              <span>{payment.amount?.toFixed(2)} DT</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              
-              <div className="mt-4 pt-3 border-t">
-                <div className="flex justify-between font-medium">
-                  <span>Total des paiements:</span>
-                  <span className="text-blue-700">{paidAmount.toFixed(2)} DT</span>
-                </div>
-                
-                <div className="flex justify-between mt-1">
-                  <span>Montant Total:</span>
-                  <span className="font-medium">{totalAmount.toFixed(2)} DT</span>
-                </div>
-                
-                {remainingAmount > 0 && (
-                  <div className="flex justify-between mt-1 text-amber-600">
-                    <span>Reste à Payer:</span>
-                    <span className="font-medium">{remainingAmount.toFixed(2)} DT</span>
-                  </div>
-                )}
-              </div>
-            </div>
-            
-            {/* Action buttons */}
-            <div className="flex flex-wrap gap-3 mt-4">
-              <Button 
-                variant="outline" 
-                className="flex items-center gap-2"
-                onClick={handlePrintReceipt}
-              >
-                <Printer className="h-4 w-4" />
-                Aperçu du reçu
-              </Button>
-              
-              {!isComplete && (
-                <Button 
-                  variant="outline"
-                  className="flex items-center gap-2"
-                  onClick={handleSavePartial}
-                >
-                  <Save className="h-4 w-4" />
-                  Enregistrer et continuer plus tard
-                </Button>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="text-center py-8 text-gray-500">
-            <p>Aucun paiement n'a été ajouté.</p>
-            <p className="text-sm mt-1">Cliquez sur le bouton ci-dessous pour ajouter un paiement.</p>
-          </div>
-        )}
-
-        <div className="mt-6">
-          <Button 
-            onClick={() => setPaymentDetailsOpen(true)} 
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            {savedPayments.length > 0 ? 'Modifier les Paiements' : 'Ajouter un Paiement'}
-          </Button>
+        {/* Product Payment Mode Header */}
+        <div className="mb-6 text-center">
+          <h3 className="text-lg font-medium text-gray-900">Paiement par Produit</h3>
+          <p className="text-sm text-gray-500">Configurez les paiements pour chaque produit individuellement</p>
         </div>
 
-        {savedPayments.length > 0 && isComplete && (
-          <div className="mt-8 flex justify-end">
-            <Button 
-              onClick={() => onComplete({ 
-                payments: savedPayments,
-                totalAmount,
-                paidAmount,
-                remainingAmount,
-                status: 'COMPLETED'
-              })}
-              className="bg-green-600 hover:bg-green-700 text-white"
-            >
-              Terminer le Paiement
-            </Button>
-          </div>
-        )}
+        {/* Product Payment Matrix Mode */}
+        <div className="space-y-6">
+          {useEnhancedMatrix ? (
+            <ProductPaymentMatrixEnhanced
+              products={transformedProducts}
+              paymentAssignments={paymentAssignments}
+              onCreatePaymentGroup={handleCreatePaymentGroup}
+              onUpdatePaymentGroup={handleUpdatePaymentGroup}
+              onDeletePaymentGroup={handleDeletePaymentGroup}
+              isCompany={!isPatient}
+              selectedClient={selectedClient}
+            />
+          ) : (
+            <ProductPaymentMatrix
+              products={transformedProducts}
+              paymentAssignments={paymentAssignments}
+              onCreatePaymentGroup={handleCreatePaymentGroup}
+              onUpdatePaymentGroup={handleUpdatePaymentGroup}
+              onDeletePaymentGroup={handleDeletePaymentGroup}
+              isCompany={!isPatient}
+            />
+          )}
+
+          {/* Complete button for product matrix */}
+          {isComplete && (
+            <div className="mt-6 flex justify-end">
+              <Button 
+                onClick={handleCompleteProductPayments}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                Terminer le Paiement
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* New Payment Dialog */}
-      <PaymentDialog 
-        open={paymentDetailsOpen}
-        onOpenChange={setPaymentDetailsOpen}
-        totalAmount={calculateTotal()}
-        onComplete={handlePaymentComplete}
-        selectedProducts={selectedProducts}
-        isRental={isRental}
-        isCompany={!isPatient}
-      />
     </div>
   );
 }

@@ -2,6 +2,24 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/pages/api/auth/[...nextauth]';
 import prisma from '@/lib/db';
+import fs from 'fs';
+import path from 'path';
+
+// Base storage path outside the project
+const STORAGE_BASE_PATH = '/home/taha/Desktop/projects/espace-elite-files';
+
+// Helper function to delete file from filesystem
+const deleteFileFromDisk = async (filePath: string) => {
+  try {
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      console.log(`File deleted from disk: ${filePath}`);
+    }
+  } catch (error) {
+    console.error(`Error deleting file from disk: ${filePath}`, error);
+    // Don't throw error, just log it
+  }
+};
 
 export default async function handler(
   req: NextApiRequest,
@@ -85,9 +103,25 @@ export default async function handler(
       if (fileId) {
         // Delete a specific file by ID
         try {
+          // First, get the file info to find the file path
+          const fileRecord = await prisma.file.findUnique({
+            where: { id: fileId }
+          });
+          
+          if (!fileRecord) {
+            return res.status(404).json({ error: 'File not found' });
+          }
+          
+          // Delete file from filesystem if filePath exists
+          if (fileRecord.filePath) {
+            await deleteFileFromDisk(fileRecord.filePath);
+          }
+          
+          // Delete from database
           await prisma.file.delete({
             where: { id: fileId }
           });
+          
           return res.status(200).json({ message: 'File deleted successfully' });
         } catch (deleteError) {
           console.error('Error deleting file by ID:', deleteError);
@@ -96,13 +130,26 @@ export default async function handler(
       } else if (fileUrl) {
         // Delete a specific file by URL
         try {
-          const result = await prisma.file.deleteMany({
+          // First, get the file info to find the file path
+          const fileRecords = await prisma.file.findMany({
             where: { url: fileUrl }
           });
           
-          if (result.count === 0) {
+          if (fileRecords.length === 0) {
             return res.status(404).json({ error: 'No file found with the provided URL' });
           }
+          
+          // Delete files from filesystem
+          for (const fileRecord of fileRecords) {
+            if (fileRecord.filePath) {
+              await deleteFileFromDisk(fileRecord.filePath);
+            }
+          }
+          
+          // Delete from database
+          const result = await prisma.file.deleteMany({
+            where: { url: fileUrl }
+          });
           
           return res.status(200).json({ 
             message: 'File deleted successfully', 
@@ -114,22 +161,60 @@ export default async function handler(
         }
       } else if (patientId) {
         // Delete all files for a patient
-        const result = await prisma.file.deleteMany({
-          where: { patientId: patientId }
-        });
-        return res.status(200).json({ 
-          message: 'All files for patient deleted successfully',
-          count: result.count
-        });
+        try {
+          // First, get all file records to find file paths
+          const fileRecords = await prisma.file.findMany({
+            where: { patientId: patientId }
+          });
+          
+          // Delete files from filesystem
+          for (const fileRecord of fileRecords) {
+            if (fileRecord.filePath) {
+              await deleteFileFromDisk(fileRecord.filePath);
+            }
+          }
+          
+          // Delete from database
+          const result = await prisma.file.deleteMany({
+            where: { patientId: patientId }
+          });
+          
+          return res.status(200).json({ 
+            message: 'All files for patient deleted successfully',
+            count: result.count
+          });
+        } catch (deleteError) {
+          console.error('Error deleting files for patient:', deleteError);
+          return res.status(500).json({ error: 'Failed to delete files for patient' });
+        }
       } else if (companyId) {
         // Delete all files for a company
-        const result = await prisma.file.deleteMany({
-          where: { companyId: companyId }
-        });
-        return res.status(200).json({ 
-          message: 'All files for company deleted successfully',
-          count: result.count
-        });
+        try {
+          // First, get all file records to find file paths
+          const fileRecords = await prisma.file.findMany({
+            where: { companyId: companyId }
+          });
+          
+          // Delete files from filesystem
+          for (const fileRecord of fileRecords) {
+            if (fileRecord.filePath) {
+              await deleteFileFromDisk(fileRecord.filePath);
+            }
+          }
+          
+          // Delete from database
+          const result = await prisma.file.deleteMany({
+            where: { companyId: companyId }
+          });
+          
+          return res.status(200).json({ 
+            message: 'All files for company deleted successfully',
+            count: result.count
+          });
+        } catch (deleteError) {
+          console.error('Error deleting files for company:', deleteError);
+          return res.status(500).json({ error: 'Failed to delete files for company' });
+        }
       } else {
         return res.status(400).json({ error: 'Either fileId, fileUrl, patientId, or companyId is required' });
       }

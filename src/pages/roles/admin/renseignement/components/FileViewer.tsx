@@ -1,7 +1,7 @@
 import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { FileText } from "lucide-react";
+import { FileText, FileSpreadsheet, File, FileType, FileImage } from "lucide-react";
 import Image from 'next/image';
 
 interface FileViewerProps {
@@ -66,6 +66,75 @@ export function FileViewer({ files, isOpen, onClose }: FileViewerProps) {
     return urlParts[urlParts.length - 1] || 'Fichier';
   };
 
+  // Helper function to get file type
+  const getFileType = (file: string | { url: string; name?: string; type?: string }): string => {
+    const fileName = typeof file === 'string' ? file : (file.name || file.url);
+    const fileType = typeof file !== 'string' ? file.type : '';
+    
+    // Check by MIME type first
+    if (fileType) {
+      if (fileType.startsWith('image/')) return 'image';
+      if (fileType === 'application/pdf') return 'pdf';
+      if (fileType.includes('spreadsheet') || fileType.includes('excel')) return 'excel';
+      if (fileType.includes('word')) return 'word';
+      if (fileType.includes('text')) return 'text';
+    }
+    
+    // Check by file extension
+    const ext = fileName.toLowerCase().split('.').pop() || '';
+    
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(ext)) return 'image';
+    if (ext === 'pdf') return 'pdf';
+    if (['xls', 'xlsx', 'csv'].includes(ext)) return 'excel';
+    if (['doc', 'docx'].includes(ext)) return 'word';
+    if (['txt'].includes(ext)) return 'text';
+    if (['ppt', 'pptx'].includes(ext)) return 'powerpoint';
+    
+    return 'other';
+  };
+
+  // Helper function to get the appropriate icon
+  const getFileIcon = (fileType: string) => {
+    const iconClass = "h-24 w-24 text-gray-400";
+    
+    switch (fileType) {
+      case 'pdf':
+        return <FileText className={iconClass + " text-red-500"} />;
+      case 'excel':
+        return <FileSpreadsheet className={iconClass + " text-green-600"} />;
+      case 'word':
+        return <FileType className={iconClass + " text-blue-600"} />;
+      case 'powerpoint':
+        return <FileType className={iconClass + " text-orange-600"} />;
+      case 'text':
+        return <FileText className={iconClass} />;
+      case 'image':
+        return <FileImage className={iconClass + " text-purple-600"} />;
+      default:
+        return <File className={iconClass} />;
+    }
+  };
+
+  // Helper function to get file type label
+  const getFileTypeLabel = (fileType: string): string => {
+    switch (fileType) {
+      case 'pdf':
+        return 'PDF';
+      case 'excel':
+        return 'Excel';
+      case 'word':
+        return 'Word';
+      case 'powerpoint':
+        return 'PowerPoint';
+      case 'text':
+        return 'Texte';
+      case 'image':
+        return 'Image';
+      default:
+        return 'Document';
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
@@ -77,10 +146,11 @@ export function FileViewer({ files, isOpen, onClose }: FileViewerProps) {
           {files.map((file, index) => {
             const fileUrl = getFileUrl(file);
             const fileName = getFileName(file);
-            const isImage = isImageFile(file); // Pass the entire file object/string
+            const fileType = getFileType(file);
+            const isImage = fileType === 'image';
             
             return (
-              <div key={index} className="relative border border-gray-200 rounded-lg overflow-hidden">
+              <div key={index} className="relative border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                 <a 
                   href={fileUrl}
                   target="_blank"
@@ -88,7 +158,7 @@ export function FileViewer({ files, isOpen, onClose }: FileViewerProps) {
                   className="flex flex-col items-center justify-center p-4 h-full hover:bg-gray-50 transition-colors"
                 >
                   {isImage ? (
-                    <div className="w-full aspect-square bg-gray-50 rounded-md mb-2 flex items-center justify-center overflow-hidden">
+                    <div className="w-full aspect-square bg-gray-50 rounded-md mb-3 flex items-center justify-center overflow-hidden">
                       <Image 
                         src={fileUrl} 
                         alt={fileName}
@@ -99,31 +169,44 @@ export function FileViewer({ files, isOpen, onClose }: FileViewerProps) {
                         onError={(e) => {
                           console.log(`Failed to load image: ${fileUrl}`);
                           const target = e.target as HTMLImageElement;
-                          
-                          // First try showing as a document if image fails to load
                           target.style.display = 'none';
                           
                           // Add a document icon as fallback
                           const parent = target.parentElement;
                           if (parent) {
                             const fallback = document.createElement('div');
-                            fallback.className = 'flex flex-col items-center justify-center';
-                            fallback.innerHTML = `<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>`;
+                            fallback.className = 'flex flex-col items-center justify-center w-full h-full';
+                            fallback.innerHTML = `
+                              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-purple-600">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                <polyline points="21 15 16 10 5 21"></polyline>
+                              </svg>
+                              <span class="text-xs text-gray-500 mt-2">Image non disponible</span>
+                            `;
                             parent.appendChild(fallback);
                           }
                         }}
                       />
                     </div>
                   ) : (
-                    <div className="w-full aspect-square bg-gray-50 rounded-md mb-2 flex items-center justify-center">
-                      <FileText className="h-24 w-24 text-gray-400" />
+                    <div className="w-full aspect-square bg-gray-50 rounded-md mb-3 flex flex-col items-center justify-center">
+                      {getFileIcon(fileType)}
+                      <span className="text-sm font-medium text-gray-600 mt-2">
+                        {getFileTypeLabel(fileType)}
+                      </span>
                     </div>
                   )}
                   
                   <div className="w-full text-center">
-                    <p className="text-xs text-gray-600 break-all max-w-full truncate" title={fileName}>
+                    <p className="text-xs text-gray-700 font-medium break-all max-w-full truncate" title={fileName}>
                       {fileName}
                     </p>
+                    {typeof file !== 'string' && file.type && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        {file.type}
+                      </p>
+                    )}
                   </div>
                 </a>
               </div>

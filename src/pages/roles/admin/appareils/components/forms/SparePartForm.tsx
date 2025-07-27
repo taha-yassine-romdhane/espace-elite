@@ -21,12 +21,19 @@ import * as z from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/Card";
 
+// Status mapping for better user experience
+const statusOptions = [
+  { value: "EN_VENTE", label: "En Vente" },
+  { value: "EN_LOCATION", label: "En Location" },
+  { value: "EN_REPARATION", label: "En Réparation" },
+  { value: "HORS_SERVICE", label: "Hors Service" },
+];
+
 // Form validation schema for spare parts
 const sparePartSchema = z.object({
   name: z.string().min(1, { message: "Le nom est requis" }),
   brand: z.string().optional().nullable(),
   model: z.string().optional().nullable(),
-  serialNumber: z.string().optional().nullable(),
   stockLocationId: z.string().optional().nullable(),
   stockQuantity: z.coerce.number().min(0),
   status: z.string(),
@@ -50,7 +57,6 @@ export function SparePartForm({ initialData, onSubmit, stockLocations, isEditMod
     name: initialData?.name || "",
     brand: initialData?.brand || "",
     model: initialData?.model || "",
-    serialNumber: initialData?.serialNumber || "",
     purchasePrice: initialData?.purchasePrice || "",
     sellingPrice: initialData?.sellingPrice || "",
     stockLocationId: initialData?.stockLocationId || "",
@@ -177,6 +183,31 @@ export function SparePartForm({ initialData, onSubmit, stockLocations, isEditMod
                           ))}
                         </SelectContent>
                       </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Statut</FormLabel>
+                      <FormControl>
+                        <Select onValueChange={field.onChange} defaultValue={field.value ?? ''}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Sélectionner le statut" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {statusOptions.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}

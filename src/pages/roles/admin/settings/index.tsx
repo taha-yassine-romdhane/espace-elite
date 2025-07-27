@@ -6,8 +6,9 @@ import { Card } from "@/components/ui/Card";
 import { Settings, Users, Database } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { BackupRestore } from "@/components/settings/BackupRestoreNew";
+import AdminLayout from "../AdminLayout";
 
-export default function SettingsPage() {
+function SettingsPage() {
   const [activeTab, setActiveTab] = useState("users");
 
   return (
@@ -62,3 +63,10 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+// Add layout wrapper
+SettingsPage.getLayout = function getLayout(page: React.ReactElement) {
+  return <AdminLayout>{page}</AdminLayout>;
+};
+
+export default SettingsPage;

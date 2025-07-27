@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -7,9 +7,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Settings2, FileText } from "lucide-react";
+import { Settings2, FileText, Edit3, Trash2, MoreVertical } from "lucide-react";
 import { DataTable } from "@/components/ui/data-table";
 import { Renseignement } from '@/types/renseignement';
+import { PatientDeletionDialog } from "@/components/ui/patient-deletion-dialog";
 
 interface RenseignementTableProps {
   data?: Renseignement[];
@@ -30,6 +31,22 @@ export function RenseignementTable({
   onDelete,
   onViewFiles,
 }: RenseignementTableProps) {
+  // Patient deletion dialog state
+  const [showPatientDeletionDialog, setShowPatientDeletionDialog] = useState(false);
+  const [patientToDelete, setPatientToDelete] = useState<{ id: string; name: string } | null>(null);
+
+  // Handle patient deletion with dialog
+  const handlePatientDelete = (patient: Renseignement) => {
+    setPatientToDelete({ id: patient.id, name: patient.nom });
+    setShowPatientDeletionDialog(true);
+  };
+
+  // Handle company deletion (direct)
+  const handleCompanyDelete = async (companyId: string) => {
+    if (window.confirm('Êtes-vous sûr de vouloir supprimer cette société ?')) {
+      onDelete([companyId]);
+    }
+  };
   const columns = [
     {
       id: "select",
@@ -52,8 +69,10 @@ export function RenseignementTable({
       id: "type",
       header: "Type",
       cell: ({ row }: { row: { original: Renseignement } }) => (
-        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-          row.original.type === 'Patient' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
+        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${
+          row.original.type === 'Patient' 
+            ? 'bg-blue-50 text-blue-700 border-blue-200' 
+            : 'bg-emerald-50 text-emerald-700 border-emerald-200'
         }`}>
           {row.original.type}
         </span>
@@ -62,7 +81,11 @@ export function RenseignementTable({
     {
       id: "name",
       header: "Nom",
-      cell: ({ row }: { row: { original: Renseignement } }) => row.original.nom,
+      cell: ({ row }: { row: { original: Renseignement } }) => (
+        <div className="font-medium text-gray-900">
+          {row.original.nom}
+        </div>
+      ),
     },
     {
       id: "telephone",
@@ -124,6 +147,25 @@ export function RenseignementTable({
       ),
     },
     {
+      id: "supervisor",
+      header: "Superviseur",
+      cell: ({ row }: { row: { original: Renseignement } }) => (
+        row.original.supervisor ? (
+          <div className="flex items-center space-x-2">
+            <div className="h-6 w-6 rounded-full bg-orange-100 flex items-center justify-center">
+              <span className="text-orange-700 text-xs">S</span>
+            </div>
+            <div className="text-sm">
+              <div className="font-medium">{row.original.supervisor.name}</div>
+              <div className="text-gray-500 text-xs">{row.original.supervisor.role}</div>
+            </div>
+          </div>
+        ) : (
+          <div className="text-sm text-gray-500">Non assigné</div>
+        )
+      ),
+    },
+    {
       id: "details",
       header: "Détails",
       cell: ({ row }: { row: { original: Renseignement } }) => (
@@ -154,13 +196,13 @@ export function RenseignementTable({
               variant="ghost"
               size="sm"
               onClick={() => onViewFiles(row.original.files)}
-              className="flex items-center space-x-2"
+              className="flex items-center space-x-2 hover:bg-purple-50 hover:text-purple-600 transition-colors"
             >
               <FileText className="h-4 w-4" />
-              <span>{row.original.files.length} fichier(s)</span>
+              <span className="font-medium">{row.original.files.length}</span>
             </Button>
           ) : (
-            <span className="text-sm text-gray-500">Aucun fichier</span>
+            <span className="text-sm text-gray-400 italic">Aucun fichier</span>
           )}
         </div>
       ),
@@ -176,26 +218,55 @@ export function RenseignementTable({
     },
     {
       id: "actions",
-      header: "",
+      header: "Actions",
       cell: ({ row }: { row: { original: Renseignement } }) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <Settings2 className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            <DropdownMenuItem onClick={() => onEdit(row.original)}>
-              Modifier
-            </DropdownMenuItem>
-            <DropdownMenuItem 
-              className="text-red-600"
-              onClick={() => onDelete([row.original.id])}
-            >
-              Supprimer
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex items-center space-x-2">
+          {/* Quick action buttons */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onEdit(row.original)}
+            className="h-8 w-8 p-0 hover:bg-green-50 hover:text-green-600"
+            title="Modifier"
+          >
+            <Edit3 className="h-4 w-4" />
+          </Button>
+          
+          {/* More actions dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-8 w-8 p-0 hover:bg-gray-50"
+              >
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuItem 
+                onClick={() => onEdit(row.original)}
+                className="cursor-pointer"
+              >
+                <Edit3 className="mr-2 h-4 w-4" />
+                Modifier
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => {
+                  if (row.original.type === 'Patient') {
+                    handlePatientDelete(row.original);
+                  } else {
+                    handleCompanyDelete(row.original.id);
+                  }
+                }}
+                className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Supprimer
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       ),
     },
   ];
@@ -209,10 +280,29 @@ export function RenseignementTable({
   }
 
   return (
-    <DataTable
-      columns={columns}
-      data={data}
-    />
+    <>
+      <DataTable
+        columns={columns}
+        data={data}
+      />
+
+      {/* Patient Deletion Dialog */}
+      {patientToDelete && (
+        <PatientDeletionDialog
+          isOpen={showPatientDeletionDialog}
+          onClose={() => {
+            setShowPatientDeletionDialog(false);
+            setPatientToDelete(null);
+          }}
+          patientId={patientToDelete.id}
+          patientName={patientToDelete.name}
+          onDeleteComplete={() => {
+            // Refresh the data after successful deletion
+            window.location.reload(); // Simple refresh - you could make this more elegant
+          }}
+        />
+      )}
+    </>
   );
 }
 

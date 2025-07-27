@@ -17,6 +17,19 @@ interface InsuranceDetailsBlockProps {
 export default function InsuranceDetailsBlock({ form, onInputChange }: InsuranceDetailsBlockProps) {
   const handleCnamChange = (value: boolean) => {
     form.setValue('cnam', value);
+    
+    // Clear CNAM-related fields when CNAM is set to false
+    if (!value) {
+      form.setValue('identifiantCNAM', '');
+      form.setValue('caisseAffiliation', undefined);
+      form.setValue('beneficiaire', undefined);
+      
+      // Clear these fields in the parent component too
+      onInputChange({ target: { name: 'identifiantCNAM', value: '' } });
+      onInputChange({ target: { name: 'caisseAffiliation', value: undefined } });
+      onInputChange({ target: { name: 'beneficiaire', value: undefined } });
+    }
+    
     onInputChange({
       target: {
         name: 'cnam',
@@ -87,68 +100,73 @@ export default function InsuranceDetailsBlock({ form, onInputChange }: Insurance
           )}
         </div>
 
-        <DynamicRadioGroup
-          name="caisseAffiliation"
-          label="Caisse d'affiliation"
-          form={form}
-          options={[
-            { value: 'CNSS', label: 'CNSS' },
-            { value: 'CNRPS', label: 'CNRPS' }
-          ]}
-          onChange={(value) => handleCaisseAffiliationChange(value as CaisseAffiliation)}
-        />
+        {/* Only show CNAM-related fields when CNAM is true */}
+        {form.watch('cnam') && (
+          <>
+            <DynamicRadioGroup
+              name="caisseAffiliation"
+              label="Caisse d'affiliation"
+              form={form}
+              options={[
+                { value: 'CNSS', label: 'CNSS' },
+                { value: 'CNRPS', label: 'CNRPS' }
+              ]}
+              onChange={(value) => handleCaisseAffiliationChange(value as CaisseAffiliation)}
+            />
 
-        <div className="space-y-2">
-          <label className="block text-sm font-medium text-gray-700">
-            Bénéficiaire
-          </label>
-          <div className="flex flex-wrap gap-4">
-            <label className="flex items-center">
-              <input
-                type="radio"
-                name="beneficiaire"
-                value={BeneficiaryType.ASSURE_SOCIAL}
-                checked={form.watch('beneficiaire') === BeneficiaryType.ASSURE_SOCIAL}
-                onChange={() => handleBeneficiaireChange(BeneficiaryType.ASSURE_SOCIAL)}
-                className="h-4 w-4 text-blue-600"
-              />
-              <span className="ml-2">Assure Social</span>
-            </label>
-            <label className="flex items-center">
-              <input
-                type="radio"
-                name="beneficiaire"
-                value={BeneficiaryType.CONJOINT}
-                checked={form.watch('beneficiaire') === BeneficiaryType.CONJOINT}
-                onChange={() => handleBeneficiaireChange(BeneficiaryType.CONJOINT)}
-                className="h-4 w-4 text-blue-600"
-              />
-              <span className="ml-2">Conjoint</span>
-            </label>
-            <label className="flex items-center">
-              <input
-                type="radio"
-                name="beneficiaire"
-                value={BeneficiaryType.ENFANT}
-                checked={form.watch('beneficiaire') === BeneficiaryType.ENFANT}
-                onChange={() => handleBeneficiaireChange(BeneficiaryType.ENFANT)}
-                className="h-4 w-4 text-blue-600"
-              />
-              <span className="ml-2">Enfant</span>
-            </label>
-            <label className="flex items-center">
-              <input
-                type="radio"
-                name="beneficiaire"
-                value={BeneficiaryType.ASSANDANT}
-                checked={form.watch('beneficiaire') === BeneficiaryType.ASSANDANT}
-                onChange={() => handleBeneficiaireChange(BeneficiaryType.ASSANDANT)}
-                className="h-4 w-4 text-blue-600"
-              />
-              <span className="ml-2">Ascendant</span>
-            </label>
-          </div>
-        </div>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Bénéficiaire
+              </label>
+              <div className="flex flex-wrap gap-4">
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="beneficiaire"
+                    value={BeneficiaryType.ASSURE_SOCIAL}
+                    checked={form.watch('beneficiaire') === BeneficiaryType.ASSURE_SOCIAL}
+                    onChange={() => handleBeneficiaireChange(BeneficiaryType.ASSURE_SOCIAL)}
+                    className="h-4 w-4 text-blue-600"
+                  />
+                  <span className="ml-2">Assure Social</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="beneficiaire"
+                    value={BeneficiaryType.CONJOINT}
+                    checked={form.watch('beneficiaire') === BeneficiaryType.CONJOINT}
+                    onChange={() => handleBeneficiaireChange(BeneficiaryType.CONJOINT)}
+                    className="h-4 w-4 text-blue-600"
+                  />
+                  <span className="ml-2">Conjoint</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="beneficiaire"
+                    value={BeneficiaryType.ENFANT}
+                    checked={form.watch('beneficiaire') === BeneficiaryType.ENFANT}
+                    onChange={() => handleBeneficiaireChange(BeneficiaryType.ENFANT)}
+                    className="h-4 w-4 text-blue-600"
+                  />
+                  <span className="ml-2">Enfant</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="beneficiaire"
+                    value={BeneficiaryType.ASSANDANT}
+                    checked={form.watch('beneficiaire') === BeneficiaryType.ASSANDANT}
+                    onChange={() => handleBeneficiaireChange(BeneficiaryType.ASSANDANT)}
+                    className="h-4 w-4 text-blue-600"
+                  />
+                  <span className="ml-2">Ascendant</span>
+                </label>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </FormSection>
   );

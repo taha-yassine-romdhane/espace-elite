@@ -1,24 +1,44 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/router';
-import { useQuery } from '@tanstack/react-query';
-import { Loader2, ArrowLeft, CalendarRange } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { 
+  Loader2, 
+  ArrowLeft, 
+  CalendarRange, 
+  Edit, 
+  Save, 
+  X, 
+  Shield, 
+  Package, 
+  CreditCard,
+  Clock,
+  Settings,
+  FileText,
+  AlertTriangle,
+  History,
+  PiggyBank
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/components/ui/use-toast';
 
-// Import components
-import RentalDetailsPatientInfo from './components/RentalDetailsPatientInfo';
-import RentalDetailsPaymentInfo from './components/RentalDetailsPaymentInfo';
-import RentalDetailsCNAMSteps from './components/RentalDetailsCNAMSteps';
-import RentalDetailsDeviceConfig from './components/RentalDetailsDeviceConfig';
+// Import enhanced components
+import EnhancedRentalOverview from './components/EnhancedRentalOverview';
+import CNAMBondsManagement from './components/CNAMBondsManagement';
+import RentalPeriodsManagement from './components/RentalPeriodsManagement';
+import DeviceParametersManagement from './components/DeviceParametersManagement';
 
 export default function RentalDetailsPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
   const { id } = router.query;
   const rentalId = typeof id === 'string' ? id : '';
 
-  // Fetch rental data
+  // Fetch rental data with enhanced relationships
   const { data: rental, isLoading, error } = useQuery({
     queryKey: ['rental', rentalId],
     queryFn: async () => {
@@ -36,8 +56,62 @@ export default function RentalDetailsPage() {
     enabled: !!rentalId,
   });
 
+  // Mutation for updating rental data
+  const updateRentalMutation = useMutation({
+    mutationFn: async (updateData: any) => {
+      const response = await fetch(`/api/rentals/${rentalId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updateData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update rental');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['rental', rentalId] });
+      toast({
+        title: "Location mise à jour",
+        description: "Les modifications ont été sauvegardées avec succès.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: "Impossible de sauvegarder les modifications.",
+      });
+    },
+  });
+
   const handleBack = () => {
     router.push('/roles/admin/dashboard');
+  };
+
+  const handleUpdateRental = (updateData: any) => {
+    updateRentalMutation.mutate(updateData);
+  };
+
+  const handleUpdateCNAMBonds = (bonds: any[]) => {
+    handleUpdateRental({ cnamBonds: bonds });
+  };
+
+  const handleUpdateRentalPeriods = (periods: any[]) => {
+    handleUpdateRental({ rentalPeriods: periods });
+  };
+
+  const handleUpdateDeviceParameters = (parameters: any) => {
+    handleUpdateRental({ 
+      metadata: {
+        ...rental.metadata,
+        deviceParameters: parameters,
+      }
+    });
   };
 
   if (isLoading) {
@@ -81,94 +155,185 @@ export default function RentalDetailsPage() {
     );
   }
 
-  // Format rental duration in days
-  const calculateDuration = () => {
-    if (!rental.startDate || !rental.endDate) return '-';
-    const start = new Date(rental.startDate);
-    const end = new Date(rental.endDate);
-    const diffTime = Math.abs(end.getTime() - start.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return `${diffDays} jours`;
-  };
-
   return (
-    <div className="container mx-auto py-10 px-4">
-      <Button variant="outline" onClick={handleBack} className="mb-4">
-        <ArrowLeft className="mr-2 h-4 w-4" /> Retour
-      </Button>
-
-      <h1 className="text-3xl font-bold mb-6 text-blue-900">Détails de la Location</h1>
-
-      <Tabs defaultValue="details" className="w-full">
-        <TabsList className="mb-6">
-          <TabsTrigger value="details">Détails</TabsTrigger>
-          <TabsTrigger value="payment">Paiement</TabsTrigger>
-          {rental.payment?.method === 'CNAM' && (
-            <TabsTrigger value="cnam">Dossier CNAM</TabsTrigger>
+    <div className="container mx-auto py-10 px-4 max-w-7xl">
+      <div className="flex justify-between items-center mb-6">
+        <Button variant="outline" onClick={handleBack}>
+          <ArrowLeft className="mr-2 h-4 w-4" /> Retour au Dashboard
+        </Button>
+        
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="text-sm">
+            ID: {rental.id}
+          </Badge>
+          {rental.metadata?.urgentRental && (
+            <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200">
+              <AlertTriangle className="h-3 w-3 mr-1" />
+              Urgent
+            </Badge>
           )}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3 mb-8">
+        <Package className="h-8 w-8 text-blue-600" />
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">
+            Gestion de Location
+          </h1>
+          <p className="text-gray-600">
+            {rental.medicalDevice?.name} - {rental.patient ? 
+              `${rental.patient.firstName} ${rental.patient.lastName}` : 
+              rental.company?.companyName
+            }
+          </p>
+        </div>
+      </div>
+
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="mb-8 grid w-full grid-cols-5">
+          <TabsTrigger value="overview" className="flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            Vue d'ensemble
+          </TabsTrigger>
+          <TabsTrigger value="cnam" className="flex items-center gap-2">
+            <Shield className="h-4 w-4" />
+            Bonds CNAM
+          </TabsTrigger>
+          <TabsTrigger value="periods" className="flex items-center gap-2">
+            <History className="h-4 w-4" />
+            Périodes
+          </TabsTrigger>
+          <TabsTrigger value="parameters" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            Paramètres
+          </TabsTrigger>
+          <TabsTrigger value="finance" className="flex items-center gap-2">
+            <PiggyBank className="h-4 w-4" />
+            Finances
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="details" className="space-y-6">
-          {/* Rental Period Information */}
+        <TabsContent value="overview" className="space-y-6">
+          <EnhancedRentalOverview 
+            rental={rental} 
+            onUpdate={handleUpdateRental}
+          />
+        </TabsContent>
+
+        <TabsContent value="cnam" className="space-y-6">
+          <CNAMBondsManagement 
+            rental={rental}
+            cnamBonds={rental.cnamBonds || []}
+            onUpdate={handleUpdateCNAMBonds}
+          />
+        </TabsContent>
+
+        <TabsContent value="periods" className="space-y-6">
+          <RentalPeriodsManagement 
+            rental={rental}
+            rentalPeriods={rental.rentalPeriods || []}
+            onUpdate={handleUpdateRentalPeriods}
+          />
+        </TabsContent>
+
+        <TabsContent value="parameters" className="space-y-6">
+          <DeviceParametersManagement 
+            rental={rental}
+            deviceParameters={rental.metadata?.deviceParameters || {}}
+            onUpdate={handleUpdateDeviceParameters}
+          />
+        </TabsContent>
+
+        <TabsContent value="finance" className="space-y-6">
+          {/* Financial Overview */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Location</CardTitle>
+                <CreditCard className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {rental.metadata?.totalPaymentAmount?.toFixed(2) || '0.00'} TND
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Montant total des périodes facturées
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Dépôt de Garantie</CardTitle>
+                <PiggyBank className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {rental.metadata?.depositAmount?.toFixed(2) || '0.00'} TND
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {rental.metadata?.depositMethod || 'Aucun dépôt'}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Couverture CNAM</CardTitle>
+                <Shield className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {rental.cnamBonds?.reduce((sum: number, bond: any) => sum + bond.totalAmount, 0)?.toFixed(2) || '0.00'} TND
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {rental.cnamBonds?.length || 0} bond(s) CNAM
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Payment History */}
           <Card>
             <CardHeader>
-              <CardTitle>Période de Location</CardTitle>
+              <CardTitle>Historique des Paiements</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-start">
-                <CalendarRange className="h-5 w-5 mr-2 text-blue-600" />
-                <div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <CardContent>
+              {rental.payment ? (
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center p-4 border rounded-lg">
                     <div>
-                      <h3 className="font-medium text-gray-700">Date de début</h3>
-                      <p>{rental.startDate ? new Date(rental.startDate).toLocaleDateString('fr-TN') : '-'}</p>
+                      <div className="font-medium">{rental.payment.method}</div>
+                      <div className="text-sm text-gray-600">
+                        Statut: {rental.payment.status}
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-medium text-gray-700">Date de fin</h3>
-                      <p>{rental.endDate ? new Date(rental.endDate).toLocaleDateString('fr-TN') : '-'}</p>
+                    <div className="text-right">
+                      <div className="font-bold">{rental.payment.amount} TND</div>
+                      <div className="text-sm text-gray-600">
+                        {new Date(rental.payment.createdAt || rental.createdAt).toLocaleDateString('fr-TN')}
+                      </div>
                     </div>
-                  </div>
-                  <div className="mt-2">
-                    <h3 className="font-medium text-gray-700">Durée</h3>
-                    <p>{calculateDuration()}</p>
                   </div>
                 </div>
-              </div>
-
-              {rental.notes && (
-                <div className="mt-2 p-3 bg-gray-50 rounded-md">
-                  <h4 className="font-medium mb-1">Notes</h4>
-                  <p className="text-sm text-gray-700">{rental.notes}</p>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  Aucun paiement enregistré
                 </div>
               )}
             </CardContent>
           </Card>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Patient Information */}
-            <RentalDetailsPatientInfo patient={rental.patient} />
-
-            {/* Device Configuration */}
-            <RentalDetailsDeviceConfig 
-              medicalDevice={rental.medicalDevice} 
-              deviceParameters={rental.deviceParameters || rental.medicalDevice?.parameters} 
-            />
-          </div>
         </TabsContent>
-
-        <TabsContent value="payment" className="space-y-6">
-          <RentalDetailsPaymentInfo payment={rental.payment} />
-        </TabsContent>
-
-        {rental.payment?.method === 'CNAM' && (
-          <TabsContent value="cnam" className="space-y-6">
-            <RentalDetailsCNAMSteps 
-              payment={rental.payment} 
-              paymentDetails={rental.payment?.paymentDetails} 
-            />
-          </TabsContent>
-        )}
       </Tabs>
+
+      {/* Update Status Indicator */}
+      {updateRentalMutation.isPending && (
+        <div className="fixed bottom-4 right-4 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Sauvegarde en cours...
+        </div>
+      )}
     </div>
   );
 }

@@ -172,7 +172,7 @@ export default function AdminDashboard() {
                 <div className="text-sm text-slate-500">Dernière connexion</div>
                 <div className="font-semibold text-slate-700 flex items-center">
                   <Clock className="w-4 h-4 mr-1" />
-                  {new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                  {typeof window !== 'undefined' ? new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '--:--'}
                 </div>
               </div>
             </div>

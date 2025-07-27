@@ -84,7 +84,19 @@ export function NewDiagnosticProductStep({
   };
 
   const handleParameterSubmit = (date: Date) => {
-    if (selectedProductIndex !== null) {
+    if (selectedProductIndex !== null && selectedProducts[selectedProductIndex]) {
+      // Update the selected product with the new configuration
+      const updatedProduct = {
+        ...selectedProducts[selectedProductIndex],
+        reservedUntil: date.toISOString(),
+        resultDueDate: date.toISOString()
+      };
+      
+      // Update the selected products array
+      const updatedProducts = [...selectedProducts];
+      updatedProducts[selectedProductIndex] = updatedProduct;
+      onSelectProduct(updatedProduct); // This will replace the single selected product
+      
       // Update the result due date
       onResultDueDateChange(date);
       setIsParameterDialogOpen(false);

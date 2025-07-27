@@ -8,8 +8,9 @@ import { AccessoryForm } from "@/pages/roles/admin/appareils/components/forms/Ac
 import RentStepperSidebar from "./RentStepperSidebar";
 import { toast } from "@/components/ui/use-toast";
 import { ProductSelectionStep } from "./steps/ProductSelectionStep";
-import { RentalDetailsStep } from "./steps/rental/RentalDetailsStep";
-import { PaymentStep } from "@/components/steps/PaymentStep";
+import { EnhancedRentalDetailsStep } from "./steps/rental/EnhancedRentalDetailsStep";
+import { RentalPaymentStep } from "./steps/rental/RentalPaymentStep";
+import { RentalRecapStep } from "./steps/rental/RentalRecapStep";
 
 interface RentStepperDialogProps {
   isOpen: boolean;
@@ -19,8 +20,9 @@ interface RentStepperDialogProps {
 const steps = [
   { id: 1, name: "Type de Renseignement", description: "Sélectionner le type de client et le client" },
   { id: 2, name: "Ajout Produits", description: "Sélectionner ou créer des produits" },
-  { id: 3, name: "Détails Location", description: "Configurer les détails de la location" },
-  { id: 4, name: "Ajout Paiement", description: "Configurer les détails du paiement" },
+  { id: 3, name: "Configuration Location", description: "Configurer les périodes et détails avancés" },
+  { id: 4, name: "Gestion Paiements", description: "Gérer les paiements, CNAM et gaps" },
+  { id: 5, name: "Récapitulatif Complet", description: "Vérifier et finaliser la location" },
 ] as const;
 
 export function RentStepperDialog({ isOpen, onClose }: RentStepperDialogProps) {
@@ -46,10 +48,8 @@ export function RentStepperDialog({ isOpen, onClose }: RentStepperDialogProps) {
     "medical-device" | "accessory" | null
   >(null);
 
-  // Rental Details State
-  const [startDate, setStartDate] = useState<Date>(new Date());
-  const [endDate, setEndDate] = useState<Date>(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)); // Default to 30 days
-  const [rentalNotes, setRentalNotes] = useState<string>("");
+  // Enhanced Rental Details State
+  const [rentalDetailsData, setRentalDetailsData] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);
 
   // Calculate total price
@@ -173,44 +173,61 @@ export function RentStepperDialog({ isOpen, onClose }: RentStepperDialogProps) {
     setSelectedClient(null);
     setClientDetails(null);
     setSelectedProducts([]);
-    setStartDate(new Date());
-    setEndDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
-    setRentalNotes("");
+    setRentalDetailsData(null);
+    setPaymentData(null);
     onClose();
   };
 
-  // Handle rental details completion
+  // Handle enhanced rental details completion
   const handleRentalDetailsComplete = (rentalData: any) => {
-    setStartDate(rentalData.startDate || startDate);
-    setEndDate(rentalData.endDate || endDate);
-    setRentalNotes(rentalData.notes || rentalNotes);
+    setRentalDetailsData(rentalData);
     handleNext();
   };
 
-  // Handle payment completion
+  // Handle enhanced payment completion - now goes to step 5
   const handlePaymentComplete = (paymentData: any) => {
     setPaymentData(paymentData);
-    
-    // Prepare the final rental data
+    handleNext(); // Go to step 5 (Récapitulatif)
+  };
+
+  // Handle final rental submission from step 5
+  const handleFinalSubmit = () => {
+    // Prepare the comprehensive rental data
     const finalRentalData = {
       clientId: clientDetails.id,
       clientType: clientType,
       products: selectedProducts.map(product => ({
         productId: product.id,
         quantity: product.quantity,
-        rentalPrice: product.rentalPrice
+        rentalPrice: product.rentalPrice || 0,
+        type: product.type
       })),
-      startDate: startDate,
-      endDate: endDate,
-      notes: rentalNotes,
-      payment: paymentData,
+      // Enhanced rental details
+      globalStartDate: rentalDetailsData?.globalStartDate || new Date(),
+      globalEndDate: rentalDetailsData?.globalEndDate,
+      isGlobalOpenEnded: rentalDetailsData?.isGlobalOpenEnded || false,
+      urgentRental: rentalDetailsData?.urgentRental || false,
+      productPeriods: rentalDetailsData?.productPeriods || [],
+      identifiedGaps: rentalDetailsData?.identifiedGaps || [],
+      notes: rentalDetailsData?.notes || "",
+      // Enhanced payment data with CNAM bonds
+      paymentPeriods: paymentData?.paymentPeriods || [],
+      cnamBonds: paymentData?.cnamBonds || [],
+      depositAmount: paymentData?.depositAmount || 0,
+      depositMethod: paymentData?.depositMethod || "CASH",
+      paymentGaps: paymentData?.gaps || [],
+      upcomingAlerts: paymentData?.upcomingAlerts || [],
+      patientStatus: paymentData?.patientStatus || "ACTIVE",
+      cnamEligible: paymentData?.cnamEligible || false,
+      // Status and totals
       status: "ACTIVE",
-      totalPrice: calculateTotalPrice(),
-      paidAmount: paymentData.paidAmount || 0,
-      remainingAmount: paymentData.remainingAmount || calculateTotalPrice()
+      totalPrice: rentalDetailsData?.totalCost || calculateTotalPrice(),
+      totalPaymentAmount: paymentData?.totalAmount || 0,
+      totalCnamAmount: paymentData?.cnamBonds?.reduce((sum: number, bond: any) => sum + bond.totalAmount, 0) || 0,
+      isRental: true
     };
     
-    // Submit the rental data
+    // Submit the comprehensive rental data
     createRentalMutation.mutate(finalRentalData);
   };
 
@@ -308,27 +325,44 @@ export function RentStepperDialog({ isOpen, onClose }: RentStepperDialogProps) {
                 )}
 
                 {currentStep === 3 && (
-                  <RentalDetailsStep
-                    startDate={startDate}
-                    endDate={endDate}
-                    notes={rentalNotes}
-                    onStartDateChange={setStartDate}
-                    onEndDateChange={setEndDate}
-                    onNotesChange={setRentalNotes}
+                  <EnhancedRentalDetailsStep
+                    selectedProducts={selectedProducts.map(product => ({
+                      id: product.id,
+                      name: product.name,
+                      type: product.type,
+                      rentalPrice: product.rentalPrice || 0,
+                      quantity: product.quantity || 1,
+                      requiresReturn: true
+                    }))}
                     onBack={handleBack}
                     onComplete={handleRentalDetailsComplete}
-                    isSubmitting={false}
+                    isSubmitting={submitting}
+                    clientDetails={clientDetails}
                   />
                 )}
                 
                 {currentStep === 4 && (
-                  <PaymentStep
+                  <RentalPaymentStep
+                    selectedProducts={selectedProducts}
+                    selectedClient={clientDetails}
+                    rentalDetails={rentalDetailsData}
+                    calculateTotal={calculateTotalPrice}
                     onBack={handleBack}
                     onComplete={handlePaymentComplete}
+                    isSubmitting={false}
+                  />
+                )}
+
+                {currentStep === 5 && (
+                  <RentalRecapStep
                     selectedClient={clientDetails}
                     selectedProducts={selectedProducts}
+                    rentalDetails={rentalDetailsData}
+                    paymentData={paymentData}
                     calculateTotal={calculateTotalPrice}
-                    isRental={true}
+                    onBack={handleBack}
+                    onFinalize={handleFinalSubmit}
+                    isSubmitting={createRentalMutation.isPending}
                   />
                 )}
               </div>
