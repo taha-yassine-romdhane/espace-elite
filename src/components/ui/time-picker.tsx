@@ -60,7 +60,7 @@ export function TimePicker({
           id={id}
         >
           <Clock className="mr-2 h-4 w-4" />
-          {formatTimeDisplay(value)}
+          {formatTimeDisplay(value || '')}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">

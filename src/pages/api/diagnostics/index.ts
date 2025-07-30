@@ -6,6 +6,7 @@ import type { Diagnostic } from '@prisma/client';
 import formidable from 'formidable';
 import fs from 'fs';
 import path from 'path';
+import { createDiagnosticResultNotification } from '@/lib/notifications';
 
 // Enable bodyParser for all methods except POST with multipart/form-data
 export const config = {
@@ -246,19 +247,26 @@ export default async function handler(
           }
         });
         
-        // Create notification for the assigned user
-        await prisma.notification.create({
-          data: {
-            title: 'Nouveau diagnostic créé',
-            message: `Un diagnostic a été créé pour le patient ${patient.firstName} ${patient.lastName}`,
-            type: 'FOLLOW_UP',
-            status: 'PENDING',
-            isRead: false,
-            user: { connect: { id: userId } },
-            patient: { connect: { id: clientId } },
-            metadata: { diagnosticId: diagnostic.id }
-          }
+        // Get device details
+        const device = await prisma.medicalDevice.findUnique({
+          where: { id: medicalDeviceId },
+          select: { name: true }
         });
+
+        // Create notification for diagnostic result
+        const dueDate = new Date();
+        dueDate.setDate(dueDate.getDate() + 3); // Due in 3 days
+        
+        await createDiagnosticResultNotification(
+          medicalDeviceId,
+          device?.name || 'Unknown Device',
+          clientId,
+          `${patient.firstName} ${patient.lastName}`,
+          diagnostic.id, // Use diagnostic ID as parameter ID
+          'Résultat de diagnostic',
+          userId,
+          dueDate
+        );
         
         // Link any uploaded files to the patient and diagnostic
         if (uploadedFileUrls.length > 0) {

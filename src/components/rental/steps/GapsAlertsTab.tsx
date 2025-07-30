@@ -163,7 +163,7 @@ export function GapsAlertsTab({
                       <Button 
                         size="sm" 
                         variant="outline"
-                        onClick={() => onInitiateCnamRenewal(gap.bondId)}
+                        onClick={() => onInitiateCnamRenewal(gap.bondId!)}
                       >
                         Renouveler CNAM
                       </Button>

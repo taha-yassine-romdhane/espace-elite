@@ -13,7 +13,7 @@ import {
   ParametreConcentrateurForm,
   ParametreBouteilleForm,
   ParametreVIForm
-} from '../../../../../components/MedicaleDevicesParametreForms';
+} from '@/components/MedicaleDevicesParametreForms';
 
 interface ParameterPreviewDialogProps {
   isOpen: boolean;

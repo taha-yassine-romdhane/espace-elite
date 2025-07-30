@@ -83,11 +83,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       };
 
       // Delete cascadable items first
-      deletedCounts.files = await tx.file.deleteMany({ where: { patientId: id } });
-      deletedCounts.notifications = await tx.notification.deleteMany({ where: { patientId: id } });
-      deletedCounts.deviceParameters = await tx.medicalDeviceParametre.deleteMany({ where: { patientId: id } });
-      deletedCounts.medicalDevices = await tx.medicalDevice.deleteMany({ where: { patientId: id } });
-      deletedCounts.patientHistory = await tx.patientHistory.deleteMany({ where: { patientId: id } });
+      deletedCounts.files = (await tx.file.deleteMany({ where: { patientId: id } })).count;
+      deletedCounts.notifications = (await tx.notification.deleteMany({ where: { patientId: id } })).count;
+      deletedCounts.deviceParameters = (await tx.medicalDeviceParametre.deleteMany({ where: { patientId: id } })).count;
+      deletedCounts.medicalDevices = (await tx.medicalDevice.deleteMany({ where: { patientId: id } })).count;
+      deletedCounts.patientHistory = (await tx.patientHistory.deleteMany({ where: { patientId: id } })).count;
 
       // If force delete is enabled, also delete blockers
       if (forceDelete) {
@@ -112,13 +112,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         });
 
         // Delete sales
-        deletedCounts.sales = await tx.sale.deleteMany({ where: { patientId: id } });
+        deletedCounts.sales = (await tx.sale.deleteMany({ where: { patientId: id } })).count;
 
         // Delete rentals
-        deletedCounts.rentals = await tx.rental.deleteMany({ where: { patientId: id } });
+        deletedCounts.rentals = (await tx.rental.deleteMany({ where: { patientId: id } })).count;
 
         // Delete payments (direct)
-        deletedCounts.payments = await tx.payment.deleteMany({ where: { patientId: id } });
+        deletedCounts.payments = (await tx.payment.deleteMany({ where: { patientId: id } })).count;
 
         // Delete diagnostic results first, then diagnostics
         await tx.diagnosticResult.deleteMany({
@@ -128,10 +128,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             }
           }
         });
-        deletedCounts.diagnostics = await tx.diagnostic.deleteMany({ where: { patientId: id } });
+        deletedCounts.diagnostics = (await tx.diagnostic.deleteMany({ where: { patientId: id } })).count;
 
         // Delete appointments
-        deletedCounts.appointments = await tx.appointment.deleteMany({ where: { patientId: id } });
+        deletedCounts.appointments = (await tx.appointment.deleteMany({ where: { patientId: id } })).count;
       }
 
       // Finally, delete the patient

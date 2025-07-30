@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { 
   DropdownMenu, 
@@ -7,11 +7,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Settings2, FileText, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eye, Edit3, Trash2, MoreVertical } from "lucide-react";
+import { Settings2, FileText, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eye, Edit3, Trash2, MoreVertical, Users, Building2, User } from "lucide-react";
 import { DataTable } from "@/components/ui/data-table";
 import { Renseignement } from '@/types/renseignement';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PatientDeletionDialog } from "@/components/ui/patient-deletion-dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 
 interface RenseignementTableProps {
   data: Renseignement[];
@@ -38,6 +40,9 @@ function RenseignementTable({
   isLoading = false, // Default for SSR
   initialItemsPerPage = 10 // Default items per page
 }: RenseignementTableProps) {
+  // Tab state
+  const [activeTab, setActiveTab] = useState<'patients' | 'companies'>('patients');
+  
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(initialItemsPerPage);
@@ -47,19 +52,44 @@ function RenseignementTable({
   // Patient deletion dialog state
   const [showPatientDeletionDialog, setShowPatientDeletionDialog] = useState(false);
   const [patientToDelete, setPatientToDelete] = useState<{ id: string; name: string } | null>(null);
+
+  // Filter data based on active tab
+  const filteredData = useMemo(() => {
+    if (activeTab === 'patients') {
+      return data.filter(item => item.type === 'Patient');
+    } else {
+      return data.filter(item => item.type === 'Société');
+    }
+  }, [data, activeTab]);
+
+  // Calculate stats
+  const stats = useMemo(() => {
+    const patients = data.filter(item => item.type === 'Patient');
+    const companies = data.filter(item => item.type === 'Société');
+    return {
+      totalPatients: patients.length,
+      totalCompanies: companies.length,
+      total: data.length
+    };
+  }, [data]);
   
-  // Update paginated data when data changes or pagination settings change
+  // Update paginated data when filtered data changes or pagination settings change
   useEffect(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
-    setPaginatedData(data.slice(startIndex, endIndex));
-    setTotalPages(Math.max(1, Math.ceil(data.length / itemsPerPage)));
+    setPaginatedData(filteredData.slice(startIndex, endIndex));
+    setTotalPages(Math.max(1, Math.ceil(filteredData.length / itemsPerPage)));
     
     // Reset to page 1 if current page is out of bounds after data change
-    if (currentPage > Math.ceil(data.length / itemsPerPage) && data.length > 0) {
+    if (currentPage > Math.ceil(filteredData.length / itemsPerPage) && filteredData.length > 0) {
       setCurrentPage(1);
     }
-  }, [data, currentPage, itemsPerPage]);
+  }, [filteredData, currentPage, itemsPerPage]);
+
+  // Reset to page 1 when switching tabs
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab]);
   
   // Handle page change
   const handlePageChange = (page: number) => {
@@ -108,7 +138,8 @@ function RenseignementTable({
       onDelete([companyId]);
     }
   };
-  const columns = [
+  // Patient-specific columns
+  const patientColumns = [
     {
       id: "select",
       header: ({ table }: { table: { getIsAllPageRowsSelected: () => boolean } }) => (
@@ -127,35 +158,44 @@ function RenseignementTable({
       ),
     },
     {
-      id: "type",
-      header: "Type",
+      id: "patient",
+      header: "Patient",
       cell: ({ row }: { row: { original: Renseignement } }) => (
-        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${
-          row.original.type === 'Patient' 
-            ? 'bg-blue-50 text-blue-700 border-blue-200' 
-            : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-        }`}>
-          {row.original.type}
-        </span>
-      ),
-    },
-    {
-      id: "name",
-      header: "Nom",
-      cell: ({ row }: { row: { original: Renseignement } }) => (
-        <div className="font-medium text-gray-900">
-          {row.original.nom}
+        <div className="flex items-center space-x-3">
+          <div className="flex-shrink-0">
+            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+              <User className="h-5 w-5 text-white" />
+            </div>
+          </div>
+          <div>
+            <div className="font-semibold text-gray-900">{row.original.nom}</div>
+            <div className="text-sm text-gray-500">{row.original.telephone}</div>
+          </div>
         </div>
       ),
     },
     {
-      id: "telephone",
-      header: "Téléphone",
+      id: "medical_info",
+      header: "Informations Médicales",
       cell: ({ row }: { row: { original: Renseignement } }) => (
         <div className="space-y-1">
-          <div>{row.original.telephone}</div>
-          {row.original.type === 'Société' && row.original.telephoneSecondaire && (
-            <div className="text-sm text-gray-500">{row.original.telephoneSecondaire}</div>
+          {row.original.cin && (
+            <div className="flex items-center space-x-2">
+              <Badge variant="outline" className="text-xs">CIN</Badge>
+              <span className="text-sm">{row.original.cin}</span>
+            </div>
+          )}
+          {row.original.identifiantCNAM && (
+            <div className="flex items-center space-x-2">
+              <Badge variant="secondary" className="text-xs">CNAM</Badge>
+              <span className="text-sm">{row.original.identifiantCNAM}</span>
+            </div>
+          )}
+          {row.original.imc && (
+            <div className="flex items-center space-x-2">
+              <Badge variant="outline" className="text-xs">IMC</Badge>
+              <span className="text-sm">{row.original.imc}</span>
+            </div>
           )}
         </div>
       ),
@@ -164,116 +204,71 @@ function RenseignementTable({
       id: "address",
       header: "Adresse",
       cell: ({ row }: { row: { original: Renseignement } }) => (
-        <div className="max-w-xs truncate" title={row.original.adresse}>
-          {row.original.adresse}
+        <div className="max-w-xs">
+          <div className="text-sm text-gray-900 truncate" title={row.original.adresse}>
+            {row.original.adresse}
+          </div>
         </div>
       ),
     },
     {
       id: "doctor",
-      header: "Dr Responsable",
+      header: "Médecin Responsable",
       cell: ({ row }: { row: { original: Renseignement } }) => (
-        row.original.type === 'Patient' && row.original.doctor ? (
+        row.original.doctor ? (
           <div className="flex items-center space-x-2">
-            <div className="h-6 w-6 rounded-full bg-purple-100 flex items-center justify-center">
-              <span className="text-purple-700 text-xs font-medium">Dr</span>
+            <div className="h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center">
+              <span className="text-purple-700 text-xs font-semibold">Dr</span>
             </div>
-            <div className="text-sm">
-              <div className="font-medium">{row.original.doctor.name}</div>
-              <div className="text-gray-500 text-xs">{row.original.doctor.role}</div>
+            <div>
+              <div className="font-medium text-sm">{row.original.doctor.name}</div>
+              <div className="text-xs text-gray-500">{row.original.doctor.role}</div>
             </div>
           </div>
         ) : (
-          <div className="text-sm text-gray-500">Non assigné</div>
+          <div className="text-sm text-gray-500 italic">Non assigné</div>
         )
       ),
     },
     {
       id: "technician",
-      header: "Technicien Responsable",
+      header: "Technicien",
       cell: ({ row }: { row: { original: Renseignement } }) => (
         row.original.technician ? (
           <div className="flex items-center space-x-2">
-            <div className="h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center">
-              <span className="text-blue-700 text-xs">{row.original.technician.role.charAt(0)}</span>
+            <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+              <span className="text-blue-700 text-xs font-semibold">T</span>
             </div>
-            <div className="text-sm">
-              <div className="font-medium">{row.original.technician.name}</div>
-              <div className="text-gray-500 text-xs">{row.original.technician.role}</div>
-            </div>
-          </div>
-        ) : (
-          <div className="text-sm text-gray-500">Non assigné</div>
-        )
-      ),
-    },
-    {
-      id: "supervisor",
-      header: "Superviseur",
-      cell: ({ row }: { row: { original: Renseignement } }) => (
-        row.original.supervisor ? (
-          <div className="flex items-center space-x-2">
-            <div className="h-6 w-6 rounded-full bg-orange-100 flex items-center justify-center">
-              <span className="text-orange-700 text-xs">S</span>
-            </div>
-            <div className="text-sm">
-              <div className="font-medium">{row.original.supervisor.name}</div>
-              <div className="text-gray-500 text-xs">{row.original.supervisor.role}</div>
+            <div>
+              <div className="font-medium text-sm">{row.original.technician.name}</div>
+              <div className="text-xs text-gray-500">{row.original.technician.role}</div>
             </div>
           </div>
         ) : (
-          <div className="text-sm text-gray-500">Non assigné</div>
-        )
-      ),
-    },
-    {
-      id: "details",
-      header: "Détails",
-      cell: ({ row }: { row: { original: Renseignement } }) => (
-        row.original.type === 'Patient' ? (
-          <div className="space-y-1 text-sm">
-            {row.original.cin && <div>CIN: {row.original.cin}</div>}
-            {row.original.identifiantCNAM && <div>CNAM: {row.original.identifiantCNAM}</div>}
-            {row.original.taille && row.original.poids && row.original.imc && (
-              <div>IMC: {row.original.imc}</div>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-1 text-sm">
-            {row.original.matriculeFiscale && (
-              <div>MF: {row.original.matriculeFiscale}</div>
-            )}
-          </div>
+          <div className="text-sm text-gray-500 italic">Non assigné</div>
         )
       ),
     },
     {
       id: "files",
-      header: "Fichiers",
+      header: "Documents",
       cell: ({ row }: { row: { original: Renseignement } }) => (
-        <div className="flex items-center">
+        <div className="flex items-center justify-center">
           {row.original.files && row.original.files.length > 0 ? (
             <Button
               variant="ghost"
               size="sm"
               onClick={() => onViewFiles(row.original.files)}
-              className="flex items-center space-x-2 hover:bg-purple-50 hover:text-purple-600 transition-colors"
+              className="flex items-center space-x-2 hover:bg-blue-50 hover:text-blue-600 transition-colors"
             >
               <FileText className="h-4 w-4" />
-              <span className="font-medium">{row.original.files.length}</span>
+              <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200">
+                {row.original.files.length}
+              </Badge>
             </Button>
           ) : (
-            <span className="text-sm text-gray-400 italic">Aucun fichier</span>
+            <span className="text-xs text-gray-400 italic">Aucun</span>
           )}
-        </div>
-      ),
-    },
-    {
-      id: "date",
-      header: "Date",
-      cell: ({ row }: { row: { original: Renseignement } }) => (
-        <div className="text-sm text-gray-500">
-          {new Date(row.original.createdAt).toLocaleDateString()}
         </div>
       ),
     },
@@ -281,8 +276,7 @@ function RenseignementTable({
       id: "actions",
       header: "Actions",
       cell: ({ row }: { row: { original: Renseignement } }) => (
-        <div className="flex items-center space-x-2">
-          {/* Quick action buttons */}
+        <div className="flex items-center space-x-1">
           <Button
             variant="ghost"
             size="sm"
@@ -303,7 +297,6 @@ function RenseignementTable({
             <Edit3 className="h-4 w-4" />
           </Button>
           
-          {/* More actions dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button 
@@ -330,13 +323,196 @@ function RenseignementTable({
                 Modifier
               </DropdownMenuItem>
               <DropdownMenuItem 
-                onClick={() => {
-                  if (row.original.type === 'Patient') {
-                    handlePatientDelete(row.original);
-                  } else {
-                    handleCompanyDelete(row.original.id);
-                  }
-                }}
+                onClick={() => handlePatientDelete(row.original)}
+                className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Supprimer
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      ),
+    },
+  ];
+
+  // Company-specific columns
+  const companyColumns = [
+    {
+      id: "select",
+      header: ({ table }: { table: { getIsAllPageRowsSelected: () => boolean } }) => (
+        <Checkbox
+          checked={table.getIsAllPageRowsSelected()}
+          onCheckedChange={(value) => onSelectAll(!!value)}
+          aria-label="Select all"
+        />
+      ),
+      cell: ({ row }: { row: { original: Renseignement } }) => (
+        <Checkbox
+          checked={selectedItems.includes(row.original.id)}
+          onCheckedChange={() => onSelect(row.original.id)}
+          aria-label="Select row"
+        />
+      ),
+    },
+    {
+      id: "company",
+      header: "Société",
+      cell: ({ row }: { row: { original: Renseignement } }) => (
+        <div className="flex items-center space-x-3">
+          <div className="flex-shrink-0">
+            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
+              <Building2 className="h-5 w-5 text-white" />
+            </div>
+          </div>
+          <div>
+            <div className="font-semibold text-gray-900">{row.original.nom}</div>
+            <div className="text-sm text-gray-500">{row.original.telephone}</div>
+            {row.original.telephoneSecondaire && (
+              <div className="text-sm text-gray-400">{row.original.telephoneSecondaire}</div>
+            )}
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: "business_info",
+      header: "Informations Société",
+      cell: ({ row }: { row: { original: Renseignement } }) => (
+        <div className="space-y-1">
+          {row.original.matriculeFiscale && (
+            <div className="flex items-center space-x-2">
+              <Badge variant="outline" className="text-xs">MF</Badge>
+              <span className="text-sm">{row.original.matriculeFiscale}</span>
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: "address",
+      header: "Adresse",
+      cell: ({ row }: { row: { original: Renseignement } }) => (
+        <div className="max-w-xs">
+          <div className="text-sm text-gray-900 truncate" title={row.original.adresse}>
+            {row.original.adresse}
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: "technician",
+      header: "Technicien Responsable",
+      cell: ({ row }: { row: { original: Renseignement } }) => (
+        row.original.technician ? (
+          <div className="flex items-center space-x-2">
+            <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+              <span className="text-blue-700 text-xs font-semibold">T</span>
+            </div>
+            <div>
+              <div className="font-medium text-sm">{row.original.technician.name}</div>
+              <div className="text-xs text-gray-500">{row.original.technician.role}</div>
+            </div>
+          </div>
+        ) : (
+          <div className="text-sm text-gray-500 italic">Non assigné</div>
+        )
+      ),
+    },
+    {
+      id: "supervisor",
+      header: "Superviseur",
+      cell: ({ row }: { row: { original: Renseignement } }) => (
+        row.original.supervisor ? (
+          <div className="flex items-center space-x-2">
+            <div className="h-8 w-8 rounded-full bg-orange-100 flex items-center justify-center">
+              <span className="text-orange-700 text-xs font-semibold">S</span>
+            </div>
+            <div>
+              <div className="font-medium text-sm">{row.original.supervisor.name}</div>
+              <div className="text-xs text-gray-500">{row.original.supervisor.role}</div>
+            </div>
+          </div>
+        ) : (
+          <div className="text-sm text-gray-500 italic">Non assigné</div>
+        )
+      ),
+    },
+    {
+      id: "files",
+      header: "Documents",
+      cell: ({ row }: { row: { original: Renseignement } }) => (
+        <div className="flex items-center justify-center">
+          {row.original.files && row.original.files.length > 0 ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onViewFiles(row.original.files)}
+              className="flex items-center space-x-2 hover:bg-emerald-50 hover:text-emerald-600 transition-colors"
+            >
+              <FileText className="h-4 w-4" />
+              <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-200">
+                {row.original.files.length}
+              </Badge>
+            </Button>
+          ) : (
+            <span className="text-xs text-gray-400 italic">Aucun</span>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      cell: ({ row }: { row: { original: Renseignement } }) => (
+        <div className="flex items-center space-x-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onViewDetails(row.original)}
+            className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600"
+            title="Voir les détails"
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+          
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onEdit(row.original)}
+            className="h-8 w-8 p-0 hover:bg-green-50 hover:text-green-600"
+            title="Modifier"
+          >
+            <Edit3 className="h-4 w-4" />
+          </Button>
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-8 w-8 p-0 hover:bg-gray-50"
+              >
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuItem 
+                onClick={() => onViewDetails(row.original)}
+                className="cursor-pointer"
+              >
+                <Eye className="mr-2 h-4 w-4" />
+                Voir détails
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => onEdit(row.original)}
+                className="cursor-pointer"
+              >
+                <Edit3 className="mr-2 h-4 w-4" />
+                Modifier
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => handleCompanyDelete(row.original.id)}
                 className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
               >
                 <Trash2 className="mr-2 h-4 w-4" />
@@ -368,82 +544,162 @@ function RenseignementTable({
 
   return (
     <>
-      <div className="flex flex-col space-y-4">
-        <DataTable
-          columns={columns}
-          data={paginatedData}
-        />
-        
-        {/* Pagination controls */}
-        <div className="flex items-center justify-between px-2 py-4 border-t">
-          <div className="flex items-center space-x-2">
-            <span className="text-sm text-gray-700">
-              Affichage de {paginatedData.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} à {Math.min(currentPage * itemsPerPage, data.length)} sur {data.length} entrées
-            </span>
+      <div className="space-y-6">
+        {/* Statistics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-4 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-blue-100 text-sm">Total Patients</p>
+                <p className="text-2xl font-bold">{stats.totalPatients}</p>
+              </div>
+              <Users className="h-8 w-8 text-blue-200" />
+            </div>
           </div>
           
-          <div className="flex items-center space-x-6">
+          <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-lg p-4 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-emerald-100 text-sm">Total Sociétés</p>
+                <p className="text-2xl font-bold">{stats.totalCompanies}</p>
+              </div>
+              <Building2 className="h-8 w-8 text-emerald-200" />
+            </div>
+          </div>
+          
+          <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-4 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-purple-100 text-sm">Total Entrées</p>
+                <p className="text-2xl font-bold">{stats.total}</p>
+              </div>
+              <User className="h-8 w-8 text-purple-200" />
+            </div>
+          </div>
+        </div>
+
+        {/* Tabs Interface */}
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'patients' | 'companies')} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 bg-gray-100 rounded-lg p-1">
+            <TabsTrigger 
+              value="patients" 
+              className="flex items-center space-x-2 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md transition-all"
+            >
+              <Users className="h-4 w-4" />
+              <span>Patients ({stats.totalPatients})</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="companies"
+              className="flex items-center space-x-2 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md transition-all"
+            >
+              <Building2 className="h-4 w-4" />
+              <span>Sociétés ({stats.totalCompanies})</span>
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="patients" className="mt-6 space-y-4">
+            <div className="bg-white rounded-lg border shadow-sm">
+              <div className="px-6 py-4 border-b bg-gray-50 rounded-t-lg">
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                  <Users className="h-5 w-5 mr-2 text-blue-600" />
+                  Liste des Patients
+                </h3>
+              </div>
+              <DataTable
+                columns={patientColumns}
+                data={paginatedData}
+              />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="companies" className="mt-6 space-y-4">
+            <div className="bg-white rounded-lg border shadow-sm">
+              <div className="px-6 py-4 border-b bg-gray-50 rounded-t-lg">
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                  <Building2 className="h-5 w-5 mr-2 text-emerald-600" />
+                  Liste des Sociétés
+                </h3>
+              </div>
+              <DataTable
+                columns={companyColumns}
+                data={paginatedData}
+              />
+            </div>
+          </TabsContent>
+        </Tabs>
+        
+        {/* Pagination controls */}
+        <div className="bg-white rounded-lg border p-4">
+          <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-700">Lignes par page:</span>
-              <Select
-                value={itemsPerPage.toString()}
-                onValueChange={handleItemsPerPageChange}
-              >
-                <SelectTrigger className="h-8 w-[70px]">
-                  <SelectValue placeholder={itemsPerPage.toString()} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="5">5</SelectItem>
-                  <SelectItem value="10">10</SelectItem>
-                  <SelectItem value="20">20</SelectItem>
-                  <SelectItem value="50">50</SelectItem>
-                  <SelectItem value="100">100</SelectItem>
-                </SelectContent>
-              </Select>
+              <span className="text-sm text-gray-700">
+                Affichage de {paginatedData.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} à {Math.min(currentPage * itemsPerPage, filteredData.length)} sur {filteredData.length} entrées
+              </span>
             </div>
             
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={goToFirstPage}
-                disabled={currentPage === 1}
-                className="h-8 w-8 p-0"
-              >
-                <ChevronsLeft className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={goToPreviousPage}
-                disabled={currentPage === 1}
-                className="h-8 w-8 p-0"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
+            <div className="flex items-center space-x-6">
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-700">Lignes par page:</span>
+                <Select
+                  value={itemsPerPage.toString()}
+                  onValueChange={handleItemsPerPageChange}
+                >
+                  <SelectTrigger className="h-8 w-[70px]">
+                    <SelectValue placeholder={itemsPerPage.toString()} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="5">5</SelectItem>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="20">20</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               
-              <span className="text-sm">
-                Page {currentPage} sur {totalPages}
-              </span>
-              
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={goToNextPage}
-                disabled={currentPage === totalPages}
-                className="h-8 w-8 p-0"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={goToLastPage}
-                disabled={currentPage === totalPages}
-                className="h-8 w-8 p-0"
-              >
-                <ChevronsRight className="h-4 w-4" />
-              </Button>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={goToFirstPage}
+                  disabled={currentPage === 1}
+                  className="h-8 w-8 p-0"
+                >
+                  <ChevronsLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={goToPreviousPage}
+                  disabled={currentPage === 1}
+                  className="h-8 w-8 p-0"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                
+                <span className="text-sm">
+                  Page {currentPage} sur {totalPages}
+                </span>
+                
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={goToNextPage}
+                  disabled={currentPage === totalPages}
+                  className="h-8 w-8 p-0"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={goToLastPage}
+                  disabled={currentPage === totalPages}
+                  className="h-8 w-8 p-0"
+                >
+                  <ChevronsRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
         </div>

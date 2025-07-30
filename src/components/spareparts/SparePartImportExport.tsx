@@ -131,7 +131,7 @@ export function SparePartImportExport({ onImportSuccess, stockLocations }: Spare
     // Stock location validation
     if (row.stockLocationName) {
       const locationExists = stockLocations.find(
-        loc => loc.name.toLowerCase() === row.stockLocationName.toLowerCase()
+        loc => loc.name.toLowerCase() === row.stockLocationName!.toLowerCase()
       );
       if (!locationExists) {
         errors.push({

@@ -24,6 +24,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Calendar,
   Clock,
   User,
@@ -35,6 +43,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   XCircle,
+  MoreVertical,
 } from "lucide-react";
 
 interface AppointmentsTableProps {
@@ -106,6 +115,41 @@ export function AppointmentsTable({}: AppointmentsTableProps) {
       toast({
         title: "Erreur",
         description: "Impossible de supprimer le rendez-vous. Veuillez réessayer.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Update appointment status mutation
+  const updateAppointmentStatus = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const response = await fetch(`/api/appointments/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update appointment status');
+      }
+      
+      return await response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Statut mis à jour",
+        description: "Le statut du rendez-vous a été mis à jour avec succès.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+    },
+    onError: (error) => {
+      console.error('Error updating appointment status:', error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de mettre à jour le statut. Veuillez réessayer.",
         variant: "destructive",
       });
     }
@@ -267,28 +311,28 @@ export function AppointmentsTable({}: AppointmentsTableProps) {
   const currentAppointments = filteredAppointments.slice(startIndex, endIndex);
 
   return (
-    <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
-      <div className="bg-gradient-to-r from-purple-600 to-purple-800 px-6 py-4">
+    <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+      <div className="bg-gradient-to-r from-[#1e3a8a] to-blue-900 px-6 py-4">
         <div className="flex justify-between items-center">
           <h3 className="text-xl font-bold text-white">Gestion des Rendez-vous</h3>
-          <div className="text-purple-100 text-sm">
+          <div className="text-blue-100 text-sm">
             {filteredAppointments.length} rendez-vous trouvé(s)
           </div>
         </div>
       </div>
 
       {/* Search and Filters */}
-      <div className="p-6 border-b border-slate-200 bg-slate-50">
+      <div className="p-6 border-b border-gray-100 bg-gradient-to-br from-blue-50 to-white">
         <div className="flex flex-col gap-4">
           {/* Search bar */}
           <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 text-slate-400" />
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+              <Search className="h-5 w-5 text-blue-600" />
             </div>
             <input
               type="text"
               placeholder="Rechercher par client, type, lieu, ID..."
-              className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 text-sm"
+              className="w-full pl-12 pr-4 py-3 bg-white border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-[#1e3a8a] transition-all duration-200 text-sm shadow-sm hover:shadow-md"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -296,28 +340,50 @@ export function AppointmentsTable({}: AppointmentsTableProps) {
 
           {/* Filters */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white text-sm"
-            >
-              <option value="all">Tous les statuts</option>
-              <option value="SCHEDULED">Planifié</option>
-              <option value="CONFIRMED">Confirmé</option>
-              <option value="COMPLETED">Terminé</option>
-              <option value="CANCELLED">Annulé</option>
-            </select>
+            <div className="relative">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full px-4 py-3 pr-10 bg-white border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-[#1e3a8a] text-sm shadow-sm hover:shadow-md transition-all duration-200 appearance-none cursor-pointer"
+              >
+                <option value="all">Tous les statuts</option>
+                <option value="SCHEDULED">Planifié</option>
+                <option value="CONFIRMED">Confirmé</option>
+                <option value="COMPLETED">Terminé</option>
+                <option value="CANCELLED">Annulé</option>
+              </select>
+              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                <svg className="h-5 w-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
 
-            <select
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
-              className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white text-sm"
-            >
-              <option value="all">Toutes les dates</option>
-              <option value="today">Aujourd'hui</option>
-              <option value="week">Cette semaine</option>
-              <option value="month">Ce mois</option>
-            </select>
+            <div className="relative">
+              <select
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="w-full px-4 py-3 pr-10 bg-white border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-[#1e3a8a] text-sm shadow-sm hover:shadow-md transition-all duration-200 appearance-none cursor-pointer"
+              >
+                <option value="all">Toutes les dates</option>
+                <option value="today">Aujourd'hui</option>
+                <option value="week">Cette semaine</option>
+                <option value="month">Ce mois</option>
+              </select>
+              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                <svg className="h-5 w-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 text-sm text-blue-700 bg-blue-100 px-4 py-3 rounded-lg">
+              <div className="flex items-center gap-1">
+                <div className="h-2 w-2 bg-blue-600 rounded-full animate-pulse"></div>
+                <span className="font-medium">{filteredAppointments.length}</span>
+              </div>
+              <span>résultat{filteredAppointments.length > 1 ? 's' : ''}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -325,7 +391,7 @@ export function AppointmentsTable({}: AppointmentsTableProps) {
       <div className="p-6">
         {isLoading ? (
           <div className="flex justify-center items-center h-40">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-900"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1e3a8a]"></div>
           </div>
         ) : currentAppointments && currentAppointments.length > 0 ? (
           <div className="overflow-x-auto">
@@ -338,7 +404,7 @@ export function AppointmentsTable({}: AppointmentsTableProps) {
                   <TableHead>Lieu</TableHead>
                   <TableHead>Priorité</TableHead>
                   <TableHead>Statut</TableHead>
-                  <TableHead>Supprimer</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -385,14 +451,14 @@ export function AppointmentsTable({}: AppointmentsTableProps) {
                       
                       <TableCell>
                         <div className="flex items-center space-x-1">
-                          <Calendar className="h-4 w-4 text-purple-600" />
+                          <Calendar className="h-4 w-4 text-[#1e3a8a]" />
                           <span className="text-sm">{formatDate(appointment.scheduledDate)}</span>
                         </div>
                       </TableCell>
                       
                       <TableCell>
                         <div className="flex items-center space-x-1">
-                          <MapPin className="h-4 w-4 text-purple-600" />
+                          <MapPin className="h-4 w-4 text-[#1e3a8a]" />
                           <span className="text-sm">{appointment.location || '-'}</span>
                         </div>
                       </TableCell>
@@ -406,20 +472,57 @@ export function AppointmentsTable({}: AppointmentsTableProps) {
                       </TableCell>
                       
                       <TableCell>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => handleDeleteClick(appointment.id)}
-                          className="flex items-center gap-1 border-red-200 hover:bg-red-50 hover:text-red-600 text-xs"
-                          disabled={deleteAppointment.isPending}
-                        >
-                          {deleteAppointment.isPending && appointmentToDelete === appointment.id ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-3.5 w-3.5" />
-                          )}
-                          <span>Supprimer</span>
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => updateAppointmentStatus.mutate({ id: appointment.id, status: 'SCHEDULED' })}
+                              disabled={appointment.status === 'SCHEDULED'}
+                            >
+                              <Clock className="h-4 w-4 mr-2" />
+                              Marquer comme planifié
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => updateAppointmentStatus.mutate({ id: appointment.id, status: 'CONFIRMED' })}
+                              disabled={appointment.status === 'CONFIRMED'}
+                            >
+                              <CheckCircle2 className="h-4 w-4 mr-2" />
+                              Marquer comme confirmé
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => updateAppointmentStatus.mutate({ id: appointment.id, status: 'COMPLETED' })}
+                              disabled={appointment.status === 'COMPLETED'}
+                            >
+                              <CheckCircle2 className="h-4 w-4 mr-2" />
+                              Marquer comme terminé
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => updateAppointmentStatus.mutate({ id: appointment.id, status: 'CANCELLED' })}
+                              disabled={appointment.status === 'CANCELLED'}
+                            >
+                              <XCircle className="h-4 w-4 mr-2" />
+                              Marquer comme annulé
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => handleDeleteClick(appointment.id)}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Supprimer
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   );
@@ -428,11 +531,11 @@ export function AppointmentsTable({}: AppointmentsTableProps) {
             </Table>
           </div>
         ) : (
-          <div className="border border-slate-200 rounded-lg p-8 text-center text-slate-500">
+          <div className="border border-blue-200 rounded-lg p-8 text-center text-gray-500 bg-blue-50">
             <div className="flex flex-col items-center justify-center space-y-3">
-              <Calendar className="h-12 w-12 text-slate-400" />
-              <h3 className="text-lg font-medium text-slate-900">Aucun rendez-vous trouvé</h3>
-              <p className="max-w-md text-sm text-slate-500">
+              <Calendar className="h-12 w-12 text-blue-400" />
+              <h3 className="text-lg font-medium text-gray-900">Aucun rendez-vous trouvé</h3>
+              <p className="max-w-md text-sm text-gray-600">
                 {searchTerm || statusFilter !== 'all' || dateFilter !== 'all'
                   ? "Aucun rendez-vous ne correspond aux critères de recherche. Essayez de modifier les filtres."
                   : "Commencez par créer un nouveau rendez-vous en utilisant le bouton \"Nouveau Rendez-vous\" ci-dessus."
@@ -445,9 +548,9 @@ export function AppointmentsTable({}: AppointmentsTableProps) {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="bg-slate-50 px-6 py-4 border-t border-slate-200">
+        <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
           <div className="flex items-center justify-between">
-            <div className="flex items-center text-sm text-slate-600">
+            <div className="flex items-center text-sm text-gray-600">
               <span>
                 Affichage de {startIndex + 1} à {Math.min(endIndex, totalItems)} sur {totalItems} rendez-vous
               </span>
@@ -456,7 +559,7 @@ export function AppointmentsTable({}: AppointmentsTableProps) {
               <button
                 onClick={() => setCurrentPage(currentPage - 1)}
                 disabled={currentPage === 1}
-                className="px-3 py-1 rounded-md text-sm font-medium text-slate-500 hover:text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1 rounded-md text-sm font-medium text-gray-600 hover:text-[#1e3a8a] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Précédent
               </button>
@@ -471,7 +574,7 @@ export function AppointmentsTable({}: AppointmentsTableProps) {
                 }
                 
                 if ((page === 2 && currentPage > 4) || (page === totalPages - 1 && currentPage < totalPages - 3)) {
-                  return <span key={page} className="px-2 text-slate-400">...</span>;
+                  return <span key={page} className="px-2 text-gray-400">...</span>;
                 }
                 
                 return (
@@ -480,8 +583,8 @@ export function AppointmentsTable({}: AppointmentsTableProps) {
                     onClick={() => setCurrentPage(page)}
                     className={`px-3 py-1 rounded-md text-sm font-medium ${
                       currentPage === page
-                        ? 'bg-purple-600 text-white'
-                        : 'text-slate-500 hover:text-slate-700'
+                        ? 'bg-[#1e3a8a] text-white'
+                        : 'text-gray-600 hover:text-[#1e3a8a]'
                     }`}
                   >
                     {page}
@@ -492,7 +595,7 @@ export function AppointmentsTable({}: AppointmentsTableProps) {
               <button
                 onClick={() => setCurrentPage(currentPage + 1)}
                 disabled={currentPage === totalPages}
-                className="px-3 py-1 rounded-md text-sm font-medium text-slate-500 hover:text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1 rounded-md text-sm font-medium text-gray-600 hover:text-[#1e3a8a] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Suivant
               </button>

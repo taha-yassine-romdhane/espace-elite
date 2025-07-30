@@ -22,7 +22,11 @@ interface PaymentAssignment {
     bondType: string;
     currentStep: number;
     totalSteps: number;
-    status: string;
+    status: 'en_attente_approbation' | 'approuve' | 'termine' | 'refuse';
+    notes?: string;
+    bondAmount?: number;
+    devicePrice?: number;
+    complementAmount?: number;
   };
 }
 
@@ -115,7 +119,7 @@ export function PaymentStep({
         ...assignment.paymentDetails, // Include payment-specific details (cheque number, reference, etc.)
         ...(assignment.cnamInfo && {
           cnamInfo: assignment.cnamInfo,
-          isPending: assignment.cnamInfo.status !== 'accepte'
+          isPending: assignment.cnamInfo.status !== 'approuve'
         }),
         metadata: {
           groupName: assignment.groupName,

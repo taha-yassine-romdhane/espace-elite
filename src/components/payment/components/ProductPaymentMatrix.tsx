@@ -33,11 +33,16 @@ interface PaymentAssignment {
   groupName: string;
   paymentMethod: string;
   amount: number;
+  paymentDetails?: any;
   cnamInfo?: {
     bondType: string;
     currentStep: number;
     totalSteps: number;
-    status: string;
+    status: 'en_attente_approbation' | 'approuve' | 'termine' | 'refuse';
+    notes?: string;
+    bondAmount?: number;
+    devicePrice?: number;
+    complementAmount?: number;
   };
 }
 
@@ -137,7 +142,7 @@ export const ProductPaymentMatrix: React.FC<ProductPaymentMatrixProps> = ({
           bondType: newGroupData.cnamBondType,
           currentStep: 1,
           totalSteps: 9,
-          status: 'en_attente'
+          status: 'en_attente_approbation' as const
         }
       })
     };

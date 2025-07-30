@@ -328,8 +328,6 @@ export function DiagnosticStepperDialog({ isOpen, onClose }: DiagnosticStepperDi
                   onClientSelect={setSelectedPatient}
                   clientType="patient" // Always patient
                   selectedClient={selectedPatient}
-                  clients={patients}
-                  error={error}
                   action="diagnostique"
                 />
               </div>

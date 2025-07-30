@@ -4,10 +4,15 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, User, Building2, Users, Building, ChevronRight, X, UserPlus, BuildingIcon, Search } from "lucide-react";
+import { Plus, User, Building2, Users, Building, ChevronRight, X, UserPlus, BuildingIcon, Search, Calendar, Shield, Import } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import PatientForm from "../../../../../../components/forms/PatientForm";
-import SocieteForm from "../../../../../../components/forms/SocieteForm";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { fr } from "date-fns/locale";
+import PatientForm from "@/components/forms/PatientForm";
+import SocieteForm from "@/components/forms/SocieteForm";
 import { BeneficiaryType } from "@/types";
 import { cn } from "@/lib/utils";
 import { ExistingFile } from "@/types/forms/PatientFormData";
@@ -20,6 +25,15 @@ interface Client {
   ongoingDiagnosticId?: string | null;
 }
 
+interface ExistingRentalData {
+  isExistingRental: boolean;
+  importDate?: Date;
+  hasActiveCnam?: boolean;
+  cnamExpirationDate?: Date;
+  cnamMonthlyAmount?: number;
+  currentUnpaidAmount?: number;
+}
+
 interface ClientSelectionStepProps {
   onNext: () => void;
   onClose: () => void;
@@ -28,9 +42,8 @@ interface ClientSelectionStepProps {
   onClientAdd?: (newClient: Client) => void;
   clientType: "patient" | "societe" | null;
   selectedClient: string | null;
-  clients: Client[];
-  error: string | null;
   action: "location" | "vente" | "diagnostique" | null;
+  onExistingRentalDataChange?: (data: ExistingRentalData) => void;
 }
 
 export function ClientSelectionStep({
@@ -41,12 +54,24 @@ export function ClientSelectionStep({
   onClientAdd,
   clientType,
   selectedClient,
-  clients,
-  error,
   action,
+  onExistingRentalDataChange,
 }: ClientSelectionStepProps) {
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [clients, setClients] = useState<Client[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Existing rental state
+  const [existingRentalData, setExistingRentalData] = useState<ExistingRentalData>({
+    isExistingRental: false,
+    importDate: new Date(),
+    hasActiveCnam: false,
+    cnamExpirationDate: undefined,
+    cnamMonthlyAmount: 0,
+    currentUnpaidAmount: 0,
+  });
   
   // Patient form state
   const [patientFormData, setPatientFormData] = useState({
@@ -260,20 +285,49 @@ export function ClientSelectionStep({
       console.error('Error creating client:', error);
       toast({
         title: "Erreur",
-        description: `Erreur lors de la création: ${error.message}`,
+        description: `Erreur lors de la création`,
         variant: "destructive"
       });
     }
   };
 
+  // Fetch clients when client type changes
+  const fetchClients = async (type: "patient" | "societe") => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/clients?type=${type}`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch clients");
+      }
+      const data = await response.json();
+      // Ensure data is an array
+      const clientsArray = Array.isArray(data) ? data : (data.clients || data.data || []);
+      setClients(clientsArray);
+    } catch (error) {
+      console.error("Error fetching clients:", error);
+      setError("Erreur lors du chargement des données");
+      setClients([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Fetch clients when clientType changes
+  useEffect(() => {
+    if (clientType) {
+      fetchClients(clientType);
+    }
+  }, [clientType]);
+
   // Filter clients based on search query
   const filteredClients = useMemo(() => {
-    return clients?.filter((client) => {
+    return clients.filter((client) => {
       if (!client) return false;
       if (!searchQuery.trim()) return true;
       
       return client.name.toLowerCase().includes(searchQuery.toLowerCase());
-    }) || [];
+    });
   }, [clients, searchQuery]);
   
   // For diagnostic stepper, show all clients but mark those with ongoing diagnostics
@@ -289,6 +343,21 @@ export function ClientSelectionStep({
       onClientTypeChange("patient");
     }
   }, [action, clientType, onClientTypeChange]);
+
+  // Notify parent component when existing rental data changes
+  useEffect(() => {
+    if (onExistingRentalDataChange) {
+      onExistingRentalDataChange(existingRentalData);
+    }
+  }, [existingRentalData, onExistingRentalDataChange]);
+
+  // Handle existing rental data changes
+  const handleExistingRentalDataChange = (field: keyof ExistingRentalData, value: any) => {
+    setExistingRentalData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
 
   return (
     <>
@@ -355,6 +424,129 @@ export function ClientSelectionStep({
           </div>
         )}
 
+        {/* Existing Rental Section - Only show for locations */}
+        {action === "location" && (
+          <div className="space-y-4">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="existing-rental"
+                checked={existingRentalData.isExistingRental}
+                onCheckedChange={(checked) => 
+                  handleExistingRentalDataChange('isExistingRental', checked)
+                }
+              />
+              <Label htmlFor="existing-rental" className="text-base font-semibold text-[#1e3a8a] flex items-center gap-2">
+                <Import className="h-5 w-5" />
+                Il s'agit d'une location existante
+              </Label>
+            </div>
+            
+            {existingRentalData.isExistingRental && (
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-4">
+                <p className="text-sm text-blue-800 mb-4">
+                  Configurez les détails de cette location existante pour commencer le suivi depuis une date spécifique.
+                </p>
+                
+                {/* Import Date */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Commencer le suivi à partir de</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full justify-start">
+                          <Calendar className="mr-2 h-4 w-4" />
+                          {existingRentalData.importDate ? 
+                            format(existingRentalData.importDate, "dd/MM/yyyy", { locale: fr }) : 
+                            "Sélectionner une date"
+                          }
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <CalendarComponent
+                          mode="single"
+                          selected={existingRentalData.importDate}
+                          onSelect={(date) => handleExistingRentalDataChange('importDate', date)}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  
+                  {/* Current Unpaid Amount */}
+                  <div className="space-y-2">
+                    <Label>Montant impayé actuel (DT)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={existingRentalData.currentUnpaidAmount || ''}
+                      onChange={(e) => handleExistingRentalDataChange('currentUnpaidAmount', parseFloat(e.target.value) || 0)}
+                    />
+                  </div>
+                </div>
+                
+                {/* CNAM Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="has-active-cnam"
+                      checked={existingRentalData.hasActiveCnam}
+                      onCheckedChange={(checked) => 
+                        handleExistingRentalDataChange('hasActiveCnam', checked)
+                      }
+                    />
+                    <Label htmlFor="has-active-cnam" className="flex items-center gap-2">
+                      <Shield className="h-4 w-4 text-blue-600" />
+                      Cette location a une couverture CNAM active
+                    </Label>
+                  </div>
+                  
+                  {existingRentalData.hasActiveCnam && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 ml-6">
+                      <div className="space-y-2">
+                        <Label>Date d'expiration CNAM</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-full justify-start">
+                              <Calendar className="mr-2 h-4 w-4" />
+                              {existingRentalData.cnamExpirationDate ? 
+                                format(existingRentalData.cnamExpirationDate, "dd/MM/yyyy", { locale: fr }) : 
+                                "Sélectionner une date"
+                              }
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0">
+                            <CalendarComponent
+                              mode="single"
+                              selected={existingRentalData.cnamExpirationDate}
+                              onSelect={(date) => handleExistingRentalDataChange('cnamExpirationDate', date)}
+                              disabled={(date) => 
+                                existingRentalData.importDate ? date < existingRentalData.importDate : false
+                              }
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label>Montant mensuel CNAM (DT)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="190.00"
+                          value={existingRentalData.cnamMonthlyAmount || ''}
+                          onChange={(e) => handleExistingRentalDataChange('cnamMonthlyAmount', parseFloat(e.target.value) || 0)}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {clientType && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -405,7 +597,11 @@ export function ClientSelectionStep({
                     </div>
                   </div>
                   <div className="max-h-[200px] overflow-y-auto py-1">
-                    {filteredClients.length > 0 ? (
+                    {isLoading ? (
+                      <div className="px-2 py-4 text-center text-sm text-gray-500">
+                        Chargement...
+                      </div>
+                    ) : filteredClients.length > 0 ? (
                       filteredClients.map((client) => {
                         // Check if this is a patient with an ongoing diagnostic
                         const hasOngoingDiagnostic = clientType === "patient" && client.hasOngoingDiagnostic;
@@ -457,8 +653,26 @@ export function ClientSelectionStep({
             Annuler
           </Button>
           <Button
-            onClick={onNext}
-            disabled={!selectedClient}
+            onClick={() => {
+              if (!clientType) {
+                toast({
+                  title: "Type de client requis",
+                  description: "Veuillez sélectionner un type de client (Patient ou Société)",
+                  variant: "destructive"
+                });
+                return;
+              }
+              if (!selectedClient) {
+                toast({
+                  title: "Client requis",
+                  description: "Veuillez sélectionner un client",
+                  variant: "destructive"
+                });
+                return;
+              }
+              onNext();
+            }}
+            disabled={!selectedClient || !clientType}
             className="bg-[#1e3a8a] hover:bg-[#1e3a8a]/90 text-white flex items-center gap-2"
           >
             Continuer

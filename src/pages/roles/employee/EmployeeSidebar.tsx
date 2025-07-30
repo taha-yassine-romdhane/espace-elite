@@ -45,7 +45,7 @@ const Sidebar: React.FC = () => {
         { id: 'renseignement', icon: <Users size={20} />, label: "Renseignement", path: "/roles/employee/renseignement" },
         { id: 'diagnostics', icon: <SquareActivity size={20} />, label: "Diagnostique", path: "/roles/employee/diagnostics" },
         { id: 'sales', icon: <ShoppingCart size={20} />, label: "Vente", path: "/roles/employee/sales" },
-        { id: 'rentals', icon: <CalendarClock size={20} />, label: "Location", path: "/roles/employee/rentals" },
+        { id: 'rentals', icon: <CalendarClock size={20} />, label: "Locations", path: "/roles/employee/rentals" },
         { id: 'tasks', icon: <Clipboard size={20} />, label: "Tâches", path: "/roles/employee/tasks" },
         { id: 'stock', icon: <Box size={20} />, label: "Stock", path: "/roles/employee/stock" },
         { id: 'notifications', icon: <Bell size={20} />, label: "Notifications", path: "/roles/employee/notifications" },
@@ -238,7 +238,7 @@ const Sidebar: React.FC = () => {
                         onClick={toggleEditMode}
                         className={cn(
                             "flex items-center text-xs font-medium px-2 py-1 rounded-md transition-colors",
-                            isEditMode ? "bg-[#16a34a] text-white" : "text-gray-600 border border-gray-200 hover:bg-gray-50"
+                            isEditMode ? "bg-green-600 text-white" : "text-gray-600 border border-gray-200 hover:bg-green-50"
                         )}
                     >
                         {isEditMode ? (
@@ -282,8 +282,8 @@ const Sidebar: React.FC = () => {
                                         ? "cursor-grab active:cursor-grabbing hover:bg-green-50 border-2 border-transparent hover:border-green-200"
                                         : "cursor-pointer",
                                     !isEditMode && router.pathname.startsWith(item.path)
-                                        ? "bg-[#16a34a] text-white"
-                                        : "text-gray-700 hover:bg-gray-50 hover:text-[#16a34a]",
+                                        ? "bg-green-600 text-white shadow-sm"
+                                        : "text-gray-700 hover:bg-green-50 hover:text-green-600",
                                     draggedItem === item.id && "opacity-50 scale-105",
                                     dragOverIndex === index && draggedItem && draggedItem !== item.id && "border-t-4 border-green-500",
                                     isEditMode && "select-none"
@@ -330,7 +330,7 @@ const Sidebar: React.FC = () => {
                         "flex items-center w-full px-3 py-3 text-sm font-medium rounded-lg transition-colors",
                         isEditMode
                             ? "text-gray-400 cursor-not-allowed"
-                            : "text-gray-700 hover:bg-gray-50 hover:text-[#16a34a]"
+                            : "text-gray-700 hover:bg-green-50 hover:text-green-600"
                     )}
                     disabled={isNavigating || isEditMode}
                 >

@@ -16,7 +16,8 @@ import {
   CheckCircle,
   Plus,
   Minus,
-  Info
+  Info,
+  X
 } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -30,18 +31,17 @@ interface CNAMBondsTabProps {
   selectedClient: any;
   selectedProducts: any[];
   onAutoGeneratePaymentPeriods: () => void;
+  onRemoveDuplicates?: () => void;
+  paymentPeriodsCount?: number;
 }
 
-// CNAM Bond types for rental
+// CNAM Bond types for rental - Only Oxygène and VNI as per user requirements
 const cnamBondTypes: CNAMBondType[] = [
   { value: 'CONCENTRATEUR_OXYGENE', label: 'Concentrateur Oxygène' },
-  { value: 'VNI', label: 'VNI (Ventilation Non Invasive)' },
-  { value: 'CPAP', label: 'CPAP' },
-  { value: 'MASQUE', label: 'Masque' },
-  { value: 'AUTRE', label: 'Autre Bond Location' }
+  { value: 'VNI', label: 'VNI (Ventilation Non Invasive)' }
 ];
 
-// Predefined CNAM rental bonds
+// Predefined CNAM rental bonds - Only Oxygène and VNI with 1 month each
 const predefinedBonds: PredefinedBond[] = [
   {
     id: 'concentrateur-1m',
@@ -51,32 +51,11 @@ const predefinedBonds: PredefinedBond[] = [
     totalAmount: 190
   },
   {
-    id: 'concentrateur-2m',
-    bondType: 'CONCENTRATEUR_OXYGENE',
-    label: 'Concentrateur Oxygène - 2 mois',
-    coveredMonths: 2,
-    totalAmount: 380
-  },
-  {
-    id: 'concentrateur-3m',
-    bondType: 'CONCENTRATEUR_OXYGENE',
-    label: 'Concentrateur Oxygène - 3 mois',
-    coveredMonths: 3,
-    totalAmount: 570
-  },
-  {
-    id: 'vni-3m',
+    id: 'vni-1m',
     bondType: 'VNI',
-    label: 'VNI - 3 mois',
-    coveredMonths: 3,
-    totalAmount: 1290
-  },
-  {
-    id: 'vni-6m',
-    bondType: 'VNI',
-    label: 'VNI - 6 mois',
-    coveredMonths: 6,
-    totalAmount: 2580
+    label: 'VNI - 1 mois',
+    coveredMonths: 1,
+    totalAmount: 430
   }
 ];
 
@@ -95,7 +74,9 @@ export function CNAMBondsTab({
   setActiveCnamBond,
   selectedClient,
   selectedProducts,
-  onAutoGeneratePaymentPeriods
+  onAutoGeneratePaymentPeriods,
+  onRemoveDuplicates,
+  paymentPeriodsCount = 0
 }: CNAMBondsTabProps) {
   // Create bond from predefined template
   const createBondFromTemplate = (templateId: string) => {
@@ -150,9 +131,10 @@ export function CNAMBondsTab({
   };
 
   const updateCnamBond = (bondId: string, updates: Partial<CNAMBondLocation>) => {
-    setCnamBonds(prev => prev.map(bond => 
+    const updatedBonds = cnamBonds.map(bond => 
       bond.id === bondId ? { ...bond, ...updates } : bond
-    ));
+    );
+    setCnamBonds(updatedBonds);
   };
 
   const activeBond = cnamBonds.find(b => b.id === activeCnamBond);
@@ -175,6 +157,17 @@ export function CNAMBondsTab({
             <CheckCircle className="h-4 w-4 mr-2" />
             Auto-Calculer Gaps
           </Button>
+          {onRemoveDuplicates && paymentPeriodsCount > 0 && (
+            <Button 
+              onClick={onRemoveDuplicates}
+              size="sm" 
+              variant="outline"
+              className="bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100"
+            >
+              <X className="h-4 w-4 mr-2" />
+              Supprimer Doublons ({paymentPeriodsCount})
+            </Button>
+          )}
           <Button 
             onClick={createNewCnamBond}
             size="sm" 
@@ -207,49 +200,31 @@ export function CNAMBondsTab({
         </Alert>
       )}
 
-      {/* Quick Bond Selection */}
+      {/* Quick Bond Selection - Compact */}
       {selectedClient?.cnamId && (
-        <Card className="border-blue-200 bg-blue-50">
-          <CardHeader>
-            <CardTitle className="text-blue-900 text-base">Bonds Prédéfinis CNAM</CardTitle>
-            <p className="text-sm text-blue-700">Sélectionnez rapidement un bond standard pour les équipements courants</p>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center gap-2">
+            <Shield className="h-4 w-4 text-blue-600" />
+            <Label className="text-sm font-medium text-blue-900">Bonds Prédéfinis CNAM:</Label>
+          </div>
+          <Select value="" onValueChange={(value) => createBondFromTemplate(value)}>
+            <SelectTrigger className="w-64">
+              <SelectValue placeholder="Sélectionner un bond standard..." />
+            </SelectTrigger>
+            <SelectContent>
               {predefinedBonds.map((bond) => (
-                <Button
-                  key={bond.id}
-                  variant="outline"
-                  className="h-auto p-4 text-left justify-start bg-white hover:bg-blue-100 border-blue-200"
-                  onClick={() => createBondFromTemplate(bond.id)}
-                >
-                  <div className="w-full">
-                    <div className="font-semibold text-sm mb-1">{bond.label}</div>
-                    <div className="text-xs text-gray-600 mb-2">
-                      {bond.coveredMonths} mois • {bond.totalAmount} TND
-                    </div>
-                    <div className="text-xs text-blue-600">
-                      {(bond.totalAmount / bond.coveredMonths).toFixed(2)} TND/mois
+                <SelectItem key={bond.id} value={bond.id}>
+                  <div className="flex flex-col">
+                    <div className="font-medium">{bond.label}</div>
+                    <div className="text-xs text-gray-500">
+                      {bond.coveredMonths} mois • {bond.totalAmount} TND ({(bond.totalAmount / bond.coveredMonths).toFixed(2)} TND/mois)
                     </div>
                   </div>
-                </Button>
+                </SelectItem>
               ))}
-            </div>
-            
-            <div className="mt-4 p-3 bg-blue-100 rounded-lg">
-              <div className="flex items-start gap-2">
-                <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                <div className="text-xs text-blue-800">
-                  <p className="font-medium mb-1">Comment utiliser</p>
-                  <p>
-                    Cliquez sur un bond prédéfini pour le créer automatiquement avec les montants CNAM officiels. 
-                    Vous pourrez ensuite personnaliser les dates et autres détails selon vos besoins.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </SelectContent>
+          </Select>
+        </div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

@@ -3,67 +3,74 @@ import { Check, Star, ArrowRight, Zap } from "lucide-react";
 import Link from "next/link";
 
 const PricingSection: React.FC = () => {
-  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>('monthly');
+  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'quarterly' | 'yearly'>('monthly');
 
   const plans = [
     {
       name: "Starter",
       description: "Parfait pour les petites cliniques",
-      price: { monthly: 199, yearly: 1990 },
-      originalPrice: { monthly: 299, yearly: 2990 },
+      setupFee: 2500,
+      price: { monthly: 299, quarterly: 799, yearly: 2990 },
+      originalPrice: { monthly: 399, quarterly: 999, yearly: 3990 },
       features: [
         "Jusqu'à 500 patients",
         "3 utilisateurs inclus", 
         "Gestion appareils CPAP/VNI",
-        "Paiements basiques",
-        "Support email",
-        "Sauvegarde quotidienne",
-        "Tableaux de bord essentiels"
+        "Support technique par email",
+        "Sauvegarde quotidienne automatique",
+        "Mises à jour de sécurité",
+        "Maintenance préventive mensuelle",
+        "Formation initiale (4 heures)"
       ],
       isPopular: false,
-      ctaText: "Commencer l'essai",
+      ctaText: "Commencer",
       gradient: "from-blue-500 to-blue-600"
     },
     {
       name: "Professional",
       description: "Pour les cliniques en croissance",
-      price: { monthly: 399, yearly: 3990 },
-      originalPrice: { monthly: 599, yearly: 5990 },
+      setupFee: 4500,
+      price: { monthly: 599, quarterly: 1599, yearly: 5990 },
+      originalPrice: { monthly: 799, quarterly: 1999, yearly: 7990 },
       features: [
         "Patients illimités",
         "10 utilisateurs inclus",
         "Gestion complète CNAM",
-        "Workflow automatisé",
-        "Paiements avancés",
-        "API et intégrations",
         "Support prioritaire 24/7",
-        "Analytics avancés",
-        "Sauvegarde temps réel",
-        "Formation incluse"
+        "Sauvegarde temps réel (cloud)",
+        "Mises à jour automatiques",
+        "Maintenance hebdomadaire",
+        "API et intégrations avancées",
+        "Analytics et rapports détaillés",
+        "Formation complète (16 heures)",
+        "Assistance à la migration des données"
       ],
       isPopular: true,
-      ctaText: "Essai gratuit 30 jours",
+      ctaText: "Démarrer maintenant",
       gradient: "from-purple-500 to-purple-600"
     },
     {
       name: "Enterprise",
-      description: "Solution sur mesure",
-      price: { monthly: null, yearly: null },
-      originalPrice: { monthly: null, yearly: null },
+      description: "Solution sur mesure avec support dédié",
+      setupFee: null,
+      price: { monthly: null, quarterly: null, yearly: null },
+      originalPrice: { monthly: null, quarterly: null, yearly: null },
       features: [
         "Tout du plan Professional",
         "Utilisateurs illimités",
-        "Infrastructure dédiée",
-        "SLA garanti 99.9%",
-        "Support dédié",
-        "Formation sur site",
-        "Développements sur mesure",
-        "Intégration systèmes existants",
-        "Conformité avancée",
-        "Audit et reporting"
+        "Serveur dédié haute performance",
+        "SLA garanti 99.9% uptime",
+        "Gestionnaire de compte dédié",
+        "Support sur site disponible",
+        "Développements personnalisés",
+        "Intégration complète ERP/CRM",
+        "Audit de sécurité trimestriel",
+        "Formation continue illimitée",
+        "Backup géo-redondant",
+        "Environnement de test dédié"
       ],
       isPopular: false,
-      ctaText: "Contactez-nous",
+      ctaText: "Demander un devis",
       gradient: "from-gray-700 to-gray-800"
     }
   ];
@@ -101,6 +108,19 @@ const PricingSection: React.FC = () => {
               Mensuel
             </button>
             <button
+              onClick={() => setBillingPeriod('quarterly')}
+              className={`px-6 py-2 rounded-full text-sm font-medium transition-all relative ${
+                billingPeriod === 'quarterly'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Trimestriel
+              <span className="absolute -top-2 -right-1 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full">
+                -16%
+              </span>
+            </button>
+            <button
               onClick={() => setBillingPeriod('yearly')}
               className={`px-6 py-2 rounded-full text-sm font-medium transition-all relative ${
                 billingPeriod === 'yearly'
@@ -110,7 +130,7 @@ const PricingSection: React.FC = () => {
             >
               Annuel
               <span className="absolute -top-2 -right-1 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full">
-                -33%
+                -25%
               </span>
             </button>
           </div>
@@ -143,22 +163,41 @@ const PricingSection: React.FC = () => {
                   <p className="text-gray-600 mb-6">{plan.description}</p>
                   
                   {plan.price.monthly ? (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
+                      {/* Setup Fee */}
+                      {plan.setupFee && (
+                        <div className="bg-gray-50 rounded-lg p-3 mb-4">
+                          <div className="text-sm text-gray-600">Frais d'installation unique</div>
+                          <div className="text-2xl font-bold text-gray-900">{plan.setupFee} DT</div>
+                        </div>
+                      )}
+                      
+                      {/* Recurring Price */}
                       <div className="flex items-end justify-center space-x-2">
                         <span className="text-5xl font-bold text-gray-900">
-                          {billingPeriod === 'monthly' ? plan.price.monthly : Math.round(plan.price.yearly! / 12)}
+                          {billingPeriod === 'monthly' ? plan.price.monthly : 
+                           billingPeriod === 'quarterly' ? Math.round(plan.price.quarterly! / 3) :
+                           Math.round(plan.price.yearly! / 12)}
                         </span>
                         <span className="text-xl text-gray-600 mb-2">DT</span>
                         <span className="text-gray-500">/mois</span>
                       </div>
                       <div className="flex items-center justify-center space-x-2 text-sm">
                         <span className="line-through text-gray-400">
-                          {billingPeriod === 'monthly' ? plan.originalPrice.monthly : Math.round(plan.originalPrice.yearly! / 12)} DT
+                          {billingPeriod === 'monthly' ? plan.originalPrice.monthly : 
+                           billingPeriod === 'quarterly' ? Math.round(plan.originalPrice.quarterly! / 3) :
+                           Math.round(plan.originalPrice.yearly! / 12)} DT
                         </span>
                         <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-medium">
-                          Économisez {billingPeriod === 'monthly' ? '33%' : '50%'}
+                          Économisez {billingPeriod === 'monthly' ? '25%' : 
+                                      billingPeriod === 'quarterly' ? '20%' : '25%'}
                         </span>
                       </div>
+                      {billingPeriod === 'quarterly' && (
+                        <p className="text-sm text-gray-500">
+                          Facturé {plan.price.quarterly} DT tous les 3 mois
+                        </p>
+                      )}
                       {billingPeriod === 'yearly' && (
                         <p className="text-sm text-gray-500">
                           Facturé {plan.price.yearly} DT/an
@@ -169,6 +208,7 @@ const PricingSection: React.FC = () => {
                     <div className="text-center">
                       <div className="text-3xl font-bold text-gray-900 mb-2">Sur mesure</div>
                       <p className="text-gray-600">Tarification adaptée</p>
+                      <p className="text-sm text-gray-500 mt-2">Installation et support inclus</p>
                     </div>
                   )}
                 </div>
@@ -202,24 +242,51 @@ const PricingSection: React.FC = () => {
           ))}
         </div>
 
+        {/* Setup Fee Information */}
+        <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl p-8 mb-12 border border-blue-100">
+          <h3 className="text-2xl font-bold text-gray-900 mb-4 text-center">
+            Frais d'installation uniques
+          </h3>
+          <p className="text-lg text-gray-600 text-center mb-6">
+            L'installation comprend la configuration complète, la migration des données, et la formation de votre équipe
+          </p>
+          <div className="grid md:grid-cols-3 gap-6">
+            <div className="bg-white rounded-xl p-6 text-center shadow-sm">
+              <div className="text-3xl font-bold text-blue-600 mb-2">2 500 DT</div>
+              <div className="text-gray-600 font-medium">Plan Starter</div>
+              <div className="text-sm text-gray-500 mt-2">Installation en 3 jours</div>
+            </div>
+            <div className="bg-white rounded-xl p-6 text-center shadow-sm border-2 border-purple-200">
+              <div className="text-3xl font-bold text-purple-600 mb-2">4 500 DT</div>
+              <div className="text-gray-600 font-medium">Plan Professional</div>
+              <div className="text-sm text-gray-500 mt-2">Installation en 5 jours</div>
+            </div>
+            <div className="bg-white rounded-xl p-6 text-center shadow-sm">
+              <div className="text-3xl font-bold text-gray-600 mb-2">Sur devis</div>
+              <div className="text-gray-600 font-medium">Plan Enterprise</div>
+              <div className="text-sm text-gray-500 mt-2">Installation personnalisée</div>
+            </div>
+          </div>
+        </div>
+
         {/* Trust Indicators */}
         <div className="text-center bg-white rounded-2xl p-8 border border-gray-100 shadow-sm">
           <div className="grid md:grid-cols-4 gap-8">
             <div className="text-center">
               <div className="text-3xl font-bold text-gray-900 mb-2">30 jours</div>
-              <div className="text-gray-600">Essai gratuit</div>
+              <div className="text-gray-600">Garantie satisfait</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold text-gray-900 mb-2">0 DT</div>
-              <div className="text-gray-600">Frais d'installation</div>
+              <div className="text-3xl font-bold text-gray-900 mb-2">99.9%</div>
+              <div className="text-gray-600">Disponibilité garantie</div>
             </div>
             <div className="text-center">
               <div className="text-3xl font-bold text-gray-900 mb-2">24/7</div>
-              <div className="text-gray-600">Support inclus</div>
+              <div className="text-gray-600">Support et maintenance</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold text-gray-900 mb-2">RGPD</div>
-              <div className="text-gray-600">Compliant</div>
+              <div className="text-3xl font-bold text-gray-900 mb-2">ISO 27001</div>
+              <div className="text-gray-600">Sécurité certifiée</div>
             </div>
           </div>
         </div>

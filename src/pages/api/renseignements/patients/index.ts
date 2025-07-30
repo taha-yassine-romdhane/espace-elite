@@ -24,6 +24,54 @@ export default async function handler(
 
   if (req.method === 'GET') {
     try {
+      const { search, cnam, diagnostic } = req.query;
+
+      // Build where clause for advanced filtering
+      const whereClause: any = {};
+
+      // Search filter - search across multiple fields
+      if (search && typeof search === 'string' && search.trim().length >= 2) {
+        const searchTerm = search.trim().toLowerCase();
+        whereClause.OR = [
+          { firstName: { contains: searchTerm, mode: 'insensitive' } },
+          { lastName: { contains: searchTerm, mode: 'insensitive' } },
+          { telephone: { contains: searchTerm } },
+          { cin: { contains: searchTerm } },
+          // Combined name search
+          {
+            AND: [
+              { firstName: { contains: searchTerm.split(' ')[0], mode: 'insensitive' } },
+              { lastName: { contains: searchTerm.split(' ').slice(1).join(' '), mode: 'insensitive' } }
+            ]
+          }
+        ];
+      }
+
+      // CNAM filter
+      if (cnam === 'true') {
+        whereClause.cnamId = { not: null };
+      } else if (cnam === 'false') {
+        whereClause.OR = [
+          { cnamId: null },
+          { cnamId: '' }
+        ];
+      }
+
+      // Diagnostic filter
+      if (diagnostic === 'true') {
+        whereClause.diagnostics = {
+          some: {
+            status: 'PENDING'
+          }
+        };
+      } else if (diagnostic === 'false') {
+        whereClause.diagnostics = {
+          none: {
+            status: 'PENDING'
+          }
+        };
+      }
+
       const patients = await prisma.patient.findMany({
         select: {
           id: true,
@@ -31,10 +79,24 @@ export default async function handler(
           lastName: true,
           telephone: true,
           cin: true,
+          cnamId: true,
+          diagnostics: {
+            where: {
+              status: 'PENDING'
+            },
+            select: {
+              id: true,
+              status: true
+            }
+          }
         },
-        orderBy: {
-          lastName: 'asc',
-        },
+        where: whereClause,
+        orderBy: [
+          { lastName: 'asc' },
+          { firstName: 'asc' }
+        ],
+        // Limit results for performance when no search term is provided
+        take: search && search.length >= 2 ? undefined : 100,
       });
 
       // Transform data to match expected format
@@ -50,10 +112,12 @@ export default async function handler(
           name: fullName || 'Patient sans nom',
           telephone: patient.telephone,
           cin: patient.cin,
+          cnamId: patient.cnamId,
+          hasOngoingDiagnostic: patient.diagnostics && patient.diagnostics.length > 0,
         };
       });
 
-      console.log('Transformed patients for response:', transformedPatients);
+      console.log(`Found ${transformedPatients.length} patients with filters:`, { search, cnam, diagnostic });
 
       return res.status(200).json({ patients: transformedPatients });
     } catch (error) {

@@ -53,7 +53,11 @@ interface PaymentAssignment {
     bondType: string;
     currentStep: number;
     totalSteps: number;
-    status: string;
+    status: 'en_attente_approbation' | 'approuve' | 'termine' | 'refuse';
+    notes?: string;
+    bondAmount?: number;
+    devicePrice?: number;
+    complementAmount?: number;
   };
 }
 

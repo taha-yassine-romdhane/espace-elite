@@ -165,7 +165,7 @@ export default function EnhancedRentalOverview({ rental, onUpdate }: EnhancedRen
         <CardContent className="space-y-4">
           <div className="flex items-start gap-3">
             <Package className="h-5 w-5 text-blue-600 mt-1" />
-            <div>
+            <div className="flex-1">
               <div className="font-medium text-lg">{rental.medicalDevice?.name || "Appareil inconnu"}</div>
               <div className="text-sm text-gray-600">{rental.medicalDevice?.type || "Type inconnu"}</div>
               {rental.medicalDevice?.serialNumber && (
@@ -180,6 +180,26 @@ export default function EnhancedRentalOverview({ rental, onUpdate }: EnhancedRen
               )}
             </div>
           </div>
+          
+          {/* Accessories Section */}
+          {rental.accessories && rental.accessories.length > 0 && (
+            <div className="mt-4 pt-4 border-t">
+              <div className="text-sm font-medium text-gray-700 mb-2">Accessoires inclus:</div>
+              <div className="space-y-2">
+                {rental.accessories.map((accessory: any, index: number) => (
+                  <div key={index} className="flex justify-between items-center text-sm">
+                    <span className="text-gray-600">
+                      • {accessory.product?.name || `Accessoire ${accessory.productId}`} 
+                      {accessory.quantity > 1 && ` (x${accessory.quantity})`}
+                    </span>
+                    <span className="text-gray-500">
+                      {accessory.unitPrice > 0 ? `${accessory.unitPrice} TND/jour` : 'Inclus'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -206,15 +226,15 @@ export default function EnhancedRentalOverview({ rental, onUpdate }: EnhancedRen
                 <div>
                   <Label htmlFor="startDate">Date de début</Label>
                   <DatePicker
-                    date={editData.startDate}
-                    onSelect={(date) => setEditData({ ...editData, startDate: date })}
+                    value={editData.startDate || undefined}
+                    onChange={(date) => setEditData({ ...editData, startDate: date || null })}
                   />
                 </div>
                 <div>
                   <Label htmlFor="endDate">Date de fin</Label>
                   <DatePicker
-                    date={editData.endDate}
-                    onSelect={(date) => setEditData({ ...editData, endDate: date })}
+                    value={editData.endDate || undefined}
+                    onChange={(date) => setEditData({ ...editData, endDate: date || null })}
                   />
                 </div>
               </div>
@@ -313,18 +333,18 @@ export default function EnhancedRentalOverview({ rental, onUpdate }: EnhancedRen
             </div>
           </div>
           
-          {rental.metadata?.urgentRental && (
+          {rental.configuration?.urgentRental && (
             <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200">
               <AlertTriangle className="h-3 w-3 mr-1" />
               Location Urgente
             </Badge>
           )}
           
-          {rental.metadata?.totalPaymentAmount && (
+          {rental.configuration?.totalPaymentAmount && (
             <div>
               <div className="text-sm text-gray-600">Montant Total</div>
               <div className="font-medium text-lg text-blue-600">
-                {rental.metadata.totalPaymentAmount} TND
+                {rental.configuration.totalPaymentAmount} TND
               </div>
             </div>
           )}

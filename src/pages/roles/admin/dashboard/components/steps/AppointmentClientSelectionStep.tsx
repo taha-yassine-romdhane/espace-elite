@@ -31,8 +31,6 @@ export function AppointmentClientSelectionStep({
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
   
-  // For appointments, we only work with patients
-  const clientType = 'patient';
 
   // Fetch patients only for appointments
   const { data: patients, isLoading: patientsLoading, error: patientsError } = useQuery({
@@ -301,13 +299,11 @@ export function AppointmentClientSelectionStep({
                 beneficiaire: '' as any,
                 caisseAffiliation: 'CNSS' as any,
                 cnam: false,
-                description1: '',
-                description2: '',
               }}
               onInputChange={() => {}}
               onFileChange={() => {}}
               onBack={() => setIsCreateFormOpen(false)}
-              onNext={handleCreatePatient}
+              onNext={() => handleCreatePatient({})}
             />
           </div>
         </DialogContent>

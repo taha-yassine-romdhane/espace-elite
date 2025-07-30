@@ -22,6 +22,7 @@ import {
   XCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "@/components/ui/use-toast";
 
 interface RentalProduct {
   id: string;
@@ -73,8 +74,8 @@ export function EnhancedRentalDetailsStep({
       productId: product.id,
       startDate: new Date(),
       endDate: addMonths(new Date(), 1),
-      monthlyRate: product.rentalPrice || 0,
-      dailyRate: (product.rentalPrice || 0) / 30,
+      monthlyRate: (product.rentalPrice || 0) * 30, // Convert daily to monthly
+      dailyRate: product.rentalPrice || 0, // Keep the original daily rate
       isOpenEnded: false,
       urgentRental: false,
       estimatedDuration: 30
@@ -127,13 +128,21 @@ export function EnhancedRentalDetailsStep({
 
   // Calculate total rental cost for a period
   const calculatePeriodCost = (period: RentalPeriod) => {
+    const dailyRate = Number(period.dailyRate) || 0;
+    
+    // For open-ended rentals, return daily rate only (no multiplication)
+    if (period.isOpenEnded) {
+      return dailyRate;
+    }
+    
+    // For fixed periods, calculate total based on duration
     if (!period.endDate && !period.estimatedDuration) return 0;
     
     const days = period.endDate 
       ? differenceInDays(period.endDate, period.startDate)
       : period.estimatedDuration || 30;
     
-    return days * period.dailyRate;
+    return days * dailyRate;
   };
 
   // Calculate total rental cost
@@ -193,6 +202,34 @@ export function EnhancedRentalDetailsStep({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validation
+    if (!globalStartDate) {
+      toast({
+        title: "Date de début requise",
+        description: "Veuillez sélectionner une date de début pour la location",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!isGlobalOpenEnded && !globalEndDate) {
+      toast({
+        title: "Date de fin requise",
+        description: "Veuillez sélectionner une date de fin ou cocher 'Location ouverte'",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!isGlobalOpenEnded && globalEndDate && globalStartDate >= globalEndDate) {
+      toast({
+        title: "Dates invalides",
+        description: "La date de fin doit être postérieure à la date de début",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     const rentalData = {
       globalStartDate,
       globalEndDate,
@@ -209,8 +246,9 @@ export function EnhancedRentalDetailsStep({
   };
 
   return (
-    <div className="space-y-6 max-h-[70vh] overflow-y-auto">
-      <div>
+    <div className="flex flex-col h-full">
+      {/* Header - Fixed */}
+      <div className="flex-shrink-0 mb-6">
         <h2 className="text-xl font-semibold text-blue-900 mb-2">
           Configuration Avancée de Location
         </h2>
@@ -218,6 +256,9 @@ export function EnhancedRentalDetailsStep({
           Configurez les détails précis de chaque appareil et gérez les périodes de location
         </p>
       </div>
+
+      {/* Scrollable Content */}
+      <div className="flex-1 overflow-y-auto space-y-6 pr-2">
 
       {/* Rental Gaps Alert */}
       {rentalGaps.length > 0 && (
@@ -351,9 +392,11 @@ export function EnhancedRentalDetailsStep({
           const period = productRentalPeriods.find(p => p.productId === product.id);
           if (!period) return null;
 
-          const estimatedDays = period.endDate 
-            ? differenceInDays(period.endDate, period.startDate)
-            : period.estimatedDuration || 30;
+          const estimatedDays = period.isOpenEnded 
+            ? 0 // For open-ended, don't show a specific duration
+            : period.endDate 
+              ? differenceInDays(period.endDate, period.startDate)
+              : period.estimatedDuration || 30;
 
           return (
             <Card key={product.id} className="border-blue-200">
@@ -366,28 +409,30 @@ export function EnhancedRentalDetailsStep({
                     {product.name}
                   </div>
                   <div className="text-sm text-gray-600">
-                    Qté: {product.quantity} × {period.dailyRate.toFixed(2)} TND/jour
+                    Qté: {product.quantity} × {(Number(period.dailyRate) || 0).toFixed(2)} TND/jour
                   </div>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Duration Presets */}
-                <div className="space-y-2">
-                  <Label className="text-sm">Durées prédéfinies</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {durationPresets.map((preset) => (
-                      <Button
-                        key={preset.days}
-                        variant="outline"
-                        size="sm"
-                        onClick={() => applyDurationPreset(product.id, preset.days)}
-                        className="text-xs"
-                      >
-                        {preset.label}
-                      </Button>
-                    ))}
+                {/* Duration Presets - Hidden for open-ended rentals */}
+                {!period.isOpenEnded && (
+                  <div className="space-y-2">
+                    <Label className="text-sm">Durées prédéfinies</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {durationPresets.map((preset) => (
+                        <Button
+                          key={preset.days}
+                          variant="outline"
+                          size="sm"
+                          onClick={() => applyDurationPreset(product.id, preset.days)}
+                          className="text-xs"
+                        >
+                          {preset.label}
+                        </Button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Date Range */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -469,26 +514,54 @@ export function EnhancedRentalDetailsStep({
 
                 {/* Duration & Cost Summary */}
                 <div className="bg-gray-50 p-3 rounded-lg">
-                  <div className="grid grid-cols-3 gap-4 text-center">
-                    <div>
-                      <div className="text-xs text-gray-600">Durée</div>
-                      <div className="font-semibold text-sm">
-                        {estimatedDays} jour{estimatedDays > 1 ? 's' : ''}
+                  {period.isOpenEnded ? (
+                    // Open-ended rental display
+                    <div className="text-center space-y-2">
+                      <div className="flex items-center justify-center gap-2 text-orange-600">
+                        <Clock className="h-4 w-4" />
+                        <span className="font-medium">Location Ouverte</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 text-center">
+                        <div>
+                          <div className="text-xs text-gray-600">Tarif journalier</div>
+                          <div className="font-semibold text-sm">
+                            {(Number(period.dailyRate) || 0).toFixed(2)} TND/jour
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-600">Coût total (×{product.quantity})</div>
+                          <div className="font-semibold text-sm text-blue-600">
+                            {((Number(period.dailyRate) || 0) * product.quantity).toFixed(2)} TND/jour
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-xs text-orange-600 bg-orange-50 p-2 rounded">
+                        Facturation au jour, selon durée réelle d'utilisation
                       </div>
                     </div>
-                    <div>
-                      <div className="text-xs text-gray-600">Coût unitaire</div>
-                      <div className="font-semibold text-sm">
-                        {calculatePeriodCost(period).toFixed(2)} TND
+                  ) : (
+                    // Fixed duration rental display
+                    <div className="grid grid-cols-3 gap-4 text-center">
+                      <div>
+                        <div className="text-xs text-gray-600">Durée</div>
+                        <div className="font-semibold text-sm">
+                          {estimatedDays} jour{estimatedDays > 1 ? 's' : ''}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-600">Coût unitaire</div>
+                        <div className="font-semibold text-sm">
+                          {calculatePeriodCost(period).toFixed(2)} TND
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-600">Coût total</div>
+                        <div className="font-semibold text-sm text-blue-600">
+                          {(calculatePeriodCost(period) * product.quantity).toFixed(2)} TND
+                        </div>
                       </div>
                     </div>
-                    <div>
-                      <div className="text-xs text-gray-600">Coût total</div>
-                      <div className="font-semibold text-sm text-blue-600">
-                        {(calculatePeriodCost(period) * product.quantity).toFixed(2)} TND
-                      </div>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -524,17 +597,24 @@ export function EnhancedRentalDetailsStep({
             <div className="text-right">
               <div className="text-2xl font-bold text-blue-900">
                 {calculateTotalCost().toFixed(2)} TND
+                {productRentalPeriods.some(p => p.isOpenEnded) && <span className="text-sm">/jour</span>}
               </div>
               <div className="text-sm text-blue-600">
-                {productRentalPeriods.some(p => p.isOpenEnded) && "* Coût estimé pour durée indéterminée"}
+                {productRentalPeriods.some(p => p.isOpenEnded) && productRentalPeriods.some(p => !p.isOpenEnded) && 
+                  "* Coût mixte: fixe + journalier"}
+                {productRentalPeriods.every(p => p.isOpenEnded) && 
+                  "* Tarif journalier pour location ouverte"}
+                {productRentalPeriods.some(p => p.isOpenEnded) && !productRentalPeriods.some(p => !p.isOpenEnded) && 
+                  "* Coût estimé pour durée indéterminée"}
               </div>
             </div>
           </div>
         </CardContent>
       </Card>
+      </div>
 
-      {/* Navigation */}
-      <div className="flex justify-between pt-4">
+      {/* Navigation - Fixed at bottom */}
+      <div className="flex-shrink-0 flex justify-between pt-4 border-t bg-white">
         <Button type="button" variant="outline" onClick={onBack}>
           ← Retour
         </Button>

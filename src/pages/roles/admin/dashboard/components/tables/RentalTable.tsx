@@ -236,10 +236,10 @@ export function RentalTable({ onViewDetails, onEdit }: RentalTableProps) {
 
   // Function to get CNAM info summary
   const getCnamSummary = (rental: any) => {
-    const metadata = rental.metadata || {};
-    const cnamEligible = metadata.cnamEligible || false;
+    const configuration = rental.configuration || {};
+    const cnamEligible = configuration.cnamEligible || false;
     const cnamBonds = rental.cnamBonds || [];
-    const urgentRental = metadata.urgentRental || false;
+    const urgentRental = configuration.urgentRental || false;
     
     if (!cnamEligible || cnamBonds.length === 0) {
       return {
@@ -285,42 +285,31 @@ export function RentalTable({ onViewDetails, onEdit }: RentalTableProps) {
 
   // Function to get device parameters summary
   const getDeviceParametersSummary = (rental: any) => {
-    const metadata = rental.metadata || {};
-    const deviceParameters = metadata.deviceParameters || {};
-    const paramKeys = Object.keys(deviceParameters);
-    
-    if (paramKeys.length === 0) {
-      return "Aucun paramètre";
-    }
-
-    // Show key parameters based on device type
+    // TODO: Implement proper device parameters fetching from MedicalDeviceParametre table
+    // For now, return a placeholder since device parameters should be fetched separately
     const deviceType = rental.medicalDevice?.type || 'UNKNOWN';
-    let summary = '';
     
-    if (deviceParameters.pression) {
-      summary += `Pression: ${deviceParameters.pression}`;
-    }
-    if (deviceParameters.ipap) {
-      summary += `IPAP: ${deviceParameters.ipap}`;
-    }
-    if (deviceParameters.debit) {
-      summary += `Débit: ${deviceParameters.debit}`;
+    // Check if we have accessories to show
+    const accessories = rental.accessories || [];
+    if (accessories.length > 0) {
+      return `${accessories.length} accessoire${accessories.length > 1 ? 's' : ''}`;
     }
     
-    return summary || `${paramKeys.length} paramètre${paramKeys.length > 1 ? 's' : ''}`;
+    return "Paramètres à charger";
   };
 
   // Function to calculate total rental amount
   const getTotalAmount = (rental: any) => {
-    const metadata = rental.metadata || {};
-    return metadata.totalPaymentAmount || 0;
+    const configuration = rental.configuration || {};
+    const amount = configuration.totalPaymentAmount || 0;
+    return Number(amount);
   };
 
   // Function to get deposit info
   const getDepositInfo = (rental: any) => {
-    const metadata = rental.metadata || {};
-    const depositAmount = metadata.depositAmount || 0;
-    const depositMethod = metadata.depositMethod || 'N/A';
+    const configuration = rental.configuration || {};
+    const depositAmount = Number(configuration.depositAmount || 0);
+    const depositMethod = configuration.depositMethod || 'N/A';
     
     return { amount: depositAmount, method: depositMethod };
   };
@@ -508,8 +497,8 @@ export function RentalTable({ onViewDetails, onEdit }: RentalTableProps) {
   const currentRentals = filteredRentals.slice(startIndex, endIndex);
 
   return (
-    <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
-      <div className="bg-gradient-to-r from-blue-600 to-blue-800 px-6 py-4">
+    <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+      <div className="bg-gradient-to-r from-[#1e3a8a] to-blue-900 px-6 py-4">
         <div className="flex justify-between items-center">
           <h3 className="text-xl font-bold text-white">Gestion des Locations</h3>
           <div className="text-blue-100 text-sm">
@@ -519,17 +508,17 @@ export function RentalTable({ onViewDetails, onEdit }: RentalTableProps) {
       </div>
 
       {/* Search and Filters */}
-      <div className="p-6 border-b border-slate-200 bg-slate-50">
+      <div className="p-6 border-b border-gray-100 bg-gradient-to-br from-blue-50 to-white">
         <div className="flex flex-col gap-4">
           {/* Search bar */}
           <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 text-slate-400" />
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+              <Search className="h-5 w-5 text-blue-600" />
             </div>
             <input
               type="text"
               placeholder="Rechercher par client, appareil, série, CNAM, téléphone, ID..."
-              className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 text-sm"
+              className="w-full pl-12 pr-4 py-3 bg-white border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-[#1e3a8a] transition-all duration-200 text-sm shadow-sm hover:shadow-md"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -541,7 +530,7 @@ export function RentalTable({ onViewDetails, onEdit }: RentalTableProps) {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+              className="px-4 py-3 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-[#1e3a8a] bg-white text-sm shadow-sm hover:shadow-md transition-all duration-200"
             >
               <option value="all">Tous les statuts</option>
               <option value="ACTIVE">Actif</option>
@@ -555,7 +544,7 @@ export function RentalTable({ onViewDetails, onEdit }: RentalTableProps) {
             <select
               value={clientTypeFilter}
               onChange={(e) => setClientTypeFilter(e.target.value)}
-              className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+              className="px-4 py-3 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-[#1e3a8a] bg-white text-sm shadow-sm hover:shadow-md transition-all duration-200"
             >
               <option value="all">Tous les clients</option>
               <option value="patient">Patients</option>
@@ -566,7 +555,7 @@ export function RentalTable({ onViewDetails, onEdit }: RentalTableProps) {
             <select
               value={deviceTypeFilter}
               onChange={(e) => setDeviceTypeFilter(e.target.value)}
-              className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+              className="px-4 py-3 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-[#1e3a8a] bg-white text-sm shadow-sm hover:shadow-md transition-all duration-200"
             >
               <option value="all">Tous les appareils</option>
               <option value="CPAP">CPAP</option>
@@ -579,7 +568,7 @@ export function RentalTable({ onViewDetails, onEdit }: RentalTableProps) {
             <select
               value={cnamFilter}
               onChange={(e) => setCnamFilter(e.target.value)}
-              className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+              className="px-4 py-3 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-[#1e3a8a] bg-white text-sm shadow-sm hover:shadow-md transition-all duration-200"
             >
               <option value="all">Tous CNAM</option>
               <option value="eligible">Éligible CNAM</option>
@@ -590,7 +579,7 @@ export function RentalTable({ onViewDetails, onEdit }: RentalTableProps) {
             <select
               value={dateFilter}
               onChange={(e) => setDateFilter(e.target.value)}
-              className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+              className="px-4 py-3 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-[#1e3a8a] bg-white text-sm shadow-sm hover:shadow-md transition-all duration-200"
             >
               <option value="all">Toutes les dates</option>
               <option value="today">Aujourd'hui</option>
@@ -629,7 +618,7 @@ export function RentalTable({ onViewDetails, onEdit }: RentalTableProps) {
       <div className="p-6">
         {isLoading ? (
           <div className="flex justify-center items-center h-40">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-900"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1e3a8a]"></div>
           </div>
         ) : currentRentals && currentRentals.length > 0 ? (
           <div className="overflow-x-auto">
@@ -769,7 +758,7 @@ export function RentalTable({ onViewDetails, onEdit }: RentalTableProps) {
                             <CalendarIcon className="h-3.5 w-3.5 text-red-600" />
                             <span>{rental.endDate ? formatSimpleDate(rental.endDate) : "Indéterminée"}</span>
                           </div>
-                          {rental.metadata?.urgentRental && (
+                          {rental.configuration?.urgentRental && (
                             <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200 text-xs">
                               <AlertTriangle className="h-3 w-3 mr-1" />
                               Urgent
@@ -886,11 +875,11 @@ export function RentalTable({ onViewDetails, onEdit }: RentalTableProps) {
             </Table>
           </div>
         ) : (
-          <div className="border border-slate-200 rounded-lg p-8 text-center text-slate-500">
+          <div className="border border-blue-200 rounded-lg p-8 text-center text-gray-500 bg-blue-50">
             <div className="flex flex-col items-center justify-center space-y-3">
-              <Building2 className="h-12 w-12 text-slate-400" />
-              <h3 className="text-lg font-medium text-slate-900">Aucune location trouvée</h3>
-              <p className="max-w-md text-sm text-slate-500">
+              <Building2 className="h-12 w-12 text-blue-400" />
+              <h3 className="text-lg font-medium text-gray-900">Aucune location trouvée</h3>
+              <p className="max-w-md text-sm text-gray-600">
                 {searchTerm || statusFilter !== 'all' || clientTypeFilter !== 'all' || deviceTypeFilter !== 'all' || cnamFilter !== 'all' || dateFilter !== 'all'
                   ? "Aucune location ne correspond aux critères de recherche. Essayez de modifier les filtres."
                   : "Commencez par créer une nouvelle location en utilisant le bouton \"Commencer une Location\" ci-dessus."
@@ -903,9 +892,9 @@ export function RentalTable({ onViewDetails, onEdit }: RentalTableProps) {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="bg-slate-50 px-6 py-4 border-t border-slate-200">
+        <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
           <div className="flex items-center justify-between">
-            <div className="flex items-center text-sm text-slate-600">
+            <div className="flex items-center text-sm text-gray-600">
               <span>
                 Affichage de {startIndex + 1} à {Math.min(endIndex, totalItems)} sur {totalItems} locations
               </span>
@@ -914,7 +903,7 @@ export function RentalTable({ onViewDetails, onEdit }: RentalTableProps) {
               <button
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
-                className="px-3 py-1 rounded-md text-sm font-medium text-slate-500 hover:text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1 rounded-md text-sm font-medium text-gray-600 hover:text-[#1e3a8a] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Précédent
               </button>
@@ -929,7 +918,7 @@ export function RentalTable({ onViewDetails, onEdit }: RentalTableProps) {
                 }
                 
                 if ((page === 2 && currentPage > 4) || (page === totalPages - 1 && currentPage < totalPages - 3)) {
-                  return <span key={page} className="px-2 text-slate-400">...</span>;
+                  return <span key={page} className="px-2 text-gray-400">...</span>;
                 }
                 
                 return (
@@ -938,8 +927,8 @@ export function RentalTable({ onViewDetails, onEdit }: RentalTableProps) {
                     onClick={() => handlePageChange(page)}
                     className={`px-3 py-1 rounded-md text-sm font-medium ${
                       currentPage === page
-                        ? 'bg-blue-600 text-white'
-                        : 'text-slate-500 hover:text-slate-700'
+                        ? 'bg-[#1e3a8a] text-white'
+                        : 'text-gray-600 hover:text-[#1e3a8a]'
                     }`}
                   >
                     {page}
@@ -950,7 +939,7 @@ export function RentalTable({ onViewDetails, onEdit }: RentalTableProps) {
               <button
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={currentPage === totalPages}
-                className="px-3 py-1 rounded-md text-sm font-medium text-slate-500 hover:text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1 rounded-md text-sm font-medium text-gray-600 hover:text-[#1e3a8a] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Suivant
               </button>

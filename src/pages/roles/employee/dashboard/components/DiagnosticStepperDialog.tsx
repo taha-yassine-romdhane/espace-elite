@@ -36,9 +36,6 @@ export function DiagnosticStepperDialog({ isOpen, onClose }: DiagnosticStepperDi
   // Client Selection State
   const [clientType, setClientType] = useState<"patient" | "societe" | null>(null);
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
-  const [clients, setClients] = useState<[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   // Product Selection State
   const [selectedProducts, setSelectedProducts] = useState<any[]>([]);
@@ -88,31 +85,10 @@ export function DiagnosticStepperDialog({ isOpen, onClose }: DiagnosticStepperDi
     enabled: !!selectedClient,
   });
 
-  // Client Selection Handlers
-  const fetchClients = async (type: "patient" | "societe") => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await fetch(`/api/clients?type=${type}`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch clients");
-      }
-      const data = await response.json();
-      setClients(data);
-    } catch (error) {
-      console.error("Error fetching clients:", error);
-      setError("Erreur lors du chargement des données");
-      setClients([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleClientTypeChange = (type: "patient" | "societe") => {
     setClientType(type);
     setSelectedClient(null);
-    setClients([]);
-    fetchClients(type);
   };
 
   // Product Selection Handlers
@@ -211,8 +187,6 @@ export function DiagnosticStepperDialog({ isOpen, onClose }: DiagnosticStepperDi
     setCurrentStep(1);
     setClientType(null);
     setSelectedClient(null);
-    setClients([]);
-    setError(null);
     setSelectedProducts([]);
     setFollowUpDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
     setSubmitError(null);
@@ -404,8 +378,6 @@ export function DiagnosticStepperDialog({ isOpen, onClose }: DiagnosticStepperDi
                 onClientSelect={setSelectedClient}
                 clientType={clientType}
                 selectedClient={selectedClient}
-                clients={clients}
-                error={error}
                 action="diagnostique"
               />
             )}

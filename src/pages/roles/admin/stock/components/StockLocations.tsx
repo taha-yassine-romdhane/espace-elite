@@ -21,7 +21,7 @@ import { Plus, Eye, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRig
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import StockViewDialog from './StockViewDialog';
-import { LocationForm } from '@/pages/roles/admin/appareils/components/LocationForm';
+import { LocationForm } from '@/components/appareils/LocationForm';
 
 interface StockLocation {
   id: string;

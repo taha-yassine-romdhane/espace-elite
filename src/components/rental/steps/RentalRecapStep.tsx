@@ -49,61 +49,28 @@ export function RentalRecapStep({
 }: RentalRecapStepProps) {
   const [finalNotes, setFinalNotes] = useState("");
 
-  // Auto-calculate gaps based on CNAM bond dates
-  const calculateAutoGaps = () => {
-    if (!paymentData?.cnamBonds || paymentData.cnamBonds.length === 0) return [];
-    
-    const gaps: any[] = [];
-    const rentalStart = new Date(rentalDetails?.globalStartDate || new Date());
-    
-    paymentData.cnamBonds.forEach((bond: any) => {
-      // Gap before CNAM starts (if rental starts before CNAM coverage)
-      if (bond.startDate && new Date(bond.startDate) > rentalStart) {
-        const gapDays = differenceInDays(new Date(bond.startDate), rentalStart);
-        gaps.push({
-          type: 'pre_cnam',
-          title: 'Gap avant couverture CNAM',
-          startDate: rentalStart,
-          endDate: new Date(bond.startDate),
-          duration: gapDays,
-          amount: (calculateTotal() / 30) * gapDays,
-          severity: 'high',
-          bondRef: bond.bondNumber || `Bond ${bond.bondType}`
-        });
-      }
-      
-      // Gap after CNAM ends (if rental continues after CNAM coverage)
-      if (bond.endDate && rentalDetails?.globalEndDate) {
-        const bondEnd = new Date(bond.endDate);
-        const rentalEnd = new Date(rentalDetails.globalEndDate);
-        
-        if (rentalEnd > bondEnd) {
-          const gapDays = differenceInDays(rentalEnd, bondEnd);
-          gaps.push({
-            type: 'post_cnam',
-            title: 'Gap après couverture CNAM',
-            startDate: bondEnd,
-            endDate: rentalEnd,
-            duration: gapDays,
-            amount: (calculateTotal() / 30) * gapDays,
-            severity: 'medium',
-            bondRef: bond.bondNumber || `Bond ${bond.bondType}`
-          });
-        }
-      }
-    });
-    
-    return gaps;
-  };
-
-  const autoCalculatedGaps = calculateAutoGaps();
-  const totalGapAmount = autoCalculatedGaps.reduce((sum, gap) => sum + (gap.amount || 0), 0);
+  // Use gap periods from Step 4 instead of recalculating
+  const autoCalculatedGaps = paymentData?.paymentPeriods?.filter((p: any) => p.isGapPeriod).map((period: any) => ({
+    type: period.gapReason === 'CNAM_PENDING' ? 'pre_cnam' : 'post_cnam',
+    title: period.gapReason === 'CNAM_PENDING' ? 'Gap avant couverture CNAM' : 'Gap après couverture CNAM',
+    startDate: period.startDate,
+    endDate: period.endDate,
+    duration: differenceInDays(period.endDate, period.startDate),
+    amount: period.amount,
+    severity: period.gapReason === 'CNAM_PENDING' ? 'high' : 'medium',
+    bondRef: period.notes || 'Période de gap'
+  })) || [];
+  
+  // Calculate patient payments using validated payment periods from Step 4
+  const gapPayments = paymentData?.paymentPeriods?.filter((p: any) => p.isGapPeriod).reduce((sum: number, period: any) => sum + period.amount, 0) || 0;
+  const totalGapAmount = gapPayments;
 
   // Calculate financial summary
   const totalCnamAmount = paymentData?.cnamBonds?.reduce((sum: number, bond: any) => sum + bond.totalAmount, 0) || 0;
-  const totalDirectPayments = paymentData?.paymentPeriods?.reduce((sum: number, period: any) => sum + period.amount, 0) || 0;
+  const totalDirectPayments = paymentData?.paymentPeriods?.filter((p: any) => !p.isGapPeriod).reduce((sum: number, period: any) => sum + period.amount, 0) || 0;
   const depositAmount = paymentData?.depositAmount || 0;
-  const grandTotal = totalCnamAmount + totalDirectPayments + depositAmount + totalGapAmount;
+  const totalPatientPayment = depositAmount + gapPayments; // Patient pays deposit + gaps
+  const totalExpectedRevenue = totalCnamAmount + depositAmount + gapPayments; // Include all payments
 
   // Get alerts and important dates
   const getImportantDates = () => {
@@ -156,8 +123,9 @@ export function RentalRecapStep({
   const importantDates = getImportantDates();
 
   return (
-    <div className="space-y-6 max-h-[70vh] overflow-y-auto">
-      <div>
+    <div className="flex flex-col h-full">
+      {/* Header - Fixed */}
+      <div className="flex-shrink-0 mb-6">
         <h2 className="text-xl font-semibold text-blue-900 mb-2">
           Récapitulatif Complet de la Location
         </h2>
@@ -165,6 +133,9 @@ export function RentalRecapStep({
           Vérifiez tous les détails avant de finaliser la création de la location
         </p>
       </div>
+
+      {/* Scrollable Content */}
+      <div className="flex-1 overflow-y-auto space-y-6 pr-2">
 
       {/* Critical Alerts */}
       {(autoCalculatedGaps.length > 0 || paymentData?.patientStatus !== 'ACTIVE') && (
@@ -397,7 +368,7 @@ export function RentalRecapStep({
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {autoCalculatedGaps.map((gap, index) => (
+              {autoCalculatedGaps.map((gap: any, index: number) => (
                 <div key={index} className="p-3 bg-orange-50 rounded-lg border border-orange-200">
                   <div className="flex justify-between items-start">
                     <div>
@@ -432,29 +403,52 @@ export function RentalRecapStep({
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <div className="text-sm text-gray-600">Total CNAM</div>
-              <div className="font-semibold text-blue-600">{totalCnamAmount.toFixed(2)} TND</div>
+            <div className="col-span-2">
+              <div className="text-sm font-medium text-gray-700 mb-2">Paiements confirmés:</div>
             </div>
             <div>
-              <div className="text-sm text-gray-600">Paiements directs</div>
-              <div className="font-semibold">{totalDirectPayments.toFixed(2)} TND</div>
+              <div className="text-sm text-gray-600">Caution (payée par patient)</div>
+              <div className="font-semibold text-blue-600">{depositAmount.toFixed(2)} TND</div>
             </div>
             <div>
-              <div className="text-sm text-gray-600">Gaps calculés</div>
-              <div className="font-semibold text-orange-600">{totalGapAmount.toFixed(2)} TND</div>
+              <div className="text-sm text-gray-600">CNAM (payé directement)</div>
+              <div className="font-semibold text-green-600">{totalCnamAmount.toFixed(2)} TND</div>
             </div>
-            <div>
-              <div className="text-sm text-gray-600">Caution</div>
-              <div className="font-semibold">{depositAmount.toFixed(2)} TND</div>
-            </div>
+            
+            {totalGapAmount > 0 && (
+              <>
+                <div className="col-span-2 mt-2">
+                  <div className="text-sm font-medium text-gray-700 mb-2">En attente:</div>
+                </div>
+                <div className="col-span-2">
+                  <div className="text-sm text-gray-600">Gaps CNAM (non payés)</div>
+                  <div className="font-semibold text-orange-600">{totalGapAmount.toFixed(2)} TND</div>
+                  <div className="text-xs text-orange-700">Risque à votre charge si CNAM refuse</div>
+                </div>
+              </>
+            )}
           </div>
           
           <Separator />
           
-          <div className="flex justify-between items-center text-lg">
-            <span className="font-bold">Total Général</span>
-            <span className="font-bold text-green-700">{grandTotal.toFixed(2)} TND</span>
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="font-medium">Total payé par patient:</span>
+              <span className="font-bold text-blue-600">{totalPatientPayment.toFixed(2)} TND</span>
+            </div>
+            <div className="text-xs text-gray-600 ml-4 mb-2">
+              Caution: {depositAmount.toFixed(2)} TND + Gaps: {gapPayments.toFixed(2)} TND
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="font-medium">Total attendu (Patient + CNAM):</span>
+              <span className="font-bold text-green-700">{totalExpectedRevenue.toFixed(2)} TND</span>
+            </div>
+            {totalGapAmount > 0 && (
+              <div className="flex justify-between items-center text-sm text-orange-600">
+                <span>+ Risque gap CNAM:</span>
+                <span className="font-medium">{totalGapAmount.toFixed(2)} TND</span>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -526,9 +520,10 @@ export function RentalRecapStep({
           </div>
         </CardContent>
       </Card>
+      </div>
 
-      {/* Navigation */}
-      <div className="flex justify-between pt-4">
+      {/* Navigation - Fixed at bottom */}
+      <div className="flex-shrink-0 flex justify-between pt-4 border-t bg-white">
         <Button type="button" variant="outline" onClick={onBack}>
           ← Retour aux paiements
         </Button>

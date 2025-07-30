@@ -78,9 +78,10 @@ export function PaymentPeriodsTab({
 
   // Update payment period
   const updatePaymentPeriod = (periodId: string, updates: Partial<RentalPaymentPeriod>) => {
-    setPaymentPeriods(prev => prev.map(period => 
+    const updatedPeriods = paymentPeriods.map(period => 
       period.id === periodId ? { ...period, ...updates } : period
-    ));
+    );
+    setPaymentPeriods(updatedPeriods);
   };
 
   const activePeriod = paymentPeriods.find(p => p.id === activePaymentPeriod);

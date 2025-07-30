@@ -26,10 +26,10 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 
 // Import enhanced components
-import EnhancedRentalOverview from './components/EnhancedRentalOverview';
-import CNAMBondsManagement from './components/CNAMBondsManagement';
-import RentalPeriodsManagement from './components/RentalPeriodsManagement';
-import DeviceParametersManagement from './components/DeviceParametersManagement';
+import EnhancedRentalOverview from '@/components/rentals/EnhancedRentalOverview';
+import CNAMBondsManagement from '@/components/rentals/CNAMBondsManagement';
+import RentalPeriodsManagement from '@/components/rentals/RentalPeriodsManagement';
+import RentalDeviceParameters from '@/components/rentals/RentalDeviceParameters';
 
 export default function RentalDetailsPage() {
   const router = useRouter();
@@ -105,14 +105,6 @@ export default function RentalDetailsPage() {
     handleUpdateRental({ rentalPeriods: periods });
   };
 
-  const handleUpdateDeviceParameters = (parameters: any) => {
-    handleUpdateRental({ 
-      metadata: {
-        ...rental.metadata,
-        deviceParameters: parameters,
-      }
-    });
-  };
 
   if (isLoading) {
     return (
@@ -166,7 +158,7 @@ export default function RentalDetailsPage() {
           <Badge variant="outline" className="text-sm">
             ID: {rental.id}
           </Badge>
-          {rental.metadata?.urgentRental && (
+          {rental.configuration?.urgentRental && (
             <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200">
               <AlertTriangle className="h-3 w-3 mr-1" />
               Urgent
@@ -238,10 +230,21 @@ export default function RentalDetailsPage() {
         </TabsContent>
 
         <TabsContent value="parameters" className="space-y-6">
-          <DeviceParametersManagement 
+          <RentalDeviceParameters 
             rental={rental}
-            deviceParameters={rental.metadata?.deviceParameters || {}}
-            onUpdate={handleUpdateDeviceParameters}
+            deviceParameters={
+              // TODO: Fetch proper device parameters from MedicalDeviceParametre table
+              // For now, show accessories information
+              rental.accessories?.reduce((params: any, accessory: any) => {
+                params[accessory.productId] = {
+                  productName: accessory.product?.name || 'Accessoire',
+                  quantity: accessory.quantity,
+                  unitPrice: accessory.unitPrice,
+                  type: 'ACCESSORY'
+                };
+                return params;
+              }, {}) || {}
+            }
           />
         </TabsContent>
 
@@ -255,7 +258,7 @@ export default function RentalDetailsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {rental.metadata?.totalPaymentAmount?.toFixed(2) || '0.00'} TND
+                  {rental.configuration?.totalPaymentAmount?.toFixed(2) || '0.00'} TND
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Montant total des périodes facturées
@@ -270,10 +273,10 @@ export default function RentalDetailsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {rental.metadata?.depositAmount?.toFixed(2) || '0.00'} TND
+                  {rental.configuration?.depositAmount?.toFixed(2) || '0.00'} TND
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {rental.metadata?.depositMethod || 'Aucun dépôt'}
+                  {rental.configuration?.depositMethod || 'Aucun dépôt'}
                 </p>
               </CardContent>
             </Card>
@@ -285,7 +288,7 @@ export default function RentalDetailsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {rental.cnamBonds?.reduce((sum: number, bond: any) => sum + bond.totalAmount, 0)?.toFixed(2) || '0.00'} TND
+                  {(rental.cnamBonds?.reduce((sum: number, bond: any) => sum + Number(bond.totalAmount), 0) || 0).toFixed(2)} TND
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {rental.cnamBonds?.length || 0} bond(s) CNAM

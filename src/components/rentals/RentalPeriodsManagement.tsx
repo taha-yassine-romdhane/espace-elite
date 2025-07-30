@@ -12,7 +12,6 @@ import {
   CheckCircle,
   Clock,
   CreditCard,
-  Gap,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/badge';
@@ -231,16 +230,16 @@ export default function RentalPeriodsManagement({ rental, rentalPeriods, onUpdat
                 <div>
                   <Label htmlFor="startDate">Date de Début</Label>
                   <DatePicker
-                    date={newPeriod.startDate}
-                    onSelect={(date) => setNewPeriod({ ...newPeriod, startDate: date })}
+                    value={newPeriod.startDate}
+                    onChange={(date) => setNewPeriod({ ...newPeriod, startDate: date })}
                   />
                 </div>
                 
                 <div>
                   <Label htmlFor="endDate">Date de Fin</Label>
                   <DatePicker
-                    date={newPeriod.endDate}
-                    onSelect={(date) => setNewPeriod({ ...newPeriod, endDate: date })}
+                    value={newPeriod.endDate}
+                    onChange={(date) => setNewPeriod({ ...newPeriod, endDate: date })}
                   />
                 </div>
                 
@@ -468,16 +467,16 @@ export default function RentalPeriodsManagement({ rental, rentalPeriods, onUpdat
                 <div>
                   <Label htmlFor="editStartDate">Date de Début</Label>
                   <DatePicker
-                    date={editingPeriod.startDate}
-                    onSelect={(date) => setEditingPeriod({ ...editingPeriod, startDate: date! })}
+                    value={editingPeriod.startDate}
+                    onChange={(date) => setEditingPeriod({ ...editingPeriod, startDate: date! })}
                   />
                 </div>
                 
                 <div>
                   <Label htmlFor="editEndDate">Date de Fin</Label>
                   <DatePicker
-                    date={editingPeriod.endDate}
-                    onSelect={(date) => setEditingPeriod({ ...editingPeriod, endDate: date! })}
+                    value={editingPeriod.endDate}
+                    onChange={(date) => setEditingPeriod({ ...editingPeriod, endDate: date! })}
                   />
                 </div>
                 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -11,18 +11,38 @@ import {
   Calendar, 
   Clock, 
   User, 
-  Building2, 
   FileText, 
   CheckCircle2, 
   ArrowRight, 
   ArrowLeft,
-  Phone,
   MapPin,
   Stethoscope
 } from 'lucide-react';
 
 // Import step components
 import { AppointmentClientSelectionStep } from './steps/AppointmentClientSelectionStep';
+
+// Type definitions
+interface Client {
+  id: string;
+  name: string;
+  type: 'patient';
+  telephone?: string;
+  firstName?: string;
+  lastName?: string;
+}
+
+interface AppointmentData {
+  client: Client | null;
+  appointmentType: string;
+  appointmentDate: Date | null;
+  appointmentTime: string;
+  duration: number;
+  location: string;
+  notes: string;
+  priority: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
+  status: 'SCHEDULED' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
+}
 
 interface RdvStepperDialogProps {
   isOpen: boolean;
@@ -35,8 +55,8 @@ export function RdvStepperDialog({ isOpen, onClose }: RdvStepperDialogProps) {
 
   // State management
   const [currentStep, setCurrentStep] = useState(1);
-  const [appointmentData, setAppointmentData] = useState({
-    client: null as any,
+  const [appointmentData, setAppointmentData] = useState<AppointmentData>({
+    client: null,
     appointmentType: '',
     appointmentDate: null as Date | null,
     appointmentTime: '',
@@ -99,7 +119,7 @@ export function RdvStepperDialog({ isOpen, onClose }: RdvStepperDialogProps) {
       onClose();
       resetForm();
     },
-    onError: (error) => {
+    onError: () => {
       toast({
         title: 'Erreur',
         description: 'Impossible de créer le rendez-vous',
@@ -151,8 +171,8 @@ export function RdvStepperDialog({ isOpen, onClose }: RdvStepperDialogProps) {
     scheduledDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
 
     const payload = {
-      patientId: appointmentData.client?.type === 'patient' ? appointmentData.client.id : null,
-      companyId: appointmentData.client?.type === 'company' ? appointmentData.client.id : null,
+      patientId: appointmentData.client ? appointmentData.client.id : null,
+      companyId: null, // Appointments are only for patients
       appointmentType: appointmentData.appointmentType,
       scheduledDate: scheduledDate,
       duration: appointmentData.duration,
@@ -338,7 +358,7 @@ interface AppointmentTypeStepProps {
   location: string;
   priority: string;
   notes: string;
-  onUpdate: (updates: any) => void;
+  onUpdate: (updates: Partial<AppointmentData>) => void;
 }
 
 function AppointmentTypeStep({ 
@@ -350,10 +370,10 @@ function AppointmentTypeStep({
 }: AppointmentTypeStepProps) {
   const appointmentTypes = [
     { value: 'CONSULTATION', label: 'Consultation', icon: <Stethoscope className="h-4 w-4" /> },
-    { value: 'INSTALLATION', label: 'Installation', icon: <FileText className="h-4 w-4" /> },
+    { value: 'LOCATION', label: 'Location', icon: <FileText className="h-4 w-4" /> },
+    { value: 'VENTE', label: 'Vente', icon: <FileText className="h-4 w-4" /> },
+    { value: 'DIAGNOSTIC', label: 'Diagnostic', icon: <FileText className="h-4 w-4" /> },
     { value: 'MAINTENANCE', label: 'Maintenance', icon: <FileText className="h-4 w-4" /> },
-    { value: 'FORMATION', label: 'Formation', icon: <FileText className="h-4 w-4" /> },
-    { value: 'LIVRAISON', label: 'Livraison', icon: <FileText className="h-4 w-4" /> },
     { value: 'RECUPERATION', label: 'Récupération', icon: <FileText className="h-4 w-4" /> }
   ];
 
@@ -406,7 +426,7 @@ function AppointmentTypeStep({
           {priorities.map((prio) => (
             <button
               key={prio.value}
-              onClick={() => onUpdate({ priority: prio.value })}
+              onClick={() => onUpdate({ priority: prio.value as 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT' })}
               className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
                 priority === prio.value
                   ? prio.color
@@ -437,7 +457,7 @@ interface DateTimeStepProps {
   appointmentDate: Date | null;
   appointmentTime: string;
   duration: number;
-  onUpdate: (updates: any) => void;
+  onUpdate: (updates: Partial<AppointmentData>) => void;
 }
 
 function DateTimeStep({ 
@@ -456,8 +476,8 @@ function DateTimeStep({
         <div className="space-y-2">
           <label className="block text-sm font-medium text-gray-700">Date</label>
           <DatePicker
-            value={appointmentDate}
-            onChange={(date) => onUpdate({ appointmentDate: date })}
+            value={appointmentDate || undefined}
+            onChange={(date) => onUpdate({ appointmentDate: date || null })}
             placeholder="Sélectionner une date"
             className="w-full"
           />
@@ -521,15 +541,13 @@ function DateTimeStep({
 }
 
 interface AppointmentSummaryStepProps {
-  appointmentData: any;
+  appointmentData: AppointmentData;
   onSubmit: () => void;
   isLoading: boolean;
 }
 
 function AppointmentSummaryStep({ 
-  appointmentData, 
-  onSubmit, 
-  isLoading 
+  appointmentData
 }: AppointmentSummaryStepProps) {
   const formatDate = (date: Date | null) => {
     if (!date) return 'Date non sélectionnée';
@@ -551,16 +569,10 @@ function AppointmentSummaryStep({
       
       <div className="bg-gray-50 rounded-lg p-4 space-y-4">
         <div className="flex items-center gap-3">
-          {appointmentData.client?.type === 'patient' ? (
-            <User className="h-5 w-5 text-blue-600" />
-          ) : (
-            <Building2 className="h-5 w-5 text-orange-600" />
-          )}
+          <User className="h-5 w-5 text-blue-600" />
           <div>
             <p className="font-medium">{appointmentData.client?.name}</p>
-            <p className="text-sm text-gray-600">
-              {appointmentData.client?.type === 'patient' ? 'Patient' : 'Société'}
-            </p>
+            <p className="text-sm text-gray-600">Patient</p>
           </div>
         </div>
 

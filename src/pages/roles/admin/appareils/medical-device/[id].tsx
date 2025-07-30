@@ -7,7 +7,7 @@ import { DeviceParameters } from '@/components/medicalDevice/DeviceParameters';
 import { DeviceRelations } from '@/components/medicalDevice/DeviceRelations';
 import { DeviceMaintenanceHistory } from '@/components/medicalDevice/DeviceMaintenanceHistory';
 import { DiagnosticDeviceDetails } from '@/components/medicalDevice/DiagnosticDeviceDetails';
-import { DeviceActions } from '../components/DeviceActions';
+import { DeviceActions } from '@/components/appareils/DeviceActions';
 import { Button } from '@/components/ui/button';
 import { ArrowLeftIcon } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';

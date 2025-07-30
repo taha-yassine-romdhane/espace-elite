@@ -4,10 +4,10 @@ import { ClientSelectionStep } from "./steps/ClientSelectionStep";
 import { PaymentStep } from "@/components/steps/PaymentStep";
 import { ProductDialog } from "./dialogs/ProductDialog";
 import { useQuery } from "@tanstack/react-query";
-import { MedicalDeviceForm } from "@/pages/roles/admin/appareils/components/forms/MedicalDeviceForm";
-import { AccessoryForm } from "@/pages/roles/admin/appareils/components/forms/AccessoryForm";
-import { SparePartForm } from "@/pages/roles/admin/appareils/components/forms/SparePartForm";
-import { DiagnosticDeviceForm } from "@/pages/roles/admin/appareils/components/forms/DiagnosticDeviceForm";
+import { MedicalDeviceForm } from "@/components/appareils/forms/MedicalDeviceForm";
+import { AccessoryForm } from "@/components/appareils/forms/AccessoryForm";
+import { SparePartForm } from "@/components/appareils/forms/SparePartForm";
+import { DiagnosticDeviceForm } from "@/components/appareils/forms/DiagnosticDeviceForm";
 import SaleStepperSidebar from "./SaleStepperSidebar";
 import { toast } from "@/components/ui/use-toast";
 
@@ -34,9 +34,6 @@ export function SaleStepperDialog({ isOpen, onClose, action }: StepperDialogProp
   const [clientType, setClientType] = useState<"patient" | "societe" | null>(null);
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
   const [clientDetails, setClientDetails] = useState<any | null>(null);
-  const [clients, setClients] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   // Product Selection State
   const [selectedProducts, setSelectedProducts] = useState<any[]>([]);
@@ -73,25 +70,6 @@ export function SaleStepperDialog({ isOpen, onClose, action }: StepperDialogProp
     },
   });
 
-  // Client Selection Handlers
-  const fetchClients = async (type: "patient" | "societe") => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await fetch(`/api/clients?type=${type}`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch clients");
-      }
-      const data = await response.json();
-      setClients(data);
-    } catch (error) {
-      console.error("Error fetching clients:", error);
-      setError("Erreur lors du chargement des données");
-      setClients([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   // Fetch client details when client is selected
   const fetchClientDetails = useCallback(async (id: string, type: "patient" | "societe") => {
@@ -133,8 +111,6 @@ export function SaleStepperDialog({ isOpen, onClose, action }: StepperDialogProp
     setClientType(type);
     setSelectedClient(null);
     setClientDetails(null);
-    setClients([]);
-    fetchClients(type);
   };
 
   // Product Selection Handlers
@@ -180,8 +156,6 @@ export function SaleStepperDialog({ isOpen, onClose, action }: StepperDialogProp
     setCurrentStep(1);
     setClientType(null);
     setSelectedClient(null);
-    setClients([]);
-    setError(null);
     setSelectedProducts([]);
     setCurrentProductType(null);
     setProductDialogOpen(false);
@@ -353,8 +327,6 @@ export function SaleStepperDialog({ isOpen, onClose, action }: StepperDialogProp
                     onClientSelect={setSelectedClient}
                     clientType={clientType}
                     selectedClient={selectedClient}
-                    clients={clients}
-                    error={error}
                     action={action}
                   />
                 )}
