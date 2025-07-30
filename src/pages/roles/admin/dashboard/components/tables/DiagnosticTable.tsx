@@ -430,8 +430,8 @@ export function DiagnosticTable({ onViewDetails, onEnterResults, onAddDocuments 
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
-      <div className="bg-gradient-to-r from-blue-600 to-blue-800 px-6 py-4">
+    <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+      <div className="bg-gradient-to-r from-[#1e3a8a] to-blue-900 px-6 py-4">
         <div className="flex justify-between items-center">
           <h3 className="text-xl font-bold text-white">Opérations de Diagnostic</h3>
           <div className="flex items-center space-x-4">
@@ -466,17 +466,17 @@ export function DiagnosticTable({ onViewDetails, onEnterResults, onAddDocuments 
       </div>
 
       {/* Search and Filters */}
-      <div className="p-6 border-b border-slate-200 bg-slate-50">
+      <div className="p-6 border-b border-gray-100 bg-gradient-to-br from-blue-50 to-white">
         <div className="flex flex-col gap-4">
           {/* Search bar */}
           <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 text-slate-400" />
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+              <Search className="h-5 w-5 text-blue-600" />
             </div>
             <input
               type="text"
               placeholder="Rechercher par patient, téléphone, région, appareil, ID..."
-              className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 text-sm"
+              className="w-full pl-12 pr-4 py-3 bg-white border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-[#1e3a8a] transition-all duration-200 text-sm shadow-sm hover:shadow-md"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -488,7 +488,7 @@ export function DiagnosticTable({ onViewDetails, onEnterResults, onAddDocuments 
             <select
               value={regionFilter}
               onChange={(e) => setRegionFilter(e.target.value)}
-              className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+              className="px-4 py-3 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-[#1e3a8a] bg-white text-sm shadow-sm hover:shadow-md transition-all duration-200"
             >
               <option value="all">Toutes les régions</option>
               {uniqueRegions.map((region) => (
@@ -502,7 +502,7 @@ export function DiagnosticTable({ onViewDetails, onEnterResults, onAddDocuments 
             <select
               value={technicianFilter}
               onChange={(e) => setTechnicianFilter(e.target.value)}
-              className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+              className="px-4 py-3 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-[#1e3a8a] bg-white text-sm shadow-sm hover:shadow-md transition-all duration-200"
             >
               <option value="all">Tous les techniciens</option>
               {uniqueTechnicians.map((technician) => (
@@ -516,7 +516,7 @@ export function DiagnosticTable({ onViewDetails, onEnterResults, onAddDocuments 
             <select
               value={supervisorFilter}
               onChange={(e) => setSupervisorFilter(e.target.value)}
-              className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+              className="px-4 py-3 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-[#1e3a8a] bg-white text-sm shadow-sm hover:shadow-md transition-all duration-200"
             >
               <option value="all">Tous les superviseurs</option>
               {uniqueSupervisors.map((supervisor) => (
@@ -530,7 +530,7 @@ export function DiagnosticTable({ onViewDetails, onEnterResults, onAddDocuments 
             <select
               value={dateFilter}
               onChange={(e) => setDateFilter(e.target.value)}
-              className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+              className="px-4 py-3 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-[#1e3a8a] bg-white text-sm shadow-sm hover:shadow-md transition-all duration-200"
             >
               <option value="all">Toutes les dates</option>
               <option value="today">Aujourd'hui</option>
@@ -543,7 +543,7 @@ export function DiagnosticTable({ onViewDetails, onEnterResults, onAddDocuments 
             <select
               value={severityFilter}
               onChange={(e) => setSeverityFilter(e.target.value)}
-              className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+              className="px-4 py-3 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-[#1e3a8a] bg-white text-sm shadow-sm hover:shadow-md transition-all duration-200"
             >
               <option value="all">Toutes les sévérités</option>
               <option value="negative">Négatif</option>
@@ -574,7 +574,7 @@ export function DiagnosticTable({ onViewDetails, onEnterResults, onAddDocuments 
         
         {isLoading ? (
           <div className="flex justify-center items-center h-40">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-900"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1e3a8a]"></div>
           </div>
         ) : viewMode === "grouped" && groupedDiagnostics && groupedDiagnostics.length > 0 ? (
           <div className="space-y-4">
@@ -975,8 +975,8 @@ export function DiagnosticTable({ onViewDetails, onEnterResults, onAddDocuments 
                   onClick={() => handlePageChange(page)}
                   className={`px-3 py-1 rounded-md text-sm font-medium ${
                     currentPage === page
-                      ? 'bg-blue-600 text-white'
-                      : 'text-slate-500 hover:text-slate-700'
+                      ? 'bg-[#1e3a8a] text-white'
+                      : 'text-gray-600 hover:text-[#1e3a8a]'
                   }`}
                 >
                   {page}

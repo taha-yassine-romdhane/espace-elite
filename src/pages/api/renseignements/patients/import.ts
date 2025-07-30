@@ -149,7 +149,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             
             const technician = await prisma.user.findFirst({
               where: {
-                role: 'TECHNICIAN',
+                role: 'EMPLOYEE',
                 firstName: {
                   contains: techFirstName,
                   mode: 'insensitive'

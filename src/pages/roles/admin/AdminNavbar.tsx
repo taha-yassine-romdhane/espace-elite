@@ -199,7 +199,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
     };
 
     return (
-        <div className="bg-white border-b border-gray-200 shadow-sm relative z-50">
+        <div className="bg-white border-b border-gray-100 shadow-md relative z-50">
             <div className="px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between items-center h-16">
                     {/* Left Section */}
@@ -207,7 +207,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
                         {/* Mobile Sidebar Toggle */}
                         <button
                             onClick={onSidebarToggle}
-                            className="lg:hidden p-2 rounded-md text-gray-600 hover:text-[#1e3a8a] hover:bg-gray-100 transition-colors"
+                            className="lg:hidden p-2 rounded-lg text-gray-600 hover:text-[#1e3a8a] hover:bg-gray-50 transition-colors"
                         >
                             {sidebarExpanded ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
                         </button>
@@ -243,7 +243,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
                         <div className="relative" ref={notificationsRef}>
                             <button
                                 onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
-                                className="relative p-2 rounded-lg text-gray-600 hover:text-[#1e3a8a] hover:bg-gray-100 transition-colors"
+                                className="relative p-2 rounded-lg text-gray-600 hover:text-[#1e3a8a] hover:bg-gray-50 transition-colors"
                             >
                                 <Bell className="h-5 w-5" />
                                 {unreadCount > 0 && (
@@ -255,7 +255,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
 
                             {/* Notifications Dropdown */}
                             {isNotificationsOpen && (
-                                <div className="absolute right-0 mt-2 w-[38rem] max-w-[95vw] bg-white border border-gray-200 rounded-lg shadow-lg py-2 z-50">
+                                <div className="absolute right-0 mt-2 w-[38rem] max-w-[95vw] bg-white border border-gray-200 rounded-lg shadow-md py-2 z-50">
                                     <div className="px-4 py-2 border-b border-gray-100 flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                             <h3 className="text-sm font-semibold text-gray-900">Notifications</h3>
@@ -336,7 +336,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
                             <div className="relative" ref={profileRef}>
                                 <button
                                     onClick={() => setIsProfileOpen(!isProfileOpen)}
-                                    className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                                    className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-50 transition-colors"
                                 >
                                     <Avatar className="h-8 w-8 ring-2 ring-white shadow-sm">
                                         <AvatarFallback className="bg-gradient-to-br from-[#1e3a8a] to-blue-600 text-white font-semibold">
@@ -356,7 +356,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
 
                                 {/* Profile Dropdown */}
                                 {isProfileOpen && (
-                                    <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg py-2 z-50">
+                                    <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-md py-2 z-50">
                                         {/* User Info */}
                                         <div className="px-4 py-3 border-b border-gray-100">
                                             <div className="flex items-center space-x-3">
@@ -382,15 +382,15 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
 
                                         {/* Menu Items */}
                                         <div className="py-1">
-                                            <a href="/roles/admin/profile" className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors">
+                                            <a href="/roles/admin/profile" className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
                                                 <User className="h-4 w-4 mr-3" />
                                                 Mon Profil
                                             </a>
-                                            <a href="/roles/admin/settings" className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors">
+                                            <a href="/roles/admin/settings" className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
                                                 <Settings className="h-4 w-4 mr-3" />
                                                 Paramètres
                                             </a>
-                                            <a href="/roles/admin/help" className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors">
+                                            <a href="/roles/admin/help" className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
                                                 <HelpCircle className="h-4 w-4 mr-3" />
                                                 Aide & Support
                                             </a>

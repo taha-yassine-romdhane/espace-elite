@@ -29,8 +29,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/components/ui/use-toast';
 
-// Import print styles
-import '@/styles/print.css';
+// Print styles moved to _app.tsx for global access
 
 // Import payment components
 import { ProductPaymentMatrixEnhanced } from '@/components/payment/components/ProductPaymentMatrixEnhanced';

@@ -3,12 +3,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { ClientSelectionStep } from "./steps/ClientSelectionStep";
 import { ProductDialog } from "./dialogs/ProductDialog";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { MedicalDeviceForm } from "@/pages/roles/admin/appareils/components/forms/MedicalDeviceForm";
-import { AccessoryForm } from "@/pages/roles/admin/appareils/components/forms/AccessoryForm";
+import { MedicalDeviceForm } from "@/components/appareils/forms/MedicalDeviceForm";
+import { AccessoryForm } from "@/components/appareils/forms/AccessoryForm";
 import RentStepperSidebar from "./RentStepperSidebar";
 import { toast } from "@/components/ui/use-toast";
 import { ProductSelectionStep } from "./steps/ProductSelectionStep";
-import { RentalDetailsStep } from "./steps/rental/RentalDetailsStep";
+import { RentalDetailsStep } from "@/components/rental/steps/RentalDetailsStep";
 import { PaymentStep } from "@/components/steps/PaymentStep";
 
 interface RentStepperDialogProps {
@@ -34,9 +34,6 @@ export function RentStepperDialog({ isOpen, onClose }: RentStepperDialogProps) {
   const [clientType, setClientType] = useState<"patient" | "societe" | null>(null);
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
   const [clientDetails, setClientDetails] = useState<any | null>(null);
-  const [clients, setClients] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   // Product Selection State
   const [selectedProducts, setSelectedProducts] = useState<any[]>([]);
@@ -100,32 +97,12 @@ export function RentStepperDialog({ isOpen, onClose }: RentStepperDialogProps) {
     }
   }, [fetchedClientDetails]);
 
-  // Client Selection Handlers
-  const fetchClients = async (type: "patient" | "societe") => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await fetch(`/api/clients?type=${type}`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch clients");
-      }
-      const data = await response.json();
-      setClients(data);
-    } catch (error) {
-      console.error("Error fetching clients:", error);
-      setError("Erreur lors du chargement des données");
-      setClients([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   // Handle client type change
   const handleClientTypeChange = (type: "patient" | "societe") => {
     setClientType(type);
     setSelectedClient(null);
     setClientDetails(null);
-    fetchClients(type);
   };
 
   // Product Selection Handlers
@@ -277,8 +254,6 @@ export function RentStepperDialog({ isOpen, onClose }: RentStepperDialogProps) {
                     onClientSelect={setSelectedClient}
                     clientType={clientType}
                     selectedClient={selectedClient}
-                    clients={clients}
-                    error={error}
                     action="location"
                     onNext={handleNext}
                     onClose={handleClose}

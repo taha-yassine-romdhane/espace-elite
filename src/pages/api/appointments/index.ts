@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import prisma from '@/lib/db';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]';
+import { createAppointmentReminderNotification } from '@/lib/notifications';
 
 export default async function handler(
   req: NextApiRequest,
@@ -230,6 +231,22 @@ async function handleCreateAppointment(
         },
       },
     });
+
+    // Create notification for appointment reminder if it's for a patient and assigned to someone
+    if (appointment.patientId && appointment.assignedToId) {
+      try {
+        await createAppointmentReminderNotification(
+          appointment.id,
+          appointment.patientId,
+          `${appointment.patient!.firstName} ${appointment.patient!.lastName}`,
+          appointment.scheduledDate,
+          appointment.assignedToId
+        );
+      } catch (notificationError) {
+        console.error('Failed to create appointment notification:', notificationError);
+        // Don't fail the appointment creation if notification fails
+      }
+    }
 
     return res.status(201).json({ 
       appointment,

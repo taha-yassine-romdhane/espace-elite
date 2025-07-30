@@ -3,11 +3,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AdminLayout from '../AdminLayout';
 
 // Import all help components
-import HelpHeroSection from './components/HelpHeroSection';
-import QuickStartGuide from './components/QuickStartGuide';
-import FeatureDocumentation from './components/FeatureDocumentation';
-import FAQSection from './components/FAQSection';
-import SupportSection from './components/SupportSection';
+import HelpHeroSection from '@/components/help/HelpHeroSection';
+import QuickStartGuide from '@/components/help/QuickStartGuide';
+import FeatureDocumentation from '@/components/help/FeatureDocumentation';
+import FAQSection from '@/components/help/FAQSection';
+import SupportSection from '@/components/help/SupportSection';
 
 // Icons for tabs
 import { 

@@ -16,6 +16,7 @@ import {
   Minus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "@/components/ui/use-toast";
 
 // Function to safely format prices
 const formatPrice = (price: any, quantity: any = 1): string => {
@@ -523,7 +524,17 @@ export const CompanyProductSelection = ({
           )}
           
           <Button
-            onClick={onNext}
+            onClick={() => {
+              if (!selectedProducts || selectedProducts.length === 0) {
+                toast({
+                  title: "Produits requis",
+                  description: "Veuillez sélectionner au moins un produit pour continuer",
+                  variant: "destructive"
+                });
+                return;
+              }
+              onNext();
+            }}
             disabled={!selectedProducts || selectedProducts.length === 0}
             className="bg-blue-700 hover:bg-blue-800 text-white flex items-center gap-2 disabled:opacity-50"
           >

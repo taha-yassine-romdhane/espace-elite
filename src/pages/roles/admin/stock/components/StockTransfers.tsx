@@ -31,6 +31,7 @@ import {
 import { Plus, Search, History, Info, AlertCircle, Package, Wrench, Stethoscope, Monitor, Filter, X } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import TransferHistory from './TransferHistory';
+import PendingTransferRequests from './PendingTransferRequests';
 
 
 interface TransferFormData {
@@ -144,7 +145,7 @@ export default function StockTransfers() {
     },
     enabled: !!formData.fromLocationId,
     staleTime: 0, // Always fetch fresh data
-    cacheTime: 0, // Don't cache the data
+    gcTime: 0, // Don't cache the data
   });
   
   const products = React.useMemo(() => {
@@ -540,6 +541,8 @@ export default function StockTransfers() {
         </Dialog>
       </div>
 
+      <PendingTransferRequests />
+      
       <TransferHistory />
 
       {currentUser.role !== 'ADMIN' && (

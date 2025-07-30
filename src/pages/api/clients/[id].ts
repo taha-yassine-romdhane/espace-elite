@@ -54,10 +54,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           id: patient.id,
           firstName: patient.firstName,
           lastName: patient.lastName,
+          nomComplet: `${patient.firstName} ${patient.lastName}`,
           telephone: patient.telephone,
           telephoneTwo: patient.telephoneTwo,
           address: `${patient.governorate || ''} ${patient.delegation || ''} ${patient.detailedAddress || ''}`.trim(),
-          type: 'PATIENT',
+          type: 'patient', // Match expected type format
           dateOfBirth: patient.dateOfBirth,
           cin: patient.cin,
           cnamId: patient.cnamId,
@@ -87,10 +88,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           id: company.id,
           firstName: company.companyName, // Use companyName as firstName for consistency
           lastName: '',
+          nomComplet: company.companyName,
+          nomSociete: company.companyName,
           telephone: company.telephone,
           telephoneTwo: company.telephoneSecondaire,
           address: `${company.governorate || ''} ${company.delegation || ''} ${company.detailedAddress || ''}`.trim(),
-          type: 'COMPANY',
+          type: 'societe', // Match expected type format
+          matriculeFiscale: company.taxId,
           taxId: company.taxId
         });
       }

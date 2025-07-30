@@ -53,7 +53,7 @@ export const DeviceRelations: React.FC<DeviceRelationsProps> = ({ device }) => {
                   <div key={rental.id} className="flex items-center space-x-2">
                     <CalendarIcon className="h-5 w-5 text-blue-500" />
                     <Link href={`/roles/admin/rentals/${rental.id}`} className="text-blue-600 hover:underline">
-                      Location du {new Date(rental.startDate).toLocaleDateString()} au {new Date(rental.endDate).toLocaleDateString()}
+                      Location du {rental.startDate ? new Date(rental.startDate).toLocaleDateString() : 'N/A'} au {rental.endDate ? new Date(rental.endDate).toLocaleDateString() : 'N/A'}
                     </Link>
                   </div>
                 ))}

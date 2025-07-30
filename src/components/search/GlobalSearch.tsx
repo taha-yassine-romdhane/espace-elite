@@ -226,7 +226,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
             }
           }}
           onFocus={() => query.length > 0 && setIsOpen(true)}
-          className="block w-full pl-10 pr-10 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent placeholder-gray-400 transition-all"
+          className="block w-full pl-10 pr-10 py-2 text-sm border border-gray-100 rounded-lg focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent placeholder-gray-400 transition-all"
         />
         {query && (
           <button 
@@ -244,7 +244,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
 
       {/* Search Results Dropdown */}
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-2 max-h-[70vh] overflow-y-auto z-50">
+        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-md py-2 max-h-[70vh] overflow-y-auto z-50">
           {/* Loading State */}
           {isLoading && (
             <div className="flex items-center justify-center py-4">
@@ -265,7 +265,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
           {/* Results by Group */}
           {!isLoading && groupedResults.map((group, groupIndex) => (
             <div key={group.type} className="mb-2">
-              <div className="px-3 py-1 text-xs text-gray-500 font-medium bg-gray-50">
+              <div className="px-3 py-1 text-xs text-gray-500 font-medium bg-gray-50 border-b border-gray-100">
                 <div className="flex items-center">
                   {group.icon}
                   <span className="ml-2">{group.label}</span>
@@ -284,14 +284,14 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
                   <div
                     key={result.id}
                     className={cn(
-                      "px-3 py-2 hover:bg-gray-50 cursor-pointer",
-                      selectedIndex === absoluteIndex && "bg-blue-50"
+                      "px-3 py-2 hover:bg-gray-50 cursor-pointer transition-colors",
+                      selectedIndex === absoluteIndex && "bg-blue-50 text-[#1e3a8a]"
                     )}
                     onClick={() => handleResultClick(result)}
                   >
                     <div className="flex items-center">
                       <div className="flex-shrink-0 mr-3">
-                        <div className="p-1 bg-gray-100 rounded-full text-gray-600">
+                        <div className="p-1 bg-blue-100 rounded-full text-blue-600">
                           {getIconForType(result.type)}
                         </div>
                       </div>

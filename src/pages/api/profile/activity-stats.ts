@@ -69,12 +69,12 @@ export default async function handler(
       // User-specific stats
       prisma.patient.count({
         where: {
-          assignedToId: userId
+          userId: userId
         }
       }),
       prisma.company.count({
         where: {
-          assignedToId: userId
+          userId: userId
         }
       })
     ]);

@@ -36,6 +36,15 @@ export interface RentalTimeline {
   relatedId?: string;
 }
 
+export interface ExistingRentalData {
+  isExistingRental: boolean;
+  importDate?: Date;
+  hasActiveCnam?: boolean;
+  cnamExpirationDate?: Date;
+  cnamMonthlyAmount?: number;
+  currentUnpaidAmount?: number;
+}
+
 export interface RentalPaymentStepProps {
   selectedProducts: any[];
   selectedClient: any;
@@ -44,6 +53,8 @@ export interface RentalPaymentStepProps {
   onBack: () => void;
   onComplete: (paymentData: any) => void;
   isSubmitting?: boolean;
+  existingPaymentData?: any; // Add this to preserve data when navigating back
+  existingRentalData?: ExistingRentalData; // Add existing rental import data
 }
 
 export interface CNAMBondType {

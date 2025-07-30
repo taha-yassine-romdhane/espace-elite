@@ -333,16 +333,16 @@ export default function CNAMBondsManagement({ rental, cnamBonds, onUpdate }: CNA
                   <div>
                     <Label htmlFor="startDate">Date de Début</Label>
                     <DatePicker
-                      date={newBond.startDate}
-                      onSelect={(date) => setNewBond({ ...newBond, startDate: date })}
+                      value={newBond.startDate}
+                      onChange={(date) => setNewBond({ ...newBond, startDate: date })}
                     />
                   </div>
                   
                   <div>
                     <Label htmlFor="endDate">Date de Fin</Label>
                     <DatePicker
-                      date={newBond.endDate}
-                      onSelect={(date) => setNewBond({ ...newBond, endDate: date })}
+                      value={newBond.endDate}
+                      onChange={(date) => setNewBond({ ...newBond, endDate: date })}
                     />
                   </div>
                 </div>
@@ -533,16 +533,16 @@ export default function CNAMBondsManagement({ rental, cnamBonds, onUpdate }: CNA
                 <div>
                   <Label htmlFor="editStartDate">Date de Début</Label>
                   <DatePicker
-                    date={editingBond.startDate}
-                    onSelect={(date) => setEditingBond({ ...editingBond, startDate: date })}
+                    value={editingBond.startDate}
+                    onChange={(date) => setEditingBond({ ...editingBond, startDate: date })}
                   />
                 </div>
                 
                 <div>
                   <Label htmlFor="editEndDate">Date de Fin</Label>
                   <DatePicker
-                    date={editingBond.endDate}
-                    onSelect={(date) => setEditingBond({ ...editingBond, endDate: date })}
+                    value={editingBond.endDate}
+                    onChange={(date) => setEditingBond({ ...editingBond, endDate: date })}
                   />
                 </div>
               </div>

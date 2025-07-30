@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { DiagnosticDeviceForm } from "@/pages/roles/admin/appareils/components/forms/DiagnosticDeviceForm";
+import { DiagnosticDeviceForm } from "@/components/appareils/forms/DiagnosticDeviceForm";
 import { useQuery } from "@tanstack/react-query";
 
 // Import our new components

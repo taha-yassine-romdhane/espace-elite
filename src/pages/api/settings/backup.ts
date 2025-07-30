@@ -48,8 +48,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       let backupFileName = `backup-${timestamp}.${format}`;
       let actualFormat = format;
       
-      let backupContent: Buffer;
-      let contentType: string;
+      let backupContent: Buffer = Buffer.from(''); // Initialize with empty buffer
+      let contentType: string = 'application/octet-stream';
       
       // Handle SQL format first (requires special handling)
       if (format === 'sql') {
@@ -145,19 +145,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             
             // Add all data rows with type identifier
             backupData.patients.forEach(patient => {
-              csvData.push({ type: 'patient', ...patient });
+              csvData.push({ record_type: 'patient', ...patient });
             });
             
             backupData.companies.forEach(company => {
-              csvData.push({ type: 'company', ...company });
+              csvData.push({ record_type: 'company', ...company });
             });
             
             backupData.medicalDevices.forEach(device => {
-              csvData.push({ type: 'medical_device', ...device });
+              csvData.push({ record_type: 'medical_device', ...device });
             });
             
             if (backupData.settings) {
-              csvData.push({ type: 'settings', ...backupData.settings });
+              csvData.push({ record_type: 'settings', ...backupData.settings });
             }
             
             const parser = new Parser();

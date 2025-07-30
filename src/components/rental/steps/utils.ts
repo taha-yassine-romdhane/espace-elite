@@ -110,7 +110,7 @@ export const analyzeComprehensiveGaps = (
           startDate: new Date(rentalDetails.globalStartDate),
           endDate: firstBond.approvalDate || addDays(firstBond.submissionDate, 7),
           duration: gapDays,
-          amount: (calculateTotal() / 30) * gapDays,
+          amount: calculateTotal() * gapDays, // calculateTotal is already daily
           severity: 'high'
         });
       }
@@ -150,7 +150,7 @@ export const analyzeComprehensiveGaps = (
         startDate: addDays(currentPeriod.endDate, 1),
         endDate: addDays(nextPeriod.startDate, -1),
         duration: gapDays,
-        amount: (calculateTotal() / 30) * gapDays,
+        amount: calculateTotal() * gapDays, // calculateTotal is already daily
         severity: 'medium'
       });
     }
@@ -320,7 +320,7 @@ export const autoGeneratePaymentPeriods = (
         productIds: selectedProducts.map(p => p.id),
         startDate: rentalStart,
         endDate: new Date(bond.startDate),
-        amount: (calculateTotal() / 30) * gapDays,
+        amount: calculateTotal() * gapDays, // calculateTotal is already daily
         paymentMethod: 'CASH',
         isGapPeriod: true,
         gapReason: 'CNAM_PENDING',
@@ -340,7 +340,7 @@ export const autoGeneratePaymentPeriods = (
           productIds: selectedProducts.map(p => p.id),
           startDate: bondEnd,
           endDate: rentalEnd,
-          amount: (calculateTotal() / 30) * gapDays,
+          amount: calculateTotal() * gapDays, // calculateTotal is already daily
           paymentMethod: 'CASH',
           isGapPeriod: true,
           gapReason: 'CNAM_EXPIRED',
@@ -365,4 +365,225 @@ export const calculateTotalPaymentAmount = (
   depositAmount: number
 ): number => {
   return paymentPeriods.reduce((total, period) => total + period.amount, 0) + depositAmount;
+};
+
+// Validate CNAM bond coverage and generate gaps for invalid bonds
+export const validateCnamBondCoverage = (
+  bond: CNAMBondLocation,
+  today: Date = new Date()
+): {
+  isValid: boolean;
+  reason: string;
+  shouldCreateGap: boolean;
+  gapReason?: 'CNAM_PENDING' | 'CNAM_EXPIRED' | 'CNAM_REFUSED';
+} => {
+  // Check if bond is refused
+  if (bond.status === 'REFUSE') {
+    return {
+      isValid: false,
+      reason: 'Bond CNAM refusé',
+      shouldCreateGap: true,
+      gapReason: 'CNAM_PENDING' // Patient needs to pay while waiting for new submission
+    };
+  }
+
+  // Check if bond is still pending approval
+  if (bond.status === 'EN_ATTENTE_APPROBATION') {
+    return {
+      isValid: false,
+      reason: 'Bond CNAM en attente d\'approbation',
+      shouldCreateGap: true,
+      gapReason: 'CNAM_PENDING'
+    };
+  }
+
+  // Check if bond is approved but hasn't started yet
+  if (bond.status === 'APPROUVE' && bond.startDate && bond.startDate > today) {
+    return {
+      isValid: false,
+      reason: 'Couverture CNAM pas encore commencée',
+      shouldCreateGap: true,
+      gapReason: 'CNAM_PENDING'
+    };
+  }
+
+  // Check if bond has expired
+  if (bond.status === 'TERMINE' || (bond.endDate && bond.endDate < today)) {
+    return {
+      isValid: false,
+      reason: 'Couverture CNAM expirée',
+      shouldCreateGap: true,
+      gapReason: 'CNAM_EXPIRED'
+    };
+  }
+
+  // Check if bond is approved and currently active
+  if (bond.status === 'APPROUVE' || bond.status === 'EN_COURS') {
+    // Ensure dates are valid
+    if (bond.startDate && bond.endDate) {
+      if (bond.startDate <= today && bond.endDate >= today) {
+        return {
+          isValid: true,
+          reason: 'Couverture CNAM active',
+          shouldCreateGap: false
+        };
+      }
+    }
+    
+    // If approved but dates aren't set or valid
+    return {
+      isValid: false,
+      reason: 'Dates de couverture CNAM non définies',
+      shouldCreateGap: true,
+      gapReason: 'CNAM_PENDING'
+    };
+  }
+
+  // Default case - treat as invalid
+  return {
+    isValid: false,
+    reason: 'Statut CNAM invalide',
+    shouldCreateGap: true,
+    gapReason: 'CNAM_PENDING'
+  };
+};
+
+// Check if a period overlaps with existing periods
+const hasOverlappingPeriod = (
+  newPeriod: { startDate: Date; endDate: Date },
+  existingPeriods: RentalPaymentPeriod[]
+): boolean => {
+  return existingPeriods.some(existing => {
+    const newStart = newPeriod.startDate.getTime();
+    const newEnd = newPeriod.endDate.getTime();
+    const existingStart = existing.startDate.getTime();
+    const existingEnd = existing.endDate.getTime();
+    
+    // Check for any overlap
+    return (newStart <= existingEnd && newEnd >= existingStart);
+  });
+};
+
+// Deduplicate payment periods
+const deduplicatePaymentPeriods = (periods: RentalPaymentPeriod[]): RentalPaymentPeriod[] => {
+  const uniquePeriods: RentalPaymentPeriod[] = [];
+  
+  periods.forEach(period => {
+    const isDuplicate = uniquePeriods.some(existing => 
+      existing.startDate.getTime() === period.startDate.getTime() &&
+      existing.endDate.getTime() === period.endDate.getTime() &&
+      existing.amount === period.amount &&
+      existing.isGapPeriod === period.isGapPeriod
+    );
+    
+    if (!isDuplicate) {
+      uniquePeriods.push(period);
+    }
+  });
+  
+  return uniquePeriods;
+};
+
+// Generate payment periods with proper CNAM validation and deduplication
+export const generatePaymentPeriodsWithCnamValidation = (
+  cnamBonds: CNAMBondLocation[],
+  rentalDetails: any,
+  selectedProducts: any[],
+  calculateTotal: () => number,
+  existingRentalData?: any,
+  existingPeriods: RentalPaymentPeriod[] = []
+): RentalPaymentPeriod[] => {
+  const periods: RentalPaymentPeriod[] = [];
+  const today = new Date();
+  
+  // Determine effective start date
+  const effectiveStartDate = existingRentalData?.isExistingRental && existingRentalData.importDate 
+    ? existingRentalData.importDate 
+    : new Date(rentalDetails?.globalStartDate || today);
+  
+  const rentalEndDate = rentalDetails?.globalEndDate 
+    ? new Date(rentalDetails.globalEndDate) 
+    : addMonths(effectiveStartDate, 1);
+
+  // Handle existing rental unpaid amounts (only if not already exists)
+  if (existingRentalData?.isExistingRental && existingRentalData.currentUnpaidAmount > 0) {
+    const unpaidPeriod = {
+      startDate: effectiveStartDate,
+      endDate: addDays(effectiveStartDate, 1)
+    };
+    
+    if (!hasOverlappingPeriod(unpaidPeriod, existingPeriods)) {
+      periods.push({
+        id: `unpaid-existing-${Date.now()}`,
+        productIds: selectedProducts.map(p => p.id),
+        startDate: unpaidPeriod.startDate,
+        endDate: unpaidPeriod.endDate,
+        amount: existingRentalData.currentUnpaidAmount,
+        paymentMethod: 'CASH',
+        isGapPeriod: true,
+        gapReason: 'OTHER',
+        notes: 'Montant impayé existant à régulariser'
+      });
+    }
+  }
+
+  // Process each CNAM bond
+  cnamBonds.forEach((bond) => {
+    const validation = validateCnamBondCoverage(bond, today);
+    
+    if (!validation.isValid && validation.shouldCreateGap) {
+      // Create gap period for invalid CNAM bond
+      const gapStartDate = bond.startDate || effectiveStartDate;
+      const gapEndDate = bond.endDate || rentalEndDate;
+      const gapDays = differenceInDays(gapEndDate, gapStartDate);
+      
+      if (gapDays > 0) {
+        const gapPeriod = {
+          startDate: gapStartDate,
+          endDate: gapEndDate
+        };
+        
+        // Only create if no overlapping period exists
+        if (!hasOverlappingPeriod(gapPeriod, [...existingPeriods, ...periods])) {
+          periods.push({
+            id: `cnam-gap-${bond.id}-${Date.now()}`,
+            productIds: selectedProducts.map(p => p.id),
+            startDate: gapStartDate,
+            endDate: gapEndDate,
+            amount: calculateTotal() * gapDays,
+            paymentMethod: 'CASH',
+            isGapPeriod: true,
+            gapReason: validation.gapReason === 'CNAM_REFUSED' ? 'OTHER' : (validation.gapReason || 'CNAM_PENDING'),
+            notes: `Gap CNAM: ${validation.reason}`
+          });
+        }
+      }
+    }
+  });
+
+  // If no valid CNAM bonds, create standard rental payment period
+  if (cnamBonds.length === 0 || !cnamBonds.some(bond => validateCnamBondCoverage(bond, today).isValid)) {
+    const rentalDays = differenceInDays(rentalEndDate, effectiveStartDate);
+    const standardPeriod = {
+      startDate: effectiveStartDate,
+      endDate: rentalEndDate
+    };
+    
+    // Only create if no overlapping period exists
+    if (!hasOverlappingPeriod(standardPeriod, [...existingPeriods, ...periods])) {
+      periods.push({
+        id: `standard-rental-${Date.now()}`,
+        productIds: selectedProducts.map(p => p.id),
+        startDate: effectiveStartDate,
+        endDate: rentalEndDate,
+        amount: calculateTotal() * rentalDays,
+        paymentMethod: 'CASH',
+        isGapPeriod: false,
+        notes: 'Période de location standard'
+      });
+    }
+  }
+
+  // Deduplicate and return
+  return deduplicatePaymentPeriods(periods);
 };

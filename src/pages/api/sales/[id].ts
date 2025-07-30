@@ -2,6 +2,33 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import prisma from '@/lib/db';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]';
+import { DeviceStatus } from '@prisma/client';
+
+// Type definitions for payment details
+interface PaymentDetail {
+  id: string;
+  method: string;
+  amount: number;
+  classification: string;
+  reference?: string;
+  metadata?: Record<string, unknown>;
+  displayMethod?: string;
+  displayClassification?: string;
+  etatDossier?: string;
+  isPending?: boolean;
+}
+
+interface LegacyPaymentDetail {
+  id?: string;
+  type?: string;
+  amount?: number;
+  classification?: string;
+  reference?: string;
+  dossierReference?: string;
+  metadata?: Record<string, unknown>;
+  etatDossier?: string;
+  isPending?: boolean;
+}
 
 /**
  * Sale details API endpoint
@@ -15,6 +42,12 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
+  // Check authentication
+  const session = await getServerSession(req, res, authOptions);
+  if (!session) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
   try {
     const { id } = req.query;
     console.log(`[SALE-API] ${req.method} request for sale ID: ${id}`);
@@ -99,7 +132,7 @@ export default async function handler(
             console.log(`[SALE-API] Payment notes contains:`, {
               hasPaymentsArray: !!notesData.payments,
               paymentsCount: notesData.payments?.length || 0,
-              paymentTypes: notesData.payments?.map((p: any) => p.type).join(', ') || 'none'
+              paymentTypes: notesData.payments?.map((p: { type?: string }) => p.type).join(', ') || 'none'
             });
           } catch (error) {
             console.log(`[SALE-API] Error parsing payment notes:`, error);
@@ -211,7 +244,7 @@ export default async function handler(
                   const parsed = JSON.parse(item.warranty);
                   return parsed.deviceConfiguration || null;
                 }
-              } catch (e) {
+              } catch {
                 // If parsing fails, return null
               }
               return null;
@@ -316,24 +349,31 @@ export default async function handler(
           // This would increment the stock for each item that was sold
           for (const item of saleToDelete.items) {
             if (item.productId) {
-              await tx.product.update({
-                where: { id: item.productId },
-                data: {
-                  stock: {
-                    increment: item.quantity
-                  }
+              // Find the stock record for this product
+              const stockRecord = await tx.stock.findFirst({
+                where: { 
+                  productId: item.productId,
+                  status: 'EN_VENTE'
                 }
-              }).catch(() => {
-                // Ignore if product doesn't have stock field or doesn't exist
               });
+              
+              if (stockRecord) {
+                // Update the stock quantity
+                await tx.stock.update({
+                  where: { id: stockRecord.id },
+                  data: {
+                    quantity: stockRecord.quantity + item.quantity
+                  }
+                });
+              }
             }
             
             if (item.medicalDeviceId) {
-              // For medical devices, you might want to change status back to AVAILABLE
+              // For medical devices, change status back to ACTIVE
               await tx.medicalDevice.update({
                 where: { id: item.medicalDeviceId },
                 data: {
-                  status: 'AVAILABLE'
+                  status: 'ACTIVE' as DeviceStatus
                 }
               }).catch(() => {
                 // Ignore if medical device doesn't exist
@@ -381,7 +421,24 @@ function getPaymentClassificationDisplay(classification: string): string {
 }
 
 // Helper function to extract payment details from either PaymentDetail records or notes JSON
-function getPaymentDetails(payment: any): any[] {
+function getPaymentDetails(payment: {
+  id?: string;
+  method?: string;
+  amount?: number | { toNumber(): number };
+  status?: string;
+  paymentDetails?: Array<{
+    id: string;
+    paymentId: string;
+    amount: { toNumber(): number };
+    method: string;
+    classification: string;
+    reference: string | null;
+    metadata?: any;
+    createdAt?: Date;
+    updatedAt?: Date;
+  }>;
+  notes?: string | null;
+} | null): PaymentDetail[] {
   if (!payment) {
     console.log(`[SALE-API] getPaymentDetails called with null or undefined payment`);
     return [];
@@ -401,9 +458,9 @@ function getPaymentDetails(payment: any): any[] {
   // If we have PaymentDetail records, use those
   if (payment.paymentDetails && Array.isArray(payment.paymentDetails) && payment.paymentDetails.length > 0) {
     console.log(`[SALE-API] Found ${payment.paymentDetails.length} PaymentDetail records`);
-    console.log(`[SALE-API] PaymentDetail methods: ${payment.paymentDetails.map((d: any) => d.method).join(', ')}`);
+    console.log(`[SALE-API] PaymentDetail methods: ${payment.paymentDetails.map((d) => d.method).join(', ')}`);
     
-    return payment.paymentDetails.map((detail: any) => {
+    return payment.paymentDetails.map((detail) => {
       console.log(`[SALE-API] Processing PaymentDetail:`, {
         id: detail?.id,
         method: detail?.method,
@@ -415,9 +472,9 @@ function getPaymentDetails(payment: any): any[] {
       return {
         id: detail.id,
         method: detail.method,
-        amount: detail.amount,
+        amount: typeof detail.amount === 'number' ? detail.amount : detail.amount.toNumber(),
         classification: detail.classification,
-        reference: detail.reference,
+        reference: detail.reference || undefined,
         // Format for display
         displayMethod: getPaymentMethodDisplay(detail.method),
         displayClassification: getPaymentClassificationDisplay(detail.classification),
@@ -446,7 +503,7 @@ function getPaymentDetails(payment: any): any[] {
         console.log(`[SALE-API] Found ${notesData.payments.length} legacy payment details in notes`);
         console.log(`[SALE-API] Legacy payment details:`, JSON.stringify(notesData.payments, null, 2));
         
-        return notesData.payments.map((detail: any) => {
+        return notesData.payments.map((detail: LegacyPaymentDetail) => {
           const legacyId = detail.id || `legacy-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
           
           console.log(`[SALE-API] Processing legacy payment:`, {
@@ -461,9 +518,9 @@ function getPaymentDetails(payment: any): any[] {
           return {
             id: legacyId,
             method: detail.type || 'unknown',
-            amount: detail.amount || 0,
+            amount: typeof detail.amount === 'number' ? detail.amount : (typeof detail.amount === 'string' ? parseFloat(detail.amount) : 0),
             classification: detail.classification || 'principale',
-            reference: detail.reference || detail.dossierReference || null,
+            reference: detail.reference || detail.dossierReference || undefined,
             // Format for display
             displayMethod: getPaymentMethodDisplay(detail.type || 'unknown'),
             displayClassification: getPaymentClassificationDisplay(detail.classification || 'principale'),
@@ -488,11 +545,21 @@ function getPaymentDetails(payment: any): any[] {
 }
 
 // Helper function to group payment details by method
-function groupPaymentDetailsByMethod(details: any[]): Record<string, any> {
+function groupPaymentDetailsByMethod(details: PaymentDetail[]): Record<string, {
+  method: string;
+  displayMethod: string;
+  details: PaymentDetail[];
+  totalAmount: number;
+}> {
   console.log(`[SALE-API] groupPaymentDetailsByMethod called with ${details.length} details`);
   console.log(`[SALE-API] Payment details to group:`, JSON.stringify(details, null, 2));
   
-  const result = details.reduce((acc, detail) => {
+  const result = details.reduce((acc: Record<string, {
+    method: string;
+    displayMethod: string;
+    details: PaymentDetail[];
+    totalAmount: number;
+  }>, detail) => {
     if (!detail || typeof detail !== 'object') {
       console.log(`[SALE-API] Invalid detail item:`, detail);
       return acc;

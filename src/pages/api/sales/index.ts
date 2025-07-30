@@ -2,7 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import prisma from '@/lib/db';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]';
-import { PaymentMethod, PaymentStatus } from '@prisma/client';
+import { PaymentMethod, PaymentStatus, CNAMBondType, CNAMStatus } from '@prisma/client';
 
 // Helper function to map frontend payment types to Prisma PaymentMethod enum
 function mapPaymentMethod(frontendMethod: string): PaymentMethod {
@@ -25,24 +25,24 @@ function mapPaymentMethod(frontendMethod: string): PaymentMethod {
   }
 }
 
-// Helper function to map frontend payment status to Prisma PaymentStatus enum
-function mapPaymentStatus(frontendStatus: string): PaymentStatus {
-  switch (frontendStatus?.toLowerCase()) {
-    case 'paid':
-    case 'completed':
-      return PaymentStatus.PAID;
-    case 'partial':
-      return PaymentStatus.PARTIAL;
-    case 'guarantee':
-    case 'garantie':
-      return PaymentStatus.GUARANTEE;
-    default:
-      return PaymentStatus.PENDING;
-  }
-}
 
 // Helper function to create a payment reference string based on payment type
-function createPaymentReference(payment: any): string {
+function createPaymentReference(payment: {
+  type?: string;
+  amount?: number;
+  chequeNumber?: string;
+  bank?: string;
+  bankName?: string;
+  reference?: string;
+  mondatNumber?: string;
+  dossierNumber?: string;
+  fileNumber?: string;
+  cnamInfo?: {
+    bondType?: string;
+    currentStep?: number;
+  };
+  dueDate?: string;
+}): string {
   if (!payment || !payment.type) return '';
   
   switch (payment.type.toLowerCase()) {
@@ -242,6 +242,32 @@ export default async function handler(
         return res.status(400).json({ error: 'At least one item must be provided' });
       }
       
+      // Validate required financial fields
+      if (!saleData.totalAmount || isNaN(parseFloat(saleData.totalAmount))) {
+        return res.status(400).json({ error: 'Valid totalAmount is required' });
+      }
+      
+      if (!saleData.finalAmount || isNaN(parseFloat(saleData.finalAmount))) {
+        return res.status(400).json({ error: 'Valid finalAmount is required' });
+      }
+      
+      // Validate each item has required fields
+      for (let i = 0; i < saleData.items.length; i++) {
+        const item = saleData.items[i];
+        if (!item.quantity || isNaN(parseInt(item.quantity))) {
+          return res.status(400).json({ error: `Item ${i + 1}: Valid quantity is required` });
+        }
+        if (!item.unitPrice || isNaN(parseFloat(item.unitPrice))) {
+          return res.status(400).json({ error: `Item ${i + 1}: Valid unitPrice is required` });
+        }
+        if (!item.itemTotal || isNaN(parseFloat(item.itemTotal))) {
+          return res.status(400).json({ error: `Item ${i + 1}: Valid itemTotal is required` });
+        }
+        if (!item.productId && !item.medicalDeviceId) {
+          return res.status(400).json({ error: `Item ${i + 1}: Either productId or medicalDeviceId is required` });
+        }
+      }
+      
       try {
         // Start a transaction to ensure all operations succeed or fail together
         const result = await prisma.$transaction(async (tx) => {
@@ -250,36 +276,57 @@ export default async function handler(
           
           // Handle the new payment structure from the stepper
           // The stepper sends payment data in saleData.payment as an array
-          let payments: any[] = [];
+          let payments: Array<{
+            type?: string;
+            amount?: number;
+            classification?: string;
+            cnamInfo?: {
+              bondType?: string;
+              bondAmount?: number;
+              devicePrice?: number;
+              complementAmount?: number;
+              currentStep?: number;
+              totalSteps?: number;
+              status?: string;
+              notes?: string;
+            };
+            dossierNumber?: string;
+            notes?: string;
+            paymentDate?: string;
+            dueDate?: string;
+            chequeNumber?: string;
+            bank?: string;
+            reference?: string;
+          }> = [];
           if (saleData.payment) {
             // The stepper now sends an array of payments directly
             payments = Array.isArray(saleData.payment) ? saleData.payment : [saleData.payment];
             
             if (payments.length > 0) {
               // Calculate total payment amount
-              const totalPaymentAmount = payments.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
+              const totalPaymentAmount = payments.reduce((sum: number, p) => sum + (Number(p.amount) || 0), 0);
               
               // Get the primary payment (first one or the one marked as 'principale')
-              const primaryPayment = payments.find((p: any) => p.classification === 'principale') || payments[0];
+              const primaryPayment = payments.find(p => p.classification === 'principale') || payments[0];
               
               // Create the main payment record
               const payment = await tx.payment.create({
                 data: {
                   amount: totalPaymentAmount,
-                  method: mapPaymentMethod(primaryPayment.type),
+                  method: mapPaymentMethod(primaryPayment.type || 'cash'),
                   status: totalPaymentAmount >= Number(saleData.finalAmount) ? PaymentStatus.PAID : PaymentStatus.PARTIAL,
                   // Store primary payment details in main fields
                   chequeNumber: primaryPayment.type === 'cheque' ? primaryPayment.chequeNumber || null : null,
                   bankName: primaryPayment.type === 'cheque' ? primaryPayment.bank || null : null,
-                  referenceNumber: ['virement', 'mandat'].includes(primaryPayment.type) ? primaryPayment.reference || null : null,
+                  referenceNumber: ['virement', 'mandat'].includes(primaryPayment.type || '') ? primaryPayment.reference || null : null,
                   cnamCardNumber: primaryPayment.type === 'cnam' ? primaryPayment.dossierNumber || null : null,
                   notes: primaryPayment.notes || null,
                   paymentDate: primaryPayment.paymentDate ? new Date(primaryPayment.paymentDate) : new Date(),
                   dueDate: primaryPayment.dueDate ? new Date(primaryPayment.dueDate) : null,
                   // Create payment details for each payment method
                   paymentDetails: {
-                    create: payments.map((p: any) => ({
-                      method: p.type,
+                    create: payments.map(p => ({
+                      method: p.type || 'cash',
                       amount: Number(p.amount),
                       classification: p.classification || 'principale',
                       reference: createPaymentReference(p),
@@ -311,10 +358,21 @@ export default async function handler(
             }
           }
           
-          // 1.5. Create CNAM dossiers for CNAM payments (only for patients)
-          const cnamDossierIds: string[] = [];
+          // Store CNAM payment data for later processing (after sale creation)
+          const cnamPaymentsData: Array<{
+            dossierNumber: string;
+            bondType: CNAMBondType;
+            bondAmount: number;
+            devicePrice: number;
+            complementAmount: number;
+            currentStep: number;
+            totalSteps: number;
+            status: CNAMStatus;
+            notes: string | null;
+          }> = [];
+          
           if (saleData.patientId && paymentId) {
-            const cnamPayments = payments.filter((p: any) => p.type === 'cnam' && p.cnamInfo);
+            const cnamPayments = payments.filter(p => p.type === 'cnam' && p.cnamInfo);
             
             for (const cnamPayment of cnamPayments) {
               if (cnamPayment.cnamInfo && cnamPayment.dossierNumber) {
@@ -327,31 +385,55 @@ export default async function handler(
                 const validStatus = ['EN_ATTENTE_APPROBATION', 'APPROUVE', 'EN_COURS', 'TERMINE', 'REFUSE'].includes(statusEnum) 
                   ? statusEnum : 'EN_ATTENTE_APPROBATION';
                 
-                // Create CNAM dossier (will update with saleId after sale creation)
-                const cnamDossier = await tx.cNAMDossier.create({
-                  data: {
-                    dossierNumber: cnamPayment.dossierNumber,
-                    bondType: validBondType as any,
-                    bondAmount: Number(cnamPayment.cnamInfo.bondAmount || cnamPayment.amount),
-                    devicePrice: Number(cnamPayment.cnamInfo.devicePrice || 0),
-                    complementAmount: Number(cnamPayment.cnamInfo.complementAmount || 0),
-                    currentStep: cnamPayment.cnamInfo.currentStep || 1,
-                    totalSteps: cnamPayment.cnamInfo.totalSteps || 7,
-                    status: validStatus as any,
-                    notes: cnamPayment.notes || cnamPayment.cnamInfo.notes,
-                    saleId: '', // Temporary - will be updated after sale creation
-                    patientId: saleData.patientId
-                  }
+                // Store data for later processing
+                cnamPaymentsData.push({
+                  dossierNumber: cnamPayment.dossierNumber,
+                  bondType: validBondType as CNAMBondType,
+                  bondAmount: Number(cnamPayment.cnamInfo.bondAmount || cnamPayment.amount),
+                  devicePrice: Number(cnamPayment.cnamInfo.devicePrice || 0),
+                  complementAmount: Number(cnamPayment.cnamInfo.complementAmount || 0),
+                  currentStep: cnamPayment.cnamInfo.currentStep || 1,
+                  totalSteps: cnamPayment.cnamInfo.totalSteps || 7,
+                  status: validStatus as CNAMStatus,
+                  notes: cnamPayment.notes || cnamPayment.cnamInfo.notes || null
                 });
-                
-                cnamDossierIds.push(cnamDossier.id);
               }
             }
           }
           
-          // 2. Generate invoice number and create the sale record
-          const salesCount = await tx.sale.count();
-          const newInvoiceNumber = (salesCount + 1).toString().padStart(5, '0');
+          // 2. Generate unique invoice number using current date and time
+          const now = new Date();
+          const year = now.getFullYear().toString();
+          const month = (now.getMonth() + 1).toString().padStart(2, '0');
+          const day = now.getDate().toString().padStart(2, '0');
+          const hours = now.getHours().toString().padStart(2, '0');
+          const minutes = now.getMinutes().toString().padStart(2, '0');
+          const seconds = now.getSeconds().toString().padStart(2, '0');
+          
+          // Try to generate a unique invoice number (format: YYYYMMDD-HHMMSS-XXX)
+          let attempts = 0;
+          let newInvoiceNumber = '';
+          let isUnique = false;
+          
+          while (!isUnique && attempts < 100) {
+            const suffix = attempts === 0 ? '' : `-${attempts.toString().padStart(3, '0')}`;
+            newInvoiceNumber = `${year}${month}${day}-${hours}${minutes}${seconds}${suffix}`;
+            
+            // Check if this invoice number already exists
+            const existingSale = await tx.sale.findUnique({
+              where: { invoiceNumber: newInvoiceNumber }
+            });
+            
+            if (!existingSale) {
+              isUnique = true;
+            } else {
+              attempts++;
+            }
+          }
+          
+          if (!isUnique) {
+            throw new Error('Unable to generate unique invoice number after 100 attempts');
+          }
 
           const sale = await tx.sale.create({
             data: {
@@ -421,32 +503,40 @@ export default async function handler(
             }
           }
           
-          // 4.5. Update CNAM dossiers with sale ID and create step history
-          if (cnamDossierIds.length > 0) {
-            for (const dossierId of cnamDossierIds) {
-              // Update CNAM dossier with sale ID
-              await tx.cNAMDossier.update({
-                where: { id: dossierId },
-                data: { saleId: sale.id }
+          // 4.5. Create CNAM dossiers now that sale is created
+          const cnamDossierIds: string[] = [];
+          if (cnamPaymentsData.length > 0 && saleData.patientId) {
+            for (const cnamData of cnamPaymentsData) {
+              // Create CNAM dossier with proper sale reference
+              const cnamDossier = await tx.cNAMDossier.create({
+                data: {
+                  dossierNumber: cnamData.dossierNumber,
+                  bondType: cnamData.bondType,
+                  bondAmount: cnamData.bondAmount,
+                  devicePrice: cnamData.devicePrice,
+                  complementAmount: cnamData.complementAmount,
+                  currentStep: cnamData.currentStep,
+                  totalSteps: cnamData.totalSteps,
+                  status: cnamData.status,
+                  notes: cnamData.notes,
+                  saleId: sale.id, // Now we have the actual sale ID
+                  patientId: saleData.patientId
+                }
               });
+              
+              cnamDossierIds.push(cnamDossier.id);
               
               // Create initial step history entry
-              const dossier = await tx.cNAMDossier.findUnique({
-                where: { id: dossierId }
+              await tx.cNAMStepHistory.create({
+                data: {
+                  dossierId: cnamDossier.id,
+                  toStep: cnamDossier.currentStep,
+                  toStatus: cnamDossier.status,
+                  notes: 'Dossier CNAM créé lors de la vente',
+                  changedById: saleData.processedById,
+                  changeDate: new Date()
+                }
               });
-              
-              if (dossier) {
-                await tx.cNAMStepHistory.create({
-                  data: {
-                    dossierId: dossierId,
-                    toStep: dossier.currentStep,
-                    toStatus: dossier.status,
-                    notes: 'Dossier CNAM créé lors de la vente',
-                    changedById: saleData.processedById,
-                    changeDate: new Date()
-                  }
-                });
-              }
             }
           }
           
@@ -486,7 +576,32 @@ export default async function handler(
         });
       } catch (error) {
         console.error('Error creating sale:', error);
-        return res.status(500).json({ error: 'Failed to create sale' });
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+        const errorStack = error instanceof Error ? error.stack : '';
+        console.error('Sale creation error details:', { message: errorMessage, stack: errorStack });
+        
+        // Provide more specific error messages based on the error type
+        if (errorMessage.includes('violates unique constraint')) {
+          return res.status(400).json({ 
+            error: 'Données dupliquées détectées. Veuillez vérifier les informations saisies.',
+            details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+          });
+        } else if (errorMessage.includes('Foreign key constraint')) {
+          return res.status(400).json({ 
+            error: 'Référence invalide. Veuillez vérifier que le client et les produits existent.',
+            details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+          });
+        } else if (errorMessage.includes('required')) {
+          return res.status(400).json({ 
+            error: 'Champs requis manquants. Veuillez vérifier toutes les informations.',
+            details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+          });
+        } else {
+          return res.status(500).json({ 
+            error: 'Erreur lors de la création de la vente. Veuillez réessayer.',
+            details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+          });
+        }
       }
     }
 

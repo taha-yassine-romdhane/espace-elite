@@ -67,25 +67,47 @@ export default async function handler(
 
       // Format the response
       const formattedNotifications = notifications.map(notification => {
-        // Parse the message field if it contains JSON data
-        let additionalData = {};
+        // Parse metadata field if it contains JSON data
+        let metadata: any = {};
         try {
-          if (notification.message) {
-            const parsedMessage = JSON.parse(notification.message);
-            if (typeof parsedMessage === 'object') {
-              additionalData = parsedMessage;
-            }
+          if (notification.metadata) {
+            metadata = notification.metadata as any;
           }
         } catch  {
-          // If parsing fails, just use the message as is
+          // If parsing fails, just use empty object
+        }
+
+        // Map schema notification types to frontend expected types
+        let frontendType: any = notification.type;
+        if (notification.type === 'FOLLOW_UP') {
+          frontendType = 'DIAGNOSTIC_RESULT';
+        } else if (notification.type === 'MAINTENANCE') {
+          // Check metadata to determine if it's task or repair
+          if (metadata && 'taskId' in metadata) {
+            frontendType = 'TASK';
+          } else if (metadata && 'repairId' in metadata) {
+            frontendType = 'REPAIR';
+          }
+        }
+
+        // Determine priority based on due date and status
+        let priority = 'MEDIUM';
+        if (notification.dueDate) {
+          const daysUntilDue = Math.floor((new Date(notification.dueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+          if (daysUntilDue <= 1) {
+            priority = 'HIGH';
+          } else if (daysUntilDue > 7) {
+            priority = 'LOW';
+          }
         }
 
         return {
           id: notification.id,
           title: notification.title,
           description: notification.message,
-          type: notification.type,
+          type: frontendType,
           status: notification.status,
+          priority,
           dueDate: notification.dueDate,
           createdAt: notification.createdAt,
           updatedAt: notification.updatedAt,
@@ -93,7 +115,25 @@ export default async function handler(
           patientName: notification.patient ? `${notification.patient.firstName} ${notification.patient.lastName}` : null,
           companyId: notification.companyId,
           companyName: notification.company ? notification.company.companyName : null,
-          ...additionalData
+          // Include metadata fields for specific notification types
+          ...(frontendType === 'DIAGNOSTIC_RESULT' && {
+            deviceId: metadata.deviceId,
+            deviceName: metadata.deviceName,
+            parameterId: metadata.parameterId,
+            parameterName: metadata.parameterName,
+          }),
+          ...(frontendType === 'TASK' && {
+            taskId: metadata.taskId,
+            assigneeId: metadata.assigneeId,
+            assigneeName: metadata.assigneeName,
+          }),
+          ...(frontendType === 'REPAIR' && {
+            deviceId: metadata.deviceId,
+            deviceName: metadata.deviceName,
+            repairId: metadata.repairId,
+            technicianId: metadata.technicianId,
+            technicianName: metadata.technicianName,
+          }),
         };
       });
 
@@ -115,12 +155,7 @@ export default async function handler(
         dueDate,
         patientId,
         companyId,
-        // For diagnostic result parameters
-        deviceId,
-        deviceName,
-        parameterId,
-        parameterName,
-        resultDueDate,
+        metadata = {},
         ...additionalData 
       } = req.body;
 
@@ -128,31 +163,33 @@ export default async function handler(
         return res.status(400).json({ message: 'Missing required fields: title and type are required' });
       }
 
-      // Store additional data as JSON in the message field if needed
-      let messageContent = message || '';
-
-      // If we have additional data for diagnostic results, store it in the message field
-      if (type === 'DIAGNOSTIC_RESULT' && (deviceId || parameterId)) {
-        const diagnosticData = {
-          deviceId,
-          deviceName,
-          parameterId,
-          parameterName,
-          resultDueDate
-        };
-        messageContent = JSON.stringify(diagnosticData);
+      // Map frontend types to schema types
+      let schemaType = type;
+      const enrichedMetadata = { ...metadata, ...additionalData };
+      
+      if (type === 'DIAGNOSTIC_RESULT') {
+        schemaType = 'FOLLOW_UP';
+      } else if (type === 'TASK' || type === 'REPAIR') {
+        schemaType = 'MAINTENANCE';
+        // Add type identifier to metadata
+        if (type === 'TASK') {
+          enrichedMetadata.taskId = enrichedMetadata.taskId || 'pending';
+        } else if (type === 'REPAIR') {
+          enrichedMetadata.repairId = enrichedMetadata.repairId || 'pending';
+        }
       }
 
       const notification = await prisma.notification.create({
         data: {
           title,
-          message: messageContent,
-          type,
+          message: message || '',
+          type: schemaType,
           status,
           dueDate: dueDate ? new Date(dueDate) : undefined,
           patientId,
           companyId,
-          userId: session.user.id
+          userId: session.user.id,
+          metadata: enrichedMetadata
         }
       });
 

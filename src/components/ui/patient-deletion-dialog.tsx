@@ -275,7 +275,7 @@ export function PatientDeletionDialog({
                   <Checkbox 
                     id="confirmForceDelete"
                     checked={confirmForceDelete}
-                    onCheckedChange={setConfirmForceDelete}
+                    onCheckedChange={(checked) => setConfirmForceDelete(checked === true)}
                   />
                   <label 
                     htmlFor="confirmForceDelete" 

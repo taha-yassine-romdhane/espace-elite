@@ -25,10 +25,12 @@ export default async function handler(
         return handleGetAppointment(req, res, id);
       case 'PUT':
         return handleUpdateAppointment(req, res, id, session);
+      case 'PATCH':
+        return handleUpdateAppointment(req, res, id, session);
       case 'DELETE':
         return handleDeleteAppointment(req, res, id);
       default:
-        res.setHeader('Allow', ['GET', 'PUT', 'DELETE']);
+        res.setHeader('Allow', ['GET', 'PUT', 'PATCH', 'DELETE']);
         return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
     }
   } catch (error) {

@@ -20,43 +20,47 @@ function DashboardPage() {
   const [activeTab, setActiveTab] = useState<"appointments" | "diagnostics" | "sales" | "rentals">("appointments");
   const router = useRouter();
 
+
   return (
     <div className="container mx-auto py-6 px-4">
         <h1 className="text-3xl font-bold mb-8 text-blue-900">Tableau de Bord</h1>
         
-        {/* Action Buttons Row - Reordered: RDV, Diagnostic, Sale, Rental */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <Button 
-            className="w-full bg-blue-900 hover:bg-blue-700 text-white flex items-center justify-start gap-2"
-            onClick={() => setSelectedAction("rdv")}
-          >
-            <Calendar className="h-5 w-5" />
-            <span>Nouveau Rendez-vous</span>
-          </Button>
-          
-          <Button 
-            className="w-full bg-blue-900 hover:bg-blue-700 text-white flex items-center justify-start gap-2"
-            onClick={() => setSelectedAction("diagnostique")}
-          >
-            <Stethoscope className="h-5 w-5" />
-            <span>Commencer un Diagnostic</span>
-          </Button>
-          
-          <Button 
-            className="w-full bg-blue-900 hover:bg-blue-700 text-white flex items-center justify-start gap-2"
-            onClick={() => setSelectedAction("vente")}
-          >
-            <ShoppingCart className="h-5 w-5" />
-            <span>Commencer une Vente</span>
-          </Button>
-          
-          <Button 
-            className="w-full bg-blue-900 hover:bg-blue-700 text-white flex items-center justify-start gap-2"
-            onClick={() => setSelectedAction("location")}
-          >
-            <Building2 className="h-5 w-5" />
-            <span>Commencer une Location</span>
-          </Button>
+        {/* Action Buttons Row */}
+        <div className="space-y-4 mb-8">
+          {/* Primary Actions */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Button 
+              className="w-full bg-blue-900 hover:bg-blue-700 text-white flex items-center justify-start gap-2"
+              onClick={() => setSelectedAction("rdv")}
+            >
+              <Calendar className="h-5 w-5" />
+              <span>Nouveau Rendez-vous</span>
+            </Button>
+            
+            <Button 
+              className="w-full bg-blue-900 hover:bg-blue-700 text-white flex items-center justify-start gap-2"
+              onClick={() => setSelectedAction("diagnostique")}
+            >
+              <Stethoscope className="h-5 w-5" />
+              <span>Commencer un Diagnostic</span>
+            </Button>
+            
+            <Button 
+              className="w-full bg-blue-900 hover:bg-blue-700 text-white flex items-center justify-start gap-2"
+              onClick={() => setSelectedAction("vente")}
+            >
+              <ShoppingCart className="h-5 w-5" />
+              <span>Commencer une Vente</span>
+            </Button>
+            
+            <Button 
+              className="w-full bg-blue-900 hover:bg-blue-700 text-white flex items-center justify-start gap-2"
+              onClick={() => setSelectedAction("location")}
+            >
+              <Building2 className="h-5 w-5" />
+              <span>Location Détaillée</span>
+            </Button>
+          </div>
         </div>
 
         {/* Tab Switcher */}

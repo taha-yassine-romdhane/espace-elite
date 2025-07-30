@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import prisma from '@/lib/db';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]';
+import { createDiagnosticResultNotification, createTaskNotification } from '@/lib/notifications';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -40,12 +41,51 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ message: 'Invalid client type' });
     }
 
-    const diagnostic = await prisma.diagnostic.create({ data });
+    const diagnostic = await prisma.diagnostic.create({ 
+      data,
+      include: {
+        patient: true,
+        medicalDevice: true
+      }
+    });
 
     await prisma.medicalDevice.update({
         where: { id: medicalDeviceId },
         data: { status: 'RESERVED' }
     });
+
+    // Create notification for diagnostic result pending
+    if (diagnostic.patient) {
+      try {
+        // Create a follow-up notification for diagnostic results
+        const dueDate = new Date();
+        dueDate.setDate(dueDate.getDate() + 3); // Due in 3 days
+        
+        await createDiagnosticResultNotification(
+          diagnostic.medicalDeviceId,
+          diagnostic.medicalDevice.name,
+          diagnostic.patientId!,
+          `${diagnostic.patient.firstName} ${diagnostic.patient.lastName}`,
+          diagnostic.id, // Use diagnostic ID as parameter ID
+          'Résultat de diagnostic',
+          diagnostic.patient.userId,
+          dueDate
+        );
+
+        // Create a task notification for the technician if assigned
+        if (diagnostic.patient.technicianId) {
+          await createTaskNotification(
+            'Diagnostic en attente',
+            `Résultat de diagnostic requis pour ${diagnostic.patient.firstName} ${diagnostic.patient.lastName}`,
+            diagnostic.patient.technicianId,
+            dueDate,
+            diagnostic.id
+          );
+        }
+      } catch (notificationError) {
+        console.error('Failed to create diagnostic notification:', notificationError);
+      }
+    }
 
     return res.status(201).json({ 
       success: true, 
