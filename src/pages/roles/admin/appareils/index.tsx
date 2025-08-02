@@ -86,6 +86,7 @@ export default function AppareilsPage() {
   // Add device mutation
   const addDeviceMutation = useMutation({
     mutationFn: async (newProduct: Product) => {
+      console.log('Adding device with data:', JSON.stringify(newProduct, null, 2));
       const response = await fetch("/api/medical-devices", {
         method: "POST",
         headers: {
@@ -95,7 +96,9 @@ export default function AppareilsPage() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to add device");
+        const errorText = await response.text();
+        console.error('API Error:', response.status, errorText);
+        throw new Error(`Failed to add device: ${response.status} - ${errorText}`);
       }
 
       return response.json();

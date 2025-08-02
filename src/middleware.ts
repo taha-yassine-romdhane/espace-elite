@@ -11,7 +11,7 @@ export async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
 
   // Public paths that don't require authentication
-  const publicPaths = ['/welcome', '/auth/signin', '/auth/signup','/pages/shared', '/welcome.jpg'];
+  const publicPaths = ['/welcome', '/auth/signin', '/pages/shared', '/welcome.jpg'];
   
   // Skip middleware for static files
   if (path.endsWith('.jpg') || path.endsWith('.png') || path.endsWith('.svg') || path.endsWith('.ico')) {

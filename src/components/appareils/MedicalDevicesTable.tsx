@@ -12,9 +12,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Product, ProductType } from "@/types";
-import { History, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { History, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter, X } from "lucide-react";
 
 import { Info } from 'lucide-react';
 
@@ -46,13 +47,39 @@ export const MedicalDevicesTable: React.FC<MedicalDevicesTableProps> = ({
   const [paginatedData, setPaginatedData] = useState<Product[]>([]);
   const [totalPages, setTotalPages] = useState(1);
   
-  // Filter devices based on search query
+  // Filter state
+  const [showFilters, setShowFilters] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [brandFilter, setBrandFilter] = useState<string>('');
+  const [locationFilter, setLocationFilter] = useState<string>('');
+  const [reservedFilter, setReservedFilter] = useState<string>(''); // 'all', 'reserved', 'not_reserved'
+  
+  // Get unique values for filter dropdowns
+  const uniqueStatuses = useMemo(() => {
+    const statuses = [...new Set(allMedicalDevices.map(device => device.status).filter(Boolean))];
+    return statuses.sort();
+  }, [allMedicalDevices]);
+
+  const uniqueBrands = useMemo(() => {
+    const brands = [...new Set(allMedicalDevices.map(device => device.brand).filter(Boolean))];
+    return brands.sort();
+  }, [allMedicalDevices]);
+
+  const uniqueLocations = useMemo(() => {
+    const locations = [...new Set(allMedicalDevices
+      .map(device => device.stockLocation?.name)
+      .filter(Boolean))];
+    return locations.sort();
+  }, [allMedicalDevices]);
+  
+  // Filter devices based on search query and filters
   useEffect(() => {
-    if (searchQuery.trim() === '') {
-      setFilteredDevices(allMedicalDevices);
-    } else {
+    let filtered = allMedicalDevices;
+
+    // Apply search query
+    if (searchQuery.trim() !== '') {
       const query = searchQuery.toLowerCase().trim();
-      const filtered = allMedicalDevices.filter(item => 
+      filtered = filtered.filter(item => 
         (item.name && item.name.toLowerCase().includes(query)) ||
         (item.brand && item.brand.toLowerCase().includes(query)) ||
         (item.model && item.model.toLowerCase().includes(query)) ||
@@ -60,11 +87,34 @@ export const MedicalDevicesTable: React.FC<MedicalDevicesTableProps> = ({
         (item.stockLocation && typeof item.stockLocation === 'object' && 
          item.stockLocation.name && item.stockLocation.name.toLowerCase().includes(query))
       );
-      setFilteredDevices(filtered);
     }
-    // Reset to first page when search changes
+
+    // Apply status filter
+    if (statusFilter && statusFilter !== 'all') {
+      filtered = filtered.filter(item => item.status === statusFilter);
+    }
+
+    // Apply brand filter
+    if (brandFilter && brandFilter !== 'all') {
+      filtered = filtered.filter(item => item.brand === brandFilter);
+    }
+
+    // Apply location filter
+    if (locationFilter && locationFilter !== 'all') {
+      filtered = filtered.filter(item => item.stockLocation?.name === locationFilter);
+    }
+
+    // Apply reserved filter
+    if (reservedFilter === 'reserved') {
+      filtered = filtered.filter(item => item.reservedUntil && new Date(item.reservedUntil) > new Date());
+    } else if (reservedFilter === 'not_reserved') {
+      filtered = filtered.filter(item => !item.reservedUntil || new Date(item.reservedUntil) <= new Date());
+    }
+
+    setFilteredDevices(filtered);
+    // Reset to first page when filters change
     setCurrentPage(1);
-  }, [searchQuery, allMedicalDevices]);
+  }, [searchQuery, allMedicalDevices, statusFilter, brandFilter, locationFilter, reservedFilter]);
   
   // Update paginated data when filtered data changes or pagination settings change
   useEffect(() => {
@@ -89,6 +139,22 @@ export const MedicalDevicesTable: React.FC<MedicalDevicesTableProps> = ({
     setItemsPerPage(Number(value));
     setCurrentPage(1); // Reset to first page when changing items per page
   };
+
+  // Clear all filters
+  const clearAllFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('all');
+    setBrandFilter('all');
+    setLocationFilter('all');
+    setReservedFilter('all');
+  };
+
+  // Check if any filters are active
+  const hasActiveFilters = searchQuery || 
+    (statusFilter && statusFilter !== 'all') || 
+    (brandFilter && brandFilter !== 'all') || 
+    (locationFilter && locationFilter !== 'all') || 
+    (reservedFilter && reservedFilter !== 'all');
   
   // Pagination navigation functions
   const goToFirstPage = () => setCurrentPage(1);
@@ -142,18 +208,121 @@ export const MedicalDevicesTable: React.FC<MedicalDevicesTableProps> = ({
 
   return (
     <div className="flex flex-col space-y-4">
-      {/* Search bar */}
-      <div className="flex items-center space-x-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-          <Input
-            type="text"
-            placeholder="Rechercher par nom, marque, modèle ou emplacement..."
-            value={searchQuery}
-            onChange={handleSearchChange}
-            className="pl-8"
-          />
+      {/* Search bar and filter controls */}
+      <div className="flex flex-col space-y-3">
+        <div className="flex items-center space-x-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+            <Input
+              type="text"
+              placeholder="Rechercher par nom, marque, modèle ou emplacement..."
+              value={searchQuery}
+              onChange={handleSearchChange}
+              className="pl-8"
+            />
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => setShowFilters(!showFilters)}
+            className={`flex items-center gap-2 ${hasActiveFilters ? 'bg-blue-50 border-blue-200' : ''}`}
+          >
+            <Filter className="h-4 w-4" />
+            Filtres
+            {hasActiveFilters && (
+              <span className="bg-blue-500 text-white text-xs rounded-full px-2 py-0.5 ml-1">
+                {[
+                  searchQuery,
+                  statusFilter && statusFilter !== 'all' ? statusFilter : null,
+                  brandFilter && brandFilter !== 'all' ? brandFilter : null,
+                  locationFilter && locationFilter !== 'all' ? locationFilter : null,
+                  reservedFilter && reservedFilter !== 'all' ? reservedFilter : null
+                ].filter(Boolean).length}
+              </span>
+            )}
+          </Button>
+          {hasActiveFilters && (
+            <Button variant="ghost" onClick={clearAllFilters} className="flex items-center gap-2">
+              <X className="h-4 w-4" />
+              Effacer
+            </Button>
+          )}
         </div>
+
+        {/* Filter controls */}
+        {showFilters && (
+          <div className="border rounded-lg p-4 bg-gray-50 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Status filter */}
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Statut</Label>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Tous les statuts" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tous les statuts</SelectItem>
+                    {uniqueStatuses.map(status => (
+                      <SelectItem key={status} value={status}>
+                        {status}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Brand filter */}
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Marque</Label>
+                <Select value={brandFilter} onValueChange={setBrandFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Toutes les marques" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Toutes les marques</SelectItem>
+                    {uniqueBrands.map(brand => (
+                      <SelectItem key={brand} value={brand || ''}>
+                        {brand}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Location filter */}
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Emplacement</Label>
+                <Select value={locationFilter} onValueChange={setLocationFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Tous les emplacements" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tous les emplacements</SelectItem>
+                    {uniqueLocations.map(location => (
+                      <SelectItem key={location || 'empty'} value={location || ''}>
+                        {location}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Reserved filter */}
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Réservation</Label>
+                <Select value={reservedFilter} onValueChange={setReservedFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Tous" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tous</SelectItem>
+                    <SelectItem value="reserved">Réservés</SelectItem>
+                    <SelectItem value="not_reserved">Non réservés</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       
       <div className="border rounded-lg overflow-hidden">
@@ -165,6 +334,7 @@ export const MedicalDevicesTable: React.FC<MedicalDevicesTableProps> = ({
               <TableHead>Num Serie</TableHead>
               <TableHead>Emplacement</TableHead>
               <TableHead>Statut</TableHead>
+              <TableHead>Destination</TableHead>
               <TableHead>Réservé jusqu'à</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -184,6 +354,11 @@ export const MedicalDevicesTable: React.FC<MedicalDevicesTableProps> = ({
               <TableCell>
                 <Badge variant={getStatusBadgeVariant(device.status)}>
                   {device.status}
+                </Badge>
+              </TableCell>
+              <TableCell>
+                <Badge variant={(device as any).destination === 'FOR_RENT' ? 'secondary' : 'default'}>
+                  {(device as any).destination === 'FOR_RENT' ? 'Location' : 'Vente'}
                 </Badge>
               </TableCell>
               <TableCell className="text-sm">

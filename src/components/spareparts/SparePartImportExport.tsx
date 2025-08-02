@@ -70,7 +70,7 @@ export function SparePartImportExport({ onImportSuccess, stockLocations }: Spare
         purchasePrice: 12.5,
         sellingPrice: 18.0,
         warranty: '12 mois',
-        status: 'EN_VENTE'
+        status: 'FOR_SALE'
       },
       {
         name: 'Joint étanchéité',
@@ -81,7 +81,7 @@ export function SparePartImportExport({ onImportSuccess, stockLocations }: Spare
         purchasePrice: 5.0,
         sellingPrice: 8.0,
         warranty: '6 mois',
-        status: 'EN_VENTE'
+        status: 'FOR_SALE'
       }
     ];
   };
@@ -169,7 +169,7 @@ export function SparePartImportExport({ onImportSuccess, stockLocations }: Spare
     }
 
     // Status validation
-    const validStatuses = ['EN_VENTE', 'EN_LOCATION', 'EN_REPARATION', 'HORS_SERVICE'];
+    const validStatuses = ['FOR_SALE', 'FOR_RENT', 'EN_REPARATION', 'HORS_SERVICE'];
     if (row.status && !validStatuses.includes(row.status)) {
       errors.push({
         row: index + 2,
@@ -215,7 +215,7 @@ export function SparePartImportExport({ onImportSuccess, stockLocations }: Spare
             purchasePrice: row[5] ? Number(row[5]) : undefined,
             sellingPrice: row[6] ? Number(row[6]) : undefined,
             warranty: row[7]?.toString().trim() || '',
-            status: row[8]?.toString().trim() || 'EN_VENTE',
+            status: row[8]?.toString().trim() || 'FOR_SALE',
           })) as SparePartRow[];
 
         // Validate all rows
@@ -265,7 +265,7 @@ export function SparePartImportExport({ onImportSuccess, stockLocations }: Spare
           purchasePrice: row.purchasePrice || null,
           sellingPrice: row.sellingPrice || null,
           warranty: row.warranty || null,
-          status: row.status || 'EN_VENTE',
+          status: row.status || 'FOR_SALE',
         };
       });
 

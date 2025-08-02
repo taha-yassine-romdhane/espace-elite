@@ -51,9 +51,7 @@ const formSchema = z.object({
       message: "Matricule fiscal invalide. Format attendu: 1234567ABC123"
     }),
   technicienResponsable: z.string().optional(),
-  descriptionNom: z.string().optional(),
-  descriptionTelephone: z.string().optional(),
-  descriptionAdresse: z.string().optional(),
+  generalNote: z.string().optional(),
   // Add file fields to the schema (keeping as-is per instructions)
   files: z.any().optional(),
   existingFiles: z.any().optional(),
@@ -69,9 +67,7 @@ export interface SocieteFormProps {
     delegation?: string;
     detailedAddress?: string;
     technicienResponsable?: string;
-    descriptionNom?: string;
-    descriptionTelephone?: string;
-    descriptionAdresse?: string;
+    generalNote?: string;
     files?: File[];
     existingFiles?: ExistingFile[];
     id?: string; // Include ID if available for the entity
@@ -131,9 +127,7 @@ export default function SocieteForm({ formData, onInputChange, onFileChange, onB
       telephoneSecondaire: formData.telephoneSecondaire || '',
       matriculeFiscale: formData.matriculeFiscale || '',
       technicienResponsable: formData.technicienResponsable || '',
-      descriptionNom: formData.descriptionNom || '',
-      descriptionTelephone: formData.descriptionTelephone || '',
-      descriptionAdresse: formData.descriptionAdresse || '',
+      generalNote: formData.generalNote || '',
       existingFiles: formData.existingFiles || [],
     },
   });
@@ -394,49 +388,20 @@ export default function SocieteForm({ formData, onInputChange, onFileChange, onB
               <div className="space-y-6">
                 <FormField
                   control={form.control}
-                  name="descriptionNom"
+                  name="generalNote"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Description Nom</FormLabel>
+                      <FormLabel>Notes Générales</FormLabel>
                       <FormControl>
-                        <Textarea {...field} onChange={(e) => {
-                          field.onChange(e);
-                          onInputChange(e);
-                        }} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="descriptionTelephone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Description Téléphone</FormLabel>
-                      <FormControl>
-                        <Textarea {...field} onChange={(e) => {
-                          field.onChange(e);
-                          onInputChange(e);
-                        }} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="descriptionAdresse"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Description Adresse</FormLabel>
-                      <FormControl>
-                        <Textarea {...field} onChange={(e) => {
-                          field.onChange(e);
-                          onInputChange(e);
-                        }} />
+                        <Textarea 
+                          {...field} 
+                          placeholder="Ajouter des notes générales pour cette société..."
+                          rows={4}
+                          onChange={(e) => {
+                            field.onChange(e);
+                            onInputChange(e);
+                          }} 
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

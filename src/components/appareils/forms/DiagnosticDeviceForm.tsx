@@ -60,9 +60,9 @@ const diagnosticDeviceSchema = z.object({
   technicalSpecs: z.string().optional().nullable(),
   warranty: z.string().optional().nullable(),
   configuration: z.string().optional().nullable(),
-  availableForRent: z.boolean().optional().default(false),
+  destination: z.enum(["FOR_SALE", "FOR_RENT"]).default("FOR_SALE"),
   requiresMaintenance: z.boolean().optional().default(false),
-  status: z.enum(["ACTIVE", "MAINTENANCE", "RETIRED", "RESERVED"]).default("ACTIVE"),
+  status: z.enum(["ACTIVE", "MAINTENANCE", "RETIRED", "RESERVED", "SOLD"]).default("ACTIVE"),
   parameters: z.record(z.any()).optional(),
 });
 
@@ -94,7 +94,7 @@ export function DiagnosticDeviceForm({ initialData, onSubmit, stockLocations, is
       technicalSpecs: initialData?.technicalSpecs || '',
       warranty: initialData?.warranty || '',
       configuration: initialData?.configuration || '',
-      availableForRent: initialData?.availableForRent || false,
+      destination: initialData?.destination || "FOR_SALE",
       requiresMaintenance: initialData?.requiresMaintenance || false,
       status: initialData?.status || "ACTIVE"
     },
@@ -121,7 +121,7 @@ export function DiagnosticDeviceForm({ initialData, onSubmit, stockLocations, is
           acc[key] = value ? parseInt(value.toString()) : null;
         }
         // Handle boolean fields
-        else if (["availableForRent", "requiresMaintenance"].includes(key)) {
+        else if (["requiresMaintenance"].includes(key)) {
           acc[key] = value || false;
         }
         // All other fields
@@ -302,71 +302,74 @@ export function DiagnosticDeviceForm({ initialData, onSubmit, stockLocations, is
                 <TabsContent value="technical">
                   <Card>
                     <CardContent className="space-y-4 pt-4">
-                      <FormField
-                        control={form.control}
-                        name="status"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-base">Statut</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Sélectionner le statut" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="ACTIVE">Actif</SelectItem>
-                                <SelectItem value="MAINTENANCE">En Maintenance</SelectItem>
-                                <SelectItem value="RETIRED">Retiré</SelectItem>
-                                <SelectItem value="RESERVED">Réservé</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <div className="flex items-center space-x-6">
+                      <div className="grid grid-cols-2 gap-4">
                         <FormField
                           control={form.control}
-                          name="availableForRent"
+                          name="status"
                           render={({ field }) => (
-                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                              <div className="space-y-0.5">
-                                <FormLabel className="text-base">
-                                  Disponible à la location
-                                </FormLabel>
-                              </div>
-                              <FormControl>
-                                <Switch
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                />
-                              </FormControl>
+                            <FormItem>
+                              <FormLabel className="text-base">Statut de l'Appareil</FormLabel>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Sélectionner le statut" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="ACTIVE">Actif</SelectItem>
+                                  <SelectItem value="MAINTENANCE">En Maintenance</SelectItem>
+                                  <SelectItem value="RETIRED">Retiré</SelectItem>
+                                  <SelectItem value="RESERVED">Réservé</SelectItem>
+                                  <SelectItem value="SOLD">Vendu</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
                             </FormItem>
                           )}
                         />
 
                         <FormField
                           control={form.control}
-                          name="requiresMaintenance"
+                          name="destination"
                           render={({ field }) => (
-                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                              <div className="space-y-0.5">
-                                <FormLabel className="text-base">
-                                  Nécessite maintenance
-                                </FormLabel>
-                              </div>
-                              <FormControl>
-                                <Switch
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                />
-                              </FormControl>
+                            <FormItem>
+                              <FormLabel className="text-base">Destination</FormLabel>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Sélectionner la destination" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="FOR_SALE">Vente</SelectItem>
+                                  <SelectItem value="FOR_RENT">Location</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
                             </FormItem>
                           )}
                         />
                       </div>
+
+                      <FormField
+                        control={form.control}
+                        name="requiresMaintenance"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">
+                                Nécessite maintenance
+                              </FormLabel>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
                     </CardContent>
                   </Card>
                 </TabsContent>
@@ -395,7 +398,7 @@ export function DiagnosticDeviceForm({ initialData, onSubmit, stockLocations, is
                         purchasePrice: values.purchasePrice ? parseFloat(values.purchasePrice.toString()) : null,
                         sellingPrice: values.sellingPrice ? parseFloat(values.sellingPrice.toString()) : null,
                         stockQuantity: values.stockQuantity ? parseInt(values.stockQuantity.toString()) : 1,
-                        availableForRent: values.availableForRent || false,
+                        destination: values.destination || "FOR_SALE",
                         requiresMaintenance: values.requiresMaintenance || false
                       };
                       

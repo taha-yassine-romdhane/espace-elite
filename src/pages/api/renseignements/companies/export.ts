@@ -38,9 +38,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       'Matricule Fiscal': company.taxId || '',
       'Technicien Responsable': company.technician ? `${company.technician.firstName} ${company.technician.lastName}` : '',
       'Assigné à': company.assignedTo ? `${company.assignedTo.firstName} ${company.assignedTo.lastName}` : '',
-      'Description Nom': company.nameDescription || '',
-      'Description Téléphone': company.phoneDescription || '',
-      'Description Adresse': company.addressDescription || '',
+      'Notes Générales': company.generalNote || '',
       'Date Création': company.createdAt ? new Date(company.createdAt).toLocaleDateString('fr-FR') : '',
       'Date Modification': company.updatedAt ? new Date(company.updatedAt).toLocaleDateString('fr-FR') : ''
     }));

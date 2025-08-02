@@ -72,6 +72,37 @@ export function StockLocationsTable({ initialItemsPerPage = 10 }: { initialItems
     },
   });
 
+  // Delete location mutation - moved here to ensure hooks are called in consistent order
+  const deleteLocationMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/stock-locations/${id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete location");
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["stock-locations"] });
+      toast({
+        title: "Succès",
+        description: "L'emplacement a été supprimé avec succès",
+      });
+      setLocationToDelete(null);
+      setIsDeleteDialogOpen(false);
+    },
+    onError: () => {
+      toast({
+        title: "Erreur",
+        description: "Une erreur est survenue lors de la suppression de l'emplacement",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Filter locations based on search query
   useEffect(() => {
     if (!locations) {
@@ -153,36 +184,6 @@ export function StockLocationsTable({ initialItemsPerPage = 10 }: { initialItems
     );
   }
 
-  // Delete location mutation
-  const deleteLocationMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const response = await fetch(`/api/stock-locations/${id}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to delete location");
-      }
-
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["stock-locations"] });
-      toast({
-        title: "Succès",
-        description: "L'emplacement a été supprimé avec succès",
-      });
-      setLocationToDelete(null);
-      setIsDeleteDialogOpen(false);
-    },
-    onError: () => {
-      toast({
-        title: "Erreur",
-        description: "Une erreur est survenue lors de la suppression de l'emplacement",
-        variant: "destructive",
-      });
-    },
-  });
 
   const handleEdit = (location: StockLocation) => {
     setEditingLocation(location);

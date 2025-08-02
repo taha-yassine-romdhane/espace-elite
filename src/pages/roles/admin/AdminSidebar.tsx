@@ -21,6 +21,8 @@ import {
     Check,
     X,
     GripVertical,
+    MapPin,
+    BarChart3,
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
@@ -44,11 +46,13 @@ const Sidebar: React.FC = () => {
     // Default menu items with unique IDs
     const defaultMenuItems: MenuItem[] = [
         { id: 'dashboard', icon: <LayoutDashboard size={20} />, label: "Accueil", path: "/roles/admin/dashboard" },
-        { id: 'tasks', icon: <CalendarCheck size={20} />, label: "Gestion des taches", path: "/roles/admin/tasks" },
-        { id: 'notifications', icon: <ClipboardCheck size={20} />, label: "Gestion des Notifications", path: "/roles/admin/notifications" },
+        { id: 'analytics', icon: <BarChart3 size={20} />, label: "Analyses & Rapports", path: "/roles/admin/analytics" },
+        { id: 'tasks', icon: <CalendarCheck size={20} />, label: "Gestion des taches", path: "/roles/admin/tasks/modern" },
+        { id: 'notifications', icon: <ClipboardCheck size={20} />, label: "Gestion des Notifications", path: "/roles/admin/notifications/modern" },
         { id: 'users', icon: <ContactRound size={20} />, label: "Utilisateurs", path: "/roles/admin/users" },
         { id: 'espace-technicien', icon: <UserCog size={20} />, label: "Espace Technicien", path: "/roles/admin/espace-technicien" },
         { id: 'renseignement', icon: <Users size={20} />, label: "Renseignement", path: "/roles/admin/renseignement" },
+        { id: 'map', icon: <MapPin size={20} />, label: "Carte des Patients", path: "/roles/admin/map" },
         { id: 'appareils', icon: <BriefcaseMedical size={20} />, label: "Gestion des Produits", path: "/roles/admin/appareils" },
         { id: 'reparateur', icon: <Wrench size={20} />, label: "Gestion des Reparateurs", path: "/roles/admin/reparateur" },
         { id: 'stock', icon: <Database size={20} />, label: "Gestion des Stock", path: "/roles/admin/stock" },
@@ -294,7 +298,7 @@ const Sidebar: React.FC = () => {
                                     isEditMode
                                         ? "cursor-grab active:cursor-grabbing hover:bg-blue-50 border-2 border-transparent hover:border-blue-200"
                                         : "cursor-pointer",
-                                    !isEditMode && router.pathname === item.path
+                                    !isEditMode && (router.pathname === item.path || router.asPath === item.path)
                                         ? "bg-[#1e3a8a] text-white"
                                         : "text-gray-700 hover:bg-gray-50 hover:text-[#1e3a8a]",
                                     draggedItem === item.id && "opacity-50 scale-105",
@@ -336,7 +340,8 @@ const Sidebar: React.FC = () => {
                     onClick={() => {
                         // Prevent multiple rapid logout attempts and disable in edit mode
                         if (!isNavigating && !isEditMode) {
-                            signOut({ callbackUrl: '/welcome' });
+                            const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+                            signOut({ callbackUrl: `${baseUrl}/welcome` });
                         }
                     }}
                     className={cn(

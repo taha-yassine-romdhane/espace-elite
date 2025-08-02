@@ -70,7 +70,7 @@ export function AccessoryImportExport({ onImportSuccess, stockLocations }: Acces
         purchasePrice: 25.5,
         sellingPrice: 35.0,
         warrantyExpiration: '2025-12-31',
-        status: 'EN_VENTE'
+        status: 'FOR_SALE'
       },
       {
         name: 'Tube CPAP',
@@ -81,7 +81,7 @@ export function AccessoryImportExport({ onImportSuccess, stockLocations }: Acces
         purchasePrice: 15.0,
         sellingPrice: 22.0,
         warrantyExpiration: '2024-06-30',
-        status: 'EN_VENTE'
+        status: 'FOR_SALE'
       }
     ];
   };
@@ -169,7 +169,7 @@ export function AccessoryImportExport({ onImportSuccess, stockLocations }: Acces
     }
 
     // Status validation
-    const validStatuses = ['EN_VENTE', 'EN_LOCATION', 'EN_REPARATION', 'HORS_SERVICE'];
+    const validStatuses = ['FOR_SALE', 'FOR_RENT', 'EN_REPARATION', 'HORS_SERVICE'];
     if (row.status && !validStatuses.includes(row.status)) {
       errors.push({
         row: index + 2,
@@ -227,7 +227,7 @@ export function AccessoryImportExport({ onImportSuccess, stockLocations }: Acces
             purchasePrice: row[5] ? Number(row[5]) : undefined,
             sellingPrice: row[6] ? Number(row[6]) : undefined,
             warrantyExpiration: row[7]?.toString().trim() || '',
-            status: row[8]?.toString().trim() || 'EN_VENTE',
+            status: row[8]?.toString().trim() || 'FOR_SALE',
           })) as AccessoryRow[];
 
         // Validate all rows
@@ -277,7 +277,7 @@ export function AccessoryImportExport({ onImportSuccess, stockLocations }: Acces
           purchasePrice: row.purchasePrice || null,
           sellingPrice: row.sellingPrice || null,
           warrantyExpiration: row.warrantyExpiration ? new Date(row.warrantyExpiration) : null,
-          status: row.status || 'EN_VENTE',
+          status: row.status || 'FOR_SALE',
         };
       });
 

@@ -154,7 +154,15 @@ export default async function handler(
           doctorId = doctor.id;
           console.log('Doctor found with ID:', doctorId, 'for user ID:', data.medecin);
         } else {
-          console.log('No doctor record found for user ID:', data.medecin);
+          console.log('No doctor record found for user ID:', data.medecin, 'Creating one...');
+          // If no doctor record exists, create one
+          const newDoctor = await prisma.doctor.create({
+            data: {
+              userId: data.medecin
+            }
+          });
+          doctorId = newDoctor.id;
+          console.log('Created new doctor record with ID:', doctorId);
         }
       }
 
@@ -183,25 +191,25 @@ export default async function handler(
           governorate: data.governorate || null,
           delegation: data.delegation || null,
           detailedAddress: data.detailedAddress || null,
+          addressCoordinates: data.addressCoordinates ? JSON.parse(data.addressCoordinates) : null,
           dateOfBirth: data.dateNaissance ? new Date(data.dateNaissance) : null,
           cin: data.cin || '',
           cnamId: data.identifiantCNAM || '',
           height: data.taille ? parseFloat(data.taille) : null,
           weight: data.poids ? parseFloat(data.poids) : null,
           medicalHistory: data.antecedant || '',
-          descriptionNumOne: data.descriptionNom || '',
-          descriptionNumTwo: data.descriptionTelephone || '',
+          generalNote: data.generalNote || '',
           affiliation: (data.caisseAffiliation as Affiliation) || 'CNSS',
           beneficiaryType: (data.beneficiaire as BeneficiaryType) || 'ASSURE_SOCIAL',
           doctor: doctorId ? {
             connect: { id: doctorId }
-          } : undefined, // Properly handle doctor connection/disconnection
+          } : undefined,
           technician: data.technicienResponsable ? {
             connect: { id: data.technicienResponsable }
-          } : undefined, // Properly handle technician connection/disconnection
+          } : undefined,
           supervisor: data.superviseur ? {
             connect: { id: data.superviseur }
-          } : undefined, // Properly handle supervisor connection/disconnection
+          } : undefined,
           assignedTo: {
             connect: {
               id: session.user.id
@@ -415,7 +423,15 @@ export default async function handler(
           updateDoctorId = doctor.id;
           console.log('Doctor found with ID:', updateDoctorId, 'for user ID:', data.medecin);
         } else {
-          console.log('No doctor record found for user ID:', data.medecin);
+          console.log('No doctor record found for user ID:', data.medecin, 'Creating one...');
+          // If no doctor record exists, create one
+          const newDoctor = await prisma.doctor.create({
+            data: {
+              userId: data.medecin
+            }
+          });
+          updateDoctorId = newDoctor.id;
+          console.log('Created new doctor record with ID:', updateDoctorId);
         }
       }
 
@@ -429,25 +445,31 @@ export default async function handler(
           governorate: data.governorate || null,
           delegation: data.delegation || null,
           detailedAddress: data.detailedAddress || null,
+          addressCoordinates: data.addressCoordinates ? JSON.parse(data.addressCoordinates) : null,
           dateOfBirth: data.dateNaissance ? new Date(data.dateNaissance) : null,
           cin: data.cin || '',
           cnamId: data.identifiantCNAM || '',
           height: data.taille ? parseFloat(data.taille) : null,
           weight: data.poids ? parseFloat(data.poids) : null,
           medicalHistory: data.antecedant || '',
-          descriptionNumOne: data.descriptionNom || '',
-          descriptionNumTwo: data.descriptionTelephone || '',
+          generalNote: data.generalNote || '',
           affiliation: (data.caisseAffiliation as Affiliation) || 'CNSS',
           beneficiaryType: (data.beneficiaire as BeneficiaryType) || 'ASSURE_SOCIAL',
-          doctor: doctorId ? {
-            connect: { id: doctorId }
-          } : undefined, // Properly handle doctor connection/disconnection
+          doctor: updateDoctorId ? {
+            connect: { id: updateDoctorId }
+          } : {
+            disconnect: true
+          },
           technician: data.technicienResponsable ? {
             connect: { id: data.technicienResponsable }
-          } : undefined, // Properly handle technician connection/disconnection
+          } : {
+            disconnect: true
+          },
           supervisor: data.superviseur ? {
             connect: { id: data.superviseur }
-          } : undefined
+          } : {
+            disconnect: true
+          }
           // Removed updateFileData from here
         },
         include: {

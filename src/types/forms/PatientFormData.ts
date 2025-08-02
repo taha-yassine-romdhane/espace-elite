@@ -39,13 +39,13 @@ export interface PersonalInfoFormValues extends BaseFormValues {
   governorate?: string;
   delegation?: string;
   detailedAddress?: string;
+  longitude?: number;
+  latitude?: number;
   addressCoordinates?: string | null;
   cin?: string;
   dateNaissance?: string;
   antecedant?: string;
-  descriptionNom?: string;
-  descriptionTelephone?: string;
-  descriptionAdresse?: string;
+  generalNote?: string;
 }
 
 /**

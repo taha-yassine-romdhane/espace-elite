@@ -132,9 +132,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           delegation: row['Délégation'] || null,
           detailedAddress: row['Adresse Détaillée'] || null,
           taxId: row['Matricule Fiscal'] || null,
-          nameDescription: row['Description Nom'] || null,
-          phoneDescription: row['Description Téléphone'] || null,
-          addressDescription: row['Description Adresse'] || null,
+          generalNote: row['Notes Générales'] || null,
           technician: technicianId ? { connect: { id: technicianId } } : undefined,
           assignedTo: { connect: { id: session.user.id } }
         };

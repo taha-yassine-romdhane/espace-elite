@@ -79,7 +79,7 @@ export default async function handler(
           stockLocation: product.stocks[0]?.location.name || 'Non assigné',
           stockLocationId: product.stocks[0]?.location.id,
           stockQuantity: product.stocks.reduce((acc, stock) => acc + stock.quantity, 0),
-          status: product.stocks[0]?.status || 'EN_VENTE'
+          status: product.stocks[0]?.status || 'FOR_SALE'
         });
 
       case 'PUT':
@@ -236,7 +236,7 @@ export default async function handler(
                 updatePayload.warrantyExpiration = new Date(warrantyExpiration);
               }
               if (status) {
-                updatePayload.status = status === 'EN_VENTE' ? 'ACTIVE' :
+                updatePayload.status = status === 'FOR_SALE' ? 'ACTIVE' :
                                      status === 'VENDU' ? 'SOLD' :
                                      status === 'HORS_SERVICE' ? 'RETIRED' : 'ACTIVE';
               }
@@ -267,7 +267,7 @@ export default async function handler(
                   },
                   create: {
                     quantity: parseInt(stockQuantity?.toString() || '1'),
-                    status: status || 'EN_VENTE',
+                    status: status || 'FOR_SALE',
                     product: {
                       connect: { id: id as string }
                     },
@@ -277,15 +277,15 @@ export default async function handler(
                   },
                   update: {
                     quantity: parseInt(stockQuantity?.toString() || '1'),
-                    status: status || 'EN_VENTE'
+                    status: status || 'FOR_SALE'
                   }
                 });
               }
 
               // Map the status back to the frontend format
-              const mappedStatus = updatedProduct.status === 'ACTIVE' ? 'EN_VENTE' :
+              const mappedStatus = updatedProduct.status === 'ACTIVE' ? 'FOR_SALE' :
                 updatedProduct.status === 'SOLD' ? 'VENDU' :
-                  updatedProduct.status === 'RETIRED' ? 'HORS_SERVICE' : 'EN_VENTE';
+                  updatedProduct.status === 'RETIRED' ? 'HORS_SERVICE' : 'FOR_SALE';
 
               return res.status(200).json({
                 id: updatedProduct.id,

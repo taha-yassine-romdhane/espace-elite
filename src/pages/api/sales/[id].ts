@@ -353,7 +353,7 @@ export default async function handler(
               const stockRecord = await tx.stock.findFirst({
                 where: { 
                   productId: item.productId,
-                  status: 'EN_VENTE'
+                  status: 'FOR_SALE'
                 }
               });
               

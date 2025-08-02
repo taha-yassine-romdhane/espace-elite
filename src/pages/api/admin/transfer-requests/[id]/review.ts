@@ -142,7 +142,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                   locationId: toLocationId,
                   productId: productId,
                   quantity: quantity,
-                  status: 'EN_VENTE' // Default status
+                  status: 'FOR_SALE' // Default status
                 }
               });
             }

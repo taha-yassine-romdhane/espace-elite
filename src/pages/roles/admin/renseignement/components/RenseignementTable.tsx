@@ -6,7 +6,6 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Settings2, FileText, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eye, Edit3, Trash2, MoreVertical, Users, Building2, User } from "lucide-react";
 import { DataTable } from "@/components/ui/data-table";
 import { Renseignement } from '@/types/renseignement';
@@ -17,9 +16,6 @@ import { Badge } from "@/components/ui/badge";
 
 interface RenseignementTableProps {
   data: Renseignement[];
-  selectedItems: string[];
-  onSelect: (id: string) => void;
-  onSelectAll: (checked: boolean) => void;
   onEdit: (item: Renseignement) => void;
   onDelete: (ids: string[]) => void;
   onViewFiles: (files: { url: string; type: string }[]) => void;
@@ -30,9 +26,6 @@ interface RenseignementTableProps {
 
 function RenseignementTable({
   data = [], // Default to empty array for SSR
-  selectedItems = [], // Default for SSR
-  onSelect = () => {}, // Default noop function for SSR
-  onSelectAll = () => {}, // Default noop function for SSR
   onEdit = () => {}, // Default noop function for SSR
   onDelete = () => {}, // Default noop function for SSR
   onViewFiles = () => {}, // Default noop function for SSR
@@ -140,23 +133,6 @@ function RenseignementTable({
   };
   // Patient-specific columns
   const patientColumns = [
-    {
-      id: "select",
-      header: ({ table }: { table: { getIsAllPageRowsSelected: () => boolean } }) => (
-        <Checkbox
-          checked={table.getIsAllPageRowsSelected()}
-          onCheckedChange={(value) => onSelectAll(!!value)}
-          aria-label="Select all"
-        />
-      ),
-      cell: ({ row }: { row: { original: Renseignement } }) => (
-        <Checkbox
-          checked={selectedItems.includes(row.original.id)}
-          onCheckedChange={() => onSelect(row.original.id)}
-          aria-label="Select row"
-        />
-      ),
-    },
     {
       id: "patient",
       header: "Patient",
@@ -338,23 +314,6 @@ function RenseignementTable({
 
   // Company-specific columns
   const companyColumns = [
-    {
-      id: "select",
-      header: ({ table }: { table: { getIsAllPageRowsSelected: () => boolean } }) => (
-        <Checkbox
-          checked={table.getIsAllPageRowsSelected()}
-          onCheckedChange={(value) => onSelectAll(!!value)}
-          aria-label="Select all"
-        />
-      ),
-      cell: ({ row }: { row: { original: Renseignement } }) => (
-        <Checkbox
-          checked={selectedItems.includes(row.original.id)}
-          onCheckedChange={() => onSelect(row.original.id)}
-          aria-label="Select row"
-        />
-      ),
-    },
     {
       id: "company",
       header: "Société",

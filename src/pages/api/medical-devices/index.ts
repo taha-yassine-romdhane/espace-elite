@@ -81,7 +81,7 @@ export default async function handler(
             purchasePrice: device.purchasePrice,
             sellingPrice: device.sellingPrice,
             technicalSpecs: device.technicalSpecs,
-            availableForRent: device.availableForRent,
+            destination: device.destination,
             requiresMaintenance: device.requiresMaintenance,
             stockLocation: device.stockLocation,
             stockLocationId: device.stockLocationId,
@@ -135,7 +135,7 @@ export default async function handler(
                 purchasePrice: data.purchasePrice ? parseFloat(data.purchasePrice) : null,
                 sellingPrice: data.sellingPrice ? parseFloat(data.sellingPrice) : null,
                 technicalSpecs: data.technicalSpecs,
-                availableForRent: data.availableForRent || false,
+                destination: data.destination || 'FOR_SALE',
                 requiresMaintenance: data.requiresMaintenance || false,
                 configuration: data.configuration,
                 status: 'ACTIVE',
@@ -187,7 +187,7 @@ export default async function handler(
               purchasePrice: newMedicalDevice.purchasePrice,
               sellingPrice: newMedicalDevice.sellingPrice,
               technicalSpecs: newMedicalDevice.technicalSpecs,
-              availableForRent: newMedicalDevice.availableForRent,
+              destination: newMedicalDevice.destination,
               rentalPrice: newMedicalDevice.rentalPrice,
               requiresMaintenance: newMedicalDevice.requiresMaintenance,
               stockLocation: newMedicalDevice.stockLocation,
@@ -226,7 +226,7 @@ export default async function handler(
                   }
                 },
                 quantity: parseInt(data.stockQuantity.toString()),
-                status: 'EN_VENTE'
+                status: 'FOR_SALE'
               },
               include: {
                 location: true
@@ -274,7 +274,7 @@ export default async function handler(
               purchasePrice: updateData.purchasePrice ? parseFloat(updateData.purchasePrice.toString()) : null,
               sellingPrice: updateData.sellingPrice ? parseFloat(updateData.sellingPrice.toString()) : null,
               technicalSpecs: updateData.technicalSpecs,
-              availableForRent: updateData.availableForRent,
+              destination: updateData.destination || 'FOR_SALE',
               requiresMaintenance: updateData.requiresMaintenance,
               configuration: updateData.configuration || updateData.specifications,
               status: updateData.status || 'ACTIVE',
@@ -327,7 +327,7 @@ export default async function handler(
             purchasePrice: updatedMedicalDevice.purchasePrice,
             sellingPrice: updatedMedicalDevice.sellingPrice,
             technicalSpecs: updatedMedicalDevice.technicalSpecs,
-            availableForRent: updatedMedicalDevice.availableForRent,
+            destination: updatedMedicalDevice.destination,
             requiresMaintenance: updatedMedicalDevice.requiresMaintenance,
             stockLocation: updatedMedicalDevice.stockLocation,
             stockLocationId: updatedMedicalDevice.stockLocationId,
@@ -374,7 +374,7 @@ export default async function handler(
             stockLocation: stock?.location.name || 'Non assigné',
             stockLocationId: stock?.location.id,
             stockQuantity: stock?.quantity || 0,
-            status: stock?.status || 'EN_VENTE'
+            status: stock?.status || 'FOR_SALE'
           });
         }
 

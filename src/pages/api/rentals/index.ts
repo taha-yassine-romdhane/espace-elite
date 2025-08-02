@@ -699,7 +699,7 @@ export default async function handler(
                       where: { id: existingStock.id },
                       data: {
                         quantity: existingStock.quantity - product.quantity,
-                        status: 'EN_LOCATION' // Mark as rented
+                        status: 'FOR_RENT' // Mark as rented
                       }
                     });
                   } else {

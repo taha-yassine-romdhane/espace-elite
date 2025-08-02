@@ -42,6 +42,7 @@ export default function RenseignementPage() {
     cin: '',
     identifiantCNAM: '',
     technicienResponsable: '',
+    superviseur: '',
     antecedant: '',
     taille: '',
     poids: '',
@@ -50,9 +51,7 @@ export default function RenseignementPage() {
     beneficiaire: BeneficiaryType.ASSURE_SOCIAL,
     caisseAffiliation: 'CNSS',
     cnam: false,
-    descriptionNom: '',
-    descriptionTelephone: '',
-    descriptionAdresse: '',
+    generalNote: '',
     nomSociete: '',
     matriculeFiscale: '',
     images: [],
@@ -62,7 +61,6 @@ export default function RenseignementPage() {
 
   const [renseignements, setRenseignements] = useState<Renseignement[]>([]);
   const [filteredRenseignements, setFilteredRenseignements] = useState<Renseignement[]>([]);
-  const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [showFilesDialog, setShowFilesDialog] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const [showImportExportModal, setShowImportExportModal] = useState(false);
@@ -277,9 +275,7 @@ export default function RenseignementPage() {
         delegation: item.delegation || '',
         detailedAddress: item.detailedAddress || '',
         technicienResponsable: item.technician?.id || '',
-        descriptionNom: item.descriptionNom || '',
-        descriptionTelephone: item.descriptionTelephone || '',
-        descriptionAdresse: item.descriptionAdresse || '',
+        generalNote: (item as any).generalNote || '',
         images: [],
         files: [],
         existingFiles: item.files || [],
@@ -302,6 +298,7 @@ export default function RenseignementPage() {
         cin: item.cin || '',
         identifiantCNAM: item.identifiantCNAM || '',
         technicienResponsable: item.technician?.id || '',
+        superviseur: (item as any).supervisor?.id || '',
         antecedant: item.antecedant || '',
         taille: item.taille?.toString() || '',
         poids: item.poids?.toString() || '',
@@ -310,9 +307,8 @@ export default function RenseignementPage() {
         beneficiaire: item.beneficiaire || BeneficiaryType.ASSURE_SOCIAL,
         caisseAffiliation: item.caisseAffiliation as CaisseAffiliation,
         cnam: !!item.cnam,
-        descriptionNom: item.descriptionNom || '',
-        descriptionTelephone: item.descriptionTelephone || '',
-        descriptionAdresse: item.descriptionAdresse || '',
+        generalNote: (item as any).generalNote || '',
+        addressCoordinates: (item as any).addressCoordinates ? JSON.stringify((item as any).addressCoordinates) : '',
         // Files
         images: [],
         files: [],
@@ -358,23 +354,6 @@ export default function RenseignementPage() {
     }
   };
 
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedItems(filteredRenseignements.map(item => item.id));
-    } else {
-      setSelectedItems([]);
-    }
-  };
-
-  const handleSelect = (id: string) => {
-    setSelectedItems(prev => {
-      if (prev.includes(id)) {
-        return prev.filter(item => item !== id);
-      } else {
-        return [...prev, id];
-      }
-    });
-  };
 
   const handleViewFiles = (files: { url: string; type: string }[]) => {
     if (!files || files.length === 0) {
@@ -407,6 +386,7 @@ export default function RenseignementPage() {
       cin: '',
       identifiantCNAM: '',
       technicienResponsable: '',
+      superviseur: '',
       antecedant: '',
       taille: '',
       poids: '',
@@ -415,9 +395,7 @@ export default function RenseignementPage() {
       beneficiaire: BeneficiaryType.ASSURE_SOCIAL,
       caisseAffiliation: 'CNSS',
       cnam: false,
-      descriptionNom: '',
-      descriptionTelephone: '',
-      descriptionAdresse: '',
+      generalNote: '',
       nomSociete: '',
       matriculeFiscale: '',
       images: [],
@@ -501,14 +479,6 @@ export default function RenseignementPage() {
      <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Renseignements</h1>
         <div className="space-x-2">
-          {selectedItems.length > 0 && (
-            <Button
-              variant="destructive"
-              onClick={() => handleDelete(selectedItems)}
-            >
-              Supprimer sélectionnés
-            </Button>
-          )}
           <Button
             onClick={() => {
               resetForm();
@@ -667,9 +637,6 @@ export default function RenseignementPage() {
         <Suspense fallback={<LoadingFallback />}>
           <RenseignementTable
             data={filteredRenseignements}
-            selectedItems={selectedItems}
-            onSelect={handleSelect}
-            onSelectAll={handleSelectAll}
             onEdit={handleEdit}
             onDelete={handleDelete}
             onViewFiles={(files) => handleViewFiles(files)}

@@ -202,8 +202,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           height: row['Taille (cm)'] ? parseFloat(row['Taille (cm)']) : null,
           weight: row['Poids (kg)'] ? parseFloat(row['Poids (kg)']) : null,
           medicalHistory: row['Antécédents'] || null,
-          descriptionNumOne: row['Description Nom'] || null,
-          descriptionNumTwo: row['Description Téléphone'] || null,
+          generalNote: row['Note Générale'] || null,
           doctor: doctorId ? { connect: { id: doctorId } } : undefined,
           technician: technicianId ? { connect: { id: technicianId } } : undefined,
           assignedTo: { connect: { id: session.user.id } }

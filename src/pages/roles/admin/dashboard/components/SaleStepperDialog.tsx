@@ -298,7 +298,7 @@ export function SaleStepperDialog({ isOpen, onClose, action }: StepperDialogProp
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-7xl max-h-[90vh] overflow-hidden p-0 flex flex-col">
+      <DialogContent className="max-w-[95vw] max-h-[95vh] overflow-hidden p-0 flex flex-col">
         <div className="flex h-full overflow-hidden">
           {/* Sale Stepper Sidebar */}
           {action === "vente" && (
@@ -308,6 +308,7 @@ export function SaleStepperDialog({ isOpen, onClose, action }: StepperDialogProp
               clientDetails={clientDetails}
               selectedProducts={selectedProducts}
               totalPrice={totalPrice}
+              paymentData={paymentData}
             />
           )}
 

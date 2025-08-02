@@ -88,7 +88,7 @@ model Stock {
   locationId String
   productId  String
   quantity   Int
-  status     StockStatus   @default(EN_VENTE)
+  status     StockStatus   @default(FOR_SALE)
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt
   location   StockLocation @relation(fields: [locationId], references: [id])
@@ -177,8 +177,7 @@ model Patient {
   lastName           String
   telephone          String                   @unique
   telephoneTwo       String?
-  descriptionNumOne  String?
-  descriptionNumTwo  String?
+  generalNote        String?
   affiliation        Affiliation?
   antecedant         String?
   beneficiaryType    BeneficiaryType?
@@ -223,9 +222,7 @@ model Company {
   telephone           String          @unique
   telephoneSecondaire String?
   taxId               String?
-  nameDescription     String?
-  phoneDescription    String?
-  addressDescription  String?
+  generalNote         String?
   technicianId        String?
   userId              String
   createdAt           DateTime        @default(now())
@@ -374,7 +371,7 @@ model MedicalDevice {
   serialNumber        String?
   technicalSpecs      String?
   warranty            String?
-  availableForRent    Boolean                  @default(false)
+  destination         StockStatus              @default(FOR_SALE)
   requiresMaintenance Boolean                  @default(false)
   model               String?
   description         String?
@@ -845,10 +842,10 @@ enum DeviceStatus {
 }
 
 enum StockStatus {
-  EN_VENTE
-  EN_LOCATION
-  EN_REPARATION
-  HORS_SERVICE
+  FOR_RENT
+  FOR_SALE
+  IN_REPAIR
+  OUT_OF_SERVICE
 }
 
 enum TaskStatus {

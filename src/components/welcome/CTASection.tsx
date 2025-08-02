@@ -37,11 +37,11 @@ const CTASection: React.FC = () => {
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-6 mb-16">
             <Link
-              href="/auth/signup"
+              href="/auth/signin"
               className="group relative inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl hover:from-blue-700 hover:to-purple-700 transition-all duration-300 shadow-2xl hover:shadow-blue-500/25 transform hover:-translate-y-1"
             >
               <Rocket className="w-6 h-6 mr-3 group-hover:animate-pulse" />
-              Essai gratuit 30 jours
+              Se connecter maintenant
               <ArrowRight className="w-5 h-5 ml-3 group-hover:translate-x-1 transition-transform" />
               
               {/* Glow effect */}

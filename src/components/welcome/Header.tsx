@@ -80,12 +80,6 @@ const Header: React.FC = () => {
             >
               Se connecter
             </Link>
-            <Link 
-              href="/auth/signup" 
-              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2.5 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-            >
-              Essai gratuit
-            </Link>
           </div>
 
           {/* Mobile menu button */}
@@ -121,12 +115,6 @@ const Header: React.FC = () => {
                   className="block w-full text-center py-2 px-4 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
                 >
                   Se connecter
-                </Link>
-                <Link 
-                  href="/auth/signup" 
-                  className="block w-full text-center py-2 px-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all"
-                >
-                  Essai gratuit
                 </Link>
               </div>
             </div>
