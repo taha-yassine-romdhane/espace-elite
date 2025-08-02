@@ -14,9 +14,7 @@ export interface Company {
   telephoneSecondaire?: string;
   address?: string;
   taxId?: string; // Matricule Fiscale
-  nameDescription?: string;
-  phoneDescription?: string;
-  addressDescription?: string;
+  generalNote?: string;
   technicianId?: string;
   technician?: User;
   assignedTo: User;

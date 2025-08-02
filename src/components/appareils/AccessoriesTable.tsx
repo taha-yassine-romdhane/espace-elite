@@ -10,9 +10,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Product, ProductType } from "@/types";
-import { History, Sliders, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Info } from "lucide-react";
+import { History, Sliders, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Info, Filter, X } from "lucide-react";
 import Link from 'next/link';
 
 interface AccessoriesTableProps {
@@ -45,22 +46,87 @@ export function AccessoriesTable({
   const [paginatedData, setPaginatedData] = useState<Product[]>([]);
   const [totalPages, setTotalPages] = useState(1);
 
-  // Filter accessories based on search query
+  // Filter state
+  const [showFilters, setShowFilters] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [brandFilter, setBrandFilter] = useState<string>('');
+  const [locationFilter, setLocationFilter] = useState<string>('');
+  const [priceRangeFilter, setPriceRangeFilter] = useState<string>('');
+
+  // Get unique values for filter dropdowns
+  const uniqueStatuses = useMemo(() => {
+    const statuses = [...new Set(allAccessories.map(accessory => accessory.status).filter(Boolean))];
+    return statuses.sort();
+  }, [allAccessories]);
+
+  const uniqueBrands = useMemo(() => {
+    const brands = [...new Set(allAccessories.map(accessory => accessory.brand).filter(Boolean))];
+    return brands.sort();
+  }, [allAccessories]);
+
+  const uniqueLocations = useMemo(() => {
+    const locations = [...new Set(allAccessories
+      .map(accessory => accessory.stockLocation?.name || 
+        (accessory.stocks && accessory.stocks.length > 0 && accessory.stocks[0].location?.name))
+      .filter(Boolean))];
+    return locations.sort();
+  }, [allAccessories]);
+
+  // Filter accessories based on search query and filters
   useEffect(() => {
-    if (searchQuery.trim() === '') {
-      setFilteredAccessories(allAccessories);
-    } else {
+    let filtered = allAccessories;
+
+    // Apply search query
+    if (searchQuery.trim() !== '') {
       const query = searchQuery.toLowerCase().trim();
-      const filtered = allAccessories.filter(item =>
+      filtered = filtered.filter(item =>
         (item.name && item.name.toLowerCase().includes(query)) ||
         (item.brand && item.brand.toLowerCase().includes(query)) ||
         (item.model && item.model.toLowerCase().includes(query))
       );
-      setFilteredAccessories(filtered);
     }
-    // Reset to first page when search changes
+
+    // Apply status filter
+    if (statusFilter && statusFilter !== 'all') {
+      filtered = filtered.filter(item => item.status === statusFilter);
+    }
+
+    // Apply brand filter
+    if (brandFilter && brandFilter !== 'all') {
+      filtered = filtered.filter(item => item.brand === brandFilter);
+    }
+
+    // Apply location filter
+    if (locationFilter && locationFilter !== 'all') {
+      filtered = filtered.filter(item => 
+        item.stockLocation?.name === locationFilter ||
+        (item.stocks && item.stocks.length > 0 && item.stocks[0].location?.name === locationFilter)
+      );
+    }
+
+    // Apply price range filter
+    if (priceRangeFilter) {
+      const price = (item: any) => Number(item.sellingPrice) || 0;
+      switch (priceRangeFilter) {
+        case 'under_50':
+          filtered = filtered.filter(item => price(item) < 50);
+          break;
+        case '50_200':
+          filtered = filtered.filter(item => price(item) >= 50 && price(item) <= 200);
+          break;
+        case '200_500':
+          filtered = filtered.filter(item => price(item) > 200 && price(item) <= 500);
+          break;
+        case 'over_500':
+          filtered = filtered.filter(item => price(item) > 500);
+          break;
+      }
+    }
+
+    setFilteredAccessories(filtered);
+    // Reset to first page when filters change
     setCurrentPage(1);
-  }, [searchQuery, allAccessories]);
+  }, [searchQuery, allAccessories, statusFilter, brandFilter, locationFilter, priceRangeFilter]);
 
   // Update paginated data when filtered data changes or pagination settings change
   useEffect(() => {
@@ -86,6 +152,22 @@ export function AccessoriesTable({
     setCurrentPage(1); // Reset to first page when changing items per page
   };
 
+  // Clear all filters
+  const clearAllFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('all');
+    setBrandFilter('all');
+    setLocationFilter('all');
+    setPriceRangeFilter('all');
+  };
+
+  // Check if any filters are active
+  const hasActiveFilters = searchQuery || 
+    (statusFilter && statusFilter !== 'all') || 
+    (brandFilter && brandFilter !== 'all') || 
+    (locationFilter && locationFilter !== 'all') || 
+    (priceRangeFilter && priceRangeFilter !== 'all');
+
   // Pagination navigation functions
   const goToFirstPage = () => setCurrentPage(1);
   const goToLastPage = () => setCurrentPage(totalPages);
@@ -94,7 +176,7 @@ export function AccessoriesTable({
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
-      case 'EN_VENTE':
+      case 'FOR_SALE':
       case 'ACTIVE':
         return 'default';
       case 'EN_REPARATION':
@@ -110,7 +192,7 @@ export function AccessoriesTable({
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'EN_VENTE':
+      case 'FOR_SALE':
       case 'ACTIVE':
         return 'EN VENTE';
       case 'EN_REPARATION':
@@ -119,7 +201,7 @@ export function AccessoriesTable({
       case 'VENDU':
       case 'RETIRED':
         return 'VENDU';
-      case 'EN_LOCATION':
+      case 'FOR_RENT':
         return 'EN LOCATION';
       default:
         return status;
@@ -149,18 +231,123 @@ export function AccessoriesTable({
 
   return (
     <div className="flex flex-col space-y-4">
-      {/* Search bar */}
-      <div className="flex items-center space-x-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-          <Input
-            type="text"
-            placeholder="Rechercher par nom, marque ou modèle..."
-            value={searchQuery}
-            onChange={handleSearchChange}
-            className="pl-8"
-          />
+      {/* Search bar and filter controls */}
+      <div className="flex flex-col space-y-3">
+        <div className="flex items-center space-x-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+            <Input
+              type="text"
+              placeholder="Rechercher par nom, marque ou modèle..."
+              value={searchQuery}
+              onChange={handleSearchChange}
+              className="pl-8"
+            />
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => setShowFilters(!showFilters)}
+            className={`flex items-center gap-2 ${hasActiveFilters ? 'bg-blue-50 border-blue-200' : ''}`}
+          >
+            <Filter className="h-4 w-4" />
+            Filtres
+            {hasActiveFilters && (
+              <span className="bg-blue-500 text-white text-xs rounded-full px-2 py-0.5 ml-1">
+                {[
+                  searchQuery,
+                  statusFilter && statusFilter !== 'all' ? statusFilter : null,
+                  brandFilter && brandFilter !== 'all' ? brandFilter : null,
+                  locationFilter && locationFilter !== 'all' ? locationFilter : null,
+                  priceRangeFilter && priceRangeFilter !== 'all' ? priceRangeFilter : null
+                ].filter(Boolean).length}
+              </span>
+            )}
+          </Button>
+          {hasActiveFilters && (
+            <Button variant="ghost" onClick={clearAllFilters} className="flex items-center gap-2">
+              <X className="h-4 w-4" />
+              Effacer
+            </Button>
+          )}
         </div>
+
+        {/* Filter controls */}
+        {showFilters && (
+          <div className="border rounded-lg p-4 bg-gray-50 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Status filter */}
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Statut</Label>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Tous les statuts" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tous les statuts</SelectItem>
+                    {uniqueStatuses.map(status => (
+                      <SelectItem key={status} value={status}>
+                        {getStatusLabel(status)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Brand filter */}
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Marque</Label>
+                <Select value={brandFilter} onValueChange={setBrandFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Toutes les marques" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Toutes les marques</SelectItem>
+                    {uniqueBrands.map(brand => (
+                      <SelectItem key={brand} value={brand || ''}>
+                        {brand}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Location filter */}
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Emplacement</Label>
+                <Select value={locationFilter} onValueChange={setLocationFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Tous les emplacements" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tous les emplacements</SelectItem>
+                    {uniqueLocations.map(location => (
+                      <SelectItem key={location || 'empty'} value={location || ''}>
+                        {location}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Price range filter */}
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Gamme de prix</Label>
+                <Select value={priceRangeFilter} onValueChange={setPriceRangeFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Tous les prix" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tous les prix</SelectItem>
+                    <SelectItem value="under_50">Moins de 50 DT</SelectItem>
+                    <SelectItem value="50_200">50 - 200 DT</SelectItem>
+                    <SelectItem value="200_500">200 - 500 DT</SelectItem>
+                    <SelectItem value="over_500">Plus de 500 DT</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="rounded-md border">

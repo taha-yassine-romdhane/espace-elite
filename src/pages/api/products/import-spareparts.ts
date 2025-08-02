@@ -50,7 +50,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               productId: product.id,
               locationId: sparePart.stockLocationId,
               quantity: sparePart.stockQuantity,
-              status: sparePart.status || 'EN_VENTE', // Stock uses StockStatus enum
+              status: sparePart.status || 'FOR_SALE', // Stock uses StockStatus enum
             },
           });
         }

@@ -51,8 +51,7 @@ export default async function handler(
         dateOfBirth: true,
         beneficiaryType: true,
         affiliation: true,
-        descriptionNumOne: true,
-        descriptionNumTwo: true,
+        generalNote: true,
         files: true, // Include files
         // Get doctor data through the Doctor model which is related to User
         doctor: {
@@ -76,8 +75,18 @@ export default async function handler(
             role: true,
           }
         },
+        // Add supervisor relationship
+        supervisor: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+          }
+        },
         technicianId: true,
         doctorId: true,
+        supervisorId: true,
       },
       take: 5, // Limit results to 5 patients
     });
@@ -133,8 +142,14 @@ export default async function handler(
         dateOfBirth: patient.dateOfBirth,
         beneficiaryType: patient.beneficiaryType,
         affiliation: patient.affiliation,
-        descriptionNumOne: patient.descriptionNumOne,
-        descriptionNumTwo: patient.descriptionNumTwo,
+        generalNote: patient.generalNote,
+        supervisorId: patient.supervisorId || '',
+        supervisor: patient.supervisor ? {
+          id: patient.supervisor.id,
+          firstName: patient.supervisor.firstName,
+          lastName: patient.supervisor.lastName,
+          role: patient.supervisor.role
+        } : undefined,
         // Include files in the expected format
         files: patient.files ? patient.files.map((file: any) => ({
           id: file.id || '',

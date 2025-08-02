@@ -64,9 +64,9 @@ export function TransferDetailDialog({
   // Get status badge
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'EN_VENTE':
+      case 'FOR_SALE':
         return <Badge variant="default">En vente</Badge>;
-      case 'EN_LOCATION':
+      case 'FOR_RENT':
         return <Badge variant="secondary">En location</Badge>;
       case 'EN_REPARATION':
         return <Badge variant="destructive">En réparation</Badge>;

@@ -52,8 +52,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       'Médecin Responsable': patient.doctor?.user ? `Dr ${patient.doctor.user.firstName} ${patient.doctor.user.lastName}` : '',
       'Technicien Responsable': patient.technician ? `${patient.technician.firstName} ${patient.technician.lastName}` : '',
       'Assigné à': patient.assignedTo ? `${patient.assignedTo.firstName} ${patient.assignedTo.lastName}` : '',
-      'Description Nom': patient.descriptionNumOne || '',
-      'Description Téléphone': patient.descriptionNumTwo || '',
+      'Note Générale': (patient as any).generalNote || '',
       'Date Création': patient.createdAt ? new Date(patient.createdAt).toLocaleDateString('fr-FR') : '',
       'Date Modification': patient.updatedAt ? new Date(patient.updatedAt).toLocaleDateString('fr-FR') : ''
     }));

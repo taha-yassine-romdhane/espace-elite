@@ -16,7 +16,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [currentPath, setCurrentPath] = useState('');
 
   // List of public paths that don't need authentication or sidebar
-  const publicPaths = ['/welcome', '/auth/signin', '/auth/signup'];
+  const publicPaths = ['/welcome', '/auth/signin'];
 
   // Handle page transition loading states
   useEffect(() => {

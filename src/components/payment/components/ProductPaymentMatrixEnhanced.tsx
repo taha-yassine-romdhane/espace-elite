@@ -116,7 +116,23 @@ export const ProductPaymentMatrixEnhanced: React.FC<ProductPaymentMatrixEnhanced
     const allocated = paymentAssignments
       .filter(assignment => assignment.productIds.includes(productId))
       .reduce((sum, assignment) => {
-        const productShare = assignment.amount / assignment.productIds.length;
+        // Check if this assignment has custom product allocations (for CNAM payments)
+        if (assignment.paymentDetails?.productAllocations && assignment.paymentDetails.productAllocations[productId]) {
+          return sum + assignment.paymentDetails.productAllocations[productId];
+        }
+        
+        // Otherwise, use proportional allocation based on product prices
+        const assignmentProductIds = assignment.productIds;
+        const assignmentProducts = assignmentProductIds.map(id => products.find(p => p.id === id)).filter(Boolean) as any[];
+        const totalAssignmentValue = assignmentProducts.reduce((total, prod) => {
+          return total + (Number(prod?.sellingPrice || 0) * (prod?.quantity || 1));
+        }, 0);
+        
+        // Proportional share = (product price / total assignment price) * assignment amount
+        const productShare = totalAssignmentValue > 0 
+          ? (totalPrice / totalAssignmentValue) * assignment.amount
+          : assignment.amount / assignment.productIds.length; // Fallback to equal split if no price data
+        
         return sum + productShare;
       }, 0);
     
@@ -191,11 +207,16 @@ export const ProductPaymentMatrixEnhanced: React.FC<ProductPaymentMatrixEnhanced
 
   // Render payment form based on selected method
   const renderPaymentForm = () => {
+    const selectedProductsData = selectedProducts.map(id => 
+      products.find(p => p.id === id)
+    ).filter(Boolean);
+
     const commonProps = {
       onSubmit: handlePaymentFormSubmit,
       totalRequired: calculateSelectedTotal(),
       onCancel: () => setShowPaymentForm(false),
-      initialValues: paymentFormData
+      initialValues: paymentFormData,
+      selectedProducts: selectedProductsData
     };
 
     switch (paymentMethod) {
@@ -210,14 +231,7 @@ export const ProductPaymentMatrixEnhanced: React.FC<ProductPaymentMatrixEnhanced
       case 'mandat':
         return <SimpleMandatForm {...commonProps} />;
       case 'cnam':
-        return (
-          <SimpleCNAMForm 
-            {...commonProps} 
-            selectedProducts={selectedProducts.map(id => 
-              products.find(p => p.id === id)
-            ).filter(Boolean)}
-          />
-        );
+        return <SimpleCNAMForm {...commonProps} />;
       default:
         return null;
     }
@@ -332,16 +346,38 @@ export const ProductPaymentMatrixEnhanced: React.FC<ProductPaymentMatrixEnhanced
                   </div>
                 </div>
 
-                <div className="space-y-1">
-                  <p className="text-xs text-gray-500 font-medium">Produits inclus:</p>
-                  <div className="flex flex-wrap gap-1">
+                <div className="space-y-2">
+                  <p className="text-xs text-gray-500 font-medium">Répartition par produit:</p>
+                  <div className="space-y-1">
                     {assignment.productIds.map(productId => {
                       const product = products.find(p => p.id === productId);
-                      return product ? (
-                        <Badge key={productId} variant="outline" className="text-xs">
-                          {product.name}
-                        </Badge>
-                      ) : null;
+                      if (!product) return null;
+
+                      // Calculate the allocated amount for this product
+                      let allocatedAmount = 0;
+                      
+                      if (assignment.paymentDetails?.productAllocations && assignment.paymentDetails.productAllocations[productId]) {
+                        // Use custom allocation if available
+                        allocatedAmount = assignment.paymentDetails.productAllocations[productId];
+                      } else {
+                        // Fall back to proportional calculation
+                        const assignmentProducts = assignment.productIds.map(id => products.find(p => p.id === id)).filter(Boolean) as any[];
+                        const totalAssignmentValue = assignmentProducts.reduce((total, prod) => {
+                          return total + (Number(prod?.sellingPrice || 0) * (prod?.quantity || 1));
+                        }, 0);
+                        
+                        const productValue = Number(product.sellingPrice || 0) * (product.quantity || 1);
+                        allocatedAmount = totalAssignmentValue > 0 
+                          ? (productValue / totalAssignmentValue) * assignment.amount
+                          : assignment.amount / assignment.productIds.length;
+                      }
+
+                      return (
+                        <div key={productId} className="flex justify-between items-center text-xs bg-gray-50 rounded px-2 py-1">
+                          <span className="font-medium text-gray-700">{product.name}</span>
+                          <span className="font-bold text-blue-600">{allocatedAmount.toFixed(2)} DT</span>
+                        </div>
+                      );
                     })}
                   </div>
                 </div>

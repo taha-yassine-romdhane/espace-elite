@@ -227,7 +227,7 @@ const PricingSection: React.FC = () => {
 
                 {/* CTA Button */}
                 <Link
-                  href={plan.name === 'Enterprise' ? '#contact' : '/auth/signup'}
+                  href={plan.name === 'Enterprise' ? '#contact' : '#contact'}
                   className={`w-full inline-flex items-center justify-center px-6 py-4 rounded-xl font-semibold text-lg transition-all duration-300 ${
                     plan.isPopular
                       ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white hover:from-purple-700 hover:to-purple-800 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5'

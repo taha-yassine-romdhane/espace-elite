@@ -40,7 +40,7 @@ interface TransferFormData {
   productId: string;
   quantity: number;
   notes?: string;
-  newStatus?: 'EN_VENTE' | 'RESERVE' | 'DEFECTUEUX';
+  newStatus?: 'FOR_SALE' | 'RESERVE' | 'DEFECTUEUX';
   isDevice?: boolean; // Flag to indicate if this is a medical device
   productType?: string; // Type of product being transferred
 }

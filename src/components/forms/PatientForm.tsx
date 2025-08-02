@@ -39,7 +39,8 @@ const formSchema = z.object({
     }),
   governorate: z.string().optional(),
   delegation: z.string().optional(),
-  detailedAddress: z.string().optional(),
+  longitude: z.number().optional(),
+  latitude: z.number().optional(),
   cin: z.string()
     .optional()
     .refine((val) => !val || val === '' || TUNISIAN_CIN_REGEX.test(val), {
@@ -64,13 +65,14 @@ const formSchema = z.object({
   beneficiaire: z.nativeEnum(BeneficiaryType).optional(),
   caisseAffiliation: z.enum(['CNSS', 'CNRPS']).optional(),
   cnam: z.boolean().optional(),
-  descriptionNom: z.string().optional(),
-  descriptionTelephone: z.string().optional(),
-  descriptionAdresse: z.string().optional(),
+  generalNote: z.string().optional(),
   
   // File fields (keeping as-is per instructions)
   files: z.any().optional(),
   existingFiles: z.any().optional(),
+  
+  // Address coordinates field
+  addressCoordinates: z.string().optional(),
   
   // Allow any additional fields
 }).passthrough(); // Allow additional properties
@@ -88,6 +90,7 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
   const [existingFiles, setExistingFiles] = useState<ExistingFile[]>(
     (formData.existingFiles as ExistingFile[]) || []
   );
+  const formInitializedRef = React.useRef(false);
 
   // Debug log for form data
   useEffect(() => {
@@ -120,7 +123,8 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
       telephoneSecondaire: formData.telephoneSecondaire || '',
       governorate: (formData as any).governorate || '',
       delegation: (formData as any).delegation || '',
-      detailedAddress: (formData as any).detailedAddress || '',
+      longitude: (formData as any).longitude || undefined,
+      latitude: (formData as any).latitude || undefined,
       cin: formData.cin || '',
       identifiantCNAM: formData.identifiantCNAM || '',
       technicienResponsable: formData.technicienResponsable || '',
@@ -129,23 +133,22 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
       taille: formData.taille || '',
       poids: formData.poids || '',
       medecin: formData.medecin || '',
-      adresseCoordinates: formData.adresseCoordinates || '',
+      addressCoordinates: (formData as any).addressCoordinates || '',
       dateNaissance: formData.dateNaissance || '',
       beneficiaire: formData.beneficiaire,
       caisseAffiliation: formData.caisseAffiliation,
       cnam: formData.cnam || false,
-      descriptionNom: formData.descriptionNom || '',
-      descriptionTelephone: formData.descriptionTelephone || '',
-      descriptionAdresse: formData.descriptionAdresse || '',
+      generalNote: (formData as any).generalNote || '',
       files: formData.files || [],
       existingFiles: formData.existingFiles || []
     }
   });
 
   useEffect(() => {
-    // Initialize form with defaultValues if they exist
-    if (formData) {
-      console.log('Setting default values:', formData);
+    // Only initialize form once
+    if (formData && !formInitializedRef.current) {
+      console.log('Initializing form with default values:', formData);
+      formInitializedRef.current = true;
       
       // Format date if it exists (could be in various formats)
       let formattedDate = formData.dateNaissance || '';
@@ -289,9 +292,8 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
     if (patient.beneficiaryType) form.setValue('beneficiaire', patient.beneficiaryType);
     if (patient.affiliation) form.setValue('caisseAffiliation', patient.affiliation);
     
-    // Set description fields
-    if (patient.descriptionNumOne) form.setValue('descriptionNom', patient.descriptionNumOne);
-    if (patient.descriptionNumTwo) form.setValue('descriptionTelephone', patient.descriptionNumTwo);
+    // Set general note field
+    if ((patient as any).generalNote) form.setValue('generalNote', (patient as any).generalNote);
     
     // Ensure all form values are reflected in the UI
     // This forces a re-render of all form fields with the new values
@@ -524,7 +526,7 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
                 form={form} 
                 doctors={doctors} 
                 technicians={technicians} 
-                onInputChange={onInputChange} 
+                onInputChange={onInputChange}
               />
               
               <BiometricsBlock 

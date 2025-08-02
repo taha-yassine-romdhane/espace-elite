@@ -24,10 +24,38 @@ export default async function handler(
       // First, try to find a patient with this ID
       const patient = await prisma.patient.findUnique({
         where: { id },
-        include: {
-          doctor: true,
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          telephone: true,
+          telephoneTwo: true,
+          governorate: true,
+          delegation: true,
+          detailedAddress: true,
+          addressCoordinates: true,
+          cin: true,
+          cnamId: true,
+          antecedant: true,
+          height: true,
+          weight: true,
+          dateOfBirth: true,
+          beneficiaryType: true,
+          affiliation: true,
+          generalNote: true,
+          doctorId: true,
+          technicianId: true,
+          supervisorId: true,
+          userId: true,
+          createdAt: true,
+          updatedAt: true,
+          doctor: {
+            include: {
+              user: true
+            }
+          },
           technician: true,
-          files: true,
+          supervisor: true,
           assignedTo: {
             select: {
               id: true,
@@ -35,6 +63,7 @@ export default async function handler(
               lastName: true,
             }
           },
+          files: true,
           // Include related data
           diagnostics: true,
           medicalDevices: true,
@@ -50,29 +79,25 @@ export default async function handler(
           // Get doctor name if available
           let doctorName = 'Non assigné';
           let doctorId = null;
-          if (patient.doctorId) {
-            doctorId = patient.doctorId;
-            try {
-              // Get the linked user for the doctor
-              const doctorUser = await prisma.user.findUnique({
-                where: { id: patient.doctorId },
-                select: { firstName: true, lastName: true }
-              });
-              if (doctorUser) {
-                doctorName = `${doctorUser.firstName} ${doctorUser.lastName}`;
-              }
-            } catch (error) {
-              console.error('Error fetching doctor user:', error);
-            }
+          if (patient.doctor && patient.doctor.user) {
+            doctorId = patient.doctor.user.id; // Use the user ID, not the doctor record ID
+            doctorName = `${patient.doctor.user.firstName} ${patient.doctor.user.lastName}`;
           }
           
           // Get technician name if available
           let technicianName = 'Non assigné';
           let technicianId = null;
-          if (patient.technicianId && patient.technician) {
-            technicianId = patient.technicianId;
-            // Access the technician user data properly through the relation
+          if (patient.technician) {
+            technicianId = patient.technician.id;
             technicianName = `${patient.technician.firstName || ''} ${patient.technician.lastName || ''}`;
+          }
+          
+          // Get supervisor name if available
+          let supervisorName = 'Non assigné';
+          let supervisorId = null;
+          if (patient.supervisor) {
+            supervisorId = patient.supervisor.id;
+            supervisorName = `${patient.supervisor.firstName || ''} ${patient.supervisor.lastName || ''}`;
           } 
           
           // Get assigned user name if available
@@ -88,12 +113,15 @@ export default async function handler(
             id: patient.id,
             type: 'Patient',
             nom: `${patient.firstName} ${patient.lastName}`,
+            firstName: patient.firstName,
+            lastName: patient.lastName,
             telephone: patient.telephone,
             telephoneSecondaire: patient.telephoneTwo,
             adresse: `${patient.governorate || ''} ${patient.delegation || ''} ${patient.detailedAddress || ''}`.trim(),
             governorate: patient.governorate,
             delegation: patient.delegation,
             detailedAddress: patient.detailedAddress,
+            addressCoordinates: patient.addressCoordinates,
             cin: patient.cin,
             dateNaissance: patient.dateOfBirth,
             taille: patient.height,
@@ -102,13 +130,22 @@ export default async function handler(
             identifiantCNAM: patient.cnamId,
             beneficiaire: patient.beneficiaryType,
             caisseAffiliation: patient.affiliation,
-            doctor: patient.doctorId ? {
+            generalNote: patient.generalNote,
+            // Include relationship IDs for form population
+            doctorId: doctorId,
+            technicianId: technicianId,
+            supervisorId: supervisorId,
+            doctor: doctorId ? {
               id: doctorId,
               name: doctorName
             } : null,
-            technician: patient.technicianId ? {
+            technician: technicianId ? {
               id: technicianId,
               name: technicianName
+            } : null,
+            supervisor: supervisorId ? {
+              id: supervisorId,
+              name: supervisorName
             } : null,
             assignedTo: {
               id: assignedToId,
@@ -170,9 +207,7 @@ export default async function handler(
             telephoneSecondaire: company.telephoneSecondaire,
             adresse: company.detailedAddress,
             matriculeFiscale: company.taxId,
-            descriptionNom: company.nameDescription,
-            descriptionTelephone: company.phoneDescription,
-            descriptionAdresse: company.addressDescription,
+            generalNote: company.generalNote || '',
             technician: company.technician ? {
               id: technicianId,
               name: technicianName
@@ -388,9 +423,7 @@ export default async function handler(
           if (data.telephoneSecondaire) companyUpdateData.telephoneSecondaire = data.telephoneSecondaire;
           if (data.adresse) companyUpdateData.address = data.adresse;
           if (data.matriculeFiscale) companyUpdateData.taxId = data.matriculeFiscale;
-          if (data.descriptionNom) companyUpdateData.nameDescription = data.descriptionNom;
-          if (data.descriptionTelephone) companyUpdateData.phoneDescription = data.descriptionTelephone;
-          if (data.descriptionAdresse) companyUpdateData.addressDescription = data.descriptionAdresse;
+          if (data.generalNote !== undefined) companyUpdateData.generalNote = data.generalNote;
           
           // Update the company
           const updatedCompany = await prisma.company.update({
@@ -425,9 +458,7 @@ export default async function handler(
             telephoneSecondaire: updatedCompany.telephoneSecondaire,
             adresse: updatedCompany.detailedAddress,
             matriculeFiscale: updatedCompany.taxId,
-            descriptionNom: updatedCompany.nameDescription,
-            descriptionTelephone: updatedCompany.phoneDescription,
-            descriptionAdresse: updatedCompany.addressDescription,
+            generalNote: updatedCompany.generalNote || '',
             technician: updatedCompany.technician ? {
               id: updatedCompany.technician.id,
               name: `${updatedCompany.technician.firstName} ${updatedCompany.technician.lastName}`,

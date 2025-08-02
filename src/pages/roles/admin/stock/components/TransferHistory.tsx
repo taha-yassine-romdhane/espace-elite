@@ -129,7 +129,7 @@ export default function TransferHistory() {
   const getStatusBadge = (status: string | null) => {
     if (!status) return null;
     switch (status) {
-      case 'EN_VENTE':
+      case 'FOR_SALE':
         return <Badge variant="default">En vente</Badge>;
       case 'RESERVE':
         return <Badge variant="secondary">Réservé</Badge>;

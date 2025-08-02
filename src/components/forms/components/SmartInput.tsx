@@ -22,6 +22,8 @@ interface SmartInputProps {
   step?: string;
   icon?: React.ReactNode;
   className?: string;
+  readOnly?: boolean;
+  value?: string;
 }
 
 export default function SmartInput({
@@ -41,6 +43,8 @@ export default function SmartInput({
   step,
   icon,
   className,
+  readOnly = false,
+  value,
 }: SmartInputProps) {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value;
@@ -88,18 +92,21 @@ export default function SmartInput({
         <input
           type={type}
           name={name}
-          value={form.watch(name) || ''}
+          value={value !== undefined ? value : form.watch(name) || ''}
           onChange={handleChange}
           placeholder={placeholder}
           className={`mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 ${
             suffix ? 'pr-12' : ''
           } ${
             icon ? 'pl-10' : ''
+          } ${
+            readOnly ? 'bg-gray-50 cursor-not-allowed' : ''
           } focus:border-blue-500 focus:outline-none focus:ring-blue-500`}
           maxLength={maxLength}
           min={min}
           max={max}
           step={step}
+          readOnly={readOnly}
         />
         {suffix && (
           <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">

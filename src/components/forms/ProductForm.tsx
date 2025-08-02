@@ -177,7 +177,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
               handleSelectChange('stock', value);
               // Reset repair status when changing stock
               if (value !== StockLocationType.HORS_SERVICE) {
-                handleSelectChange('status', ProductStatus.FONCTIONNEL);
+                handleSelectChange('status', ProductStatus.ACTIVE);
               }
             }}
           >
@@ -202,17 +202,17 @@ const ProductForm: React.FC<ProductFormProps> = ({
                 className="flex flex-col space-y-1"
               >
                 <div className="flex items-center space-x-2">
-                  <RadioGroupItem value={ProductStatus.REPARATION} id="reparation" />
+                  <RadioGroupItem value="IN_REPAIR" id="reparation" />
                   <Label htmlFor="reparation">Réparation</Label>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <RadioGroupItem value={ProductStatus.NON_FONCTIONNEL} id="nonFonctionnel" />
+                  <RadioGroupItem value="OUT_OF_SERVICE" id="nonFonctionnel" />
                   <Label htmlFor="nonFonctionnel">Non Fonctionnel</Label>
                 </div>
               </RadioGroup>
             </div>
 
-            {formData.status === ProductStatus.REPARATION && (
+            {(formData.status as any) === "IN_REPAIR" && (
               <>
                 <div>
                   <Label>Montant de Réparation</Label>

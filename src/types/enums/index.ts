@@ -31,10 +31,13 @@ export enum Affiliation {
 }
 
 export enum DeviceStatus {
+  FOR_RENT = "FOR_RENT",
+  FOR_SALE = "FOR_SALE",
   ACTIVE = "ACTIVE",
   MAINTENANCE = "MAINTENANCE",
   RETIRED = "RETIRED",
   RESERVED = "RESERVED",
+  SOLD = "SOLD",
 }
 
 export enum ProductType {
@@ -45,16 +48,16 @@ export enum ProductType {
 }
 
 export enum ProductStatus {
-  FONCTIONNEL = "FONCTIONNEL",
-  REPARATION = "REPARATION",
-  NON_FONCTIONNEL = "NON_FONCTIONNEL",
+  ACTIVE = "ACTIVE",
+  RETIRED = "RETIRED",
+  SOLD = "SOLD",
 }
 
 export enum StockStatus {
-  EN_VENTE = "EN_VENTE",
-  EN_LOCATION = "EN_LOCATION",
-  EN_REPARATION = "EN_REPARATION",
-  HORS_SERVICE = "HORS_SERVICE",
+  FOR_SALE = "FOR_SALE",
+  FOR_RENT = "FOR_RENT",
+  IN_REPAIR = "IN_REPAIR",
+  OUT_OF_SERVICE = "OUT_OF_SERVICE",
 }
 
 export enum ClientType {

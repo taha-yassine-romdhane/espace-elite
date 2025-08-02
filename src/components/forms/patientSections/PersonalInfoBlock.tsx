@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { UseFormReturn } from 'react-hook-form';
-import { AlertCircle, Check } from 'lucide-react';
+import { AlertCircle, Check, MapPin } from 'lucide-react';
 import SmartInput from '../components/SmartInput';
 import FormSection from '../components/FormSection';
 import axios from 'axios';
 import { debounce } from 'lodash';
 import { Patient } from '@/types';
-import { TUNISIA_GOVERNORATES, getDelegationsByGovernorate } from '@/data/tunisia-locations';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DatePicker } from '@/components/ui/date-picker';
+import { Button } from '@/components/ui/button';
+import AddressSelector from '../components/AddressSelector';
 
 
 interface PersonalInfoBlockProps {
@@ -32,6 +32,24 @@ export default function PersonalInfoBlock({
   const [showPatientSelector, setShowPatientSelector] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
+  const [mapSelectedLocation, setMapSelectedLocation] = useState(false);
+  
+  // Debug form values
+  React.useEffect(() => {
+    const subscription = form.watch((value, { name }) => {
+      if (name === 'governorate' || name === 'delegation') {
+        console.log(`Form value changed - ${name}:`, value[name]);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [form]);
+  
+  // Debug current form values
+  const governorateValue = form.watch('governorate');
+  const delegationValue = form.watch('delegation');
+  React.useEffect(() => {
+    console.log('Current form values - governorate:', governorateValue, 'delegation:', delegationValue);
+  }, [governorateValue, delegationValue]);
 
   // Debounced search function
   const searchPatients = debounce(async (name: string) => {
@@ -84,15 +102,23 @@ export default function PersonalInfoBlock({
     form.setValue('telephoneSecondaire', patient.telephoneTwo || '');
     form.setValue('governorate', (patient as any).governorate || '');
     form.setValue('delegation', (patient as any).delegation || '');
-    form.setValue('detailedAddress', (patient as any).detailedAddress || '');
 
     if (patient.addressCoordinates) {
       setCoordinates(patient.addressCoordinates);
       // Serialize the coordinates to JSON string to prevent [object Object] in form submission
       form.setValue('addressCoordinates', JSON.stringify(patient.addressCoordinates));
+      // Extract longitude and latitude
+      if (patient.addressCoordinates.lng !== undefined) {
+        form.setValue('longitude', patient.addressCoordinates.lng);
+      }
+      if (patient.addressCoordinates.lat !== undefined) {
+        form.setValue('latitude', patient.addressCoordinates.lat);
+      }
     } else {
       setCoordinates(null);
       form.setValue('addressCoordinates', null);
+      form.setValue('longitude', undefined);
+      form.setValue('latitude', undefined);
     }
 
     form.setValue('cin', patient.cin || '');
@@ -101,10 +127,8 @@ export default function PersonalInfoBlock({
     form.setValue('taille', patient.height ? patient.height.toString() : '');
     form.setValue('poids', patient.weight ? patient.weight.toString() : '');
 
-    // Form descriptions
-    form.setValue('descriptionNom', patient.descriptionNumOne || '');
-    form.setValue('descriptionTelephone', patient.descriptionNumTwo || '');
-    form.setValue('descriptionAdresse', '');
+    // General note
+    form.setValue('generalNote', patient.generalNote || '');
 
     // Handle insurance fields
     form.setValue('cnam', !!patient.cnamId);
@@ -112,9 +136,10 @@ export default function PersonalInfoBlock({
     form.setValue('beneficiaire', patient.beneficiaryType || undefined);
     form.setValue('caisseAffiliation', patient.affiliation || 'CNSS');
 
-    // Handle doctor and technician
+    // Handle doctor, technician, and supervisor
     form.setValue('medecin', patient.doctorId || '');
     form.setValue('technicienResponsable', patient.technicianId || '');
+    form.setValue('superviseur', (patient as any).supervisorId || '');
 
     // Convert synthetic events to update parent component state
     Object.entries(patient).forEach(([key, value]) => {
@@ -259,79 +284,135 @@ export default function PersonalInfoBlock({
         {/* Tunisia Address Fields */}
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Governorate Dropdown */}
-            <div className="space-y-2">
-              <label htmlFor="governorate" className="text-sm font-medium text-gray-700">
-                Gouvernorat *
-              </label>
-              <Select
-                value={form.watch('governorate') || ''}
-                onValueChange={(value) => {
-                  form.setValue('governorate', value);
-                  form.setValue('delegation', ''); // Reset delegation when governorate changes
-                  const syntheticEvent = {
-                    target: { name: 'governorate', value }
-                  };
-                  onInputChange(syntheticEvent as any);
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner un gouvernorat" />
-                </SelectTrigger>
-                <SelectContent>
-                  {TUNISIA_GOVERNORATES.map((gov) => (
-                    <SelectItem key={gov.id} value={gov.id}>
-                      {gov.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Governorate Input */}
+            <SmartInput
+              name="governorate"
+              label="Gouvernorat"
+              form={form}
+              placeholder="Sélectionner sur la carte"
+              onParentChange={onInputChange}
+              readOnly={mapSelectedLocation}
+              value={governorateValue}
+            />
 
-            {/* Delegation Dropdown */}
-            <div className="space-y-2">
-              <label htmlFor="delegation" className="text-sm font-medium text-gray-700">
-                Délégation *
-              </label>
-              <Select
-                value={form.watch('delegation') || ''}
-                onValueChange={(value) => {
-                  form.setValue('delegation', value);
-                  const syntheticEvent = {
-                    target: { name: 'delegation', value }
-                  };
-                  onInputChange(syntheticEvent as any);
-                }}
-                disabled={!form.watch('governorate')}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner une délégation" />
-                </SelectTrigger>
-                <SelectContent>
-                  {form.watch('governorate') && getDelegationsByGovernorate(form.watch('governorate')).map((del) => (
-                    <SelectItem key={del.id} value={del.id}>
-                      {del.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Delegation Input */}
+            <SmartInput
+              name="delegation"
+              label="Délégation"
+              form={form}
+              placeholder="Sélectionner sur la carte"
+              onParentChange={onInputChange}
+              readOnly={mapSelectedLocation}
+              value={delegationValue}
+            />
           </div>
 
-          {/* Detailed Address */}
+          {/* Map selection notification */}
+          {mapSelectedLocation && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div className="flex items-start gap-2">
+                <MapPin className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1 text-sm">
+                  <p className="font-medium text-blue-900">Localisation sélectionnée depuis la carte</p>
+                  <p className="text-xs text-blue-600 mt-1">
+                    Les champs sont verrouillés. Pour modifier, cliquez sur le bouton ci-contre.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setMapSelectedLocation(false);
+                    form.setValue('governorate', '');
+                    form.setValue('delegation', '');
+                    form.setValue('longitude', undefined);
+                    form.setValue('latitude', undefined);
+                    const syntheticEvent = {
+                      target: { name: 'governorate', value: '' }
+                    };
+                    onInputChange(syntheticEvent as any);
+                  }}
+                  className="h-6 w-6 p-0 text-blue-600 hover:text-blue-800"
+                >
+                  ×
+                </Button>
+              </div>
+            </div>
+          )}
+
+
+          {/* Map-based Address Selection */}
           <div className="space-y-2">
-            <label htmlFor="detailedAddress" className="text-sm font-medium text-gray-700">
-              Adresse détaillée
+            <label className="text-sm font-medium text-gray-700">
+              Sélection précise de l'adresse
             </label>
-            <SmartInput
-              name="detailedAddress"
-              label=""
-              form={form}
-              placeholder="Rue, numéro, bâtiment, etc."
-              onParentChange={onInputChange}
+            <AddressSelector
+              value={form.watch('addressCoordinates') ? 
+                JSON.parse(form.watch('addressCoordinates') || '{}') : 
+                undefined
+              }
+              onChange={(coordinates) => {
+                console.log('📍 Map onChange received coordinates:', coordinates);
+                setCoordinates(coordinates);
+                form.setValue('addressCoordinates', JSON.stringify(coordinates));
+                
+                // Set longitude and latitude
+                if (coordinates.lng !== undefined) {
+                  form.setValue('longitude', coordinates.lng);
+                  const lngEvent = {
+                    target: { name: 'longitude', value: coordinates.lng }
+                  };
+                  onInputChange(lngEvent as any);
+                }
+                
+                if (coordinates.lat !== undefined) {
+                  form.setValue('latitude', coordinates.lat);
+                  const latEvent = {
+                    target: { name: 'latitude', value: coordinates.lat }
+                  };
+                  onInputChange(latEvent as any);
+                }
+                
+                // Always set map selected location when coordinates change
+                setMapSelectedLocation(true);
+                
+                // Set governorate and delegation from map
+                if (coordinates.governorate) {
+                  console.log('🏛️ Setting governorate to:', coordinates.governorate);
+                  form.setValue('governorate', coordinates.governorate);
+                  const governorateEvent = {
+                    target: { name: 'governorate', value: coordinates.governorate }
+                  };
+                  onInputChange(governorateEvent as any);
+                } else {
+                  console.log('⚠️ No governorate in coordinates');
+                  form.setValue('governorate', '');
+                  onInputChange({ target: { name: 'governorate', value: '' }} as any);
+                }
+                
+                if (coordinates.delegation) {
+                  console.log('🏢 Setting delegation to:', coordinates.delegation);
+                  form.setValue('delegation', coordinates.delegation);
+                  const delegationEvent = {
+                    target: { name: 'delegation', value: coordinates.delegation }
+                  };
+                  onInputChange(delegationEvent as any);
+                } else {
+                  console.log('⚠️ No delegation in coordinates');
+                  form.setValue('delegation', '');
+                  onInputChange({ target: { name: 'delegation', value: '' }} as any);
+                }
+                
+                // Notify parent component
+                const syntheticEvent = {
+                  target: { name: 'addressCoordinates', value: JSON.stringify(coordinates) }
+                };
+                onInputChange(syntheticEvent as any);
+              }}
             />
             <p className="text-xs text-gray-500">
-              Exemple: Avenue Habib Bourguiba, Immeuble Carthage, 2ème étage, Apt 15
+              Utilisez votre position actuelle ou sélectionnez sur la carte pour une localisation précise
             </p>
           </div>
         </div>

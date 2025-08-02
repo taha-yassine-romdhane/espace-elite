@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Layout from '@/pages/roles/admin/AdminLayout';
 import { Toaster } from "@/components/ui/toaster";
 import '@/styles/globals.css';
+import '@/styles/leaflet-override.css';
 import { NextPage } from 'next';
 import { ReactElement, ReactNode, useEffect, useState } from 'react';
 import SEO from '@/components/layout/SEO';

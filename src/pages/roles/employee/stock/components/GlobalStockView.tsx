@@ -196,9 +196,9 @@ export default function GlobalStockView() {
       }
     } else {
       switch (status) {
-        case 'EN_VENTE':
+        case 'FOR_SALE':
           return <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">En vente</Badge>;
-        case 'EN_LOCATION':
+        case 'FOR_RENT':
           return <Badge variant="secondary">En location</Badge>;
         case 'EN_REPARATION':
           return <Badge variant="destructive">En réparation</Badge>;
@@ -213,7 +213,7 @@ export default function GlobalStockView() {
   // Check if product is available for transfer
   const canRequestTransfer = (item: Stock) => {
     return item.quantity > 0 && 
-           (item.status === 'EN_VENTE' || item.status === 'ACTIVE');
+           (item.status === 'FOR_SALE' || item.status === 'ACTIVE');
   };
 
   // Loading state

@@ -56,7 +56,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         include: {
           stocks: {
             where: {
-              status: 'EN_VENTE'
+              status: 'FOR_SALE'
             },
             include: {
               location: true

@@ -30,9 +30,7 @@ export interface Renseignement {
   poids?: number;
   imc?: number;
   antecedant?: string;
-  descriptionNom?: string;
-  descriptionTelephone?: string;
-  descriptionAdresse?: string;
+  generalNote?: string;
   caisseAffiliation?: CaisseAffiliation;
   beneficiaire?: BeneficiaryType;
   matriculeFiscale?: string;
@@ -67,9 +65,8 @@ export interface RenseignementFormData {
   beneficiaire?: BeneficiaryType;
   caisseAffiliation?: CaisseAffiliation;
   cnam?: boolean;
-  descriptionNom?: string;
-  descriptionTelephone?: string;
-  descriptionAdresse?: string;
+  generalNote?: string;
+  addressCoordinates?: string;
   nomSociete?: string;
   matriculeFiscale?: string;
   images?: File[];

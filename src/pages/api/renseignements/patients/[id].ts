@@ -25,7 +25,30 @@ export default async function handler(
       // Get a specific patient by ID
       const patient = await prisma.patient.findUnique({
         where: { id },
-        include: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          telephone: true,
+          telephoneTwo: true,
+          governorate: true,
+          delegation: true,
+          detailedAddress: true,
+          addressCoordinates: true,
+          cin: true,
+          cnamId: true,
+          antecedant: true,
+          height: true,
+          weight: true,
+          dateOfBirth: true,
+          beneficiaryType: true,
+          affiliation: true,
+          generalNote: true,
+          doctorId: true,
+          technicianId: true,
+          supervisorId: true,
+          createdAt: true,
+          updatedAt: true,
           doctor: {
             include: {
               user: true

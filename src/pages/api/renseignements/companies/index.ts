@@ -76,8 +76,7 @@ export default async function handler(
           delegation: data.delegation || '',
           detailedAddress: data.detailedAddress || '',
           taxId: data.matriculeFiscale || '',
-          phoneDescription: data.descriptionTelephone || '',
-          addressDescription: data.descriptionAdresse,
+          generalNote: data.generalNote || null,
           userId: session.user.id,
           technicianId: data.technicienResponsable || null,
           ...fileData
@@ -162,9 +161,7 @@ export default async function handler(
           delegation: data.delegation || '',
           detailedAddress: data.detailedAddress || '',
           taxId: data.matriculeFiscale || null,
-          nameDescription: data.descriptionNom || '',
-          phoneDescription: data.descriptionTelephone || '',
-          addressDescription: data.descriptionAdresse || '',
+          generalNote: data.generalNote || null,
           technicianId: data.technicienResponsable || null,
           ...updateFileData
         },

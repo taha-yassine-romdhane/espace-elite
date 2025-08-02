@@ -175,7 +175,9 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
     };
     
     const handleLogout = () => {
-        signOut({ callbackUrl: '/welcome' });
+        // Use window.location.origin to get the current domain for production compatibility
+        const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+        signOut({ callbackUrl: `${baseUrl}/welcome` });
     };
     
     const formatTime = (date: Date) => {

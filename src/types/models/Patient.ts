@@ -16,8 +16,7 @@ export interface Patient {
   lastName: string;
   telephone: string;
   telephoneTwo?: string;
-  descriptionNumOne?: string;
-  descriptionNumTwo?: string;
+  generalNote?: string;
   affiliation?: Affiliation;
   antecedant?: string;
   beneficiaryType?: BeneficiaryType;

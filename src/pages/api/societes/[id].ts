@@ -53,9 +53,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         detailedAddress: company.detailedAddress,
         matriculeFiscale: company.taxId,
         fiscalNumber: company.taxId,
-        nameDescription: company.nameDescription,
-        phoneDescription: company.phoneDescription,
-        addressDescription: company.addressDescription,
+        generalNote: company.generalNote || '',
         createdAt: company.createdAt,
         technician: company.technician ? {
           id: company.technician.id,

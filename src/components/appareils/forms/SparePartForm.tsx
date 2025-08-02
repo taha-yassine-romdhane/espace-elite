@@ -40,7 +40,6 @@ const sparePartSchema = z.object({
   type: z.literal("SPARE_PART"),  // Ensure type is always SPARE_PART
   purchasePrice: z.coerce.number().min(0).nullable(),
   sellingPrice: z.coerce.number().min(0).nullable(),
-  warranty: z.string().optional().nullable(),
 });
 
 type SparePartFormValues = z.infer<typeof sparePartSchema>;
@@ -63,7 +62,6 @@ export function SparePartForm({ initialData, onSubmit, stockLocations, isEditMod
     stockQuantity: initialData?.stockQuantity || 0,
     status: initialData?.status || "EN_VENTE",
     type: "SPARE_PART" as const,  // Type assertion to ensure it's SPARE_PART
-    warranty: initialData?.warranty || ""
   };
 
   const form = useForm<SparePartFormValues>({

@@ -323,7 +323,8 @@ const Sidebar: React.FC = () => {
                     onClick={() => {
                         // Prevent multiple rapid logout attempts and disable in edit mode
                         if (!isNavigating && !isEditMode) {
-                            signOut({ callbackUrl: '/welcome' });
+                            const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+                            signOut({ callbackUrl: `${baseUrl}/welcome` });
                         }
                     }}
                     className={cn(

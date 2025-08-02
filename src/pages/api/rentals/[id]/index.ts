@@ -209,7 +209,7 @@ export default async function handler(
             const existingStock = await tx.stock.findFirst({
               where: {
                 productId: accessory.productId,
-                status: 'EN_LOCATION'
+                status: 'FOR_RENT'
               }
             });
             
@@ -218,7 +218,7 @@ export default async function handler(
                 where: { id: existingStock.id },
                 data: {
                   quantity: existingStock.quantity + accessory.quantity,
-                  status: 'EN_VENTE' // Return to available status
+                  status: 'FOR_SALE' // Return to available status
                 }
               });
             }

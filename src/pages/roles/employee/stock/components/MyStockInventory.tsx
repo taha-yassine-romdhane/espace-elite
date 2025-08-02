@@ -173,9 +173,9 @@ export default function MyStockInventory() {
       }
     } else {
       switch (status) {
-        case 'EN_VENTE':
+        case 'FOR_SALE':
           return <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">En vente</Badge>;
-        case 'EN_LOCATION':
+        case 'FOR_RENT':
           return <Badge variant="secondary">En location</Badge>;
         case 'EN_REPARATION':
           return <Badge variant="destructive">En réparation</Badge>;

@@ -54,8 +54,8 @@ const medicalDeviceSchema = z.object({
   sellingPrice: z.string().transform(val => val ? parseFloat(val) : null).nullable(),
   technicalSpecs: z.string().optional().nullable(),
   configuration: z.string().optional().nullable(),
-  status: z.enum(["ACTIVE", "MAINTENANCE", "RETIRED", "RESERVED"]).default("ACTIVE"),
-  availableForRent: z.boolean().default(false),
+  status: z.enum(["ACTIVE", "MAINTENANCE", "RETIRED", "RESERVED", "SOLD"]).default("ACTIVE"),
+  destination: z.enum(["FOR_SALE", "FOR_RENT"]).default("FOR_SALE"),
   rentalPrice: z.string().transform(val => val ? parseFloat(val) : null).nullable(),
   requiresMaintenance: z.boolean().default(false),
 }).refine((data) => {
@@ -91,9 +91,9 @@ export function MedicalDeviceForm({ initialData, onSubmit, stockLocations, isEdi
       name: isCustomName ? 'Autre' : initialData?.name,
       customName: isCustomName ? initialData.name : undefined,
       type: "MEDICAL_DEVICE",
-      availableForRent: initialData?.availableForRent || false,
       requiresMaintenance: initialData?.requiresMaintenance || false,
-      status: initialData?.status || "ACTIVE"
+      status: initialData?.status || "ACTIVE",
+      destination: initialData?.destination || "FOR_SALE"
     },
   });
 
@@ -331,71 +331,74 @@ export function MedicalDeviceForm({ initialData, onSubmit, stockLocations, isEdi
               <TabsContent value="technical">
                 <Card>
                   <CardContent className="space-y-4 pt-4">
-                    <FormField
-                      control={form.control}
-                      name="status"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Statut</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Sélectionner le statut" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="ACTIVE">Actif</SelectItem>
-                              <SelectItem value="MAINTENANCE">En Maintenance</SelectItem>
-                              <SelectItem value="RETIRED">Retiré</SelectItem>
-                              <SelectItem value="RESERVED">Réservé</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <div className="flex items-center space-x-8">
+                    <div className="grid grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
-                        name="availableForRent"
+                        name="status"
                         render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                            <div className="space-y-0.5">
-                              <FormLabel className="text-base">
-                                Disponible à la Location
-                              </FormLabel>
-                            </div>
-                            <FormControl>
-                              <Switch
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
+                          <FormItem>
+                            <FormLabel>Statut de l'Appareil</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Sélectionner le statut" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="ACTIVE">Actif</SelectItem>
+                                <SelectItem value="MAINTENANCE">En Maintenance</SelectItem>
+                                <SelectItem value="RETIRED">Retiré</SelectItem>
+                                <SelectItem value="RESERVED">Réservé</SelectItem>
+                                <SelectItem value="SOLD">Vendu</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
                           </FormItem>
                         )}
                       />
 
                       <FormField
                         control={form.control}
-                        name="requiresMaintenance"
+                        name="destination"
                         render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                            <div className="space-y-0.5">
-                              <FormLabel className="text-base">
-                                Nécessite Maintenance
-                              </FormLabel>
-                            </div>
-                            <FormControl>
-                              <Switch
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
+                          <FormItem>
+                            <FormLabel>Destination</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Sélectionner la destination" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="FOR_SALE">Vente</SelectItem>
+                                <SelectItem value="FOR_RENT">Location</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
                           </FormItem>
                         )}
                       />
                     </div>
+
+                    <FormField
+                      control={form.control}
+                      name="requiresMaintenance"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">
+                              Nécessite Maintenance
+                            </FormLabel>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
                   </CardContent>
                 </Card>
               </TabsContent>

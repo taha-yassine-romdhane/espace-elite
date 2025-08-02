@@ -51,7 +51,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               productId: product.id,
               locationId: accessory.stockLocationId,
               quantity: accessory.stockQuantity,
-              status: accessory.status || 'EN_VENTE', // Stock uses StockStatus enum
+              status: accessory.status || 'FOR_SALE', // Stock uses StockStatus enum
             },
           });
         }

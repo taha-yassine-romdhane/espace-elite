@@ -164,8 +164,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               height: data.taille ? parseFloat(data.taille) : null,
               weight: data.poids ? parseFloat(data.poids) : null,
               medicalHistory: data.antecedant || null,
-              descriptionNumOne: data.descriptionNom || null,
-              descriptionNumTwo: data.descriptionTelephone || null,
+              generalNote: data.generalNote || null,
               affiliation: (data.caisseAffiliation as Affiliation) || null,
               beneficiaryType: data.beneficiaire as BeneficiaryType || null,
               doctorId: doctor.id,
@@ -222,9 +221,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               ? (patient.weight / Math.pow(patient.height / 100, 2)).toFixed(1)
               : null,
             antecedant: patient.medicalHistory,
-            descriptionNom: patient.descriptionNumOne,
-            descriptionTelephone: patient.descriptionNumTwo,
-            descriptionAdresse: '',
+            generalNote: patient.generalNote || '',
             caisseAffiliation: patient.affiliation,
             beneficiaire: patient.beneficiaryType,
             files: patient.files.map((file) => ({
@@ -289,9 +286,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               delegation: data.delegation || null,
               detailedAddress: data.detailedAddress || null,
               taxId: data.matriculeFiscale || null,
-              nameDescription: data.descriptionNom || null,
-              phoneDescription: data.descriptionTelephone || null,
-              addressDescription: data.descriptionAdresse || null,
+              generalNote: data.generalNote || null,
               userId: session.user.id,
               technicianId: data.technicienResponsable || null,
               ...(fileData)
@@ -319,9 +314,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               name: `${company.technician.firstName} ${company.technician.lastName}`,
               role: company.technician.role
             } : null,
-            descriptionNom: company.nameDescription,
-            descriptionTelephone: company.phoneDescription,
-            descriptionAdresse: company.addressDescription,
+            generalNote: company.generalNote || '',
             files: company.files.map((file) => ({
               id: file.id,
               url: file.url,
@@ -444,8 +437,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               height: data.taille ? parseFloat(data.taille) : null,
               weight: data.poids ? parseFloat(data.poids) : null,
               medicalHistory: data.antecedant || null,
-              descriptionNumOne: data.descriptionNom || null,
-              descriptionNumTwo: data.descriptionTelephone || null,
+              generalNote: data.generalNote || null,
               affiliation: (data.caisseAffiliation as Affiliation) || null,
               beneficiaryType: data.beneficiaire as BeneficiaryType || null,
               doctorId: doctorId,
@@ -518,9 +510,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             imc: patient.height && patient.weight
               ? (patient.weight / Math.pow(patient.height / 100, 2)).toFixed(1)
               : null,
-            descriptionNom: patient.descriptionNumOne || '',
-            descriptionTelephone: patient.descriptionNumTwo || '',
-            descriptionAdresse: '',
+            generalNote: patient.generalNote || '',
             caisseAffiliation: patient.affiliation || '',
             beneficiaire: patient.beneficiaryType || '',
             files: patient.files.map((file) => ({
@@ -569,9 +559,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               delegation: data.delegation || null,
               detailedAddress: data.detailedAddress || null,
               taxId: data.matriculeFiscale || null,
-              nameDescription: data.descriptionNom || null,
-              phoneDescription: data.descriptionTelephone || null,
-              addressDescription: data.descriptionAdresse || null,
+              generalNote: data.generalNote || null,
               technicianId: data.technicienResponsable || null,
               ...(files.files ? {
                 files: {
@@ -616,9 +604,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               name: `${company.technician.firstName} ${company.technician.lastName}`,
               role: company.technician.role
             } : null,
-            descriptionNom: company.nameDescription,
-            descriptionTelephone: company.phoneDescription,
-            descriptionAdresse: company.addressDescription,
+            generalNote: company.generalNote || '',
             files: company.files.map((file) => ({
               id: file.id,
               url: file.url,
@@ -708,9 +694,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         imc: patient.height && patient.weight
           ? (patient.weight / Math.pow(patient.height / 100, 2)).toFixed(1)
           : null,
-        descriptionNom: patient.descriptionNumOne || '',
-        descriptionTelephone: patient.descriptionNumTwo || '',
-        descriptionAdresse: '',
+        generalNote: patient.generalNote || '',
         caisseAffiliation: patient.affiliation as Affiliation,
         beneficiaire: patient.beneficiaryType as BeneficiaryType,
         files: patient.files?.map((file: { id: string; url: string; type: string; createdAt: Date; }) => ({
@@ -738,9 +722,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           name: `${company.technician.firstName} ${company.technician.lastName}`,
           role: company.technician.role as Role
         } : null,
-        descriptionNom: company.nameDescription,
-        descriptionTelephone: company.phoneDescription,
-        descriptionAdresse: company.addressDescription,
+        generalNote: company.generalNote || '',
         files: company.files?.map((file: { id: string; url: string; type: string; createdAt: Date; }) => ({
           id: file.id,
           url: file.url,
