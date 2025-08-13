@@ -198,7 +198,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
 
     return (
         <div className="bg-white shadow-md z-10">
-            <div className="max-w-full px-4 sm:px-6 lg:px-8">
+            <div className="max-w-full px-4 sm:px-6 tablet:px-8 lg:px-8">
                 <div className="flex justify-between h-16">
                     {/* Left side - Toggle button and page title */}
                     <div className="flex items-center">
@@ -217,7 +217,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
                     </div>
 
                     {/* Center - Search */}
-                    <div className="hidden md:flex items-center flex-1 justify-center px-4">
+                    <div className="hidden tablet:flex items-center flex-1 justify-center px-4">
                         <GlobalSearch />
                     </div>
 
@@ -225,7 +225,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
                     {session?.user && (
                         <div className="flex items-center space-x-4">
                             {/* Current date and time */}
-                            <div className="hidden lg:flex flex-col items-end mr-4">
+                            <div className="hidden tablet-lg:flex flex-col items-end mr-4">
                                 <span className="text-sm font-medium text-gray-700">{currentTime ? formatTime(currentTime) : '--:--'}</span>
                                 <span className="text-xs text-gray-500">{currentTime ? formatDate(currentTime) : ''}</span>
                             </div>
@@ -327,7 +327,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
                                             {session.user.name ? getInitials(session.user.name) : <User className="h-4 w-4" />}
                                         </AvatarFallback>
                                     </Avatar>
-                                    <div className="hidden md:flex flex-col items-start">
+                                    <div className="hidden tablet:flex flex-col items-start">
                                         <span className="text-sm font-medium text-gray-700 truncate max-w-[100px]">
                                             {session.user.name}
                                         </span>
@@ -335,7 +335,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
                                             {session.user.role === 'EMPLOYEE' ? 'Employé' : session.user.role}
                                         </span>
                                     </div>
-                                    <ChevronDown className="h-4 w-4 text-gray-500 hidden md:block" />
+                                    <ChevronDown className="h-4 w-4 text-gray-500 hidden tablet:block" />
                                 </button>
 
                                 {isProfileOpen && (

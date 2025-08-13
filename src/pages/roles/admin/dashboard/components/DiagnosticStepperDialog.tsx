@@ -38,6 +38,7 @@ export function DiagnosticStepperDialog({ isOpen, onClose }: DiagnosticStepperDi
   const [selectedPatient, setSelectedPatient] = useState<string | null>(null);
   const [patients, setPatients] = useState<[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [manualPatientDetails, setManualPatientDetails] = useState<any>(null);
 
   // Product Selection State
   const [selectedProducts, setSelectedProducts] = useState<any[]>([]);
@@ -74,7 +75,7 @@ export function DiagnosticStepperDialog({ isOpen, onClose }: DiagnosticStepperDi
 
 
   // Fetch patient details when a patient is selected
-  const { data: patientDetails } = useQuery({
+  const { data: fetchedPatientDetails, refetch: refetchPatientDetails } = useQuery({
     queryKey: ["patient-details", selectedPatient],
     queryFn: async () => {
       if (!selectedPatient) return null;
@@ -84,8 +85,11 @@ export function DiagnosticStepperDialog({ isOpen, onClose }: DiagnosticStepperDi
       }
       return response.json();
     },
-    enabled: !!selectedPatient,
+    enabled: !!selectedPatient && !manualPatientDetails,
   });
+  
+  // Use manual details if available, otherwise use fetched details
+  const patientDetails = manualPatientDetails || fetchedPatientDetails;
 
   // Patient Selection Handlers
   const fetchPatients = async () => {
@@ -217,6 +221,7 @@ export function DiagnosticStepperDialog({ isOpen, onClose }: DiagnosticStepperDi
     setFollowUpDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
     setSubmitError(null);
     setExistingFiles([]);
+    setManualPatientDetails(null);
     onClose();
   };
 
@@ -325,7 +330,36 @@ export function DiagnosticStepperDialog({ isOpen, onClose }: DiagnosticStepperDi
                   onNext={handleNext}
                   onClose={handleClose}
                   onClientTypeChange={() => {}} // Not used anymore
-                  onClientSelect={setSelectedPatient}
+                  onClientSelect={(clientId) => {
+                    setSelectedPatient(clientId);
+                    // Clear manual details when selecting a different patient
+                    setManualPatientDetails(null);
+                  }}
+                  onClientAdd={(newClient) => {
+                    // When a new patient is created, we need to set their details manually
+                    // until the API can fetch them
+                    if (newClient && newClient.id) {
+                      setSelectedPatient(newClient.id);
+                      
+                      // Use the patient details directly from the newClient object
+                      setManualPatientDetails({
+                        id: newClient.id,
+                        firstName: newClient.firstName || '',
+                        lastName: newClient.lastName || '',
+                        telephone: newClient.telephone || '',
+                        address: newClient.address || '',
+                        dateOfBirth: newClient.dateOfBirth || '',
+                        cin: newClient.cin || '',
+                        // Add other fields as needed for PatientInfoCard
+                      });
+                      
+                      // Trigger a refetch after a short delay to get full details
+                      setTimeout(() => {
+                        refetchPatientDetails();
+                        setManualPatientDetails(null);
+                      }, 2000);
+                    }
+                  }}
                   clientType="patient" // Always patient
                   selectedClient={selectedPatient}
                   action="diagnostique"

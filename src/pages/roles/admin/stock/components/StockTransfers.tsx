@@ -1,6 +1,7 @@
 import React from 'react';
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSession } from 'next-auth/react';
 
 import {
   Dialog,
@@ -28,7 +29,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Search, History, Info, AlertCircle, Package, Wrench, Stethoscope, Monitor, Filter, X } from 'lucide-react';
+import { Plus, Search, History, Info, AlertCircle, Package, Wrench, Stethoscope, Monitor, Filter, X, Building2, MapPin, Hash, Calendar, CheckCircle2, XCircle, AlertTriangle, ChevronDown } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import TransferHistory from './TransferHistory';
 import PendingTransferRequests from './PendingTransferRequests';
@@ -43,6 +44,22 @@ interface TransferFormData {
   newStatus?: 'FOR_SALE' | 'RESERVE' | 'DEFECTUEUX';
   isDevice?: boolean; // Flag to indicate if this is a medical device
   productType?: string; // Type of product being transferred
+}
+
+interface SelectedProductInfo {
+  id: string;
+  name: string;
+  brand?: string;
+  model?: string;
+  type: string;
+  serialNumber?: string;
+  quantity: number;
+  isDevice: boolean;
+  location: {
+    id: string;
+    name: string;
+  };
+  status?: string;
 }
 
 
@@ -71,6 +88,7 @@ interface Stock {
 export default function StockTransfers() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { data: session } = useSession();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   
   const [formData, setFormData] = useState<TransferFormData>({
@@ -84,13 +102,10 @@ export default function StockTransfers() {
   const [maxAvailableQuantity, setMaxAvailableQuantity] = useState(1);
   const [productSearch, setProductSearch] = useState('');
   const [selectedProductType, setSelectedProductType] = useState<string>('all');
-  
-  const currentUser = {
-    id: 'user-1', 
-    role: 'ADMIN',
-    firstName: 'Admin',
-    lastName: 'User'
-  };
+  const [selectedProductInfo, setSelectedProductInfo] = useState<SelectedProductInfo | null>(null);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [brandFilter, setBrandFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
   // Helper function to get product type icon
   const getProductTypeIcon = (productType: string) => {
@@ -149,7 +164,7 @@ export default function StockTransfers() {
   });
   
   const products = React.useMemo(() => {
-    const items = productsData?.items || productsData || [];
+    const items = productsData?.items || [];
     
     let filteredItems = items.map((item: any) => {
       const isDevice = item.isDevice || 
@@ -157,10 +172,11 @@ export default function StockTransfers() {
       
       const brand = item.product?.brand || '';
       const model = item.product?.model || '';
+      const serialNumber = item.product?.serialNumber || '';
       const brandModel = [brand, model].filter(Boolean).join(' ');
-      const displayName = `${item.product.name}${brandModel ? ` (${brandModel})` : ''}`;
+      const displayName = `${item.product?.name || item.product.name}${brandModel ? ` (${brandModel})` : ''}`;
       
-      return { ...item, displayName, isDevice };
+      return { ...item, displayName, isDevice, brand, model, serialNumber };
     });
 
     // Apply product type filter
@@ -176,18 +192,79 @@ export default function StockTransfers() {
       filteredItems = filteredItems.filter((item: any) => 
         item.product.name.toLowerCase().includes(searchTerm) ||
         (item.product.brand && item.product.brand.toLowerCase().includes(searchTerm)) ||
-        (item.product.model && item.product.model.toLowerCase().includes(searchTerm))
+        (item.product.model && item.product.model.toLowerCase().includes(searchTerm)) ||
+        (item.product.serialNumber && item.product.serialNumber.toLowerCase().includes(searchTerm))
       );
     }
 
+    // Apply brand filter
+    if (brandFilter && brandFilter !== 'all') {
+      filteredItems = filteredItems.filter((item: any) => 
+        item.product.brand?.toLowerCase() === brandFilter.toLowerCase()
+      );
+    }
+
+    // Apply status filter for devices
+    if (statusFilter && statusFilter !== 'all') {
+      filteredItems = filteredItems.filter((item: any) => 
+        item.status === statusFilter
+      );
+    }
+
+    // Sort items for better organization
+    filteredItems.sort((a: any, b: any) => {
+      // First by type
+      if (a.product.type !== b.product.type) {
+        return a.product.type.localeCompare(b.product.type);
+      }
+      // Then by name
+      return a.product.name.localeCompare(b.product.name);
+    });
+
     return filteredItems;
-  }, [productsData, selectedProductType, productSearch]);
+  }, [productsData, selectedProductType, productSearch, brandFilter, statusFilter]);
+
+  // Get unique brands for filtering
+  const availableBrands = React.useMemo(() => {
+    const items = productsData?.items || [];
+    const brands = new Set<string>();
+    items.forEach((item: any) => {
+      if (item.product?.brand) {
+        brands.add(item.product.brand);
+      }
+    });
+    return Array.from(brands).sort();
+  }, [productsData]);
+
+  // Get unique statuses for filtering
+  const availableStatuses = React.useMemo(() => {
+    const items = productsData?.items || [];
+    const statuses = new Set<string>();
+    items.forEach((item: any) => {
+      if (item.status) {
+        statuses.add(item.status);
+      }
+    });
+    return Array.from(statuses).sort();
+  }, [productsData]);
 
   useEffect(() => {
     const selectedProduct = products.find((p: any) => p.product.id === formData.productId);
     if (selectedProduct) {
       const isDevice = selectedProduct.isDevice;
       setMaxAvailableQuantity(isDevice ? 1 : selectedProduct.quantity);
+      setSelectedProductInfo({
+        id: selectedProduct.product.id,
+        name: selectedProduct.product.name,
+        brand: selectedProduct.product.brand,
+        model: selectedProduct.product.model,
+        type: selectedProduct.product.type,
+        serialNumber: selectedProduct.product.serialNumber,
+        quantity: selectedProduct.quantity,
+        isDevice: isDevice,
+        location: selectedProduct.location,
+        status: selectedProduct.status
+      });
       setFormData(prev => ({
         ...prev,
         quantity: 1,
@@ -196,6 +273,7 @@ export default function StockTransfers() {
       }));
     } else {
       setMaxAvailableQuantity(1);
+      setSelectedProductInfo(null);
     }
   }, [formData.productId, products]);
 
@@ -229,7 +307,11 @@ export default function StockTransfers() {
       const response = await fetch('/api/stock/transfers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...data, userId: currentUser.id, userRole: currentUser.role }),
+        body: JSON.stringify({ 
+          ...data, 
+          userId: session?.user?.id,
+          userRole: session?.user?.role 
+        }),
       });
       if (!response.ok) {
         const errorData = await response.json();
@@ -274,6 +356,8 @@ export default function StockTransfers() {
   const resetProductFilters = () => {
     setProductSearch('');
     setSelectedProductType('all');
+    setBrandFilter('all');
+    setStatusFilter('all');
   };
 
   const handleLocationChange = (value: string) => {
@@ -291,251 +375,535 @@ export default function StockTransfers() {
               <Plus className="mr-2 h-4 w-4" /> Nouveau Transfert
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Créer un nouveau transfert</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium">De l'emplacement</label>
-                  <Select
-                    value={formData.fromLocationId}
-                    onValueChange={handleLocationChange}
-                    required
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner l'emplacement de départ" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {locations?.map((loc: any) => (
-                        <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Vers l'emplacement</label>
-                  <Select
-                    value={formData.toLocationId}
-                    onValueChange={(value) => setFormData({ ...formData, toLocationId: value })}
-                    required
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner l'emplacement de destination" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {locations?.filter((loc: any) => loc.id !== formData.fromLocationId).map((loc: any) => (
-                        <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium">Produit à transférer</label>
-                  {(productSearch || selectedProductType !== 'all') && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={resetProductFilters}
-                      className="h-6 px-2 text-xs"
-                    >
-                      <X className="h-3 w-3 mr-1" />
-                      Réinitialiser
-                    </Button>
-                  )}
-                </div>
-
-                {/* Search and Filter Controls */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input
-                      type="text"
-                      placeholder="Rechercher un produit..."
-                      value={productSearch}
-                      onChange={(e) => setProductSearch(e.target.value)}
-                      className="pl-10"
-                      disabled={!formData.fromLocationId || isLoadingProducts}
-                    />
-                  </div>
-
-                  <div className="relative">
-                    <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Locations Section */}
+              <div className="bg-gray-50 p-4 rounded-lg border">
+                <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                  <MapPin className="h-5 w-5" />
+                  Emplacements de Stock
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Emplacement source</label>
                     <Select
-                      value={selectedProductType}
-                      onValueChange={setSelectedProductType}
-                      disabled={!formData.fromLocationId || isLoadingProducts}
+                      value={formData.fromLocationId}
+                      onValueChange={handleLocationChange}
+                      required
                     >
-                      <SelectTrigger className="pl-10">
-                        <SelectValue placeholder="Type de produit" />
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Sélectionner l'emplacement de départ" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">
-                          <div className="flex items-center gap-2">
-                            <Package className="h-4 w-4" />
-                            Tous les types
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="MEDICAL_DEVICE">
-                          <div className="flex items-center gap-2">
-                            <Stethoscope className="h-4 w-4" />
-                            Appareils médicaux
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="DIAGNOSTIC_DEVICE">
-                          <div className="flex items-center gap-2">
-                            <Monitor className="h-4 w-4" />
-                            Appareils de diagnostic
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="ACCESSORY">
-                          <div className="flex items-center gap-2">
-                            <Package className="h-4 w-4" />
-                            Accessoires
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="SPARE_PART">
-                          <div className="flex items-center gap-2">
-                            <Wrench className="h-4 w-4" />
-                            Pièces détachées
-                          </div>
-                        </SelectItem>
+                        {locations?.map((loc: any) => (
+                          <SelectItem key={loc.id} value={loc.id}>
+                            <div className="flex items-center gap-2">
+                              <Building2 className="h-4 w-4" />
+                              {loc.name}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Emplacement destination</label>
+                    <Select
+                      value={formData.toLocationId}
+                      onValueChange={(value) => setFormData({ ...formData, toLocationId: value })}
+                      required
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Sélectionner l'emplacement de destination" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {locations?.filter((loc: any) => loc.id !== formData.fromLocationId).map((loc: any) => (
+                          <SelectItem key={loc.id} value={loc.id}>
+                            <div className="flex items-center gap-2">
+                              <Building2 className="h-4 w-4" />
+                              {loc.name}
+                            </div>
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
-
-                {/* Product Selection Dropdown */}
-                <Select
-                  value={formData.productId}
-                  onValueChange={(value) => setFormData({ ...formData, productId: value })}
-                  required
-                  disabled={!formData.fromLocationId || isLoadingProducts}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={
-                      isLoadingProducts 
-                        ? 'Chargement...' 
-                        : products.length === 0 
-                          ? 'Aucun produit trouvé'
-                          : 'Sélectionner un produit'
-                    } />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[300px]">
-                    {products.length === 0 && !isLoadingProducts ? (
-                      <div className="p-4 text-center text-sm text-gray-500">
-                        {productSearch || selectedProductType !== 'all' 
-                          ? 'Aucun produit trouvé avec les filtres actuels'
-                          : 'Aucun produit disponible dans cet emplacement'
-                        }
-                      </div>
-                    ) : (
-                      products.map((p: any) => (
-                        <SelectItem key={p.product.id} value={p.product.id}>
-                          <div className="flex items-center gap-3 w-full">
-                            <div className="flex-shrink-0">
-                              {getProductTypeIcon(p.product.type)}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium truncate">
-                                {p.displayName}
-                              </div>
-                              <div className="flex items-center gap-2 text-xs text-gray-500">
-                                <Badge variant="outline" className="text-xs py-0">
-                                  {getProductTypeLabel(p.product.type)}
-                                </Badge>
-                                <span>Qté: {p.isDevice ? 1 : p.quantity}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-
-                {/* Results Summary */}
-                {formData.fromLocationId && !isLoadingProducts && (
-                  <div className="text-xs text-gray-500 bg-gray-50 p-3 rounded-md">
-                    <div className="flex items-center gap-2">
-                      <Info className="h-4 w-4" />
-                      <span>
-                        {products.length} produit{products.length !== 1 ? 's' : ''} 
-                        {productSearch || selectedProductType !== 'all' ? ' trouvé(s)' : ' disponible(s)'}
-                        {productSearch && ` pour "${productSearch}"`}
-                        {selectedProductType !== 'all' && ` dans "${getProductTypeLabel(selectedProductType)}"`}
-                      </span>
-                    </div>
-                  </div>
-                )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium">Quantité</label>
-                  <Input
-                    type="number"
-                    value={formData.quantity}
-                    onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value, 10) || 1 })}
-                    min={1}
-                    max={maxAvailableQuantity}
-                    required
-                    disabled={formData.isDevice}
-                  />
-                  {formData.quantity >= maxAvailableQuantity && formData.productId && !formData.isDevice && (
-                    <p className="text-xs text-amber-600">
-                      Attention: Vous transférez la quantité maximale disponible
-                    </p>
+              {/* Product Selection Section */}
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-blue-800 flex items-center gap-2">
+                    <Package className="h-5 w-5" />
+                    Sélection du Produit
+                  </h3>
+                  {(productSearch || selectedProductType !== 'all' || brandFilter !== 'all' || statusFilter !== 'all') && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={resetProductFilters}
+                      className="h-8 px-3 text-xs border-red-200 text-red-600 hover:bg-red-50"
+                    >
+                      <X className="h-3 w-3 mr-1" />
+                      Réinitialiser filtres
+                    </Button>
                   )}
                 </div>
 
-                <div>
-                  <label className="text-sm font-medium">Nouveau statut (optionnel)</label>
-                  <Select
-                    value={formData.newStatus}
-                    onValueChange={(value: any) => setFormData({ ...formData, newStatus: value })}
+                {/* Search Bar */}
+                <div className="mb-4">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      type="text"
+                      placeholder="Rechercher par nom, marque, modèle ou numéro de série..."
+                      value={productSearch}
+                      onChange={(e) => setProductSearch(e.target.value)}
+                      className="pl-10 h-10"
+                      disabled={!formData.fromLocationId || isLoadingProducts}
+                    />
+                  </div>
+                </div>
+
+                {/* Advanced Filters Toggle */}
+                <div className="mb-4">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                    className="text-blue-600 hover:text-blue-700 hover:bg-blue-100"
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner le nouveau statut" />
+                    <Filter className="h-4 w-4 mr-2" />
+                    Filtres avancés
+                    <ChevronDown className={`h-4 w-4 ml-2 transition-transform ${showAdvancedFilters ? 'rotate-180' : ''}`} />
+                  </Button>
+                </div>
+
+                {/* Advanced Filters */}
+                {showAdvancedFilters && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 p-4 bg-white rounded-lg border">
+                    <div>
+                      <label className="text-xs font-medium text-gray-600 mb-1 block">Type de produit</label>
+                      <Select
+                        value={selectedProductType}
+                        onValueChange={setSelectedProductType}
+                        disabled={!formData.fromLocationId || isLoadingProducts}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Tous les types" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">
+                            <div className="flex items-center gap-2">
+                              <Package className="h-3 w-3" />
+                              Tous les types
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="MEDICAL_DEVICE">
+                            <div className="flex items-center gap-2">
+                              <Stethoscope className="h-3 w-3" />
+                              Appareils médicaux
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="DIAGNOSTIC_DEVICE">
+                            <div className="flex items-center gap-2">
+                              <Monitor className="h-3 w-3" />
+                              Appareils de diagnostic
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="ACCESSORY">
+                            <div className="flex items-center gap-2">
+                              <Package className="h-3 w-3" />
+                              Accessoires
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="SPARE_PART">
+                            <div className="flex items-center gap-2">
+                              <Wrench className="h-3 w-3" />
+                              Pièces détachées
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-medium text-gray-600 mb-1 block">Marque</label>
+                      <Select
+                        value={brandFilter}
+                        onValueChange={setBrandFilter}
+                        disabled={!formData.fromLocationId || isLoadingProducts}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Toutes les marques" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Toutes les marques</SelectItem>
+                          {availableBrands.map((brand) => (
+                            <SelectItem key={brand} value={brand}>{brand}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-medium text-gray-600 mb-1 block">Statut</label>
+                      <Select
+                        value={statusFilter}
+                        onValueChange={setStatusFilter}
+                        disabled={!formData.fromLocationId || isLoadingProducts}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Tous les statuts" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Tous les statuts</SelectItem>
+                          {availableStatuses.map((status) => (
+                            <SelectItem key={status} value={status}>
+                              <div className="flex items-center gap-2">
+                                {status === 'ACTIVE' && <CheckCircle2 className="h-3 w-3 text-green-500" />}
+                                {status === 'MAINTENANCE' && <AlertTriangle className="h-3 w-3 text-yellow-500" />}
+                                {status === 'RETIRED' && <XCircle className="h-3 w-3 text-red-500" />}
+                                {status === 'FOR_SALE' && <Package className="h-3 w-3 text-blue-500" />}
+                                {status === 'FOR_RENT' && <Calendar className="h-3 w-3 text-purple-500" />}
+                                {status}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
+
+                {/* Product Selection Dropdown */}
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">Produit à transférer</label>
+                  <Select
+                    value={formData.productId}
+                    onValueChange={(value) => setFormData({ ...formData, productId: value })}
+                    required
+                    disabled={!formData.fromLocationId || isLoadingProducts}
+                  >
+                    <SelectTrigger className="h-12">
+                      <SelectValue placeholder={
+                        isLoadingProducts 
+                          ? 'Chargement des produits...' 
+                          : products.length === 0 
+                            ? 'Aucun produit trouvé'
+                            : 'Sélectionner un produit'
+                      } />
                     </SelectTrigger>
-                    <SelectContent>
-                      {formData.isDevice ? (
-                        <>
-                          <SelectItem value="ACTIVE">Actif</SelectItem>
-                          <SelectItem value="MAINTENANCE">En maintenance</SelectItem>
-                          <SelectItem value="RETIRED">Retiré</SelectItem>
-                          <SelectItem value="RESERVED">Réservé</SelectItem>
-                        </>
+                    <SelectContent className="max-h-[400px] w-[600px]">
+                      {products.length === 0 && !isLoadingProducts ? (
+                        <div className="p-6 text-center text-sm text-gray-500">
+                          <Package className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                          {productSearch || selectedProductType !== 'all' || brandFilter !== 'all' || statusFilter !== 'all'
+                            ? 'Aucun produit trouvé avec les filtres actuels'
+                            : 'Aucun produit disponible dans cet emplacement'
+                          }
+                        </div>
                       ) : (
-                        <>
-                          <SelectItem value="EN_VENTE">En vente</SelectItem>
-                          <SelectItem value="EN_LOCATION">En location</SelectItem>
-                          <SelectItem value="EN_REPARATION">En réparation</SelectItem>
-                          <SelectItem value="HORS_SERVICE">Hors service</SelectItem>
-                        </>
+                        products.map((p: any) => (
+                          <SelectItem key={p.product.id} value={p.product.id} className="p-2 h-auto">
+                            <div className="flex items-center gap-3 w-full">
+                              <div className="flex-shrink-0">
+                                {getProductTypeIcon(p.product.type)}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium text-sm truncate mb-1">
+                                  {p.product.name}
+                                  {(p.product.brand || p.product.model) && (
+                                    <span className="text-gray-500 font-normal ml-1">
+                                      ({[p.product.brand, p.product.model].filter(Boolean).join(' ')})
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-3 text-xs text-gray-500">
+                                  <span className="flex items-center gap-1">
+                                    <Hash className="h-3 w-3" />
+                                    {p.isDevice ? '1 unité' : `${p.quantity} unités`}
+                                  </span>
+                                  {p.product.serialNumber && (
+                                    <span className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">
+                                      S/N: {p.product.serialNumber}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">
+                                  {getProductTypeLabel(p.product.type)}
+                                </span>
+                                {p.status === 'ACTIVE' && <CheckCircle2 className="h-4 w-4 text-green-500" />}
+                                {p.status === 'MAINTENANCE' && <AlertTriangle className="h-4 w-4 text-yellow-500" />}
+                                {p.status === 'FOR_SALE' && <Package className="h-4 w-4 text-blue-500" />}
+                                {p.status === 'FOR_RENT' && <Calendar className="h-4 w-4 text-purple-500" />}
+                              </div>
+                            </div>
+                          </SelectItem>
+                        ))
                       )}
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* Results Summary */}
+                {formData.fromLocationId && !isLoadingProducts && (
+                  <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-blue-700">
+                        <Info className="h-4 w-4" />
+                        <span className="font-semibold text-sm">
+                          {products.length} produit{products.length !== 1 ? 's' : ''} trouvé{products.length !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+                      {(productSearch || selectedProductType !== 'all' || brandFilter !== 'all' || statusFilter !== 'all') && (
+                        <div className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full">
+                          Filtres actifs
+                        </div>
+                      )}
+                    </div>
+                    {(productSearch || selectedProductType !== 'all' || brandFilter !== 'all' || statusFilter !== 'all') && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {productSearch && (
+                          <span className="inline-flex items-center gap-1 text-xs bg-white px-2 py-1 rounded-full border border-blue-200">
+                            🔍 "{productSearch}"
+                          </span>
+                        )}
+                        {selectedProductType !== 'all' && (
+                          <span className="inline-flex items-center gap-1 text-xs bg-white px-2 py-1 rounded-full border border-blue-200">
+                            📦 {getProductTypeLabel(selectedProductType)}
+                          </span>
+                        )}
+                        {brandFilter !== 'all' && (
+                          <span className="inline-flex items-center gap-1 text-xs bg-white px-2 py-1 rounded-full border border-blue-200">
+                            🏷️ {brandFilter}
+                          </span>
+                        )}
+                        {statusFilter !== 'all' && (
+                          <span className="inline-flex items-center gap-1 text-xs bg-white px-2 py-1 rounded-full border border-blue-200">
+                            ⚡ {statusFilter}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
-              <div>
-                <label className="text-sm font-medium">Notes (optionnel)</label>
+              {/* Selected Product Preview */}
+              {selectedProductInfo && (
+                <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                  <h3 className="text-lg font-semibold text-green-800 mb-3 flex items-center gap-2">
+                    <CheckCircle2 className="h-5 w-5" />
+                    Produit Sélectionné
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0 mt-1">
+                          {getProductTypeIcon(selectedProductInfo.type)}
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-green-900">{selectedProductInfo.name}</h4>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge variant="outline" className="text-xs">
+                              {getProductTypeLabel(selectedProductInfo.type)}
+                            </Badge>
+                            {selectedProductInfo.status && (
+                              <Badge 
+                                variant={selectedProductInfo.status === 'ACTIVE' ? 'default' : 'secondary'}
+                                className="text-xs"
+                              >
+                                {selectedProductInfo.status}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-2 text-sm text-green-700">
+                      {selectedProductInfo.brand && (
+                        <div><strong>Marque:</strong> {selectedProductInfo.brand}</div>
+                      )}
+                      {selectedProductInfo.model && (
+                        <div><strong>Modèle:</strong> {selectedProductInfo.model}</div>
+                      )}
+                      {selectedProductInfo.serialNumber && (
+                        <div><strong>N° Série:</strong> {selectedProductInfo.serialNumber}</div>
+                      )}
+                      <div><strong>Quantité disponible:</strong> {selectedProductInfo.quantity}</div>
+                      <div><strong>Emplacement actuel:</strong> {selectedProductInfo.location.name}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Transfer Configuration */}
+              <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+                <h3 className="text-lg font-semibold text-orange-800 mb-3 flex items-center gap-2">
+                  <Package className="h-5 w-5" />
+                  Configuration du Transfert
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-2 block">Quantité à transférer</label>
+                    <div className="space-y-2">
+                      <Input
+                        type="number"
+                        value={formData.quantity}
+                        onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value, 10) || 1 })}
+                        min={1}
+                        max={maxAvailableQuantity}
+                        required
+                        disabled={formData.isDevice}
+                        className="h-10"
+                      />
+                      <div className="text-xs text-gray-500">
+                        {formData.isDevice ? (
+                          <span className="flex items-center gap-1 text-blue-600">
+                            <Info className="h-3 w-3" />
+                            Les appareils sont transférés individuellement
+                          </span>
+                        ) : (
+                          <span>Maximum disponible: {maxAvailableQuantity}</span>
+                        )}
+                      </div>
+                      {formData.quantity >= maxAvailableQuantity && formData.productId && !formData.isDevice && (
+                        <div className="flex items-center gap-1 text-xs text-amber-600 bg-amber-50 p-2 rounded">
+                          <AlertTriangle className="h-3 w-3" />
+                          Attention: Vous transférez la quantité maximale disponible
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-2 block">
+                      Nouveau statut {formData.isDevice ? '(dispositif)' : '(stock)'} (optionnel)
+                    </label>
+                    <Select
+                      value={formData.newStatus}
+                      onValueChange={(value: any) => setFormData({ ...formData, newStatus: value })}
+                    >
+                      <SelectTrigger className="h-10">
+                        <SelectValue placeholder="Garder le statut actuel" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {formData.isDevice ? (
+                          <>
+                            <SelectItem value="ACTIVE">
+                              <div className="flex items-center gap-2">
+                                <CheckCircle2 className="h-3 w-3 text-green-500" />
+                                Actif
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="MAINTENANCE">
+                              <div className="flex items-center gap-2">
+                                <AlertTriangle className="h-3 w-3 text-yellow-500" />
+                                En maintenance
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="RETIRED">
+                              <div className="flex items-center gap-2">
+                                <XCircle className="h-3 w-3 text-red-500" />
+                                Retiré
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="RESERVED">
+                              <div className="flex items-center gap-2">
+                                <Calendar className="h-3 w-3 text-purple-500" />
+                                Réservé
+                              </div>
+                            </SelectItem>
+                          </>
+                        ) : (
+                          <>
+                            <SelectItem value="FOR_SALE">
+                              <div className="flex items-center gap-2">
+                                <Package className="h-3 w-3 text-blue-500" />
+                                En vente
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="FOR_RENT">
+                              <div className="flex items-center gap-2">
+                                <Calendar className="h-3 w-3 text-purple-500" />
+                                En location
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="IN_REPAIR">
+                              <div className="flex items-center gap-2">
+                                <AlertTriangle className="h-3 w-3 text-yellow-500" />
+                                En réparation
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="OUT_OF_SERVICE">
+                              <div className="flex items-center gap-2">
+                                <XCircle className="h-3 w-3 text-red-500" />
+                                Hors service
+                              </div>
+                            </SelectItem>
+                          </>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Notes Section */}
+              <div className="bg-gray-50 p-4 rounded-lg border">
+                <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5" />
+                  Notes et Commentaires
+                </h3>
                 <Textarea
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  placeholder="Ajouter des notes sur le transfert..."
+                  placeholder="Ajouter des notes sur le transfert (raison, instructions particulières, etc.)..."
+                  className="min-h-[80px] resize-none"
                 />
+                <div className="text-xs text-gray-500 mt-2">
+                  Ces notes seront incluses dans l'historique des transferts pour suivi.
+                </div>
               </div>
 
-              <Button type="submit" className="w-full" disabled={createTransferMutation.isPending}>
-                {createTransferMutation.isPending ? 'Création...' : 'Créer le transfert'}
-              </Button>
+              {/* Submit Button */}
+              <div className="flex gap-3 pt-4 border-t">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setIsDialogOpen(false)}
+                  className="flex-1"
+                  disabled={createTransferMutation.isPending}
+                >
+                  Annuler
+                </Button>
+                <Button 
+                  type="submit" 
+                  className="flex-1 bg-blue-600 hover:bg-blue-700" 
+                  disabled={createTransferMutation.isPending || !formData.productId}
+                >
+                  {createTransferMutation.isPending ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Création en cours...
+                    </>
+                  ) : (
+                    <>
+                      <Package className="h-4 w-4 mr-2" />
+                      Créer le transfert
+                    </>
+                  )}
+                </Button>
+              </div>
             </form>
           </DialogContent>
         </Dialog>
@@ -545,24 +913,6 @@ export default function StockTransfers() {
       
       <TransferHistory />
 
-      {currentUser.role !== 'ADMIN' && (
-        <div className="bg-amber-50 border border-amber-200 rounded-md p-4 mt-6">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <AlertCircle className="h-5 w-5 text-amber-500" />
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-amber-800">Information importante sur les transferts</h3>
-              <div className="mt-2 text-sm text-amber-700">
-                <p>
-                  Les transferts que vous créez doivent être vérifiés par un administrateur avant d'être complètement validés.
-                  Votre transfert sera visible dans la liste des transferts récents avec un statut "En attente de vérification".
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

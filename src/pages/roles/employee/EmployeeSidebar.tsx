@@ -19,6 +19,12 @@ import {
     Check,
     X,
     GripVertical,
+    User,
+    MessageCircle,
+    Calendar,
+    FileText,
+    MapPin,
+    Settings,
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
@@ -42,14 +48,19 @@ const Sidebar: React.FC = () => {
     // Default menu items with unique IDs
     const defaultMenuItems: MenuItem[] = [
         { id: 'dashboard', icon: <LayoutDashboard size={20} />, label: "Tableau de Bord", path: "/roles/employee/dashboard" },
+        { id: 'rdv', icon: <Calendar size={20} />, label: "Rendez-vous", path: "/roles/employee/appointments" },
         { id: 'renseignement', icon: <Users size={20} />, label: "Renseignement", path: "/roles/employee/renseignement" },
         { id: 'diagnostics', icon: <SquareActivity size={20} />, label: "Diagnostique", path: "/roles/employee/diagnostics" },
         { id: 'sales', icon: <ShoppingCart size={20} />, label: "Vente", path: "/roles/employee/sales" },
         { id: 'rentals', icon: <CalendarClock size={20} />, label: "Locations", path: "/roles/employee/rentals" },
-        { id: 'tasks', icon: <Clipboard size={20} />, label: "Tâches", path: "/roles/employee/tasks" },
+        { id: 'calendar', icon: <Calendar size={20} />, label: "Calendrier", path: "/roles/employee/tasks/modern" },
         { id: 'stock', icon: <Box size={20} />, label: "Stock", path: "/roles/employee/stock" },
+        { id: 'map', icon: <MapPin size={20} />, label: "Carte", path: "/roles/employee/map" },
+        { id: 'reports', icon: <FileText size={20} />, label: "Rapports", path: "/roles/employee/reports" },
         { id: 'notifications', icon: <Bell size={20} />, label: "Notifications", path: "/roles/employee/notifications" },
+        { id: 'chat', icon: <MessageCircle size={20} />, label: "Messages", path: "/roles/employee/chat" },
         { id: 'history', icon: <History size={20} />, label: "Historique", path: "/roles/employee/history" },
+        { id: 'settings', icon: <Settings size={20} />, label: "Paramètres", path: "/roles/employee/settings" },
     ];
 
     const [menuItems, setMenuItems] = useState<MenuItem[]>(defaultMenuItems);
@@ -196,7 +207,7 @@ const Sidebar: React.FC = () => {
     return (
         <div className={cn(
             "relative flex flex-col h-full bg-white shadow-md transition-all duration-300 ease-in-out",
-            isExpanded ? "w-64" : "w-20"
+            isExpanded ? "w-64 tablet:w-72 tablet-lg:w-80" : "w-20 tablet:w-24"
         )}>
             <button
                 onClick={toggleSidebar}
@@ -264,7 +275,7 @@ const Sidebar: React.FC = () => {
             )}
 
             {/* Navigation */}
-            <nav className="flex-1 overflow-y-auto py-4">
+            <nav className="flex-1 overflow-y-auto py-4 scrollbar-hide">
                 <ul className="space-y-1 px-2">
                     {menuItems.map((item, index) => (
                         <li key={item.id}>

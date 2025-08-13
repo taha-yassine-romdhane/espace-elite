@@ -111,23 +111,24 @@ export default function PendingTransferRequests() {
       }
       params.append('limit', '50');
       
-      const response = await fetch(`/api/admin/transfer-requests?${params}`);
+      const response = await fetch(`/api/stock/transfer-requests?${params}`);
       if (!response.ok) throw new Error('Failed to fetch transfer requests');
       return response.json();
     }
   });
 
-  // Review transfer request mutation
+  // Review transfer request mutation using the /api/stock/transfers PUT method
   const reviewRequestMutation = useMutation({
     mutationFn: async ({ requestId, action, notes }: { 
       requestId: string; 
-      action: 'APPROVED' | 'REJECTED'; 
+      action: 'APPROVE' | 'REJECT'; 
       notes?: string 
     }) => {
-      const response = await fetch(`/api/admin/transfer-requests/${requestId}/review`, {
-        method: 'PATCH',
+      const response = await fetch(`/api/stock/transfers`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          requestId,
           action,
           reviewNotes: notes
         })
@@ -174,7 +175,7 @@ export default function PendingTransferRequests() {
     
     reviewRequestMutation.mutate({
       requestId: selectedRequest.id,
-      action: reviewAction,
+      action: reviewAction === 'APPROVED' ? 'APPROVE' : 'REJECT',
       notes: reviewNotes.trim() || undefined
     });
   };

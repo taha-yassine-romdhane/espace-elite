@@ -74,7 +74,6 @@ async function handleGetAppointments(req: NextApiRequest, res: NextApiResponse) 
       id: appointment.id,
       appointmentType: appointment.appointmentType,
       scheduledDate: appointment.scheduledDate,
-      duration: appointment.duration || 60,
       location: appointment.location,
       notes: appointment.notes,
       priority: appointment.priority || 'NORMAL',
@@ -134,12 +133,12 @@ async function handleCreateAppointment(
       companyId,
       appointmentType,
       scheduledDate,
-      duration,
       location,
       notes,
       priority,
       status,
       assignedToId,
+      createDiagnosticTask,
     } = req.body;
 
     // Validation
@@ -189,7 +188,6 @@ async function handleCreateAppointment(
       data: {
         appointmentType,
         scheduledDate: new Date(scheduledDate),
-        duration: duration || 60,
         location,
         notes: notes || null,
         priority: priority || 'NORMAL',
@@ -245,6 +243,33 @@ async function handleCreateAppointment(
       } catch (notificationError) {
         console.error('Failed to create appointment notification:', notificationError);
         // Don't fail the appointment creation if notification fails
+      }
+    }
+
+    // Create diagnostic task if this is a diagnostic visit
+    if (createDiagnosticTask && appointmentType === 'DIAGNOSTIC_VISIT' && appointment.patientId && appointment.assignedToId) {
+      try {
+        const patientName = `${appointment.patient!.firstName} ${appointment.patient!.lastName}`;
+        const taskTitle = `Diagnostic polygraphie - ${patientName}`;
+        const taskDescription = `Effectuer un diagnostic polygraphie chez le patient ${patientName} à l'adresse: ${appointment.location}`;
+        
+        const task = await prisma.task.create({
+          data: {
+            title: taskTitle,
+            description: taskDescription,
+            userId: appointment.assignedToId,
+            status: 'TODO',
+            priority: appointment.priority === 'URGENT' ? 'HIGH' : 
+                     appointment.priority === 'HIGH' ? 'MEDIUM' : 'LOW',
+            startDate: appointment.scheduledDate,
+            endDate: new Date(appointment.scheduledDate.getTime() + 2 * 60 * 60 * 1000), // 2 hours duration
+          },
+        });
+
+        console.log('Diagnostic task created:', task.id);
+      } catch (taskError) {
+        console.error('Failed to create diagnostic task:', taskError);
+        // Don't fail the appointment creation if task creation fails
       }
     }
 

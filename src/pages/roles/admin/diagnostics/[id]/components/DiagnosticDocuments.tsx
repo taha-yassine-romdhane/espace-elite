@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileUp, File as FileIcon, Download, Trash2, FileText, Image, FileArchive, Loader2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";

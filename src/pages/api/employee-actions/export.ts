@@ -25,7 +25,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         dateGte = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         break;
       case 'week':
-        dateGte = new Date(now.setDate(now.getDate() - now.getDay()));
+        const startOfWeek = new Date(now);
+        startOfWeek.setDate(now.getDate() - now.getDay());
+        startOfWeek.setHours(0, 0, 0, 0);
+        dateGte = startOfWeek;
         break;
       case 'month':
         dateGte = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -56,10 +59,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       };
     }
 
-    // Only include employees in the user filter
+    // Only include employees and managers in the user filter (exclude doctors)
     whereClause.user = {
       role: {
-        in: ['EMPLOYEE', 'MANAGER', 'DOCTOR']
+        in: ['EMPLOYEE', 'MANAGER']
       }
     };
 

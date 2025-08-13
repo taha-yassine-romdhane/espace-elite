@@ -3,19 +3,21 @@ import { useState } from "react";
 import { SaleStepperDialog } from "./components/SaleStepperDialog";
 import { DiagnosticStepperDialog } from "./components/DiagnosticStepperDialog";
 import { RentStepperDialog } from "./components/RentStepperDialog";
-import { Building2, ShoppingCart, Stethoscope } from "lucide-react";
+import { EmployeeRdvStepperDialog } from "./components/EmployeeRdvStepperDialog";
+import { Building2, ShoppingCart, Stethoscope, Calendar } from "lucide-react";
 import { useRouter } from "next/router";
 import EmployeeLayout from '../EmployeeLayout';
 
 // Import table components
+import { AppointmentsTable } from "./components/tables/AppointmentsTable";
 import { DiagnosticTable } from "./components/tables/DiagnosticTable";
 import { RentalTable } from "./components/tables/RentalTable";
 import { SalesTable } from "./components/tables/SalesTable";
 import { TabSwitcher } from "./components/TabSwitcher";
 
 export default function DashboardPage() {
-  const [selectedAction, setSelectedAction] = useState<"location" | "vente" | "diagnostique" | null>(null);
-  const [activeTab, setActiveTab] = useState<"diagnostics" | "rentals" | "sales">("diagnostics");
+  const [selectedAction, setSelectedAction] = useState<"location" | "vente" | "diagnostique" | "rdv" | null>(null);
+  const [activeTab, setActiveTab] = useState<"appointments" | "diagnostics" | "rentals" | "sales">("appointments");
   const router = useRouter();
 
   return (
@@ -24,13 +26,13 @@ export default function DashboardPage() {
         <h1 className="text-3xl font-bold mb-8 text-green-900">Tableau de Bord</h1>
         
         {/* Action Buttons Row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 tablet:grid-cols-2 tablet-lg:grid-cols-4 gap-4 mb-8">
           <Button 
             className="w-full bg-green-700 hover:bg-green-600 text-white flex items-center justify-start gap-2"
-            onClick={() => setSelectedAction("location")}
+            onClick={() => setSelectedAction("diagnostique")}
           >
-            <Building2 className="h-5 w-5" />
-            <span>Commencer une Location</span>
+            <Stethoscope className="h-5 w-5" />
+            <span>Commencer un Diagnostic</span>
           </Button>
           
           <Button 
@@ -43,10 +45,18 @@ export default function DashboardPage() {
           
           <Button 
             className="w-full bg-green-700 hover:bg-green-600 text-white flex items-center justify-start gap-2"
-            onClick={() => setSelectedAction("diagnostique")}
+            onClick={() => setSelectedAction("location")}
           >
-            <Stethoscope className="h-5 w-5" />
-            <span>Commencer un Diagnostic</span>
+            <Building2 className="h-5 w-5" />
+            <span>Commencer une Location</span>
+          </Button>
+          
+          <Button 
+            className="w-full bg-green-700 hover:bg-green-600 text-white flex items-center justify-start gap-2"
+            onClick={() => setSelectedAction("rdv")}
+          >
+            <Calendar className="h-5 w-5" />
+            <span>Créer un Rendez-vous</span>
           </Button>
         </div>
 
@@ -54,24 +64,28 @@ export default function DashboardPage() {
         <TabSwitcher activeTab={activeTab} onTabChange={(tab) => setActiveTab(tab as any)} />
         
         {/* Tables */}
+        {activeTab === "appointments" && (
+          <AppointmentsTable />
+        )}
+
         {activeTab === "diagnostics" && (
           <DiagnosticTable 
-            onViewDetails={(id) => router.push(`/roles/admin/diagnostics/${id}`)} 
-            onEnterResults={(id) => router.push(`/roles/admin/diagnostics/${id}/results`)}
+            onViewDetails={(id) => router.push(`/roles/employee/diagnostics/${id}`)} 
+            onEnterResults={(id) => router.push(`/roles/employee/diagnostics/${id}/results`)}
           />
         )}
         
         {activeTab === "rentals" && (
           <RentalTable 
-            onViewDetails={(id) => router.push(`/roles/admin/rentals/${id}`)}
-            onEdit={(id) => router.push(`/roles/admin/rentals/${id}/edit`)}
+            onViewDetails={(id) => router.push(`/roles/employee/rentals/${id}`)}
+            onEdit={(id) => router.push(`/roles/employee/rentals/${id}/edit`)}
           />
         )}
         
         {activeTab === "sales" && (
           <SalesTable 
-            onViewDetails={(id) => router.push(`/roles/admin/sales/${id}`)}
-            onEdit={(id) => router.push(`/roles/admin/sales/${id}/edit`)}
+            onViewDetails={(id) => router.push(`/roles/employee/sales/${id}`)}
+            onEdit={(id) => router.push(`/roles/employee/sales/${id}/edit`)}
           />
         )}
 
@@ -94,6 +108,13 @@ export default function DashboardPage() {
         
         {selectedAction === "location" && (
           <RentStepperDialog
+            isOpen={true}
+            onClose={() => setSelectedAction(null)}
+          />
+        )}
+        
+        {selectedAction === "rdv" && (
+          <EmployeeRdvStepperDialog
             isOpen={true}
             onClose={() => setSelectedAction(null)}
           />

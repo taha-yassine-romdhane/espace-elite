@@ -53,11 +53,12 @@ export function NewDiagnosticProductStep({
     },
   });
 
-  // Fetch ONLY diagnostic devices
+  // Fetch ONLY diagnostic devices assigned to employee's stock locations
   const { data: diagnosticProducts, isLoading } = useQuery({
-    queryKey: ["products", "diagnostic"],
+    queryKey: ["products", "diagnostic", "employee"],
     queryFn: async () => {
-      const response = await fetch(`/api/medical-devices?type=DIAGNOSTIC_DEVICE`);
+      // For employees, fetch only devices in their assigned stock locations
+      const response = await fetch(`/api/medical-devices?type=DIAGNOSTIC_DEVICE&assignedToMe=true`);
       if (!response.ok) {
         throw new Error("Failed to fetch diagnostic devices");
       }
@@ -104,7 +105,7 @@ export function NewDiagnosticProductStep({
         <Button
           onClick={handleCreateProduct}
           variant="outline"
-          className="flex items-center gap-1 text-blue-700 border-blue-200 hover:bg-blue-50"
+          className="flex items-center gap-1 text-green-700 border-green-200 hover:bg-green-50"
         >
           <Plus className="h-4 w-4" />
           <span>Créer un Équipement</span>
@@ -119,7 +120,7 @@ export function NewDiagnosticProductStep({
         <Button 
           onClick={onNext}
           disabled={selectedProducts.length === 0}
-          className="bg-[#1e3a8a] hover:bg-[#1e3a8a]/90 text-white"
+          className="bg-green-600 hover:bg-green-700 text-white"
         >
           Suivant
           <ChevronRight className="h-4 w-4 ml-2" />
@@ -141,7 +142,7 @@ export function NewDiagnosticProductStep({
               <Button
                 variant="outline"
                 onClick={handleOpenProductDialog}
-                className="flex items-center gap-1 mx-auto"
+                className="flex items-center gap-1 mx-auto text-green-700 border-green-200 hover:bg-green-50"
               >
                 <Plus className="h-4 w-4" />
                 <span>Ajouter un Équipement</span>

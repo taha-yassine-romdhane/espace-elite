@@ -36,7 +36,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             type: 'SPARE_PART',
             brand: sparePart.brand,
             model: sparePart.model,
-            stockLocationId: sparePart.stockLocationId,
+            stockLocation: sparePart.stockLocationId ? {
+              connect: { id: sparePart.stockLocationId }
+            } : undefined,
             purchasePrice: sparePart.purchasePrice,
             sellingPrice: sparePart.sellingPrice,
             status: 'ACTIVE', // Products use ProductStatus enum

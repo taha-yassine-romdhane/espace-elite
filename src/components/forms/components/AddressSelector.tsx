@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MapPin, Navigation, Edit3, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import MapSelectorWrapper from './MapSelectorWrapper';
 
@@ -161,70 +161,27 @@ export default function AddressSelector({ value, onChange, className = '' }: Add
       console.log('Reverse geocoding response:', data);
       const address = data.address || {};
       
-      // Extract location parts similar to SimpleMapSelector
-      const locationParts = [
-        address.state,           // Governorate level
-        address.county,          // Sometimes used for governorate
-        address.city,            // City/delegation level
-        address.town,            // Town/delegation level
-        address.municipality,    // Municipality level
-        address.suburb,          // Suburb level
-        address.neighbourhood,   // Neighbourhood level
-        address.village,         // Village level
-      ].filter(Boolean);
+      // Extract governorate (state/county level)
+      let governorate = address.state || address.county || '';
       
-      console.log('Location parts extracted:', locationParts);
-      
-      let governorate = '';
-      let delegation = '';
-      
-      // Try to extract governorate from location parts
-      for (const part of locationParts) {
-        const partLower = part.toLowerCase();
-        
-        // Manual mappings for common variations (using actual names)
-        if (partLower.includes('tunis') || partLower.includes('تونس')) {
-          governorate = 'Tunis';
-          break;
-        } else if (partLower.includes('ariana') || partLower.includes('أريانة')) {
-          governorate = 'Ariana';
-          break;
-        } else if (partLower.includes('ben arous') || partLower.includes('بن عروس')) {
-          governorate = 'Ben Arous';
-          break;
-        } else if (partLower.includes('manouba') || partLower.includes('منوبة')) {
-          governorate = 'Manouba';
-          break;
-        } else if (partLower.includes('nabeul') || partLower.includes('نابل')) {
-          governorate = 'Nabeul';
-          break;
-        } else if (partLower.includes('sousse') || partLower.includes('سوسة')) {
-          governorate = 'Sousse';
-          break;
-        } else if (partLower.includes('sfax') || partLower.includes('صفاقس')) {
-          governorate = 'Sfax';
-          break;
-        } else if (partLower.includes('monastir') || partLower.includes('المنستير')) {
-          governorate = 'Monastir';
-          break;
-        } else if (partLower.includes('kairouan') || partLower.includes('القيروان')) {
-          governorate = 'Kairouan';
-          break;
-        } else if (partLower.includes('bizerte') || partLower.includes('بنزرت')) {
-          governorate = 'Bizerte';
-          break;
-        }
-      }
-      
-      // Try to extract delegation (city/town name)
-      if (address.city) {
-        delegation = address.city;
-      } else if (address.town) {
-        delegation = address.town;
-      } else if (address.suburb) {
+      // Extract delegation (more specific location)
+      // Priority order: city > town > suburb > neighbourhood > village
+      let delegation = address.city || 
+                      address.town || 
+                      address.suburb || 
+                      address.neighbourhood ||
+                      address.village || 
+                      address.municipality || '';
+
+      console.log('Extracted raw location info:', { governorate, delegation });
+
+      // Clean up the values (remove extra spaces, normalize)
+      governorate = governorate.trim();
+      delegation = delegation.trim();
+
+      // If delegation is the same as governorate, try to find a more specific location
+      if (delegation === governorate && address.suburb) {
         delegation = address.suburb;
-      } else if (address.neighbourhood) {
-        delegation = address.neighbourhood;
       }
       
       return {

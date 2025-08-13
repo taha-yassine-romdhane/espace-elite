@@ -1,6 +1,6 @@
 import React from 'react';
 import { MedicalDevice, MedicalDeviceParametre } from '@prisma/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface DeviceParametersProps {
   device: MedicalDevice;

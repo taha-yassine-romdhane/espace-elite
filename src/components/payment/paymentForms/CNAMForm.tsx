@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { AlertCircle, CheckCircle2, Clock, FileWarning, FileCheck, Banknote } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Card, CardContent } from "@/components/ui/Card";
+import { Card, CardContent } from "@/components/ui/card";
 
 interface CNAMFormProps {
   onSubmit: (data: any) => void;

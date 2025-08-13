@@ -7,18 +7,19 @@ import { RenseignementTable } from './components/RenseignementTable';
 import { FileViewer } from './components/FileViewer';
 import { BeneficiaryType } from '@prisma/client';
 import { CaisseAffiliation, Renseignement, RenseignementFormData } from '@/types/renseignement';
-import { Building, Filter, Search, User, X, FileSpreadsheet } from 'lucide-react';
+import { Building, Filter, Search, User, X } from 'lucide-react';
 import { ExistingFile } from '@/types/forms/PatientFormData';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import ImportExportModal from '@/components/forms/ImportExportModal';
 import EmployeeLayout from '../EmployeeLayout';
+import { useSession } from 'next-auth/react';
 
 
 export default function RenseignementPage() {
   const { toast } = useToast();
+  const { data: session } = useSession();
   const [isOpen, setIsOpen] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [formData, setFormData] = useState<RenseignementFormData>({
@@ -48,26 +49,24 @@ export default function RenseignementPage() {
 
   const [renseignements, setRenseignements] = useState<Renseignement[]>([]);
   const [filteredRenseignements, setFilteredRenseignements] = useState<Renseignement[]>([]);
-  const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [showFilesDialog, setShowFilesDialog] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
-  const [showImportExportModal, setShowImportExportModal] = useState(false);
-  const [importExportType, setImportExportType] = useState<'patients' | 'companies'>('patients');
   
   // Search and filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState({
     doctor: 'all',
-    technician: 'all',
-    type: 'all'
+    technician: 'all'
   });
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
   const [availableDoctors, setAvailableDoctors] = useState<{id: string, name: string}[]>([]);
   const [availableTechnicians, setAvailableTechnicians] = useState<{id: string, name: string}[]>([]);
 
   useEffect(() => {
-    fetchRenseignements();
-  }, [searchQuery, filters]);
+    if (session) {
+      fetchRenseignements();
+    }
+  }, [searchQuery, filters, session]);
 
   // Apply filters and search whenever renseignements, searchQuery, or filters change
   useEffect(() => {
@@ -107,7 +106,9 @@ export default function RenseignementPage() {
         item.telephone.toLowerCase().includes(query) ||
         (item.adresse && item.adresse.toLowerCase().includes(query)) ||
         (item.type === 'Patient' && item.cin && item.cin.toLowerCase().includes(query)) ||
-        (item.type === 'Société' && item.matriculeFiscale && item.matriculeFiscale.toLowerCase().includes(query))
+        (item.type === 'Société' && item.matriculeFiscale && item.matriculeFiscale.toLowerCase().includes(query)) ||
+        (item.detailedAddress && item.detailedAddress.toLowerCase().includes(query)) ||
+        (item.telephoneSecondaire && item.telephoneSecondaire.toLowerCase().includes(query))
       );
     }
     
@@ -125,23 +126,15 @@ export default function RenseignementPage() {
       );
     }
     
-    // Apply type filter
-    if (filters.type && filters.type !== 'all') {
-      filtered = filtered.filter(item => item.type === filters.type);
-    }
-    
     // Update active filters for display
     const newActiveFilters: string[] = [];
     if (filters.doctor && filters.doctor !== 'all') {
       const doctor = availableDoctors.find(d => d.id === filters.doctor);
-      if (doctor) newActiveFilters.push(`Dr: ${doctor.name}`);
+      if (doctor) newActiveFilters.push(`Dr. ${doctor.name}`);
     }
     if (filters.technician && filters.technician !== 'all') {
       const technician = availableTechnicians.find(t => t.id === filters.technician);
       if (technician) newActiveFilters.push(`Tech: ${technician.name}`);
-    }
-    if (filters.type && filters.type !== 'all') {
-      newActiveFilters.push(`Type: ${filters.type}`);
     }
     
     setActiveFilters(newActiveFilters);
@@ -162,20 +155,17 @@ export default function RenseignementPage() {
   const clearFilter = (filter: string) => {
     const filterKey = filter.split(':')[0].trim().toLowerCase();
     
-    if (filterKey === 'dr') {
+    if (filterKey === 'dr' || filterKey === 'dr.') {
       setFilters(prev => ({ ...prev, doctor: 'all' }));
     } else if (filterKey === 'tech') {
       setFilters(prev => ({ ...prev, technician: 'all' }));
-    } else if (filterKey === 'type') {
-      setFilters(prev => ({ ...prev, type: 'all' }));
     }
   };
 
   const clearAllFilters = () => {
     setFilters({
       doctor: 'all',
-      technician: 'all',
-      type: 'all'
+      technician: 'all'
     });
     setSearchQuery('');
   };
@@ -233,7 +223,9 @@ export default function RenseignementPage() {
         matriculeFiscale: item.matriculeFiscale || '',
         telephonePrincipale: item.telephone,
         telephoneSecondaire: item.telephoneSecondaire || '',
-        detailedAddress: item.adresse,
+        governorate: item.governorate || '',
+        delegation: item.delegation || '',
+        detailedAddress: item.detailedAddress || '',
         technicienResponsable: item.technician?.id || '',
         generalNote: (item as any).generalNote || '',
         images: [],
@@ -252,10 +244,13 @@ export default function RenseignementPage() {
         nomComplet: item.nom || '',
         telephonePrincipale: item.telephone || '',
         telephoneSecondaire: item.telephoneSecondaire || '',
-        detailedAddress: item.adresse || '',
+        governorate: item.governorate || '',
+        delegation: item.delegation || '',
+        detailedAddress: item.detailedAddress || '',
         cin: item.cin || '',
         identifiantCNAM: item.identifiantCNAM || '',
         technicienResponsable: item.technician?.id || '',
+        superviseur: (item as any).supervisor?.id || '',
         antecedant: item.antecedant || '',
         taille: item.taille?.toString() || '',
         poids: item.poids?.toString() || '',
@@ -265,6 +260,7 @@ export default function RenseignementPage() {
         caisseAffiliation: item.caisseAffiliation as CaisseAffiliation,
         cnam: !!item.cnam,
         generalNote: (item as any).generalNote || '',
+        addressCoordinates: (item as any).addressCoordinates ? JSON.stringify((item as any).addressCoordinates) : '',
         // Files
         images: [],
         files: [],
@@ -310,23 +306,6 @@ export default function RenseignementPage() {
     }
   };
 
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedItems(filteredRenseignements.map(item => item.id));
-    } else {
-      setSelectedItems([]);
-    }
-  };
-
-  const handleSelect = (id: string) => {
-    setSelectedItems(prev => {
-      if (prev.includes(id)) {
-        return prev.filter(item => item !== id);
-      } else {
-        return [...prev, id];
-      }
-    });
-  };
 
   const handleViewFiles = (files: { url: string; type: string }[]) => {
     if (!files || files.length === 0) {
@@ -442,7 +421,18 @@ export default function RenseignementPage() {
     try {
       const response = await fetch('/api/renseignements');
       const data = await response.json();
-      setRenseignements(data);
+      
+      // Filter renseignements to show only those assigned to the logged-in employee
+      if (session?.user?.name) {
+        const filteredData = data.filter((item: Renseignement) => {
+          // Check if the technician's name matches the logged-in user's name
+          return item.technician?.name === session.user.name;
+        });
+        setRenseignements(filteredData);
+      } else {
+        // If no session, show empty array
+        setRenseignements([]);
+      }
     } catch (error) {
       console.error('Error fetching renseignements:', error);
       toast({
@@ -456,16 +446,15 @@ export default function RenseignementPage() {
   return (
     <div className="container mx-auto py-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Renseignements</h1>
-        <div className="space-x-2">
-          {selectedItems.length > 0 && (
-            <Button
-              variant="destructive"
-              onClick={() => handleDelete(selectedItems)}
-            >
-              Supprimer sélectionnés
-            </Button>
+        <div>
+          <h1 className="text-2xl font-bold">Renseignements</h1>
+          {session?.user?.name && (
+            <p className="text-sm text-gray-600 mt-1">
+              Patients assignés à: <span className="font-semibold text-green-700">{session.user.name}</span>
+            </p>
           )}
+        </div>
+        <div className="space-x-2">
           <Button 
             onClick={() => {
               resetForm();
@@ -488,85 +477,49 @@ export default function RenseignementPage() {
             <Building className="mr-2 h-4 w-4" />
             Ajouter Société
           </Button>
-          
-          {/* Import/Export Buttons */}
-          <Button
-            onClick={() => {
-              setImportExportType('patients');
-              setShowImportExportModal(true);
-            }}
-            variant="outline"
-            className="border-green-600 text-green-600 hover:bg-green-50"
-          >
-            <FileSpreadsheet className="mr-2 h-4 w-4" />
-            Excel Patients
-          </Button>
-          <Button
-            onClick={() => {
-              setImportExportType('companies');
-              setShowImportExportModal(true);
-            }}
-            variant="outline"
-            className="border-green-600 text-green-600 hover:bg-green-50"
-          >
-            <FileSpreadsheet className="mr-2 h-4 w-4" />
-            Excel Sociétés
-          </Button>
         </div>
       </div>
 
-      <div className="flex justify-between items-center mb-4">
-        <div className="flex items-center space-x-2">
-          <div className="relative w-full max-w-sm">
+      <div className="flex justify-between items-center mb-6">
+        <div className="flex items-center space-x-4">
+          <div className="relative w-full max-w-md">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
               type="search"
               value={searchQuery}
               onChange={handleSearchChange}
-              placeholder="Rechercher..."
-              className="w-full pl-10"
+              placeholder="Rechercher par nom, téléphone, CIN, adresse..."
+              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
             />
           </div>
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" className="h-10">
-                <Filter className="h-4 w-4 mr-2" />
+              <Button variant="outline" className="h-10 border-green-200 hover:bg-green-50">
+                <Filter className="h-4 w-4 mr-2 text-green-600" />
                 Filtres
+                {activeFilters.length > 0 && (
+                  <Badge variant="secondary" className="ml-2 bg-green-100 text-green-800">
+                    {activeFilters.length}
+                  </Badge>
+                )}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-80">
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <h4 className="font-medium">Type</h4>
-                  <Select
-                    value={filters.type}
-                    onValueChange={(value) => handleFilterChange('type', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner un type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Tous</SelectItem>
-                      <SelectItem value="Patient">Patient</SelectItem>
-                      <SelectItem value="Société">Société</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <h4 className="font-medium">Médecin responsable</h4>
+                  <h4 className="font-medium text-gray-900">Médecin responsable</h4>
                   <Select
                     value={filters.doctor}
                     onValueChange={(value) => handleFilterChange('doctor', value)}
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner un médecin" />
+                    <SelectTrigger className="border-gray-200 focus:border-green-500 focus:ring-green-500">
+                      <SelectValue placeholder="Tous les médecins" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Tous</SelectItem>
+                      <SelectItem value="all">Tous les médecins</SelectItem>
                       {availableDoctors.map(doctor => (
                         <SelectItem key={doctor.id} value={doctor.id}>
-                          {doctor.name}
+                          Dr. {doctor.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -574,16 +527,16 @@ export default function RenseignementPage() {
                 </div>
                 
                 <div className="space-y-2">
-                  <h4 className="font-medium">Technicien responsable</h4>
+                  <h4 className="font-medium text-gray-900">Technicien responsable</h4>
                   <Select
                     value={filters.technician}
                     onValueChange={(value) => handleFilterChange('technician', value)}
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner un technicien" />
+                    <SelectTrigger className="border-gray-200 focus:border-green-500 focus:ring-green-500">
+                      <SelectValue placeholder="Tous les techniciens" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Tous</SelectItem>
+                      <SelectItem value="all">Tous les techniciens</SelectItem>
                       {availableTechnicians.map(technician => (
                         <SelectItem key={technician.id} value={technician.id}>
                           {technician.name}
@@ -593,8 +546,13 @@ export default function RenseignementPage() {
                   </Select>
                 </div>
                 
-                <div className="flex justify-end">
-                  <Button variant="outline" size="sm" onClick={clearAllFilters}>
+                <div className="flex justify-end pt-2 border-t border-gray-100">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={clearAllFilters}
+                    className="text-green-600 border-green-200 hover:bg-green-50"
+                  >
                     Réinitialiser
                   </Button>
                 </div>
@@ -603,29 +561,41 @@ export default function RenseignementPage() {
           </Popover>
         </div>
         
-        <div className="flex flex-wrap gap-2">
-          {activeFilters.map(filter => (
-            <Badge key={filter} variant="secondary" className="cursor-pointer flex items-center gap-1">
-              {filter} 
-              <X className="h-3 w-3" onClick={() => clearFilter(filter)} />
-            </Badge>
-          ))}
-          {activeFilters.length > 0 && (
-            <Button variant="ghost" size="sm" onClick={clearAllFilters}>
+        {/* Active Filters Display */}
+        {activeFilters.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {activeFilters.map(filter => (
+              <Badge 
+                key={filter} 
+                variant="secondary" 
+                className="cursor-pointer flex items-center gap-1 bg-green-100 text-green-800 hover:bg-green-200"
+              >
+                {filter} 
+                <X className="h-3 w-3" onClick={() => clearFilter(filter)} />
+              </Badge>
+            ))}
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={clearAllFilters}
+              className="text-green-600 hover:bg-green-50"
+            >
               Effacer tous
             </Button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       <RenseignementTable
         data={filteredRenseignements}
-        selectedItems={selectedItems}
-        onSelect={handleSelect}
-        onSelectAll={handleSelectAll}
         onEdit={handleEdit}
         onDelete={handleDelete}
         onViewFiles={(files) => handleViewFiles(files)}
+        onViewDetails={(item) => {
+          // For now, just edit the item - can be expanded later for a dedicated view
+          handleEdit(item);
+        }}
+        isLoading={false}
       />
 
       {isOpen && (
@@ -679,13 +649,6 @@ export default function RenseignementPage() {
         files={selectedFiles}
         isOpen={showFilesDialog}
         onClose={() => setShowFilesDialog(false)}
-      />
-
-      <ImportExportModal
-        isOpen={showImportExportModal}
-        onClose={() => setShowImportExportModal(false)}
-        type={importExportType}
-        onImportComplete={fetchRenseignements}
       />
     </div>
   );

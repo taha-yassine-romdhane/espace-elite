@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from '@/components/ui/use-toast';
 import { 
   Users, 
@@ -20,7 +20,14 @@ import {
   ShoppingCart,
   Package,
   Calendar as CalendarIcon,
-  Eye
+  Eye,
+  Plus,
+  Edit,
+  Trash,
+  CreditCard,
+  Settings,
+  ListCheck,
+  CheckSquare
 } from 'lucide-react';
 import AdminLayout from '../AdminLayout';
 
@@ -134,16 +141,26 @@ export default function EmployeeMonitoringPage() {
 
   const getActionIcon = (actionType: string) => {
     switch (actionType) {
+      case 'CREATE':
+        return <Plus className="h-4 w-4 text-green-600" />;
+      case 'UPDATE':
+        return <Edit className="h-4 w-4 text-blue-600" />;
+      case 'DELETE':
+        return <Trash className="h-4 w-4 text-red-600" />;
       case 'DIAGNOSTIC':
         return <Stethoscope className="h-4 w-4 text-blue-600" />;
-      case 'SALE':
-        return <ShoppingCart className="h-4 w-4 text-green-600" />;
       case 'APPOINTMENT':
         return <CalendarIcon className="h-4 w-4 text-purple-600" />;
       case 'RENTAL':
         return <Package className="h-4 w-4 text-orange-600" />;
-      case 'TRANSFER':
-        return <TrendingUp className="h-4 w-4 text-indigo-600" />;
+      case 'PAYMENT':
+        return <CreditCard className="h-4 w-4 text-green-600" />;
+      case 'MAINTENANCE':
+        return <Settings className="h-4 w-4 text-yellow-600" />;
+      case 'TASK_CREATION':
+        return <ListCheck className="h-4 w-4 text-indigo-600" />;
+      case 'TASK_UPDATE':
+        return <CheckSquare className="h-4 w-4 text-indigo-600" />;
       default:
         return <Activity className="h-4 w-4 text-gray-600" />;
     }
@@ -155,12 +172,12 @@ export default function EmployeeMonitoringPage() {
       'UPDATE': 'Modification',
       'DELETE': 'Suppression',
       'DIAGNOSTIC': 'Diagnostic',
-      'SALE': 'Vente',
       'RENTAL': 'Location',
       'APPOINTMENT': 'Rendez-vous',
-      'TRANSFER': 'Transfert',
       'PAYMENT': 'Paiement',
-      'MAINTENANCE': 'Maintenance'
+      'MAINTENANCE': 'Maintenance',
+      'TASK_CREATION': 'Création de tâche',
+      'TASK_UPDATE': 'Mise à jour de tâche'
     };
     return labels[actionType] || actionType;
   };
@@ -225,9 +242,9 @@ export default function EmployeeMonitoringPage() {
           <div>
             <h1 className="text-3xl font-bold text-blue-900 flex items-center gap-3">
               <Users className="h-8 w-8 text-blue-600" />
-              Espace Technicien - Monitoring des Employés
+              Espace Technicien - Monitoring Équipe Opérationnelle
             </h1>
-            <p className="text-gray-600 mt-2">Surveillez l'activité et les performances de vos employés en temps réel</p>
+            <p className="text-gray-600 mt-2">Surveillez l'activité et les performances de vos employés et managers en temps réel (excluant les médecins qui n'ont qu'un accès consultation)</p>
           </div>
           <Button onClick={exportData} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700">
             <Download className="h-4 w-4" />
@@ -240,7 +257,7 @@ export default function EmployeeMonitoringPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-blue-800">Total Employés</CardTitle>
+                <CardTitle className="text-sm font-medium text-blue-800">Équipe Opérationnelle</CardTitle>
                 <Users className="h-5 w-5 text-blue-600" />
               </CardHeader>
               <CardContent>
@@ -357,13 +374,16 @@ export default function EmployeeMonitoringPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Toutes les actions</SelectItem>
-                    <SelectItem value="DIAGNOSTIC">Diagnostics</SelectItem>
-                    <SelectItem value="SALE">Ventes</SelectItem>
-                    <SelectItem value="APPOINTMENT">Rendez-vous</SelectItem>
-                    <SelectItem value="RENTAL">Locations</SelectItem>
-                    <SelectItem value="TRANSFER">Transferts</SelectItem>
                     <SelectItem value="CREATE">Créations</SelectItem>
                     <SelectItem value="UPDATE">Modifications</SelectItem>
+                    <SelectItem value="DELETE">Suppressions</SelectItem>
+                    <SelectItem value="DIAGNOSTIC">Diagnostics</SelectItem>
+                    <SelectItem value="APPOINTMENT">Rendez-vous</SelectItem>
+                    <SelectItem value="RENTAL">Locations</SelectItem>
+                    <SelectItem value="PAYMENT">Paiements</SelectItem>
+                    <SelectItem value="MAINTENANCE">Maintenance</SelectItem>
+                    <SelectItem value="TASK_CREATION">Créations de tâches</SelectItem>
+                    <SelectItem value="TASK_UPDATE">Mises à jour de tâches</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -408,17 +428,35 @@ export default function EmployeeMonitoringPage() {
                         </div>
                       </div>
                       <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
-                        <div className="bg-white px-2 py-1 rounded border">
-                          <span className="font-medium">Patients:</span> {employee._count.assignedPatients + employee._count.technicianPatients}
+                        <div className="bg-white px-2 py-1 rounded border border-blue-100">
+                          <span className="font-medium text-blue-700">Patients:</span> 
+                          <span className="ml-1 font-bold text-blue-900">
+                            {(employee._count.assignedPatients || 0) + (employee._count.technicianPatients || 0)}
+                          </span>
                         </div>
-                        <div className="bg-white px-2 py-1 rounded border">
-                          <span className="font-medium">Diagnostics:</span> {employee._count.performedDiagnostics}
+                        <div className="bg-white px-2 py-1 rounded border border-purple-100">
+                          <span className="font-medium text-purple-700">Diagnostics:</span> 
+                          <span className="ml-1 font-bold text-purple-900">
+                            {employee._count.performedDiagnostics || 0}
+                          </span>
                         </div>
-                        <div className="bg-white px-2 py-1 rounded border">
-                          <span className="font-medium">Ventes:</span> {employee._count.processedSales}
+                        <div className="bg-white px-2 py-1 rounded border border-green-100">
+                          <span className="font-medium text-green-700">Ventes:</span> 
+                          <span className="ml-1 font-bold text-green-900">
+                            {employee._count.processedSales || 0}
+                          </span>
                         </div>
-                        <div className="bg-white px-2 py-1 rounded border">
-                          <span className="font-medium">RDV:</span> {employee._count.assignedAppointments}
+                        <div className="bg-white px-2 py-1 rounded border border-orange-100">
+                          <span className="font-medium text-orange-700">RDV:</span> 
+                          <span className="ml-1 font-bold text-orange-900">
+                            {employee._count.assignedAppointments || 0}
+                          </span>
+                        </div>
+                        <div className="bg-white px-2 py-1 rounded border border-gray-100 col-span-2">
+                          <span className="font-medium text-gray-700">Actions totales:</span> 
+                          <span className="ml-1 font-bold text-gray-900">
+                            {employee._count.userActions || 0}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -455,6 +493,9 @@ export default function EmployeeMonitoringPage() {
                           <div className="flex items-center justify-between">
                             <div className="font-semibold text-blue-900">
                               {action.user.firstName} {action.user.lastName}
+                              <span className="ml-2 text-xs font-normal bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                                {(action.user as any).role || 'EMPLOYEE'}
+                              </span>
                             </div>
                             <div className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">
                               {new Date(action.performedAt).toLocaleString('fr-FR')}
@@ -463,14 +504,38 @@ export default function EmployeeMonitoringPage() {
                           <div className="text-sm text-blue-700 font-medium mt-1">
                             {getActionTypeLabel(action.actionType)}
                             {action.relatedItemType && (
-                              <span className="text-blue-500 font-normal">
-                                {' '}• {action.relatedItemType}
+                              <span className="text-blue-500 font-normal ml-1">
+                                sur {action.relatedItemType}
+                              </span>
+                            )}
+                            {action.relatedItemId && (
+                              <span className="text-xs text-gray-500 ml-2">
+                                (ID: {action.relatedItemId.slice(0, 8)}...)
                               </span>
                             )}
                           </div>
                           {action.details && typeof action.details === 'object' && (
-                            <div className="text-xs text-gray-600 mt-2 p-2 bg-gray-50 rounded">
-                              {JSON.stringify(action.details).substring(0, 150)}...
+                            <div className="text-xs text-gray-600 mt-2 p-3 bg-gray-50 rounded border-l-4 border-blue-200">
+                              <div className="font-medium text-gray-700 mb-1">Détails:</div>
+                              {typeof action.details === 'object' && action.details !== null ? (
+                                <div className="space-y-1">
+                                  {Object.entries(action.details).slice(0, 3).map(([key, value]) => (
+                                    <div key={key} className="flex justify-between">
+                                      <span className="font-medium capitalize">{key}:</span>
+                                      <span className="truncate ml-2 max-w-32" title={String(value)}>
+                                        {String(value)}
+                                      </span>
+                                    </div>
+                                  ))}
+                                  {Object.keys(action.details).length > 3 && (
+                                    <div className="text-gray-400 italic">
+                                      ... et {Object.keys(action.details).length - 3} autres
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <span>{String(action.details).substring(0, 100)}...</span>
+                              )}
                             </div>
                           )}
                         </div>

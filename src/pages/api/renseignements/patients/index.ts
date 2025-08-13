@@ -24,15 +24,24 @@ export default async function handler(
 
   if (req.method === 'GET') {
     try {
-      const { search, cnam, diagnostic } = req.query;
+      const { search, cnam, diagnostic, assignedToMe } = req.query;
 
       // Build where clause for advanced filtering
       const whereClause: any = {};
 
+      // Employee restriction - only show patients assigned to the current user
+      // Check both assignedTo (userId) and technician (technicianId) fields
+      if (assignedToMe === 'true') {
+        whereClause.OR = [
+          { userId: session.user.id }, // assignedTo relationship
+          { technicianId: session.user.id } // technician relationship
+        ];
+      }
+
       // Search filter - search across multiple fields
       if (search && typeof search === 'string' && search.trim().length >= 2) {
         const searchTerm = search.trim().toLowerCase();
-        whereClause.OR = [
+        const searchConditions = [
           { firstName: { contains: searchTerm, mode: 'insensitive' } },
           { lastName: { contains: searchTerm, mode: 'insensitive' } },
           { telephone: { contains: searchTerm } },
@@ -45,6 +54,25 @@ export default async function handler(
             ]
           }
         ];
+
+        // If employee restriction is active, combine both conditions properly
+        if (assignedToMe === 'true') {
+          whereClause.AND = [
+            {
+              OR: [
+                { userId: session.user.id },
+                { technicianId: session.user.id }
+              ]
+            },
+            {
+              OR: searchConditions
+            }
+          ];
+          // Remove the previous OR clause
+          delete whereClause.OR;
+        } else {
+          whereClause.OR = searchConditions;
+        }
       }
 
       // CNAM filter
@@ -117,7 +145,8 @@ export default async function handler(
         };
       });
 
-      console.log(`Found ${transformedPatients.length} patients with filters:`, { search, cnam, diagnostic });
+      console.log(`Found ${transformedPatients.length} patients with filters:`, { search, cnam, diagnostic, assignedToMe, userId: session.user.id });
+      console.log('Where clause:', whereClause);
 
       return res.status(200).json({ patients: transformedPatients });
     } catch (error) {
@@ -200,7 +229,9 @@ export default async function handler(
           medicalHistory: data.antecedant || '',
           generalNote: data.generalNote || '',
           affiliation: (data.caisseAffiliation as Affiliation) || 'CNSS',
-          beneficiaryType: (data.beneficiaire as BeneficiaryType) || 'ASSURE_SOCIAL',
+          beneficiaryType: data.beneficiaire && data.beneficiaire !== '' 
+            ? (data.beneficiaire as BeneficiaryType) 
+            : null,
           doctor: doctorId ? {
             connect: { id: doctorId }
           } : undefined,
@@ -454,7 +485,9 @@ export default async function handler(
           medicalHistory: data.antecedant || '',
           generalNote: data.generalNote || '',
           affiliation: (data.caisseAffiliation as Affiliation) || 'CNSS',
-          beneficiaryType: (data.beneficiaire as BeneficiaryType) || 'ASSURE_SOCIAL',
+          beneficiaryType: data.beneficiaire && data.beneficiaire !== '' 
+            ? (data.beneficiaire as BeneficiaryType) 
+            : null,
           doctor: updateDoctorId ? {
             connect: { id: updateDoctorId }
           } : {

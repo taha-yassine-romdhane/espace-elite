@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UserManagement } from "@/components/settings/UserManagement";
 import { GeneralSettings } from "@/components/settings/GeneralSettings";
-import { Card } from "@/components/ui/Card";
+import { Card } from "@/components/ui/card";
 import { Settings, Users, Database } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { BackupRestore } from "@/components/settings/BackupRestoreNew";

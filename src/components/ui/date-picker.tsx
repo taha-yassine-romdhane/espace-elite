@@ -18,6 +18,9 @@ interface DatePickerProps {
   placeholder?: string
   className?: string
   id?: string
+  minDate?: Date
+  maxDate?: Date
+  disabled?: (date: Date) => boolean
 }
 
 export function DatePicker({
@@ -26,6 +29,9 @@ export function DatePicker({
   placeholder = "Pick a date",
   className,
   id,
+  minDate,
+  maxDate,
+  disabled,
 }: DatePickerProps) {
   return (
     <Popover>
@@ -49,6 +55,16 @@ export function DatePicker({
           selected={value}
           onSelect={onChange}
           initialFocus
+          disabled={(date) => {
+            // Custom disabled function takes precedence
+            if (disabled) return disabled(date);
+            
+            // Check min/max dates
+            if (minDate && date < minDate) return true;
+            if (maxDate && date > maxDate) return true;
+            
+            return false;
+          }}
         />
       </PopoverContent>
     </Popover>

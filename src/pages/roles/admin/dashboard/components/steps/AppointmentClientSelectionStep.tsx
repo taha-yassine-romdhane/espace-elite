@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -28,8 +28,34 @@ export function AppointmentClientSelectionStep({
   onClientSelect 
 }: AppointmentClientSelectionStepProps) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
+  
+  // Form state for patient creation
+  const [patientFormData, setPatientFormData] = useState({
+    nomComplet: '',
+    telephonePrincipale: '',
+    telephoneSecondaire: '',
+    governorate: '',
+    delegation: '',
+    detailedAddress: '',
+    cin: '',
+    identifiantCNAM: '',
+    technicienResponsable: '',
+    superviseur: '',
+    antecedant: '',
+    taille: '',
+    poids: '',
+    medecin: '',
+    dateNaissance: '',
+    beneficiaire: null as any,
+    caisseAffiliation: 'CNSS' as any,
+    cnam: false,
+    generalNote: '',
+    files: [] as File[],
+    existingFiles: [] as any[]
+  });
   
 
   // Fetch patients only for appointments
@@ -102,16 +128,56 @@ export function AppointmentClientSelectionStep({
     }
   };
 
-  const handleCreatePatient = async (formData: any) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    setPatientFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
+    }));
+  };
+
+  const handleFileChange = (files: File[]) => {
+    setPatientFormData(prev => ({
+      ...prev,
+      files
+    }));
+  };
+
+  const handleCreatePatient = async () => {
     try {
+      console.log('Creating patient with data:', patientFormData);
+      
+      // Validate required fields
+      if (!patientFormData.nomComplet || !patientFormData.telephonePrincipale) {
+        toast({
+          title: 'Erreur',
+          description: 'Veuillez remplir au moins le nom complet et le téléphone principal',
+          variant: 'destructive',
+        });
+        return;
+      }
+      
       const apiFormData = new FormData();
       
       // Add form data to FormData object
-      Object.entries(formData).forEach(([key, value]) => {
-        if (value !== null && value !== undefined && value !== '') {
-          apiFormData.append(key, value as string);
+      Object.entries(patientFormData).forEach(([key, value]) => {
+        if (key === 'files' && Array.isArray(value)) {
+          // Handle files separately
+          value.forEach((file: File) => {
+            apiFormData.append('files', file);
+          });
+        } else if (key === 'existingFiles') {
+          // Skip existing files for new patient creation
+          return;
+        } else if (key === 'beneficiaire' && (value === null || value === '' || value === undefined)) {
+          // Skip empty beneficiaire to let API handle it as null
+          return;
+        } else if (value !== null && value !== undefined && value !== '') {
+          apiFormData.append(key, String(value));
         }
       });
+
+      console.log('Sending FormData:', Array.from(apiFormData.entries()));
 
       const response = await fetch('/api/renseignements/patients', {
         method: 'POST',
@@ -119,17 +185,19 @@ export function AppointmentClientSelectionStep({
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create patient');
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
       }
 
       const newPatient = await response.json();
+      console.log('Created patient:', newPatient);
       
-      // Format the new patient
+      // Format the new patient for selection
       const formattedPatient: Client = {
         id: newPatient.id,
-        name: `${newPatient.firstName || ''} ${newPatient.lastName || ''}`.trim(),
+        name: newPatient.nom || patientFormData.nomComplet,
         type: 'patient',
-        telephone: newPatient.telephone,
+        telephone: newPatient.telephone || patientFormData.telephonePrincipale,
         firstName: newPatient.firstName,
         lastName: newPatient.lastName,
       };
@@ -137,6 +205,30 @@ export function AppointmentClientSelectionStep({
       // Select the new patient
       onClientSelect(formattedPatient);
       
+      // Reset form and close dialog
+      setPatientFormData({
+        nomComplet: '',
+        telephonePrincipale: '',
+        telephoneSecondaire: '',
+        governorate: '',
+        delegation: '',
+        detailedAddress: '',
+        cin: '',
+        identifiantCNAM: '',
+        technicienResponsable: '',
+        superviseur: '',
+        antecedant: '',
+        taille: '',
+        poids: '',
+        medecin: '',
+        dateNaissance: '',
+        beneficiaire: null as any,
+        caisseAffiliation: 'CNSS' as any,
+        cnam: false,
+        generalNote: '',
+        files: [] as File[],
+        existingFiles: [] as any[]
+      });
       setIsCreateFormOpen(false);
       
       toast({
@@ -144,13 +236,14 @@ export function AppointmentClientSelectionStep({
         description: 'Patient créé avec succès',
       });
 
-      // The query will automatically refetch and update the list
+      // Invalidate and refetch patients list
+      await queryClient.invalidateQueries({ queryKey: ['patients'] });
 
     } catch (error) {
       console.error('Error creating patient:', error);
       toast({
         title: 'Erreur',
-        description: 'Erreur lors de la création du patient',
+        description: error instanceof Error ? error.message : 'Erreur lors de la création du patient',
         variant: 'destructive',
       });
     }
@@ -283,27 +376,11 @@ export function AppointmentClientSelectionStep({
           </DialogHeader>
           <div className="flex-1 overflow-y-auto py-4">
             <PatientForm 
-              formData={{
-                nomComplet: '',
-                telephonePrincipale: '',
-                telephoneSecondaire: '',
-                adresseComplete: '',
-                cin: '',
-                identifiantCNAM: '',
-                technicienResponsable: '',
-                antecedant: '',
-                taille: '',
-                poids: '',
-                medecin: '',
-                dateNaissance: '',
-                beneficiaire: '' as any,
-                caisseAffiliation: 'CNSS' as any,
-                cnam: false,
-              }}
-              onInputChange={() => {}}
-              onFileChange={() => {}}
+              formData={patientFormData}
+              onInputChange={handleInputChange}
+              onFileChange={handleFileChange}
               onBack={() => setIsCreateFormOpen(false)}
-              onNext={() => handleCreatePatient({})}
+              onNext={handleCreatePatient}
             />
           </div>
         </DialogContent>

@@ -6,7 +6,7 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Settings2, FileText, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eye, Edit3, Trash2, MoreVertical, Users, Building2, User } from "lucide-react";
+import { Settings2, FileText, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eye, Edit3, Trash2, MoreVertical, Users, Building2, User, Phone, Smartphone } from "lucide-react";
 import { DataTable } from "@/components/ui/data-table";
 import { Renseignement } from '@/types/renseignement';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -145,7 +145,20 @@ function RenseignementTable({
           </div>
           <div>
             <div className="font-semibold text-gray-900">{row.original.nom}</div>
-            <div className="text-sm text-gray-500">{row.original.telephone}</div>
+            <div className="space-y-0.5">
+              {row.original.telephone && (
+                <div className="flex items-center gap-1 text-xs text-gray-600">
+                  <Phone className="h-3 w-3" />
+                  {row.original.telephone}
+                </div>
+              )}
+              {row.original.telephoneSecondaire && (
+                <div className="flex items-center gap-1 text-xs text-gray-500">
+                  <Smartphone className="h-3 w-3" />
+                  {row.original.telephoneSecondaire}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       ),
@@ -177,76 +190,125 @@ function RenseignementTable({
       ),
     },
     {
-      id: "address",
-      header: "Adresse",
+      id: "location",
+      header: "Localisation",
       cell: ({ row }: { row: { original: Renseignement } }) => (
         <div className="max-w-xs">
-          <div className="text-sm text-gray-900 truncate" title={row.original.adresse}>
-            {row.original.adresse}
-          </div>
-        </div>
-      ),
-    },
-    {
-      id: "doctor",
-      header: "Médecin Responsable",
-      cell: ({ row }: { row: { original: Renseignement } }) => (
-        row.original.doctor ? (
-          <div className="flex items-center space-x-2">
-            <div className="h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center">
-              <span className="text-purple-700 text-xs font-semibold">Dr</span>
+          {row.original.governorate && (
+            <div className="text-sm font-medium text-gray-900">
+              {row.original.governorate}
             </div>
-            <div>
-              <div className="font-medium text-sm">{row.original.doctor.name}</div>
-              <div className="text-xs text-gray-500">{row.original.doctor.role}</div>
+          )}
+          {row.original.delegation && (
+            <div className="text-xs text-gray-600">
+              {row.original.delegation}
             </div>
-          </div>
-        ) : (
-          <div className="text-sm text-gray-500 italic">Non assigné</div>
-        )
-      ),
-    },
-    {
-      id: "technician",
-      header: "Technicien",
-      cell: ({ row }: { row: { original: Renseignement } }) => (
-        row.original.technician ? (
-          <div className="flex items-center space-x-2">
-            <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-              <span className="text-blue-700 text-xs font-semibold">T</span>
+          )}
+          {row.original.detailedAddress && (
+            <div className="text-xs text-gray-500 truncate" title={row.original.detailedAddress}>
+              {row.original.detailedAddress}
             </div>
-            <div>
-              <div className="font-medium text-sm">{row.original.technician.name}</div>
-              <div className="text-xs text-gray-500">{row.original.technician.role}</div>
+          )}
+          {!row.original.governorate && row.original.adresse && (
+            <div className="text-sm text-gray-900 truncate" title={row.original.adresse}>
+              {row.original.adresse}
             </div>
-          </div>
-        ) : (
-          <div className="text-sm text-gray-500 italic">Non assigné</div>
-        )
-      ),
-    },
-    {
-      id: "files",
-      header: "Documents",
-      cell: ({ row }: { row: { original: Renseignement } }) => (
-        <div className="flex items-center justify-center">
-          {row.original.files && row.original.files.length > 0 ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onViewFiles(row.original.files)}
-              className="flex items-center space-x-2 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-            >
-              <FileText className="h-4 w-4" />
-              <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200">
-                {row.original.files.length}
-              </Badge>
-            </Button>
-          ) : (
-            <span className="text-xs text-gray-400 italic">Aucun</span>
           )}
         </div>
       ),
+    },
+    {
+      id: "assignees",
+      header: "Équipe Médicale",
+      cell: ({ row }: { row: { original: Renseignement } }) => (
+        <div className="space-y-1">
+          {row.original.doctor ? (
+            <div className="flex items-center space-x-1">
+              <div className="h-6 w-6 rounded-full bg-purple-100 flex items-center justify-center">
+                <span className="text-purple-700 text-xs font-bold">Dr</span>
+              </div>
+              <div className="text-xs">
+                <div className="font-medium text-gray-900 truncate">{row.original.doctor.name}</div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-xs text-gray-400 italic">Pas de médecin</div>
+          )}
+          {row.original.technician ? (
+            <div className="flex items-center space-x-1">
+              <div className="h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center">
+                <span className="text-blue-700 text-xs font-bold">T</span>
+              </div>
+              <div className="text-xs">
+                <div className="font-medium text-gray-900 truncate">{row.original.technician.name}</div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-xs text-gray-400 italic">Pas de technicien</div>
+          )}
+          {row.original.supervisor ? (
+            <div className="flex items-center space-x-1">
+              <div className="h-6 w-6 rounded-full bg-orange-100 flex items-center justify-center">
+                <span className="text-orange-700 text-xs font-bold">S</span>
+              </div>
+              <div className="text-xs">
+                <div className="font-medium text-gray-900 truncate">{row.original.supervisor.name}</div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-xs text-gray-400 italic">Pas de superviseur</div>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: "status",
+      header: "Statut",
+      cell: ({ row }: { row: { original: Renseignement } }) => {
+        const hasFiles = row.original.files && row.original.files.length > 0;
+        const hasCNAM = row.original.identifiantCNAM && row.original.identifiantCNAM.trim().length > 0;
+        const hasDoctor = !!row.original.doctor;
+        const hasTechnician = !!row.original.technician;
+        const hasSupervisor = !!row.original.supervisor;
+        
+        // Calculate team assignment completeness
+        const assignedCount = [hasDoctor, hasTechnician, hasSupervisor].filter(Boolean).length;
+        const teamStatus = assignedCount === 3 ? 'complete' : assignedCount > 0 ? 'partial' : 'none';
+        
+        return (
+          <div className="space-y-1">
+            <div className="flex flex-wrap gap-1">
+              {hasFiles ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onViewFiles(row.original.files)}
+                  className="h-6 px-2 text-xs hover:bg-blue-50 hover:text-blue-600"
+                >
+                  <FileText className="h-3 w-3 mr-1" />
+                  {row.original.files.length}
+                </Button>
+              ) : (
+                <Badge variant="outline" className="h-6 px-2 text-xs text-gray-400">
+                  Pas de docs
+                </Badge>
+              )}
+            </div>
+            <div className="flex items-center space-x-1">
+              <div className={`h-2 w-2 rounded-full ${
+                teamStatus === 'complete' ? 'bg-green-500' : 
+                teamStatus === 'partial' ? 'bg-yellow-500' : 
+                'bg-red-500'
+              }`} />
+              <span className="text-xs text-gray-600">
+                {teamStatus === 'complete' ? 'Équipe complète' : 
+                 teamStatus === 'partial' ? `${assignedCount}/3 assignés` : 
+                 'Non assigné'}
+              </span>
+            </div>
+          </div>
+        );
+      },
     },
     {
       id: "actions",
@@ -504,38 +566,6 @@ function RenseignementTable({
   return (
     <>
       <div className="space-y-6">
-        {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-4 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-blue-100 text-sm">Total Patients</p>
-                <p className="text-2xl font-bold">{stats.totalPatients}</p>
-              </div>
-              <Users className="h-8 w-8 text-blue-200" />
-            </div>
-          </div>
-          
-          <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-lg p-4 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-emerald-100 text-sm">Total Sociétés</p>
-                <p className="text-2xl font-bold">{stats.totalCompanies}</p>
-              </div>
-              <Building2 className="h-8 w-8 text-emerald-200" />
-            </div>
-          </div>
-          
-          <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-4 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-purple-100 text-sm">Total Entrées</p>
-                <p className="text-2xl font-bold">{stats.total}</p>
-              </div>
-              <User className="h-8 w-8 text-purple-200" />
-            </div>
-          </div>
-        </div>
 
         {/* Tabs Interface */}
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'patients' | 'companies')} className="w-full">

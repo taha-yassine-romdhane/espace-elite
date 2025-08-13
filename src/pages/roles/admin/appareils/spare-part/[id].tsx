@@ -4,7 +4,7 @@ import prisma from '@/lib/db';
 import { Product, Stock, StockLocation } from '@prisma/client';
 import { Button } from '@/components/ui/button';
 import { ArrowLeftIcon } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface SparePartDetailProps {
   product: Product & {

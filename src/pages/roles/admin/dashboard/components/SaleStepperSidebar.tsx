@@ -273,12 +273,7 @@ export function SaleStepperSidebar({
                   />
                 )}
                 <div className="flex gap-4 relative">
-                  <div
-                    className={cn(
-                      "flex-shrink-0 mt-0.5",
-                      isActive && "animate-pulse"
-                    )}
-                  >
+                  <div className="flex-shrink-0 mt-0.5">
                     {isCompleted ? (
                       <CheckCircle2 className="h-10 w-10 text-blue-600 fill-blue-100" />
                     ) : isActive ? (

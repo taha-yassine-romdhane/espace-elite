@@ -70,15 +70,31 @@ export default function TransferRequestDialog({
     }
   }, [isOpen, product]);
 
-  // Create transfer request mutation
+  // Create transfer request mutation - now uses /api/stock/transfers
   const createTransferRequest = useMutation({
     mutationFn: async (requestData: TransferRequestData) => {
-      const response = await fetch('/api/stock/transfer-requests', {
+      // Get user's stock location for the destination
+      const userLocationResponse = await fetch('/api/stock/locations?userId=' + session?.user?.id);
+      const userLocations = await userLocationResponse.json();
+      const userLocation = userLocations.find((loc: any) => loc.userId === session?.user?.id);
+      
+      if (!userLocation) {
+        throw new Error('Votre emplacement de stock personnel n\'a pas été trouvé');
+      }
+
+      const response = await fetch('/api/stock/transfers', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(requestData),
+        body: JSON.stringify({
+          fromLocationId: requestData.fromLocationId,
+          toLocationId: userLocation.id,
+          productId: requestData.productId,
+          quantity: requestData.requestedQuantity,
+          notes: requestData.reason,
+          urgency: requestData.urgency
+        }),
       });
 
       if (!response.ok) {
@@ -88,12 +104,24 @@ export default function TransferRequestDialog({
 
       return response.json();
     },
-    onSuccess: () => {
-      toast({
-        title: "Demande de transfert envoyée",
-        description: "Votre demande a été soumise avec succès et sera traitée par l'administrateur.",
-      });
+    onSuccess: (data) => {
+      if (urgency === 'HIGH') {
+        toast({
+          title: "Transfert urgent exécuté",
+          description: "Le transfert urgent a été effectué immédiatement. Un administrateur vérifiera cette action ultérieurement.",
+          className: "bg-orange-50 border-orange-200",
+        });
+      } else {
+        toast({
+          title: "Demande de transfert envoyée",
+          description: urgency === 'MEDIUM' 
+            ? "Votre demande sera traitée par l'administrateur dès que possible."
+            : "Votre demande de priorité faible sera traitée lorsque l'administrateur sera disponible.",
+        });
+      }
       queryClient.invalidateQueries({ queryKey: ['transferRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['myInventory'] });
+      queryClient.invalidateQueries({ queryKey: ['globalStock'] });
       onClose();
     },
     onError: (error: Error) => {
@@ -272,9 +300,19 @@ export default function TransferRequestDialog({
           </div>
 
           {/* Preview */}
-          <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-            <h5 className="font-medium text-blue-900 mb-2">Résumé de la demande</h5>
-            <div className="text-sm text-blue-800 space-y-1">
+          <div className={`p-3 rounded-lg border ${
+            urgency === 'HIGH' 
+              ? 'bg-orange-50 border-orange-200' 
+              : 'bg-blue-50 border-blue-200'
+          }`}>
+            <h5 className={`font-medium mb-2 ${
+              urgency === 'HIGH' ? 'text-orange-900' : 'text-blue-900'
+            }`}>
+              Résumé de la demande
+            </h5>
+            <div className={`text-sm space-y-1 ${
+              urgency === 'HIGH' ? 'text-orange-800' : 'text-blue-800'
+            }`}>
               <div>Quantité: <span className="font-medium">{requestedQuantity} unité(s)</span></div>
               <div className="flex items-center gap-2">
                 Urgence: {getUrgencyBadge(urgency)}
@@ -282,6 +320,21 @@ export default function TransferRequestDialog({
               <div>
                 Sera transféré vers votre emplacement de stock personnel
               </div>
+              {urgency === 'HIGH' && (
+                <div className="mt-2 pt-2 border-t border-orange-200">
+                  <strong>⚠️ Transfert urgent:</strong> Le transfert sera exécuté immédiatement sans attendre l'approbation de l'administrateur.
+                </div>
+              )}
+              {urgency === 'MEDIUM' && (
+                <div className="mt-2 pt-2 border-t border-blue-200">
+                  <strong>ℹ️ Transfert normal:</strong> Nécessite l'approbation d'un administrateur.
+                </div>
+              )}
+              {urgency === 'LOW' && (
+                <div className="mt-2 pt-2 border-t border-blue-200">
+                  <strong>ℹ️ Transfert faible priorité:</strong> Sera traité lorsque l'administrateur sera disponible.
+                </div>
+              )}
             </div>
           </div>
 

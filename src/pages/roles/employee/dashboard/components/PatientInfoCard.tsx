@@ -16,9 +16,9 @@ export function PatientInfoCard({ patient }: PatientInfoCardProps) {
   if (!patient) return null;
 
   return (
-    <div className="mb-6 overflow-hidden rounded-lg border border-blue-200 bg-gradient-to-br from-blue-50 to-blue-100/50 shadow-sm">
+    <div className="mb-6 overflow-hidden rounded-lg border border-green-200 bg-gradient-to-br from-green-50 to-green-100/50 shadow-sm">
       {/* Header with patient name */}
-      <div className="bg-blue-600 p-3 text-white">
+      <div className="bg-green-600 p-3 text-white">
         <div className="flex items-center gap-2">
           <div className="h-9 w-9 rounded-full bg-white/20 flex items-center justify-center">
             <User className="h-5 w-5" />
@@ -28,7 +28,7 @@ export function PatientInfoCard({ patient }: PatientInfoCardProps) {
               {patient.firstName} {patient.lastName}
             </h4>
             {patient.doctorName && (
-              <p className="text-xs text-blue-100">Dr. {patient.doctorName}</p>
+              <p className="text-xs text-green-100">Dr. {patient.doctorName}</p>
             )}
           </div>
         </div>
@@ -37,26 +37,26 @@ export function PatientInfoCard({ patient }: PatientInfoCardProps) {
       {/* Patient details */}
       <div className="p-3 text-sm space-y-2">
         {patient.telephone && (
-          <div className="flex items-center gap-2 text-blue-800">
-            <Phone className="h-4 w-4 text-blue-600" /> 
+          <div className="flex items-center gap-2 text-green-800">
+            <Phone className="h-4 w-4 text-green-600" /> 
             <span>{patient.telephone}</span>
           </div>
         )}
         {patient.dateOfBirth && (
-          <div className="flex items-center gap-2 text-blue-800">
-            <Calendar className="h-4 w-4 text-blue-600" /> 
+          <div className="flex items-center gap-2 text-green-800">
+            <Calendar className="h-4 w-4 text-green-600" /> 
             <span>{new Date(patient.dateOfBirth).toLocaleDateString()}</span>
           </div>
         )}
         {patient.address && (
-          <div className="flex items-center gap-2 text-blue-800">
-            <MapPin className="h-4 w-4 text-blue-600" /> 
+          <div className="flex items-center gap-2 text-green-800">
+            <MapPin className="h-4 w-4 text-green-600" /> 
             <span className="truncate">{patient.address}</span>
           </div>
         )}
         {patient.cin && (
-          <div className="flex items-center gap-2 text-blue-800">
-            <FileText className="h-4 w-4 text-blue-600" /> 
+          <div className="flex items-center gap-2 text-green-800">
+            <FileText className="h-4 w-4 text-green-600" /> 
             <span>CIN: {patient.cin}</span>
           </div>
         )}

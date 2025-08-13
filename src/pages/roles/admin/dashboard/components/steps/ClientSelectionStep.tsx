@@ -23,6 +23,13 @@ interface Client {
   name: string;
   hasOngoingDiagnostic?: boolean;
   ongoingDiagnosticId?: string | null;
+  // Additional fields for patient details
+  firstName?: string;
+  lastName?: string;
+  telephone?: string;
+  address?: string;
+  dateOfBirth?: string;
+  cin?: string;
 }
 
 interface ExistingRentalData {
@@ -185,8 +192,18 @@ export function ClientSelectionStep({
           id: newPatient.id,
           name: `${newPatient.lastName} ${newPatient.firstName}`,
           hasOngoingDiagnostic: false,
-          ongoingDiagnosticId: null
+          ongoingDiagnosticId: null,
+          // Pass additional patient details for immediate display
+          firstName: newPatient.firstName,
+          lastName: newPatient.lastName,
+          telephone: newPatient.telephone,
+          address: newPatient.detailedAddress,
+          dateOfBirth: newPatient.dateOfBirth,
+          cin: newPatient.cin
         };
+        
+        // Add to local clients list
+        setClients(prevClients => [...prevClients, newClientData]);
         
         // Add to clients list via callback
         if (onClientAdd) {
@@ -225,8 +242,15 @@ export function ClientSelectionStep({
         // Update the clients list with the new company
         const newClientData = {
           id: newCompany.id,
-          name: newCompany.companyName
+          name: newCompany.companyName,
+          // For companies, we might want different fields
+          companyName: newCompany.companyName,
+          telephone: newCompany.telephone,
+          address: newCompany.detailedAddress
         };
+        
+        // Add to local clients list
+        setClients(prevClients => [...prevClients, newClientData]);
         
         // Add to clients list via callback
         if (onClientAdd) {

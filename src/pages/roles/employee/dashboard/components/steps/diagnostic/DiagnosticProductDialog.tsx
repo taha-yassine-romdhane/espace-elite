@@ -1,4 +1,4 @@
-import { Card } from "@/components/ui/Card";
+import { Card } from "@/components/ui/card";
 import { 
   Activity,
   Search
@@ -59,7 +59,7 @@ export function DiagnosticProductDialog({
               placeholder="Rechercher par nom, marque, modèle..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent"
             />
           </div>
 
@@ -73,7 +73,7 @@ export function DiagnosticProductDialog({
               filteredProducts.map((product) => (
                 <Card
                   key={product.id}
-                  className={`p-3 ${product.status === 'ACTIVE' ? 'cursor-pointer hover:border-[#1e3a8a]' : 'cursor-not-allowed opacity-75'} transition-colors`}
+                  className={`p-3 ${product.status === 'ACTIVE' ? 'cursor-pointer hover:border-green-600' : 'cursor-not-allowed opacity-75'} transition-colors`}
                   onClick={() => {
                     if (product.status === 'ACTIVE') {
                       onSelect(product);
@@ -84,7 +84,7 @@ export function DiagnosticProductDialog({
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <Activity className="h-4 w-4 text-[#1e3a8a]" />
+                        <Activity className="h-4 w-4 text-green-600" />
                         <h4 className="font-medium truncate">{product.name}</h4>
                         {product.status && (
                           <span className={`text-xs px-2 py-0.5 rounded-full ${
@@ -92,7 +92,7 @@ export function DiagnosticProductDialog({
                             product.status === 'MAINTENANCE' ? 'bg-yellow-100 text-yellow-800' : 
                             product.status === 'RETIRED' ? 'bg-gray-100 text-gray-800' : 
                             product.status === 'RESERVED' ? 'bg-red-100 text-red-800' : 
-                            'bg-blue-100 text-blue-800'
+                            'bg-green-100 text-green-800'
                           }`}>
                             {product.status === 'ACTIVE' ? 'Actif' : 
                              product.status === 'MAINTENANCE' ? 'En maintenance' : 
@@ -115,11 +115,6 @@ export function DiagnosticProductDialog({
                         )}
                       </div>
                     </div>
-                    {product.sellingPrice && (
-                      <div className="text-right font-medium text-[#1e3a8a]">
-                        {product.sellingPrice} DT
-                      </div>
-                    )}
                   </div>
                 </Card>
               ))

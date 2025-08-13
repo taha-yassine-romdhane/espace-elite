@@ -70,12 +70,114 @@ const MapComponent: React.FC<MapProps> = ({ patients }) => {
     if (!mapRef.current || mapInstanceRef.current) return;
 
     // Initialize map
-    const map = L.map(mapRef.current).setView([33.8869, 9.5375], 7);
+    const map = L.map(mapRef.current, {
+      zoomControl: false, // We'll add custom controls
+      attributionControl: true
+    }).setView([33.8869, 9.5375], 7);
 
-    // Add tile layer
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+    // Define different tile layers with detailed street information
+    const baseLayers = {
+      // Detailed OpenStreetMap with street names
+      'Street Map (Détaillé)': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19
+      }),
+      
+      // CartoDB Positron - Clean with street names
+      'Street Map (Propre)': L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        maxZoom: 19
+      }),
+      
+      // CartoDB Dark with street names
+      'Street Map (Sombre)': L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        maxZoom: 19
+      }),
+      
+      // Voyager with detailed street information
+      'Street Map (Voyager)': L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        maxZoom: 19
+      }),
+      
+      // Satellite imagery with labels
+      'Vue Satellite': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+        maxZoom: 19
+      }),
+      
+      // Terrain with labels
+      'Terrain': L.tileLayer('https://stamen-tiles-{s}.a.ssl.fastly.net/terrain/{z}/{x}/{y}{r}.png', {
+        attribution: 'Map tiles by <a href="http://stamen.com">Stamen Design</a>, <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a> &mdash; Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 18
+      })
+    };
+
+    // Add default layer
+    baseLayers['Street Map (Détaillé)'].addTo(map);
+
+    // Add custom zoom control in top-left
+    L.control.zoom({
+      position: 'topleft'
     }).addTo(map);
+
+    // Add layer control
+    const layerControl = L.control.layers(baseLayers, undefined, {
+      position: 'topright',
+      collapsed: false
+    }).addTo(map);
+
+    // Add custom scale control
+    L.control.scale({
+      position: 'bottomleft',
+      metric: true,
+      imperial: false
+    }).addTo(map);
+
+    // Add custom fullscreen control
+    const fullscreenControl = L.Control.extend({
+      onAdd: function(map: any) {
+        const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
+        container.style.backgroundColor = 'white';
+        container.style.width = '30px';
+        container.style.height = '30px';
+        container.style.cursor = 'pointer';
+        container.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin: 5px;"><path d="m21 21-6-6m6 6v-4.8m0 4.8h-4.8"/><path d="M3 16.2V21m0 0h4.8M3 21l6-6"/><path d="M21 7.8V3m0 0h-4.8M21 3l-6 6"/><path d="M3 7.8V3m0 0h4.8M3 3l6 6"/></svg>';
+        container.title = 'Plein écran';
+        
+        container.onclick = function() {
+          if (map.getContainer().requestFullscreen) {
+            map.getContainer().requestFullscreen();
+          }
+        };
+        
+        return container;
+      }
+    });
+
+    map.addControl(new fullscreenControl({ position: 'topleft' }));
+
+    // Add locate control
+    const locateControl = L.Control.extend({
+      onAdd: function(map: any) {
+        const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
+        container.style.backgroundColor = 'white';
+        container.style.width = '30px';
+        container.style.height = '30px';
+        container.style.cursor = 'pointer';
+        container.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin: 5px;"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>';
+        container.title = 'Centrer sur la Tunisie';
+        
+        container.onclick = function() {
+          map.setView([33.8869, 9.5375], 7);
+        };
+        
+        return container;
+      }
+    });
+
+    map.addControl(new locateControl({ position: 'topleft' }));
 
     mapInstanceRef.current = map;
 
@@ -96,6 +198,19 @@ const MapComponent: React.FC<MapProps> = ({ patients }) => {
         map.removeLayer(layer);
       }
     });
+
+    // Get current zoom level for responsive marker sizing
+    const currentZoom = map.getZoom();
+    const getMarkerSize = () => {
+      if (currentZoom <= 6) return { size: 8, fontSize: '0px', showInitials: false };
+      if (currentZoom <= 8) return { size: 12, fontSize: '0px', showInitials: false };
+      if (currentZoom <= 10) return { size: 16, fontSize: '8px', showInitials: true };
+      if (currentZoom <= 12) return { size: 24, fontSize: '10px', showInitials: true };
+      return { size: 32, fontSize: '12px', showInitials: true };
+    };
+
+    const markerConfig = getMarkerSize();
+
 
     // Get initials from patient name
     const getInitials = (name: string) => {
@@ -224,8 +339,8 @@ const MapComponent: React.FC<MapProps> = ({ patients }) => {
       const patientIcon = L.divIcon({
         html: `
           <div style="
-            width: 40px;
-            height: 40px;
+            width: ${markerConfig.size}px;
+            height: ${markerConfig.size}px;
             background-color: ${color};
             border-radius: 50%;
             display: flex;
@@ -233,20 +348,20 @@ const MapComponent: React.FC<MapProps> = ({ patients }) => {
             justify-content: center;
             color: white;
             font-weight: bold;
-            font-size: 14px;
+            font-size: ${markerConfig.fontSize};
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-            border: 3px solid ${patient.hasDiagnostics ? '#F59E0B' : patient.hasDevices ? '#7c3aed' : 'white'};
+            border: ${Math.max(1, markerConfig.size * 0.08)}px solid ${patient.hasDiagnostics ? '#F59E0B' : patient.hasDevices ? '#7c3aed' : 'white'};
             position: relative;
           ">
-            ${initials}
+            ${markerConfig.showInitials ? initials : ''}
             ${patient.hasDiagnostics ? `
               <div style="
                 position: absolute;
                 top: -2px;
                 right: -2px;
-                width: 12px;
-                height: 12px;
+                width: ${Math.max(8, markerConfig.size * 0.3)}px;
+                height: ${Math.max(8, markerConfig.size * 0.3)}px;
                 background-color: #F59E0B;
                 border-radius: 50%;
                 border: 2px solid white;
@@ -254,17 +369,19 @@ const MapComponent: React.FC<MapProps> = ({ patients }) => {
                 align-items: center;
                 justify-content: center;
               ">
-                <svg width="6" height="6" viewBox="0 0 24 24" fill="white">
-                  <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
-                </svg>
+                ${markerConfig.size > 20 ? `
+                  <svg width="${Math.max(4, markerConfig.size * 0.15)}" height="${Math.max(4, markerConfig.size * 0.15)}" viewBox="0 0 24 24" fill="white">
+                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                  </svg>
+                ` : ''}
               </div>
             ` : patient.hasDevices ? `
               <div style="
                 position: absolute;
                 top: -2px;
                 right: -2px;
-                width: 12px;
-                height: 12px;
+                width: ${Math.max(8, markerConfig.size * 0.3)}px;
+                height: ${Math.max(8, markerConfig.size * 0.3)}px;
                 background-color: #7c3aed;
                 border-radius: 50%;
                 border: 2px solid white;
@@ -272,16 +389,18 @@ const MapComponent: React.FC<MapProps> = ({ patients }) => {
                 align-items: center;
                 justify-content: center;
               ">
-                <svg width="6" height="6" viewBox="0 0 24 24" fill="white">
-                  <rect x="4" y="4" width="16" height="12" rx="2"/>
-                </svg>
+                ${markerConfig.size > 20 ? `
+                  <svg width="${Math.max(4, markerConfig.size * 0.15)}" height="${Math.max(4, markerConfig.size * 0.15)}" viewBox="0 0 24 24" fill="white">
+                    <rect x="4" y="4" width="16" height="12" rx="2"/>
+                  </svg>
+                ` : ''}
               </div>
             ` : ''}
           </div>
         `,
         className: 'custom-initials-icon',
-        iconSize: [40, 40],
-        iconAnchor: [20, 20],
+        iconSize: [markerConfig.size, markerConfig.size],
+        iconAnchor: [markerConfig.size / 2, markerConfig.size / 2],
       });
 
       const marker = L.marker([patient.latitude, patient.longitude], { icon: patientIcon }).addTo(map);
@@ -538,6 +657,106 @@ const MapComponent: React.FC<MapProps> = ({ patients }) => {
       
       marker.bindPopup(popupContent, { maxWidth: 400 });
     });
+
+    // Add zoom event listener to update marker sizes
+    const handleZoom = () => {
+      const newZoom = map.getZoom();
+      const newConfig = {
+        size: newZoom <= 6 ? 8 : newZoom <= 8 ? 12 : newZoom <= 10 ? 16 : newZoom <= 12 ? 24 : 32,
+        fontSize: newZoom <= 6 ? '0px' : newZoom <= 8 ? '0px' : newZoom <= 10 ? '8px' : newZoom <= 12 ? '10px' : '12px',
+        showInitials: newZoom > 8
+      };
+
+      // Update all existing markers with new size
+      map.eachLayer((layer) => {
+        if (layer instanceof L.Marker && layer.options.icon && layer.options.icon.options.className === 'custom-initials-icon') {
+          const patient = patients.find(p => 
+            Math.abs(p.latitude - layer.getLatLng().lat) < 0.0001 && 
+            Math.abs(p.longitude - layer.getLatLng().lng) < 0.0001
+          );
+          
+          if (patient) {
+            const initials = getInitials(patient.name);
+            const color = getMarkerColor(patient);
+            
+            const newIcon = L.divIcon({
+              html: `
+                <div style="
+                  width: ${newConfig.size}px;
+                  height: ${newConfig.size}px;
+                  background-color: ${color};
+                  border-radius: 50%;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  color: white;
+                  font-weight: bold;
+                  font-size: ${newConfig.fontSize};
+                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                  border: ${Math.max(1, newConfig.size * 0.08)}px solid ${patient.hasDiagnostics ? '#F59E0B' : patient.hasDevices ? '#7c3aed' : 'white'};
+                  position: relative;
+                ">
+                  ${newConfig.showInitials ? initials : ''}
+                  ${patient.hasDiagnostics && newConfig.size > 16 ? `
+                    <div style="
+                      position: absolute;
+                      top: -2px;
+                      right: -2px;
+                      width: ${Math.max(8, newConfig.size * 0.3)}px;
+                      height: ${Math.max(8, newConfig.size * 0.3)}px;
+                      background-color: #F59E0B;
+                      border-radius: 50%;
+                      border: 2px solid white;
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                    ">
+                      ${newConfig.size > 20 ? `
+                        <svg width="${Math.max(4, newConfig.size * 0.15)}" height="${Math.max(4, newConfig.size * 0.15)}" viewBox="0 0 24 24" fill="white">
+                          <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                        </svg>
+                      ` : ''}
+                    </div>
+                  ` : patient.hasDevices && newConfig.size > 16 ? `
+                    <div style="
+                      position: absolute;
+                      top: -2px;
+                      right: -2px;
+                      width: ${Math.max(8, newConfig.size * 0.3)}px;
+                      height: ${Math.max(8, newConfig.size * 0.3)}px;
+                      background-color: #7c3aed;
+                      border-radius: 50%;
+                      border: 2px solid white;
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                    ">
+                      ${newConfig.size > 20 ? `
+                        <svg width="${Math.max(4, newConfig.size * 0.15)}" height="${Math.max(4, newConfig.size * 0.15)}" viewBox="0 0 24 24" fill="white">
+                          <rect x="4" y="4" width="16" height="12" rx="2"/>
+                        </svg>
+                      ` : ''}
+                    </div>
+                  ` : ''}
+                </div>
+              `,
+              className: 'custom-initials-icon',
+              iconSize: [newConfig.size, newConfig.size],
+              iconAnchor: [newConfig.size / 2, newConfig.size / 2],
+            });
+            
+            layer.setIcon(newIcon);
+          }
+        }
+      });
+    };
+
+    map.on('zoomend', handleZoom);
+
+    return () => {
+      map.off('zoomend', handleZoom);
+    };
 
   }, [patients]);
 

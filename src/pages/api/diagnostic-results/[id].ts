@@ -57,6 +57,18 @@ export default async function handler(
           updatedAt: new Date()
         }
       });
+
+      // Release the medical device - set back to ACTIVE since diagnostic is done
+      // Also clear the reservedUntil date
+      if (diagnosticResult.diagnostic.medicalDeviceId) {
+        await prisma.medicalDevice.update({
+          where: { id: diagnosticResult.diagnostic.medicalDeviceId },
+          data: {
+            status: 'ACTIVE',
+            reservedUntil: null  // Clear the reservation date
+          }
+        });
+      }
     }
 
     return res.status(200).json({

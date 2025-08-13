@@ -23,6 +23,9 @@ import {
     GripVertical,
     MapPin,
     BarChart3,
+    FileSpreadsheet,
+    MessageCircle,
+    Kanban,
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
@@ -48,7 +51,9 @@ const Sidebar: React.FC = () => {
         { id: 'dashboard', icon: <LayoutDashboard size={20} />, label: "Accueil", path: "/roles/admin/dashboard" },
         { id: 'analytics', icon: <BarChart3 size={20} />, label: "Analyses & Rapports", path: "/roles/admin/analytics" },
         { id: 'tasks', icon: <CalendarCheck size={20} />, label: "Gestion des taches", path: "/roles/admin/tasks/modern" },
+        { id: 'kanban', icon: <Kanban size={20} />, label: "Vue Kanban", path: "/roles/admin/kanban" },
         { id: 'notifications', icon: <ClipboardCheck size={20} />, label: "Gestion des Notifications", path: "/roles/admin/notifications/modern" },
+        { id: 'chat', icon: <MessageCircle size={20} />, label: "Messages", path: "/roles/admin/chat" },
         { id: 'users', icon: <ContactRound size={20} />, label: "Utilisateurs", path: "/roles/admin/users" },
         { id: 'espace-technicien', icon: <UserCog size={20} />, label: "Espace Technicien", path: "/roles/admin/espace-technicien" },
         { id: 'renseignement', icon: <Users size={20} />, label: "Renseignement", path: "/roles/admin/renseignement" },
@@ -56,6 +61,7 @@ const Sidebar: React.FC = () => {
         { id: 'appareils', icon: <BriefcaseMedical size={20} />, label: "Gestion des Produits", path: "/roles/admin/appareils" },
         { id: 'reparateur', icon: <Wrench size={20} />, label: "Gestion des Reparateurs", path: "/roles/admin/reparateur" },
         { id: 'stock', icon: <Database size={20} />, label: "Gestion des Stock", path: "/roles/admin/stock" },
+        { id: 'excel-import', icon: <FileSpreadsheet size={20} />, label: "Import/Export Excel", path: "/roles/admin/excel-import" },
         { id: 'help', icon: <HelpCircle size={20} />, label: "aide et support", path: "/roles/admin/help" },
         { id: 'settings', icon: <Settings size={20} />, label: "Paramètres", path: "/roles/admin/settings" },
     ];
@@ -281,7 +287,7 @@ const Sidebar: React.FC = () => {
             )}
 
             {/* Navigation */}
-            <nav className="flex-1 overflow-y-auto py-4">
+            <nav className="flex-1 overflow-y-auto py-4 scrollbar-hide">
                 <ul className="space-y-1 px-2">
                     {menuItems.map((item, index) => (
                         <li key={item.id}>

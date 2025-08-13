@@ -10,6 +10,11 @@ export default withUt({
   ],
   theme: {
   	extend: {
+  		screens: {
+  			'tablet': '768px',
+  			'tablet-lg': '1024px',
+  			'tcl-tablet': '2000px',
+  		},
   		colors: {
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',

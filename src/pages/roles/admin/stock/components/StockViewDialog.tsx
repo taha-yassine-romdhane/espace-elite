@@ -19,7 +19,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from '@/components/ui/badge';
-import { Search, Loader2 } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Search, Loader2, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { ProductType } from '@prisma/client';
 
 interface StockViewDialogProps {
@@ -43,6 +50,10 @@ interface StockItem {
 
 export function StockViewDialog({ locationId, locationName, isOpen, onClose }: StockViewDialogProps) {
   const [searchQuery, setSearchQuery] = React.useState('');
+  const [typeFilter, setTypeFilter] = React.useState('all');
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const [itemsPerPage, setItemsPerPage] = React.useState(10);
+  const [showFilters, setShowFilters] = React.useState(false);
 
   // Fetch stock items for the location
   const { data: stockItems, isLoading } = useQuery<StockItem[]>({
@@ -156,21 +167,49 @@ export function StockViewDialog({ locationId, locationName, isOpen, onClose }: S
     enabled: isOpen, // Only fetch when dialog is open
   });
 
-  // Filter stock items based on search query
+  // Filter stock items based on search query and type filter
   const filteredItems = React.useMemo(() => {
     if (!stockItems) return [];
     
-    if (searchQuery.trim() === '') {
-      return stockItems;
+    let filtered = stockItems;
+    
+    // Apply search filter
+    if (searchQuery.trim() !== '') {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(item => 
+        (item.product.name && item.product.name.toLowerCase().includes(query)) ||
+        (item.product.brand && item.product.brand.toLowerCase().includes(query)) ||
+        (item.product.model && item.product.model.toLowerCase().includes(query))
+      );
     }
     
-    const query = searchQuery.toLowerCase().trim();
-    return stockItems.filter(item => 
-      (item.product.name && item.product.name.toLowerCase().includes(query)) ||
-      (item.product.brand && item.product.brand.toLowerCase().includes(query)) ||
-      (item.product.model && item.product.model.toLowerCase().includes(query))
-    );
-  }, [stockItems, searchQuery]);
+    // Apply type filter
+    if (typeFilter !== 'all') {
+      filtered = filtered.filter(item => item.product.type === typeFilter);
+    }
+    
+    return filtered;
+  }, [stockItems, searchQuery, typeFilter]);
+
+  // Paginate filtered items
+  const paginatedItems = React.useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredItems.slice(startIndex, endIndex);
+  }, [filteredItems, currentPage, itemsPerPage]);
+
+  const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+
+  // Reset to first page when filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, typeFilter]);
+
+  // Pagination handlers
+  const goToFirstPage = () => setCurrentPage(1);
+  const goToPreviousPage = () => setCurrentPage(prev => Math.max(prev - 1, 1));
+  const goToNextPage = () => setCurrentPage(prev => Math.min(prev + 1, totalPages));
+  const goToLastPage = () => setCurrentPage(totalPages);
 
   // Group items by type for summary
   const summary = React.useMemo(() => {
@@ -247,34 +286,98 @@ export function StockViewDialog({ locationId, locationName, isOpen, onClose }: S
         
         {/* Summary section */}
         <div className="grid grid-cols-4 gap-4 mb-4">
-          <div className="bg-blue-50 p-3 rounded-lg">
-            <div className="text-sm text-gray-500">Accessoires</div>
-            <div className="text-xl font-semibold">{summary.accessories}</div>
+          <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+            <div className="text-sm text-blue-600 font-medium">Accessoires</div>
+            <div className="text-xl font-semibold text-blue-800">{summary.accessories}</div>
           </div>
-          <div className="bg-gray-50 p-3 rounded-lg">
-            <div className="text-sm text-gray-500">Pièces</div>
-            <div className="text-xl font-semibold">{summary.spareParts}</div>
+          <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+            <div className="text-sm text-gray-600 font-medium">Pièces</div>
+            <div className="text-xl font-semibold text-gray-800">{summary.spareParts}</div>
           </div>
-          <div className="bg-red-50 p-3 rounded-lg">
-            <div className="text-sm text-gray-500">Appareils</div>
-            <div className="text-xl font-semibold">{summary.medicalDevices}</div>
+          <div className="bg-red-50 p-3 rounded-lg border border-red-200">
+            <div className="text-sm text-red-600 font-medium">Appareils</div>
+            <div className="text-xl font-semibold text-red-800">{summary.medicalDevices}</div>
           </div>
-          <div className="bg-purple-50 p-3 rounded-lg">
-            <div className="text-sm text-gray-500">Diagnostics</div>
-            <div className="text-xl font-semibold">{summary.diagnosticDevices}</div>
+          <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
+            <div className="text-sm text-purple-600 font-medium">Diagnostics</div>
+            <div className="text-xl font-semibold text-purple-800">{summary.diagnosticDevices}</div>
           </div>
         </div>
         
-        {/* Search bar */}
-        <div className="relative mb-4">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-          <Input
-            type="text"
-            placeholder="Rechercher un produit..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-8"
-          />
+        {/* Search and Filters */}
+        <div className="space-y-4 mb-4">
+          <div className="flex flex-col md:flex-row gap-4">
+            {/* Search bar */}
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+              <Input
+                type="text"
+                placeholder="Rechercher un produit..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-8"
+              />
+            </div>
+            
+            {/* Filter toggle button */}
+            <Button
+              variant="outline"
+              onClick={() => setShowFilters(!showFilters)}
+              className="flex items-center gap-2"
+            >
+              <Filter className="h-4 w-4" />
+              Filtres {showFilters ? '▲' : '▼'}
+            </Button>
+          </div>
+          
+          {/* Advanced filters */}
+          {showFilters && (
+            <div className="flex flex-col md:flex-row gap-4 p-4 bg-gray-50 rounded-lg border">
+              <div className="flex-1">
+                <label className="text-sm font-medium text-gray-700 mb-1 block">Type de produit</label>
+                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Tous les types" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tous les types</SelectItem>
+                    <SelectItem value={ProductType.ACCESSORY}>Accessoires</SelectItem>
+                    <SelectItem value={ProductType.SPARE_PART}>Pièces de rechange</SelectItem>
+                    <SelectItem value={ProductType.MEDICAL_DEVICE}>Appareils médicaux</SelectItem>
+                    <SelectItem value={ProductType.DIAGNOSTIC_DEVICE}>Équipements diagnostic</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="flex-1">
+                <label className="text-sm font-medium text-gray-700 mb-1 block">Éléments par page</label>
+                <Select value={itemsPerPage.toString()} onValueChange={(value) => setItemsPerPage(parseInt(value))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="5">5 par page</SelectItem>
+                    <SelectItem value="10">10 par page</SelectItem>
+                    <SelectItem value="25">25 par page</SelectItem>
+                    <SelectItem value="50">50 par page</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+          
+          {/* Results info */}
+          <div className="flex justify-between items-center text-sm text-gray-600">
+            <span>
+              {filteredItems.length} produit{filteredItems.length !== 1 ? 's' : ''} trouvé{filteredItems.length !== 1 ? 's' : ''}
+              {filteredItems.length !== stockItems?.length && ` sur ${stockItems?.length || 0} total`}
+            </span>
+            {totalPages > 1 && (
+              <span>
+                Page {currentPage} sur {totalPages}
+              </span>
+            )}
+          </div>
         </div>
         
         {/* Stock items table */}
@@ -283,46 +386,116 @@ export function StockViewDialog({ locationId, locationName, isOpen, onClose }: S
             <TableHeader>
               <TableRow>
                 <TableHead>Produit</TableHead>
-                <TableHead>Marque</TableHead>
-                <TableHead>Modèle</TableHead>
+                <TableHead>Marque/Modèle</TableHead>
                 <TableHead>Type</TableHead>
-                <TableHead className="text-right">Quantité</TableHead>
+                <TableHead className="text-center">Quantité</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8">
+                  <TableCell colSpan={4} className="text-center py-8">
                     <div className="flex justify-center items-center">
                       <Loader2 className="h-6 w-6 animate-spin mr-2" />
                       <span>Chargement des produits...</span>
                     </div>
                   </TableCell>
                 </TableRow>
-              ) : filteredItems.length === 0 ? (
+              ) : paginatedItems.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8">
-                    {searchQuery ? 'Aucun produit trouvé pour cette recherche' : 'Aucun produit dans cet emplacement'}
+                  <TableCell colSpan={4} className="text-center py-8">
+                    {searchQuery || typeFilter !== 'all' ? 'Aucun produit trouvé avec les filtres actuels' : 'Aucun produit dans cet emplacement'}
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredItems.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-medium">{item.product.name}</TableCell>
-                    <TableCell>{item.product.brand || '-'}</TableCell>
-                    <TableCell>{item.product.model || '-'}</TableCell>
+                paginatedItems.map((item) => (
+                  <TableRow key={item.id} className="hover:bg-gray-50">
+                    <TableCell className="font-medium">
+                      <div className="max-w-xs truncate" title={item.product.name}>
+                        {item.product.name}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        {item.product.brand && (
+                          <div className="font-medium text-sm">{item.product.brand}</div>
+                        )}
+                        {item.product.model && (
+                          <div className="text-xs text-gray-500">{item.product.model}</div>
+                        )}
+                        {!item.product.brand && !item.product.model && (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <Badge variant={getBadgeVariant(item.product.type)}>
                         {getProductTypeName(item.product.type)}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right">{item.quantity}</TableCell>
+                    <TableCell className="text-center">
+                      <span className="inline-flex items-center justify-center w-8 h-8 text-sm font-medium bg-blue-100 text-blue-800 rounded-full">
+                        {item.quantity}
+                      </span>
+                    </TableCell>
                   </TableRow>
                 ))
               )}
             </TableBody>
           </Table>
         </div>
+        
+        {/* Pagination controls */}
+        {totalPages > 1 && (
+          <div className="flex justify-between items-center pt-4 border-t">
+            <div className="text-sm text-gray-600">
+              Affichage de {(currentPage - 1) * itemsPerPage + 1} à {Math.min(currentPage * itemsPerPage, filteredItems.length)} sur {filteredItems.length} produits
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={goToFirstPage}
+                disabled={currentPage === 1}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronsLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={goToPreviousPage}
+                disabled={currentPage === 1}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              
+              <span className="text-sm">
+                Page {currentPage} sur {totalPages}
+              </span>
+              
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={goToNextPage}
+                disabled={currentPage === totalPages}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={goToLastPage}
+                disabled={currentPage === totalPages}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronsRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
         
         <DialogFooter className="mt-4">
           <Button variant="outline" onClick={onClose}>

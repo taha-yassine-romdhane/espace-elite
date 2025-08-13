@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { MapPin, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { TUNISIA_GOVERNORATES } from '@/data/tunisia-locations';
 import 'leaflet/dist/leaflet.css';
 
 // Fix for default markers
@@ -200,140 +199,32 @@ export default function SimpleMapSelector({ initialCenter, onLocationSelect, cla
 
     console.log('Address data from geocoding:', address);
 
-    // Common location fields from Nominatim
-    const locationParts = [
-      address.state,           // Governorate level
-      address.county,          // Sometimes used for governorate
-      address.city,            // City/delegation level
-      address.town,            // Town/delegation level
-      address.municipality,    // Municipality level
-      address.suburb,          // Suburb level
-      address.neighbourhood,   // Neighbourhood level
-      address.village,         // Village level
-    ].filter(Boolean);
+    // Extract governorate (state/county level)
+    let governorate = address.state || address.county || '';
+    
+    // Extract delegation (more specific location)
+    // Priority order: city > town > suburb > neighbourhood > village
+    let delegation = address.city || 
+                    address.town || 
+                    address.suburb || 
+                    address.neighbourhood ||
+                    address.village || 
+                    address.municipality || '';
 
-    console.log('Location parts found:', locationParts);
+    console.log('Extracted raw location info:', { governorate, delegation });
 
-    let matchedGovernorate: string | undefined;
-    let matchedDelegation: string | undefined;
+    // Clean up the values (remove extra spaces, normalize)
+    governorate = governorate.trim();
+    delegation = delegation.trim();
 
-    // Try to match governorate first
-    for (const part of locationParts) {
-      const governorate = TUNISIA_GOVERNORATES.find(gov => 
-        gov.name.toLowerCase().includes(part.toLowerCase()) ||
-        part.toLowerCase().includes(gov.name.toLowerCase()) ||
-        gov.nameAr === part
-      );
-      
-      if (governorate) {
-        matchedGovernorate = governorate.name; // Use name instead of ID
-        console.log('Matched governorate:', governorate.name);
-        
-        // Now try to match delegation within this governorate
-        console.log('Available delegations for', governorate.name, ':', governorate.delegations.map(d => ({ name: d.name, id: d.id })));
-        
-        for (const locationPart of locationParts) {
-          console.log('Trying to match location part:', locationPart, 'against delegations');
-          
-          // Try more flexible matching for delegations
-          const delegation = governorate.delegations.find(del => {
-            const delNameLower = del.name.toLowerCase();
-            const partLower = locationPart.toLowerCase();
-            
-            // Exact match
-            if (delNameLower === partLower) return true;
-            
-            // Contains match (both ways)
-            if (delNameLower.includes(partLower) || partLower.includes(delNameLower)) return true;
-            
-            // Arabic match
-            if (del.nameAr === locationPart) return true;
-            
-            // Remove common prefixes/suffixes for better matching
-            const cleanDelName = delNameLower.replace(/\s*(nord|sud|est|ouest|ville|center|centre)\s*/g, '').trim();
-            const cleanPartName = partLower.replace(/\s*(north|south|east|west|city|center|centre)\s*/g, '').trim();
-            
-            if (cleanDelName === cleanPartName) return true;
-            if (cleanDelName.includes(cleanPartName) || cleanPartName.includes(cleanDelName)) return true;
-            
-            return false;
-          });
-          
-          if (delegation) {
-            matchedDelegation = delegation.name; // Use name instead of ID
-            console.log('✅ Matched delegation:', delegation.name);
-            break;
-          } else {
-            console.log('❌ No match found for:', locationPart);
-          }
-        }
-        
-        // If no delegation found yet, try some manual mappings for the matched governorate
-        if (!matchedDelegation && matchedGovernorate) {
-          const gov = TUNISIA_GOVERNORATES.find(g => g.id === matchedGovernorate);
-          if (gov) {
-            for (const part of locationParts) {
-              const partLower = part.toLowerCase();
-              
-              // Try to find a delegation that matches common patterns
-              const fallbackDelegation = gov.delegations.find(del => {
-                const words = partLower.split(/\s+/);
-                const delWords = del.name.toLowerCase().split(/\s+/);
-                
-                // Check if any word in the location matches any word in delegation name
-                return words.some((word: string) => 
-                  delWords.some((delWord: string) => 
-                    word.length > 2 && delWord.length > 2 && 
-                    (word.includes(delWord) || delWord.includes(word))
-                  )
-                );
-              });
-              
-              if (fallbackDelegation) {
-                matchedDelegation = fallbackDelegation.id;
-                console.log('✅ Fallback matched delegation:', fallbackDelegation.name, 'with id:', fallbackDelegation.id);
-                break;
-              }
-            }
-          }
-        }
-        
-        break;
-      }
-    }
-
-    // If no governorate matched, try some manual mappings for common variations
-    if (!matchedGovernorate) {
-      for (const part of locationParts) {
-        const partLower = part.toLowerCase();
-        
-        // Manual mappings for common variations (using actual names)
-        if (partLower.includes('tunis') || partLower.includes('تونس')) {
-          matchedGovernorate = 'Tunis';
-        } else if (partLower.includes('ariana') || partLower.includes('أريانة')) {
-          matchedGovernorate = 'Ariana';
-        } else if (partLower.includes('ben arous') || partLower.includes('بن عروس')) {
-          matchedGovernorate = 'Ben Arous';
-        } else if (partLower.includes('manouba') || partLower.includes('منوبة')) {
-          matchedGovernorate = 'Manouba';
-        } else if (partLower.includes('nabeul') || partLower.includes('نابل')) {
-          matchedGovernorate = 'Nabeul';
-        } else if (partLower.includes('sousse') || partLower.includes('سوسة')) {
-          matchedGovernorate = 'Sousse';
-        } else if (partLower.includes('sfax') || partLower.includes('صفاقس')) {
-          matchedGovernorate = 'Sfax';
-        }
-        
-        if (matchedGovernorate) {
-          console.log('Matched governorate via manual mapping:', matchedGovernorate);
-          break;
-        }
-      }
+    // If delegation is the same as governorate, try to find a more specific location
+    if (delegation === governorate && address.suburb) {
+      delegation = address.suburb;
     }
 
     return {
-      governorate: matchedGovernorate,
-      delegation: matchedDelegation
+      governorate: governorate || undefined,
+      delegation: delegation || undefined
     };
   };
 

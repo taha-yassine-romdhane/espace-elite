@@ -1,6 +1,6 @@
 import React from 'react';
 import { MedicalDevice, Diagnostic, DiagnosticResult } from '@prisma/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ActivityIcon } from 'lucide-react';
 

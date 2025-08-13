@@ -49,7 +49,7 @@ export default async function handler(
               iah: iah !== undefined ? parseFloat(iah) : null,
               idValue: idValue !== undefined ? parseFloat(idValue) : null,
               remarque,
-              status: status || 'NORMAL'
+              status: status || 'COMPLETED'
             }
           });
         } else {
@@ -60,9 +60,31 @@ export default async function handler(
               iah: iah !== undefined ? parseFloat(iah) : null,
               idValue: idValue !== undefined ? parseFloat(idValue) : null,
               remarque,
-              status: status || 'NORMAL'
+              status: status || 'COMPLETED'
             }
           });
+        }
+
+        // When results are entered, mark diagnostic as completed and release device
+        if (iah !== undefined || idValue !== undefined) {
+          // Update diagnostic status to completed
+          await prisma.diagnostic.update({
+            where: { id },
+            data: {
+              status: 'COMPLETED',
+              updatedAt: new Date()
+            }
+          });
+
+          // Release the medical device - set back to ACTIVE since diagnostic is done
+          if (diagnostic.medicalDeviceId) {
+            await prisma.medicalDevice.update({
+              where: { id: diagnostic.medicalDeviceId },
+              data: {
+                status: 'ACTIVE'
+              }
+            });
+          }
         }
 
         return res.status(200).json(result);

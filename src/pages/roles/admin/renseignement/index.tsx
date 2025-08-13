@@ -71,11 +71,18 @@ export default function RenseignementPage() {
   const [filters, setFilters] = useState({
     doctor: 'all',
     technician: 'all',
-    type: 'all'
+    supervisor: 'all',
+    type: 'all',
+    cnam: 'all',
+    ageRange: 'all',
+    city: 'all',
+    hasFiles: 'all'
   });
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
   const [availableDoctors, setAvailableDoctors] = useState<{ id: string, name: string }[]>([]);
   const [availableTechnicians, setAvailableTechnicians] = useState<{ id: string, name: string }[]>([]);
+  const [availableSupervisors, setAvailableSupervisors] = useState<{ id: string, name: string }[]>([]);
+  const [availableCities, setAvailableCities] = useState<string[]>([]);
 
   // Use a single useEffect for initial data loading
   useEffect(() => {
@@ -123,8 +130,31 @@ export default function RenseignementPage() {
           index === self.findIndex(t => t.id === technician.id)
         );
 
+      const supervisors = renseignements
+        .filter(item => item.supervisor)
+        .map(item => item.supervisor!)
+        .filter((supervisor, index, self) =>
+          index === self.findIndex(s => s.id === supervisor.id)
+        );
+
+      // Extract unique cities from addresses
+      const cities = renseignements
+        .map(item => {
+          if (item.governorate) return item.governorate;
+          if (item.adresse) {
+            // Try to extract city from address
+            const addressParts = item.adresse.split(',');
+            return addressParts[addressParts.length - 1]?.trim();
+          }
+          return null;
+        })
+        .filter((city, index, self) => city && city.length > 0 && self.indexOf(city) === index)
+        .sort();
+
       setAvailableDoctors(doctors);
       setAvailableTechnicians(technicians);
+      setAvailableSupervisors(supervisors);
+      setAvailableCities(cities as string[]);
     }
   }, [renseignements]);
 
@@ -156,9 +186,62 @@ export default function RenseignementPage() {
       );
     }
 
+    // Apply supervisor filter
+    if (filters.supervisor && filters.supervisor !== 'all') {
+      filtered = filtered.filter(item =>
+        item.supervisor && item.supervisor.id === filters.supervisor
+      );
+    }
+
     // Apply type filter
     if (filters.type && filters.type !== 'all') {
       filtered = filtered.filter(item => item.type === filters.type);
+    }
+
+    // Apply CNAM filter
+    if (filters.cnam && filters.cnam !== 'all') {
+      if (filters.cnam === 'with') {
+        filtered = filtered.filter(item => item.identifiantCNAM && item.identifiantCNAM.trim().length > 0);
+      } else if (filters.cnam === 'without') {
+        filtered = filtered.filter(item => !item.identifiantCNAM || item.identifiantCNAM.trim().length === 0);
+      }
+    }
+
+    // Apply age range filter
+    if (filters.ageRange && filters.ageRange !== 'all' && filters.ageRange !== '') {
+      filtered = filtered.filter(item => {
+        if (!item.dateNaissance) return false;
+        const birthDate = new Date(item.dateNaissance);
+        const today = new Date();
+        const age = today.getFullYear() - birthDate.getFullYear();
+        
+        switch (filters.ageRange) {
+          case 'under18': return age < 18;
+          case '18-30': return age >= 18 && age <= 30;
+          case '31-50': return age >= 31 && age <= 50;
+          case '51-70': return age >= 51 && age <= 70;
+          case 'over70': return age > 70;
+          default: return true;
+        }
+      });
+    }
+
+    // Apply city filter
+    if (filters.city && filters.city !== 'all') {
+      filtered = filtered.filter(item => {
+        if (item.governorate && item.governorate.includes(filters.city)) return true;
+        if (item.adresse && item.adresse.includes(filters.city)) return true;
+        return false;
+      });
+    }
+
+    // Apply files filter
+    if (filters.hasFiles && filters.hasFiles !== 'all') {
+      if (filters.hasFiles === 'with') {
+        filtered = filtered.filter(item => item.files && item.files.length > 0);
+      } else if (filters.hasFiles === 'without') {
+        filtered = filtered.filter(item => !item.files || item.files.length === 0);
+      }
     }
 
     // Update active filters for display
@@ -171,13 +254,36 @@ export default function RenseignementPage() {
       const technician = availableTechnicians.find(t => t.id === filters.technician);
       if (technician) newActiveFilters.push(`Tech: ${technician.name}`);
     }
+    if (filters.supervisor && filters.supervisor !== 'all') {
+      const supervisor = availableSupervisors.find(s => s.id === filters.supervisor);
+      if (supervisor) newActiveFilters.push(`Sup: ${supervisor.name}`);
+    }
     if (filters.type && filters.type !== 'all') {
       newActiveFilters.push(`Type: ${filters.type}`);
+    }
+    if (filters.cnam && filters.cnam !== 'all') {
+      newActiveFilters.push(`CNAM: ${filters.cnam === 'with' ? 'Avec' : 'Sans'}`);
+    }
+    if (filters.ageRange && filters.ageRange !== 'all') {
+      const ageLabels = {
+        'under18': 'Moins de 18 ans',
+        '18-30': '18-30 ans',
+        '31-50': '31-50 ans',
+        '51-70': '51-70 ans',
+        'over70': 'Plus de 70 ans'
+      };
+      newActiveFilters.push(`Âge: ${ageLabels[filters.ageRange as keyof typeof ageLabels]}`);
+    }
+    if (filters.city && filters.city !== 'all') {
+      newActiveFilters.push(`Ville: ${filters.city}`);
+    }
+    if (filters.hasFiles && filters.hasFiles !== 'all') {
+      newActiveFilters.push(`Documents: ${filters.hasFiles === 'with' ? 'Avec' : 'Sans'}`);
     }
 
     setActiveFilters(newActiveFilters);
     setFilteredRenseignements(filtered);
-  }, [renseignements, searchQuery, filters, availableDoctors, availableTechnicians]);
+  }, [renseignements, searchQuery, filters, availableDoctors, availableTechnicians, availableSupervisors, availableCities]);
 
   // Apply filters and search whenever the memoized function changes
   useEffect(() => {
@@ -204,8 +310,18 @@ export default function RenseignementPage() {
       setFilters(prev => ({ ...prev, doctor: 'all' }));
     } else if (filterKey === 'tech') {
       setFilters(prev => ({ ...prev, technician: 'all' }));
+    } else if (filterKey === 'sup') {
+      setFilters(prev => ({ ...prev, supervisor: 'all' }));
     } else if (filterKey === 'type') {
       setFilters(prev => ({ ...prev, type: 'all' }));
+    } else if (filterKey === 'cnam') {
+      setFilters(prev => ({ ...prev, cnam: 'all' }));
+    } else if (filterKey === 'âge') {
+      setFilters(prev => ({ ...prev, ageRange: 'all' }));
+    } else if (filterKey === 'ville') {
+      setFilters(prev => ({ ...prev, city: 'all' }));
+    } else if (filterKey === 'documents') {
+      setFilters(prev => ({ ...prev, hasFiles: 'all' }));
     }
   };
 
@@ -213,7 +329,12 @@ export default function RenseignementPage() {
     setFilters({
       doctor: 'all',
       technician: 'all',
-      type: 'all'
+      supervisor: 'all',
+      type: 'all',
+      cnam: 'all',
+      ageRange: 'all',
+      city: 'all',
+      hasFiles: 'all'
     });
     setSearchQuery('');
   };
@@ -475,105 +596,198 @@ export default function RenseignementPage() {
     }
   };
      return (
-     <div className="container mx-auto py-6">
-     <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Renseignements</h1>
-        <div className="space-x-2">
-          <Button
-            onClick={() => {
-              resetForm();
-              setFormData(prev => ({ ...prev, type: 'Patient' }));
-              setIsOpen(true);
-            }}
-            className="bg-blue-900 hover:bg-blue-700"
-          >
-            <User className="mr-2 h-4 w-4" />
-            Ajouter Patient
-          </Button>
-          <Button
-            onClick={() => {
-              resetForm();
-              setFormData(prev => ({ ...prev, type: 'Société' }));
-              setIsOpen(true);
-            }}
-            className="bg-blue-900 hover:bg-blue-700"
-          >
-            <Building className="mr-2 h-4 w-4" />
-            Ajouter Société
-          </Button>
-          
-          {/* Import/Export Buttons */}
-          <Button
-            onClick={() => {
-              setImportExportType('patients');
-              setShowImportExportModal(true);
-            }}
-            variant="outline"
-            className="border-green-600 text-green-600 hover:bg-green-50"
-          >
-            <FileSpreadsheet className="mr-2 h-4 w-4" />
-            Excel Patients
-          </Button>
-          <Button
-            onClick={() => {
-              setImportExportType('companies');
-              setShowImportExportModal(true);
-            }}
-            variant="outline"
-            className="border-green-600 text-green-600 hover:bg-green-50"
-          >
-            <FileSpreadsheet className="mr-2 h-4 w-4" />
-            Excel Sociétés
-          </Button>
-        </div>
-      </div>
+     <div className="container mx-auto py-6 space-y-6">
+       {/* Header with Statistics */}
+       <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg p-6 text-white">
+         <div className="flex justify-between items-center mb-4">
+           <h1 className="text-3xl font-bold">Renseignements</h1>
+           <div className="text-sm opacity-90">
+             {filteredRenseignements.length} résultat{filteredRenseignements.length > 1 ? 's' : ''}
+             {filteredRenseignements.length !== renseignements.length && (
+               <span> sur {renseignements.length}</span>
+             )}
+           </div>
+         </div>
+         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+           <div className="bg-white/20 rounded-lg p-3">
+             <div className="text-2xl font-bold">{renseignements.filter(r => r.type === 'Patient').length}</div>
+             <div className="text-sm opacity-90">Patients</div>
+           </div>
+           <div className="bg-white/20 rounded-lg p-3">
+             <div className="text-2xl font-bold">{renseignements.filter(r => r.type === 'Société').length}</div>
+             <div className="text-sm opacity-90">Sociétés</div>
+           </div>
+           <div className="bg-white/20 rounded-lg p-3">
+             <div className="text-2xl font-bold">{renseignements.filter(r => r.identifiantCNAM && r.identifiantCNAM.trim().length > 0).length}</div>
+             <div className="text-sm opacity-90">Avec CNAM</div>
+           </div>
+           <div className="bg-white/20 rounded-lg p-3">
+             <div className="text-2xl font-bold">{renseignements.filter(r => r.files && r.files.length > 0).length}</div>
+             <div className="text-sm opacity-90">Avec Documents</div>
+           </div>
+         </div>
+       </div>
+       
+       <div className="bg-white rounded-lg shadow-sm border p-4">
+         <div className="flex flex-wrap justify-between items-center gap-4">
+           <div className="flex flex-wrap gap-2">
+             <Button
+               onClick={() => {
+                 resetForm();
+                 setFormData(prev => ({ ...prev, type: 'Patient' }));
+                 setIsOpen(true);
+               }}
+               className="bg-blue-600 hover:bg-blue-700"
+             >
+               <User className="mr-2 h-4 w-4" />
+               Nouveau Patient
+             </Button>
+             <Button
+               onClick={() => {
+                 resetForm();
+                 setFormData(prev => ({ ...prev, type: 'Société' }));
+                 setIsOpen(true);
+               }}
+               className="bg-indigo-600 hover:bg-indigo-700"
+             >
+               <Building className="mr-2 h-4 w-4" />
+               Nouvelle Société
+             </Button>
+             
+             {/* Import/Export Buttons */}
+             <Button
+               onClick={() => {
+                 setImportExportType('patients');
+                 setShowImportExportModal(true);
+               }}
+               variant="outline"
+               className="border-green-600 text-green-600 hover:bg-green-50"
+               size="sm"
+             >
+               <FileSpreadsheet className="mr-1 h-4 w-4" />
+               Excel Patients
+             </Button>
+             <Button
+               onClick={() => {
+                 setImportExportType('companies');
+                 setShowImportExportModal(true);
+               }}
+               variant="outline"
+               className="border-green-600 text-green-600 hover:bg-green-50"
+               size="sm"
+             >
+               <FileSpreadsheet className="mr-1 h-4 w-4" />
+               Excel Sociétés
+             </Button>
+           </div>
+         </div>
+       </div>
 
-      <div className="flex justify-between items-center mb-4">
-        <div className="flex items-center space-x-2">
-          <div className="relative w-full max-w-sm">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              type="search"
-              value={searchQuery}
-              onChange={handleSearchChange}
-              placeholder="Rechercher..."
-              className="w-full pl-10"
-            />
-          </div>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="h-10">
-                <Filter className="h-4 w-4 mr-2" />
-                Filtres
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80">
+       <div className="bg-white rounded-lg shadow-sm border p-4">
+         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+           <div className="flex flex-col md:flex-row items-start md:items-center gap-4 flex-1">
+             <div className="relative w-full max-w-md">
+               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+               <Input
+                 type="search"
+                 value={searchQuery}
+                 onChange={handleSearchChange}
+                 placeholder="Rechercher par nom, téléphone, CIN..."
+                 className="w-full pl-10 pr-4"
+               />
+             </div>
+             <Popover>
+               <PopoverTrigger asChild>
+                 <Button variant="outline" className="h-10 whitespace-nowrap">
+                   <Filter className="h-4 w-4 mr-2" />
+                   Filtres {activeFilters.length > 0 && `(${activeFilters.length})`}
+                 </Button>
+               </PopoverTrigger>
+            <PopoverContent className="w-96 max-h-[600px] overflow-y-auto">
               <div className="space-y-4">
-                <div className="space-y-2">
-                  <h4 className="font-medium">Type</h4>
-                  <Select
-                    value={filters.type}
-                    onValueChange={(value) => handleFilterChange('type', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner un type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Tous</SelectItem>
-                      <SelectItem value="Patient">Patient</SelectItem>
-                      <SelectItem value="Société">Société</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-sm">Type</h4>
+                    <Select
+                      value={filters.type}
+                      onValueChange={(value) => handleFilterChange('type', value)}
+                    >
+                      <SelectTrigger className="h-8">
+                        <SelectValue placeholder="Type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Tous</SelectItem>
+                        <SelectItem value="Patient">Patient</SelectItem>
+                        <SelectItem value="Société">Société</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-sm">CNAM</h4>
+                    <Select
+                      value={filters.cnam}
+                      onValueChange={(value) => handleFilterChange('cnam', value)}
+                    >
+                      <SelectTrigger className="h-8">
+                        <SelectValue placeholder="CNAM" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Tous</SelectItem>
+                        <SelectItem value="with">Avec CNAM</SelectItem>
+                        <SelectItem value="without">Sans CNAM</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-sm">Tranche d'âge</h4>
+                    <Select
+                      value={filters.ageRange}
+                      onValueChange={(value) => handleFilterChange('ageRange', value)}
+                    >
+                      <SelectTrigger className="h-8">
+                        <SelectValue placeholder="Âge" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Tous</SelectItem>
+                        <SelectItem value="under18">Moins de 18</SelectItem>
+                        <SelectItem value="18-30">18-30 ans</SelectItem>
+                        <SelectItem value="31-50">31-50 ans</SelectItem>
+                        <SelectItem value="51-70">51-70 ans</SelectItem>
+                        <SelectItem value="over70">Plus de 70</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-sm">Documents</h4>
+                    <Select
+                      value={filters.hasFiles}
+                      onValueChange={(value) => handleFilterChange('hasFiles', value)}
+                    >
+                      <SelectTrigger className="h-8">
+                        <SelectValue placeholder="Documents" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Tous</SelectItem>
+                        <SelectItem value="with">Avec documents</SelectItem>
+                        <SelectItem value="without">Sans documents</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
-                  <h4 className="font-medium">Médecin responsable</h4>
+                  <h4 className="font-medium text-sm">Médecin responsable</h4>
                   <Select
                     value={filters.doctor}
                     onValueChange={(value) => handleFilterChange('doctor', value)}
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner un médecin" />
+                    <SelectTrigger className="h-8">
+                      <SelectValue placeholder="Médecin" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Tous</SelectItem>
@@ -587,13 +801,13 @@ export default function RenseignementPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <h4 className="font-medium">Technicien responsable</h4>
+                  <h4 className="font-medium text-sm">Technicien responsable</h4>
                   <Select
                     value={filters.technician}
                     onValueChange={(value) => handleFilterChange('technician', value)}
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner un technicien" />
+                    <SelectTrigger className="h-8">
+                      <SelectValue placeholder="Technicien" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Tous</SelectItem>
@@ -606,44 +820,94 @@ export default function RenseignementPage() {
                   </Select>
                 </div>
 
-                <div className="flex justify-end">
+                <div className="space-y-2">
+                  <h4 className="font-medium text-sm">Superviseur</h4>
+                  <Select
+                    value={filters.supervisor}
+                    onValueChange={(value) => handleFilterChange('supervisor', value)}
+                  >
+                    <SelectTrigger className="h-8">
+                      <SelectValue placeholder="Superviseur" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tous</SelectItem>
+                      {availableSupervisors.map(supervisor => (
+                        <SelectItem key={supervisor.id} value={supervisor.id}>
+                          {supervisor.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {availableCities.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-sm">Ville/Région</h4>
+                    <Select
+                      value={filters.city}
+                      onValueChange={(value) => handleFilterChange('city', value)}
+                    >
+                      <SelectTrigger className="h-8">
+                        <SelectValue placeholder="Ville" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Toutes</SelectItem>
+                        {availableCities.map(city => (
+                          <SelectItem key={city} value={city}>
+                            {city}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                <div className="flex justify-between pt-2 border-t">
                   <Button variant="outline" size="sm" onClick={clearAllFilters}>
                     Réinitialiser
                   </Button>
+                  <span className="text-sm text-gray-500">
+                    {filteredRenseignements.length} résultat{filteredRenseignements.length > 1 ? 's' : ''}
+                  </span>
                 </div>
               </div>
             </PopoverContent>
           </Popover>
-        </div>
+           </div>
+           
+           <div className="flex flex-wrap gap-2">
+             {activeFilters.map(filter => (
+               <Badge key={filter} variant="secondary" className="cursor-pointer flex items-center gap-1 text-xs">
+                 {filter}
+                 <X className="h-3 w-3" onClick={() => clearFilter(filter)} />
+               </Badge>
+             ))}
+             {activeFilters.length > 0 && (
+               <Button variant="ghost" size="sm" onClick={clearAllFilters} className="h-6 text-xs">
+                 Effacer tous
+               </Button>
+             )}
+           </div>
+         </div>
+       </div>
 
-        <div className="flex flex-wrap gap-2">
-          {activeFilters.map(filter => (
-            <Badge key={filter} variant="secondary" className="cursor-pointer flex items-center gap-1">
-              {filter}
-              <X className="h-3 w-3" onClick={() => clearFilter(filter)} />
-            </Badge>
-          ))}
-          {activeFilters.length > 0 && (
-            <Button variant="ghost" size="sm" onClick={clearAllFilters}>
-              Effacer tous
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {isLoading ? (
-        <LoadingFallback />
-      ) : (
-        <Suspense fallback={<LoadingFallback />}>
-          <RenseignementTable
-            data={filteredRenseignements}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            onViewFiles={(files) => handleViewFiles(files)}
-            onViewDetails={handleViewDetails}
-          />
-        </Suspense>
-      )}
+       <div className="bg-white rounded-lg shadow-sm border">
+         {isLoading ? (
+           <div className="p-8">
+             <LoadingFallback />
+           </div>
+         ) : (
+           <Suspense fallback={<div className="p-8"><LoadingFallback /></div>}>
+             <RenseignementTable
+               data={filteredRenseignements}
+               onEdit={handleEdit}
+               onDelete={handleDelete}
+               onViewFiles={(files) => handleViewFiles(files)}
+               onViewDetails={handleViewDetails}
+             />
+           </Suspense>
+         )}
+       </div>
 
       {isOpen && (
         <div className="fixed inset-0 flex items-center justify-center z-50">

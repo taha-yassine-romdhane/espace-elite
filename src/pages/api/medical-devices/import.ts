@@ -55,15 +55,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             brand: device.brand,
             model: device.model,
             serialNumber: device.serialNumber,
-            stockLocationId: device.stockLocationId,
+            stockLocation: device.stockLocationId ? {
+              connect: { id: device.stockLocationId }
+            } : undefined,
             purchasePrice: device.purchasePrice,
             sellingPrice: device.sellingPrice,
             rentalPrice: device.rentalPrice,
             technicalSpecs: device.technicalSpecs,
-            availableForRent: device.availableForRent || false,
+            destination: device.destination || 'FOR_SALE',
             requiresMaintenance: device.requiresMaintenance || false,
             status: device.status || 'ACTIVE',
-            stockQuantity: 1, // Medical devices always have quantity 1
+            stockQuantity: device.stockQuantity || 1,
+            configuration: device.configuration,
           },
         });
 

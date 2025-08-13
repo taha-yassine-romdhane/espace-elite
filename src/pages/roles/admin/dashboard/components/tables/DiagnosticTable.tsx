@@ -43,6 +43,10 @@ import {
   ChevronDown,
   ChevronRight,
   Activity,
+  CheckCircle,
+  XCircle,
+  AlertTriangle,
+  FileX,
 } from "lucide-react";
 import { calculateIAHSeverity, formatIAHValue } from "@/utils/diagnosticUtils";
 
@@ -80,7 +84,7 @@ export function DiagnosticTable({ onViewDetails, onEnterResults, onAddDocuments 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   const [expandedPatients, setExpandedPatients] = useState<Set<string>>(new Set());
-  const [viewMode, setViewMode] = useState<"grouped" | "list">("grouped");
+  const [viewMode, setViewMode] = useState<"grouped" | "list">("list");
   
   // Fetch diagnostic operations data
   const { data: diagnosticOperations, isLoading } = useQuery({
@@ -170,33 +174,26 @@ export function DiagnosticTable({ onViewDetails, onEnterResults, onAddDocuments 
     return isBefore(dueDate, today);
   };
 
-  // Function to get status badge
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "PENDING":
-        return (
-          <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200">
-            En attente
-          </Badge>
-        );
-      case "COMPLETED":
-        return (
-          <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
-            Complété
-          </Badge>
-        );
-      case "CANCELED":
-        return (
-          <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-200">
-            Annulé
-          </Badge>
-        );
-      default:
-        return (
-          <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">
-            {status}
-          </Badge>
-        );
+  // Function to get business status - Only Appareillé ou Non Appareillé
+  const getStatusBadge = (diagnostic: any) => {
+    // Simple logic: Has sale OR rental = Appareillé, otherwise Non appareillé
+    const hasSale = diagnostic.hasSale;
+    const hasRental = diagnostic.hasRental;
+    
+    if (hasSale || hasRental) {
+      return (
+        <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200 text-xs flex items-center gap-1">
+          <CheckCircle className="h-3 w-3" />
+          Appareillé
+        </Badge>
+      );
+    } else {
+      return (
+        <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200 text-xs flex items-center gap-1">
+          <XCircle className="h-3 w-3" />
+          Non appareillé
+        </Badge>
+      );
     }
   };
 
@@ -687,13 +684,7 @@ export function DiagnosticTable({ onViewDetails, onEnterResults, onAddDocuments 
                             </TableCell>
                             
                             <TableCell>
-                              {!diagnostic.result ? (
-                                <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200 text-xs">
-                                  En attente
-                                </Badge>
-                              ) : (
-                                getStatusBadge(diagnostic.result.status || 'PENDING')
-                              )}
+                              {getStatusBadge(diagnostic)}
                             </TableCell>
                             
                             <TableCell>
@@ -887,13 +878,7 @@ export function DiagnosticTable({ onViewDetails, onEnterResults, onAddDocuments 
                       </TableCell>
                       
                       <TableCell>
-                        {!operation.result ? (
-                          <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200">
-                            Résultats en attente
-                          </Badge>
-                        ) : (
-                          getStatusBadge(operation.result.status || 'PENDING')
-                        )}
+                        {getStatusBadge(operation)}
                         {operation.followUpRequired && (
                           <div className="mt-1">
                             <Badge variant="outline" className={`text-xs ${isOverdue(operation.followUpDate) ? 'bg-red-50 text-red-700 border-red-100' : 'bg-blue-50 text-blue-700 border-blue-100'}`}>
