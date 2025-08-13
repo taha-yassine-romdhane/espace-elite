@@ -7,7 +7,7 @@ import { useToast } from "@/components/ui/use-toast";
 interface ImportExportModalProps {
   isOpen: boolean;
   onClose: () => void;
-  type: 'patients' | 'companies';
+  type: 'patients' | 'companies' | 'products' | 'medical-devices';
   onImportComplete?: () => void;
 }
 
@@ -23,15 +23,42 @@ export default function ImportExportModal({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  const entityName = type === 'patients' ? 'patients' : 'sociétés';
-  const entityNameSingular = type === 'patients' ? 'patient' : 'société';
+  const getEntityNames = (type: string) => {
+    switch (type) {
+      case 'patients':
+        return { plural: 'patients', singular: 'patient' };
+      case 'companies':
+        return { plural: 'sociétés', singular: 'société' };
+      case 'products':
+        return { plural: 'produits', singular: 'produit' };
+      case 'medical-devices':
+        return { plural: 'appareils médicaux', singular: 'appareil médical' };
+      default:
+        return { plural: 'éléments', singular: 'élément' };
+    }
+  };
+
+  const { plural: entityName, singular: entityNameSingular } = getEntityNames(type);
 
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      const endpoint = type === 'patients' 
-        ? '/api/renseignements/patients/export'
-        : '/api/renseignements/companies/export';
+      const getExportEndpoint = (type: string) => {
+        switch (type) {
+          case 'patients':
+            return '/api/renseignements/patients/export';
+          case 'companies':
+            return '/api/renseignements/companies/export';
+          case 'products':
+            return '/api/excel-import/products/export';
+          case 'medical-devices':
+            return '/api/excel-import/medical-devices/export';
+          default:
+            throw new Error('Type non supporté');
+        }
+      };
+
+      const endpoint = getExportEndpoint(type);
       
       const response = await fetch(endpoint);
       
@@ -69,9 +96,22 @@ export default function ImportExportModal({
 
   const handleDownloadTemplate = async () => {
     try {
-      const endpoint = type === 'patients' 
-        ? '/api/renseignements/patients/template'
-        : '/api/renseignements/companies/template';
+      const getTemplateEndpoint = (type: string) => {
+        switch (type) {
+          case 'patients':
+            return '/api/renseignements/patients/template';
+          case 'companies':
+            return '/api/renseignements/companies/template';
+          case 'products':
+            return '/api/excel-import/products/template';
+          case 'medical-devices':
+            return '/api/excel-import/medical-devices/template';
+          default:
+            throw new Error('Type non supporté');
+        }
+      };
+
+      const endpoint = getTemplateEndpoint(type);
       
       const response = await fetch(endpoint);
       
@@ -126,9 +166,22 @@ export default function ImportExportModal({
       const formData = new FormData();
       formData.append('file', file);
 
-      const endpoint = type === 'patients' 
-        ? '/api/renseignements/patients/import'
-        : '/api/renseignements/companies/import';
+      const getImportEndpoint = (type: string) => {
+        switch (type) {
+          case 'patients':
+            return '/api/renseignements/patients/import';
+          case 'companies':
+            return '/api/renseignements/companies/import';
+          case 'products':
+            return '/api/excel-import/products';
+          case 'medical-devices':
+            return '/api/excel-import/medical-devices';
+          default:
+            throw new Error('Type non supporté');
+        }
+      };
+
+      const endpoint = getImportEndpoint(type);
 
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -176,8 +229,8 @@ export default function ImportExportModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px]">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <FileSpreadsheet className="h-5 w-5" />
             Import/Export {entityName}
@@ -187,7 +240,7 @@ export default function ImportExportModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="space-y-6 overflow-y-auto flex-1 pr-2">
           {/* Template Download Section */}
           <div className="border rounded-lg p-4 bg-green-50 border-green-200">
             <h3 className="text-lg font-medium mb-2 flex items-center gap-2 text-green-800">
@@ -293,22 +346,46 @@ export default function ImportExportModal({
               <li>• <strong>Commencez par télécharger le template</strong> qui contient des exemples et instructions détaillées</li>
               <li>• Vous pouvez aussi utiliser l'export pour obtenir le format avec vos données existantes</li>
               <li>• Les fichiers ne sont pas inclus dans l'import/export</li>
-              <li>• Les médecins et techniciens doivent déjà exister dans la base de données</li>
-              <li>• Format téléphone: +216XXXXXXXX ou XXXXXXXX (8 chiffres)</li>
+              
               {type === 'patients' && (
                 <>
+                  <li>• Les médecins et techniciens doivent déjà exister dans la base de données</li>
+                  <li>• Format téléphone: +216XXXXXXXX ou XXXXXXXX (8 chiffres)</li>
                   <li>• Format CIN: 8 chiffres</li>
                   <li>• Format date: JJ/MM/AAAA ou AAAA-MM-JJ</li>
                 </>
               )}
+              
               {type === 'companies' && (
-                <li>• Les noms de société doivent être uniques</li>
+                <>
+                  <li>• Les noms de société doivent être uniques</li>
+                  <li>• Format téléphone: +216XXXXXXXX ou XXXXXXXX (8 chiffres)</li>
+                </>
+              )}
+              
+              {type === 'products' && (
+                <>
+                  <li>• Types autorisés: ACCESSORY (Accessoire) ou SPARE_PART (Pièce détachée)</li>
+                  <li>• Les numéros de série doivent être uniques s'ils sont fournis</li>
+                  <li>• Format prix: utiliser des décimales (ex: 123.45)</li>
+                  <li>• Format date: JJ/MM/AAAA ou AAAA-MM-JJ</li>
+                </>
+              )}
+              
+              {type === 'medical-devices' && (
+                <>
+                  <li>• Types d'appareils: CPAP, VNI, CONCENTRATEUR_OXYGENE, MASQUE, AUTRE</li>
+                  <li>• Les numéros de série doivent être uniques s'ils sont fournis</li>
+                  <li>• Format prix: utiliser des décimales (ex: 2500.00)</li>
+                  <li>• Nécessite maintenance: true/false, oui/non, 1/0</li>
+                  <li>• Format date: JJ/MM/AAAA ou AAAA-MM-JJ</li>
+                </>
               )}
             </ul>
           </div>
         </div>
 
-        <div className="flex justify-end">
+        <div className="flex justify-end flex-shrink-0 pt-4 border-t">
           <Button variant="outline" onClick={onClose}>
             Fermer
           </Button>

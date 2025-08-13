@@ -21,6 +21,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         });
       }
 
+      // First check if it's a regular product in Stock table
       const stock = await prisma.stock.findFirst({
         where: {
           locationId: fromLocationId,
@@ -41,30 +42,66 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       });
 
-      if (!stock) {
+      if (stock) {
+        // It's a regular product (accessory or spare part)
+        const isAvailable = stock.quantity >= quantity;
         return res.status(200).json({
-          available: false,
-          reason: 'Product not found in source location',
+          available: isAvailable,
+          reason: isAvailable ? 'Stock available' : 'Insufficient quantity',
           details: {
-            hasStock: false,
-            availableQuantity: 0,
-            requestedQuantity: quantity
+            hasStock: true,
+            availableQuantity: stock.quantity,
+            requestedQuantity: quantity,
+            productName: stock.product.name,
+            locationName: stock.location.name,
+            productType: stock.product.type,
+            isDevice: false
           }
         });
       }
 
-      const isAvailable = stock.quantity >= quantity;
+      // Check if it's a medical device
+      const medicalDevice = await prisma.medicalDevice.findFirst({
+        where: {
+          id: productId,
+          stockLocationId: fromLocationId,
+          status: { notIn: ['SOLD', 'RETIRED'] } // Can't transfer sold or retired devices
+        },
+        include: {
+          stockLocation: {
+            select: {
+              name: true
+            }
+          }
+        }
+      });
 
+      if (medicalDevice) {
+        // Medical devices have quantity of 1
+        const isAvailable = quantity === 1;
+        return res.status(200).json({
+          available: isAvailable,
+          reason: isAvailable ? 'Device available' : 'Medical devices can only be transferred one at a time',
+          details: {
+            hasStock: true,
+            availableQuantity: 1,
+            requestedQuantity: quantity,
+            productName: medicalDevice.name,
+            locationName: medicalDevice.stockLocation.name,
+            productType: medicalDevice.type,
+            isDevice: true
+          }
+        });
+      }
+
+      // Product/device not found
       return res.status(200).json({
-        available: isAvailable,
-        reason: isAvailable ? 'Stock available' : 'Insufficient quantity',
+        available: false,
+        reason: 'Product not found in source location',
         details: {
-          hasStock: true,
-          availableQuantity: stock.quantity,
-          requestedQuantity: quantity,
-          productName: stock.product.name,
-          locationName: stock.location.name,
-          productType: stock.product.type
+          hasStock: false,
+          availableQuantity: 0,
+          requestedQuantity: quantity
         }
       });
 

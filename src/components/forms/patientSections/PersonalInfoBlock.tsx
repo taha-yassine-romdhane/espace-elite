@@ -102,6 +102,7 @@ export default function PersonalInfoBlock({
     form.setValue('telephoneSecondaire', patient.telephoneTwo || '');
     form.setValue('governorate', (patient as any).governorate || '');
     form.setValue('delegation', (patient as any).delegation || '');
+    form.setValue('detailedAddress', (patient as any).detailedAddress || '');
 
     if (patient.addressCoordinates) {
       setCoordinates(patient.addressCoordinates);
@@ -341,6 +342,17 @@ export default function PersonalInfoBlock({
             </div>
           )}
 
+
+          {/* Detailed Address */}
+          <div className="space-y-2">
+            <SmartInput
+              name="detailedAddress"
+              label="Adresse détaillée"
+              form={form}
+              placeholder="Numéro, rue, quartier, etc."
+              onParentChange={onInputChange}
+            />
+          </div>
 
           {/* Map-based Address Selection */}
           <div className="space-y-2">

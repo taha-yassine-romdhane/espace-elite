@@ -10,7 +10,7 @@ import { DiagnosticDeviceDetails } from '@/components/medicalDevice/DiagnosticDe
 import { DeviceActions } from '@/components/appareils/DeviceActions';
 import { Button } from '@/components/ui/button';
 import { ArrowLeftIcon } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
+import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getSession } from 'next-auth/react';
 

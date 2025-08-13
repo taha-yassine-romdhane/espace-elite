@@ -1,7 +1,7 @@
 import React from 'react';
 import { MedicalDevice } from '@prisma/client';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface DeviceHeaderProps {
   device: MedicalDevice & { stockLocation?: { name: string } | null };
@@ -54,7 +54,7 @@ export const DeviceHeader: React.FC<DeviceHeaderProps> = ({ device }) => {
           </div>
           <div>
             <h3 className="text-sm font-medium text-gray-500">Disponible pour location</h3>
-            <p>{device.availableForRent ? 'Oui' : 'Non'}</p>
+            <p>{(device as any).availableForRent ? 'Oui' : 'Non'}</p>
           </div>
           <div>
             <h3 className="text-sm font-medium text-gray-500">Nécessite maintenance</h3>

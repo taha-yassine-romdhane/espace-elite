@@ -1,6 +1,6 @@
 import React from 'react';
 import { Product, StockTransfer, SaleItem } from '@prisma/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { ArrowRightIcon, ShoppingCartIcon, ArrowLeftRightIcon } from 'lucide-react';

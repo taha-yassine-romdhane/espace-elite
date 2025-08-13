@@ -16,14 +16,49 @@ export default async function handler(
   try {
     switch (req.method) {
       case 'GET':
+        // Get query parameters first
+        const { type = 'all', showReserved = 'true', assignedToMe = 'false' } = req.query;
+        
+        // Build the medical device query based on employee restrictions
+        const medicalDeviceQuery: any = {
+          include: {
+            stockLocation: true,
+            Patient: true,
+          },
+        };
+
+        // If employee wants only assigned devices, filter by their stock location
+        if (assignedToMe === 'true') {
+          // Get the user's stock location first
+          const user = await prisma.user.findUnique({
+            where: { id: session.user.id },
+            include: { stockLocation: true }
+          });
+
+          console.log('Employee medical devices filter - User:', {
+            userId: session.user.id,
+            hasStockLocation: !!user?.stockLocation,
+            stockLocationId: user?.stockLocation?.id,
+            stockLocationName: user?.stockLocation?.name
+          });
+
+          if (user?.stockLocation) {
+            medicalDeviceQuery.where = {
+              stockLocationId: user.stockLocation.id
+            };
+            console.log('Filtering devices by stockLocationId:', user.stockLocation.id);
+          } else {
+            // If user has no stock location, return empty array
+            medicalDeviceQuery.where = {
+              id: 'non-existent-id' // This will return no results
+            };
+            console.log('User has no stock location, returning empty results');
+          }
+        }
+
         // Fetch both medical devices and regular products
         const [medicalDevices, products] = await Promise.all([
-          prisma.medicalDevice.findMany({
-            include: {
-              stockLocation: true,
-              Patient: true,
-            },
-          }),
+          prisma.medicalDevice.findMany(medicalDeviceQuery),
           prisma.product.findMany({
             where: {
               type: {
@@ -41,8 +76,18 @@ export default async function handler(
           })
         ]);
 
-        // Get query parameters
-        const { type = 'all', showReserved = 'true' } = req.query;
+        if (assignedToMe === 'true') {
+          console.log('Medical devices found for employee:', {
+            totalDevices: medicalDevices.length,
+            devices: medicalDevices.map(d => ({
+              id: d.id,
+              name: d.name,
+              type: d.type,
+              stockLocationId: d.stockLocationId,
+              stockLocationName: d.stockLocation?.name
+            }))
+          });
+        }
         
         // Filter medical devices based on type and reservation status
         let filteredMedicalDevices = medicalDevices;

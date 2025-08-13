@@ -1,7 +1,7 @@
 import { SessionProvider } from 'next-auth/react';
 import type { AppProps } from 'next/app';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import Layout from '@/pages/roles/admin/AdminLayout';
+import RoleBasedLayout from '@/components/layout/RoleBasedLayout';
 import { Toaster } from "@/components/ui/toaster";
 import '@/styles/globals.css';
 import '@/styles/leaflet-override.css';
@@ -98,7 +98,7 @@ export default function App({
     },
   }));
   // Use the layout defined at the page level, if available
-  const getLayout = Component.getLayout ?? ((page) => <Layout>{page}</Layout>);
+  const getLayout = Component.getLayout ?? ((page) => <RoleBasedLayout>{page}</RoleBasedLayout>);
 
   // Use the router pathname as a key to force complete re-renders on route changes
   const router = useRouter();

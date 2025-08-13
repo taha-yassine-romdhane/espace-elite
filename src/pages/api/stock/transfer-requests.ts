@@ -19,7 +19,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const itemsPerPage = parseInt(limit as string, 10) || 10;
       const skip = (pageNumber - 1) * itemsPerPage;
       
-      // Get the user's stock location for filtering
+      // Get the user's information
       const user = await prisma.user.findUnique({
         where: { id: session.user.id },
         include: {
@@ -27,18 +27,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       });
 
-      if (!user || !user.stockLocation) {
+      if (!user) {
         return res.status(404).json({ 
-          error: 'No stock location assigned',
-          message: 'User does not have an assigned stock location'
+          error: 'User not found'
         });
       }
 
-      // Build where condition for filtering transfer requests
-      const whereCondition: any = {
-        // Only show requests to this employee's location
-        toLocationId: user.stockLocation.id
-      };
+      // Build where condition based on user role
+      let whereCondition: any = {};
+      
+      if (user.role === 'ADMIN') {
+        // Admin can see all transfer requests
+        whereCondition = {};
+      } else if (user.role === 'EMPLOYEE') {
+        // Employee can only see requests they created or requests to their location
+        if (!user.stockLocation) {
+          return res.status(404).json({ 
+            error: 'No stock location assigned',
+            message: 'User does not have an assigned stock location'
+          });
+        }
+        whereCondition = {
+          OR: [
+            { requestedById: user.id },
+            { toLocationId: user.stockLocation.id }
+          ]
+        };
+      } else {
+        return res.status(403).json({ error: 'Insufficient permissions' });
+      }
 
       if (status && status !== 'all') {
         whereCondition.status = status;

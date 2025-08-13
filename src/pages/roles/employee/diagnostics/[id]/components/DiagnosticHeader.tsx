@@ -2,7 +2,7 @@ import React from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/Card";
+import { Card, CardContent } from "@/components/ui/card";
 import { CalendarIcon, Clock, AlertCircle, CheckCircle, User } from "lucide-react";
 
 interface DiagnosticHeaderProps {

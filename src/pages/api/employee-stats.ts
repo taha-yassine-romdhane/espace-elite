@@ -11,14 +11,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+    
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
+    
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
     // Get total employees
     const totalEmployees = await prisma.user.count({
       where: {
         role: {
-          in: ['EMPLOYEE', 'MANAGER', 'DOCTOR']
+          in: ['EMPLOYEE', 'MANAGER']
         }
       }
     });
@@ -27,7 +31,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const activeEmployees = await prisma.user.count({
       where: {
         role: {
-          in: ['EMPLOYEE', 'MANAGER', 'DOCTOR']
+          in: ['EMPLOYEE', 'MANAGER']
         },
         isActive: true
       }

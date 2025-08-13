@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { DatePicker } from '@/components/ui/date-picker';
 import { TimePicker } from '@/components/ui/time-picker';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { AlertCircle } from 'lucide-react';
 import { 
   Calendar, 
   Clock, 
@@ -32,16 +34,25 @@ interface Client {
   lastName?: string;
 }
 
+interface Employee {
+  id: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  speciality?: string;
+  isActive: boolean;
+}
+
 interface AppointmentData {
   client: Client | null;
   appointmentType: string;
   appointmentDate: Date | null;
   appointmentTime: string;
-  duration: number;
   location: string;
   notes: string;
   priority: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
   status: 'SCHEDULED' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
+  assignedTechnician: Employee | null;
 }
 
 interface RdvStepperDialogProps {
@@ -60,40 +71,84 @@ export function RdvStepperDialog({ isOpen, onClose }: RdvStepperDialogProps) {
     appointmentType: '',
     appointmentDate: null as Date | null,
     appointmentTime: '',
-    duration: 60,
     location: '',
     notes: '',
     priority: 'NORMAL' as 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT',
-    status: 'SCHEDULED' as 'SCHEDULED' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED'
+    status: 'SCHEDULED' as 'SCHEDULED' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED',
+    assignedTechnician: null
   });
 
-  // Steps configuration
-  const steps = [
-    { 
-      id: 1, 
-      title: 'Sélection Client', 
-      icon: <User className="h-5 w-5" />,
-      description: 'Choisir le patient ou la société'
+  // Check for existing appointments
+  const { data: existingAppointments, refetch: refetchAppointments } = useQuery({
+    queryKey: ['appointments', appointmentData.client?.id, appointmentData.appointmentDate],
+    queryFn: async () => {
+      if (!appointmentData.client?.id || !appointmentData.appointmentDate) return [];
+      
+      const response = await fetch(`/api/appointments?patientId=${appointmentData.client.id}`);
+      if (!response.ok) throw new Error('Failed to fetch appointments');
+      
+      const data = await response.json();
+      
+      // Handle both array and object response formats
+      const appointments = Array.isArray(data) ? data : (data.appointments || []);
+      
+      // Filter appointments for the same date
+      const selectedDate = new Date(appointmentData.appointmentDate);
+      return appointments.filter((apt: any) => {
+        const aptDate = new Date(apt.scheduledDate);
+        return aptDate.toDateString() === selectedDate.toDateString() &&
+               apt.status !== 'CANCELLED';
+      });
     },
-    { 
-      id: 2, 
-      title: 'Type de Rendez-vous', 
-      icon: <Stethoscope className="h-5 w-5" />,
-      description: 'Définir le type et motif'
-    },
-    { 
-      id: 3, 
-      title: 'Date et Heure', 
-      icon: <Calendar className="h-5 w-5" />,
-      description: 'Planifier le rendez-vous'
-    },
-    { 
-      id: 4, 
-      title: 'Récapitulatif', 
-      icon: <CheckCircle2 className="h-5 w-5" />,
-      description: 'Vérifier et confirmer'
+    enabled: !!appointmentData.client?.id && !!appointmentData.appointmentDate,
+  });
+
+  // Dynamic steps configuration based on appointment type
+  const getSteps = () => {
+    const baseSteps = [
+      { 
+        id: 1, 
+        title: 'Sélection Client', 
+        icon: <User className="h-5 w-5" />,
+        description: 'Choisir le patient ou la société'
+      },
+      { 
+        id: 2, 
+        title: 'Type de Rendez-vous', 
+        icon: <Stethoscope className="h-5 w-5" />,
+        description: 'Définir le type et motif'
+      }
+    ];
+
+    // Add technician selection step for diagnostic visits
+    if (appointmentData.appointmentType === 'DIAGNOSTIC_VISIT') {
+      baseSteps.push({
+        id: 3,
+        title: 'Sélection Technicien',
+        icon: <User className="h-5 w-5" />,
+        description: 'Assigner un employé'
+      });
     }
-  ];
+
+    baseSteps.push(
+      { 
+        id: appointmentData.appointmentType === 'DIAGNOSTIC_VISIT' ? 4 : 3, 
+        title: 'Date et Heure', 
+        icon: <Calendar className="h-5 w-5" />,
+        description: 'Planifier le rendez-vous'
+      },
+      { 
+        id: appointmentData.appointmentType === 'DIAGNOSTIC_VISIT' ? 5 : 4, 
+        title: 'Récapitulatif', 
+        icon: <CheckCircle2 className="h-5 w-5" />,
+        description: 'Vérifier et confirmer'
+      }
+    );
+
+    return baseSteps;
+  };
+
+  const steps = getSteps();
 
   // Create appointment mutation
   const createAppointmentMutation = useMutation({
@@ -135,11 +190,11 @@ export function RdvStepperDialog({ isOpen, onClose }: RdvStepperDialogProps) {
       appointmentType: '',
       appointmentDate: null,
       appointmentTime: '',
-      duration: 60,
       location: '',
       notes: '',
       priority: 'NORMAL',
-      status: 'SCHEDULED'
+      status: 'SCHEDULED',
+      assignedTechnician: null
     });
   };
 
@@ -175,17 +230,21 @@ export function RdvStepperDialog({ isOpen, onClose }: RdvStepperDialogProps) {
       companyId: null, // Appointments are only for patients
       appointmentType: appointmentData.appointmentType,
       scheduledDate: scheduledDate,
-      duration: appointmentData.duration,
       location: appointmentData.location,
       notes: appointmentData.notes,
       priority: appointmentData.priority,
       status: appointmentData.status,
+      assignedToId: appointmentData.assignedTechnician ? appointmentData.assignedTechnician.id : null,
+      // Flag to auto-create task for diagnostic visits
+      createDiagnosticTask: appointmentData.appointmentType === 'DIAGNOSTIC_VISIT'
     };
 
     createAppointmentMutation.mutate(payload);
   };
 
   const renderStepContent = () => {
+    const isDiagnosticVisit = appointmentData.appointmentType === 'DIAGNOSTIC_VISIT';
+    
     switch (currentStep) {
       case 1:
         return (
@@ -211,11 +270,22 @@ export function RdvStepperDialog({ isOpen, onClose }: RdvStepperDialogProps) {
         );
 
       case 3:
+        if (isDiagnosticVisit) {
+          return (
+            <TechnicianSelectionStep
+              selectedTechnician={appointmentData.assignedTechnician}
+              onTechnicianSelect={(technician) => 
+                setAppointmentData(prev => ({ ...prev, assignedTechnician: technician }))
+              }
+            />
+          );
+        }
         return (
           <DateTimeStep
             appointmentDate={appointmentData.appointmentDate}
             appointmentTime={appointmentData.appointmentTime}
-            duration={appointmentData.duration}
+            existingAppointments={existingAppointments || []}
+            patientName={appointmentData.client?.name || ''}
             onUpdate={(updates) => 
               setAppointmentData(prev => ({ ...prev, ...updates }))
             }
@@ -223,6 +293,19 @@ export function RdvStepperDialog({ isOpen, onClose }: RdvStepperDialogProps) {
         );
 
       case 4:
+        if (isDiagnosticVisit) {
+          return (
+            <DateTimeStep
+              appointmentDate={appointmentData.appointmentDate}
+              appointmentTime={appointmentData.appointmentTime}
+              existingAppointments={existingAppointments || []}
+              patientName={appointmentData.client?.name || ''}
+              onUpdate={(updates) => 
+                setAppointmentData(prev => ({ ...prev, ...updates }))
+              }
+            />
+          );
+        }
         return (
           <AppointmentSummaryStep
             appointmentData={appointmentData}
@@ -231,21 +314,46 @@ export function RdvStepperDialog({ isOpen, onClose }: RdvStepperDialogProps) {
           />
         );
 
+      case 5:
+        if (isDiagnosticVisit) {
+          return (
+            <AppointmentSummaryStep
+              appointmentData={appointmentData}
+              onSubmit={handleSubmit}
+              isLoading={createAppointmentMutation.isPending}
+            />
+          );
+        }
+        return null;
+
       default:
         return null;
     }
   };
 
   const isStepValid = () => {
+    const isDiagnosticVisit = appointmentData.appointmentType === 'DIAGNOSTIC_VISIT';
+    
     switch (currentStep) {
       case 1:
         return appointmentData.client !== null;
       case 2:
         return appointmentData.appointmentType && appointmentData.location;
       case 3:
+        if (isDiagnosticVisit) {
+          return appointmentData.assignedTechnician !== null;
+        }
         return appointmentData.appointmentDate && appointmentData.appointmentTime;
       case 4:
+        if (isDiagnosticVisit) {
+          return appointmentData.appointmentDate && appointmentData.appointmentTime;
+        }
         return true;
+      case 5:
+        if (isDiagnosticVisit) {
+          return true;
+        }
+        return false;
       default:
         return false;
     }
@@ -369,12 +477,13 @@ function AppointmentTypeStep({
   onUpdate 
 }: AppointmentTypeStepProps) {
   const appointmentTypes = [
-    { value: 'CONSULTATION', label: 'Consultation', icon: <Stethoscope className="h-4 w-4" /> },
-    { value: 'LOCATION', label: 'Location', icon: <FileText className="h-4 w-4" /> },
-    { value: 'VENTE', label: 'Vente', icon: <FileText className="h-4 w-4" /> },
-    { value: 'DIAGNOSTIC', label: 'Diagnostic', icon: <FileText className="h-4 w-4" /> },
-    { value: 'MAINTENANCE', label: 'Maintenance', icon: <FileText className="h-4 w-4" /> },
-    { value: 'RECUPERATION', label: 'Récupération', icon: <FileText className="h-4 w-4" /> }
+    { value: 'DIAGNOSTIC_VISIT', label: 'Visite Diagnostique', icon: <Stethoscope className="h-4 w-4" />, description: 'Polygraphie à domicile par un technicien' },
+    { value: 'CONSULTATION', label: 'Consultation', icon: <Stethoscope className="h-4 w-4" />, description: 'Rendez-vous médical' },
+    { value: 'LOCATION', label: 'Location', icon: <FileText className="h-4 w-4" />, description: 'Location d’équipement' },
+    { value: 'VENTE', label: 'Vente', icon: <FileText className="h-4 w-4" />, description: 'Vente de produit' },
+    { value: 'DIAGNOSTIC', label: 'Diagnostic', icon: <FileText className="h-4 w-4" />, description: 'Examen en clinique' },
+    { value: 'MAINTENANCE', label: 'Maintenance', icon: <FileText className="h-4 w-4" />, description: 'Maintenance équipement' },
+    { value: 'RECUPERATION', label: 'Récupération', icon: <FileText className="h-4 w-4" />, description: 'Récupération matériel' }
   ];
 
   const priorities = [
@@ -388,19 +497,29 @@ function AppointmentTypeStep({
     <div className="space-y-6">
       <div>
         <h3 className="text-lg font-semibold mb-4">Type de Rendez-vous</h3>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3">
           {appointmentTypes.map((type) => (
             <button
               key={type.value}
               onClick={() => onUpdate({ appointmentType: type.value })}
-              className={`p-4 border rounded-lg flex items-center gap-3 text-left transition-colors ${
+              className={`p-4 border rounded-lg flex items-start gap-3 text-left transition-colors ${
                 appointmentType === type.value
                   ? 'border-blue-500 bg-blue-50'
                   : 'border-gray-200 hover:border-gray-300'
               }`}
             >
-              {type.icon}
-              <span className="font-medium">{type.label}</span>
+              <div className="mt-1">{type.icon}</div>
+              <div className="flex-1">
+                <div className="font-medium">{type.label}</div>
+                {type.description && (
+                  <div className="text-sm text-gray-600 mt-1">{type.description}</div>
+                )}
+                {type.value === 'DIAGNOSTIC_VISIT' && (
+                  <div className="text-xs text-blue-600 mt-2 font-medium">
+                    ⚡ Nécessite l'assignation d'un technicien
+                  </div>
+                )}
+              </div>
             </button>
           ))}
         </div>
@@ -456,17 +575,18 @@ function AppointmentTypeStep({
 interface DateTimeStepProps {
   appointmentDate: Date | null;
   appointmentTime: string;
-  duration: number;
+  existingAppointments: any[];
+  patientName: string;
   onUpdate: (updates: Partial<AppointmentData>) => void;
 }
 
 function DateTimeStep({ 
   appointmentDate, 
-  appointmentTime, 
-  duration, 
+  appointmentTime,
+  existingAppointments,
+  patientName,
   onUpdate 
 }: DateTimeStepProps) {
-  const durations = [30, 45, 60, 90, 120, 180];
 
   return (
     <div className="space-y-6">
@@ -480,6 +600,7 @@ function DateTimeStep({
             onChange={(date) => onUpdate({ appointmentDate: date || null })}
             placeholder="Sélectionner une date"
             className="w-full"
+            minDate={new Date()}
           />
           <p className="text-xs text-gray-500">Choisissez la date du rendez-vous</p>
         </div>
@@ -496,24 +617,31 @@ function DateTimeStep({
         </div>
       </div>
 
-      <div className="space-y-3">
-        <label className="block text-sm font-medium text-gray-700">Durée estimée</label>
-        <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
-          {durations.map((dur) => (
-            <Button
-              key={dur}
-              variant={duration === dur ? "default" : "outline"}
-              size="sm"
-              onClick={() => onUpdate({ duration: dur })}
-              className="flex flex-col h-auto py-2"
-            >
-              <span className="font-semibold">{dur}</span>
-              <span className="text-xs">min</span>
-            </Button>
-          ))}
-        </div>
-        <p className="text-xs text-gray-500">Sélectionnez la durée prévue pour le rendez-vous</p>
-      </div>
+
+      {/* Existing Appointments Warning */}
+      {existingAppointments && existingAppointments.length > 0 && (
+        <Alert className="border-orange-200 bg-orange-50">
+          <AlertCircle className="h-4 w-4 text-orange-600" />
+          <AlertTitle className="text-orange-800">⚠️ Rendez-vous existants détectés</AlertTitle>
+          <AlertDescription className="text-orange-700">
+            <p className="mb-2">{patientName} a déjà {existingAppointments.length} rendez-vous le {appointmentDate?.toLocaleDateString('fr-FR')} :</p>
+            <ul className="list-disc list-inside space-y-1">
+              {existingAppointments.map((apt: any, index: number) => {
+                const time = new Date(apt.scheduledDate).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+                return (
+                  <li key={index} className="text-sm">
+                    {time} - {apt.appointmentType} ({apt.status === 'CONFIRMED' ? 'Confirmé' : 'Planifié'})
+                    {apt.location && ` - ${apt.location}`}
+                  </li>
+                );
+              })}
+            </ul>
+            <p className="mt-2 text-xs text-orange-600">
+              ℹ️ Vous pouvez continuer si vous souhaitez créer un autre rendez-vous pour ce patient.
+            </p>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Preview Section */}
       {appointmentDate && appointmentTime && (
@@ -531,7 +659,7 @@ function DateTimeStep({
             </div>
             <div className="flex items-center gap-1">
               <Clock className="h-4 w-4" />
-              <span>{appointmentTime} ({duration} minutes)</span>
+              <span>{appointmentTime}</span>
             </div>
           </div>
         </div>
@@ -581,7 +709,9 @@ function AppointmentSummaryStep({
         <div className="grid grid-cols-2 gap-4">
           <div>
             <p className="text-sm text-gray-600">Type</p>
-            <p className="font-medium">{appointmentData.appointmentType}</p>
+            <p className="font-medium">
+              {appointmentData.appointmentType === 'DIAGNOSTIC_VISIT' ? 'Visite Diagnostique' : appointmentData.appointmentType}
+            </p>
           </div>
           <div>
             <p className="text-sm text-gray-600">Priorité</p>
@@ -589,12 +719,27 @@ function AppointmentSummaryStep({
           </div>
         </div>
 
+        {appointmentData.assignedTechnician && (
+          <div>
+            <p className="text-sm text-gray-600">Technicien assigné</p>
+            <div className="flex items-center gap-2 mt-1">
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-semibold ${
+                appointmentData.assignedTechnician.role === 'EMPLOYEE' ? 'bg-green-500' : 'bg-purple-500'
+              }`}>
+                {appointmentData.assignedTechnician.firstName.charAt(0)}{appointmentData.assignedTechnician.lastName.charAt(0)}
+              </div>
+              <p className="font-medium">
+                {appointmentData.assignedTechnician.firstName} {appointmentData.assignedTechnician.lastName}
+              </p>
+            </div>
+          </div>
+        )}
+
         <div>
           <p className="text-sm text-gray-600">Date et heure</p>
           <p className="font-medium">
             {formatDate(appointmentData.appointmentDate)} à {formatTime(appointmentData.appointmentTime)}
           </p>
-          <p className="text-sm text-gray-500">Durée: {appointmentData.duration} minutes</p>
         </div>
 
         <div>
@@ -609,6 +754,140 @@ function AppointmentSummaryStep({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// Technician Selection Step Component
+interface TechnicianSelectionStepProps {
+  selectedTechnician: Employee | null;
+  onTechnicianSelect: (technician: Employee) => void;
+}
+
+function TechnicianSelectionStep({ selectedTechnician, onTechnicianSelect }: TechnicianSelectionStepProps) {
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch employees on component mount
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('/api/users/employees-stats');
+        if (!response.ok) throw new Error('Failed to fetch employees');
+        
+        const data = await response.json();
+        // Filter only active employees
+        const activeEmployees = data.filter((emp: any) => emp.isActive);
+        setEmployees(activeEmployees);
+      } catch (err) {
+        setError('Impossible de charger la liste des employés');
+        console.error('Error fetching employees:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEmployees();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <h3 className="text-lg font-semibold mb-4">Sélection du Technicien</h3>
+        <div className="flex justify-center items-center h-32">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <h3 className="text-lg font-semibold mb-4">Sélection du Technicien</h3>
+        <div className="text-center py-8">
+          <p className="text-red-600">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold mb-2">Sélection du Technicien</h3>
+        <p className="text-gray-600 mb-6">
+          Choisissez l'employé qui effectuera la visite diagnostique chez le patient.
+        </p>
+      </div>
+
+      {employees.length === 0 ? (
+        <div className="text-center py-8">
+          <p className="text-gray-500">Aucun employé disponible</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 max-h-96 overflow-y-auto">
+          {employees.map((employee) => (
+            <button
+              key={employee.id}
+              onClick={() => onTechnicianSelect(employee)}
+              className={`p-4 border rounded-lg text-left transition-all duration-200 hover:shadow-md ${
+                selectedTechnician?.id === employee.id
+                  ? 'border-blue-500 bg-blue-50 shadow-md'
+                  : 'border-gray-200 hover:border-blue-300'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold ${
+                    employee.role === 'EMPLOYEE' ? 'bg-green-500' : 'bg-purple-500'
+                  }`}>
+                    {employee.firstName.charAt(0)}{employee.lastName.charAt(0)}
+                  </div>
+                  <div>
+                    <div className="font-semibold text-gray-900">
+                      {employee.firstName} {employee.lastName}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      {employee.role === 'EMPLOYEE' ? 'Employé' : 'Manager'}
+                      {employee.speciality && ` • ${employee.speciality}`}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center">
+                  {selectedTechnician?.id === employee.id && (
+                    <CheckCircle2 className="h-5 w-5 text-blue-600" />
+                  )}
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {selectedTechnician && (
+        <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <h4 className="font-medium text-blue-900 mb-2">Technicien sélectionné</h4>
+          <div className="flex items-center gap-3">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold ${
+              selectedTechnician.role === 'EMPLOYEE' ? 'bg-green-500' : 'bg-purple-500'
+            }`}>
+              {selectedTechnician.firstName.charAt(0)}{selectedTechnician.lastName.charAt(0)}
+            </div>
+            <div>
+              <div className="font-medium text-blue-900">
+                {selectedTechnician.firstName} {selectedTechnician.lastName}
+              </div>
+              <div className="text-sm text-blue-700">
+                {selectedTechnician.role === 'EMPLOYEE' ? 'Employé' : 'Manager'}
+                {selectedTechnician.speciality && ` • ${selectedTechnician.speciality}`}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

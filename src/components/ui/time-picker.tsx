@@ -28,10 +28,10 @@ export function TimePicker({
 }: TimePickerProps) {
   const [isOpen, setIsOpen] = useState(false)
   
-  // Generate time options (every 15 minutes from 8:00 to 18:00)
+  // Generate time options (every 15 minutes for 24 hours)
   const generateTimeOptions = () => {
     const times = []
-    for (let hour = 8; hour <= 18; hour++) {
+    for (let hour = 0; hour < 24; hour++) {
       for (let minute = 0; minute < 60; minute += 15) {
         const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
         times.push(timeString)
@@ -81,7 +81,7 @@ export function TimePicker({
                   <SelectValue placeholder="--" />
                 </SelectTrigger>
                 <SelectContent>
-                  {Array.from({ length: 11 }, (_, i) => i + 8).map(hour => (
+                  {Array.from({ length: 24 }, (_, i) => i).map(hour => (
                     <SelectItem key={hour} value={hour.toString().padStart(2, '0')}>
                       {hour.toString().padStart(2, '0')}h
                     </SelectItem>
@@ -119,12 +119,34 @@ export function TimePicker({
           <div className="mt-4 pt-3 border-t">
             <label className="text-xs font-medium text-gray-600 mb-2 block">Heures fréquentes</label>
             <div className="grid grid-cols-3 gap-1">
-              {['09:00', '10:00', '11:00', '14:00', '15:00', '16:00'].map(time => (
+              {['08:00', '09:00', '10:00', '14:00', '15:00', '16:00'].map(time => (
                 <Button
                   key={time}
                   variant={value === time ? "default" : "outline"}
                   size="sm"
                   className="h-7 text-xs"
+                  onClick={() => {
+                    onChange?.(time)
+                    setIsOpen(false)
+                  }}
+                >
+                  {time}
+                </Button>
+              ))}
+            </div>
+            
+            {/* Urgent/Night Time Buttons */}
+            <label className="text-xs font-medium text-red-600 mb-2 block mt-3">Heures d'urgence</label>
+            <div className="grid grid-cols-3 gap-1">
+              {['22:00', '00:00', '02:00', '03:00', '04:00', '06:00'].map(time => (
+                <Button
+                  key={time}
+                  variant={value === time ? "destructive" : "outline"}
+                  size="sm"
+                  className={cn(
+                    "h-7 text-xs",
+                    value !== time && "text-red-600 border-red-200 hover:bg-red-50"
+                  )}
                   onClick={() => {
                     onChange?.(time)
                     setIsOpen(false)

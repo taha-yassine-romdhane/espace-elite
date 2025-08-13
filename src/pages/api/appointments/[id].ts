@@ -97,7 +97,6 @@ async function handleGetAppointment(
       id: appointment.id,
       appointmentType: appointment.appointmentType,
       scheduledDate: appointment.scheduledDate,
-      duration: appointment.duration || 60,
       location: appointment.location,
       notes: appointment.notes,
       priority: appointment.priority || 'NORMAL',
@@ -146,7 +145,6 @@ async function handleUpdateAppointment(
     const {
       appointmentType,
       scheduledDate,
-      duration,
       location,
       notes,
       priority,
@@ -179,7 +177,6 @@ async function handleUpdateAppointment(
       data: {
         ...(appointmentType && { appointmentType }),
         ...(scheduledDate && { scheduledDate: new Date(scheduledDate) }),
-        ...(duration !== undefined && { duration }),
         ...(location && { location }),
         ...(notes !== undefined && { notes }),
         ...(priority && { priority }),

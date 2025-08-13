@@ -53,8 +53,8 @@ export async function createDiagnosticResultNotification(
   dueDate: Date
 ) {
   return createNotification({
-    title: `Résultat de diagnostic en attente`,
-    message: `Le résultat pour ${parameterName} du patient ${patientName} est dû`,
+    title: `Résultat de diagnostic attendu`,
+    message: `Résultat du diagnostic pour ${patientName} attendu avec l'appareil ${deviceName}`,
     type: 'FOLLOW_UP',
     userId,
     patientId,
@@ -64,6 +64,30 @@ export async function createDiagnosticResultNotification(
       deviceName,
       parameterId,
       parameterName
+    }
+  });
+}
+
+export async function createDiagnosticCreationNotification(
+  deviceId: string,
+  deviceName: string,
+  patientId: string,
+  patientName: string,
+  diagnosticId: string,
+  userId: string
+) {
+  return createNotification({
+    title: `Diagnostic créé`,
+    message: `Diagnostic créé pour le patient ${patientName} avec l'appareil ${deviceName}`,
+    type: NotificationType.OTHER,
+    userId,
+    patientId,
+    dueDate: new Date(), // Show immediately
+    metadata: {
+      deviceId,
+      deviceName,
+      diagnosticId,
+      type: 'DIAGNOSTIC_CREATION'
     }
   });
 }

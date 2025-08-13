@@ -39,6 +39,7 @@ const formSchema = z.object({
     }),
   governorate: z.string().optional(),
   delegation: z.string().optional(),
+  detailedAddress: z.string().optional(),
   longitude: z.number().optional(),
   latitude: z.number().optional(),
   cin: z.string()
@@ -62,7 +63,7 @@ const formSchema = z.object({
     }),
   medecin: z.string().optional(),
   dateNaissance: z.string().optional(),
-  beneficiaire: z.nativeEnum(BeneficiaryType).optional(),
+  beneficiaire: z.nativeEnum(BeneficiaryType).nullable().optional(),
   caisseAffiliation: z.enum(['CNSS', 'CNRPS']).optional(),
   cnam: z.boolean().optional(),
   generalNote: z.string().optional(),
@@ -123,6 +124,7 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
       telephoneSecondaire: formData.telephoneSecondaire || '',
       governorate: (formData as any).governorate || '',
       delegation: (formData as any).delegation || '',
+      detailedAddress: ( formData as any ).detailedAddress || '',
       longitude: (formData as any).longitude || undefined,
       latitude: (formData as any).latitude || undefined,
       cin: formData.cin || '',
@@ -335,18 +337,28 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
     if (Object.keys(form.formState.errors).length > 0) {
       console.log('Form validation errors:', form.formState.errors);
       
-      // Show toast with validation errors
-      const errorMessages = Object.entries(form.formState.errors)
-        .map(([field, error]) => `${field}: ${error?.message || 'Champ invalide'}`)
-        .join('\n');
-      
-      toast({
-        title: "Erreur de validation",
-        description: errorMessages || "Veuillez vérifier les champs du formulaire",
-        variant: "destructive",
+      // Filter out beneficiaire errors if CNAM is disabled
+      const filteredErrors = Object.entries(form.formState.errors).filter(([field]) => {
+        if (field === 'beneficiaire' && !form.getValues('cnam')) {
+          return false; // Skip beneficiaire errors when CNAM is disabled
+        }
+        return true;
       });
       
-      return;
+      if (filteredErrors.length > 0) {
+        // Show toast with validation errors
+        const errorMessages = filteredErrors
+          .map(([field, error]) => `${field}: ${error?.message || 'Champ invalide'}`)
+          .join('\n');
+        
+        toast({
+          title: "Erreur de validation",
+          description: errorMessages || "Veuillez vérifier les champs du formulaire",
+          variant: "destructive",
+        });
+        
+        return;
+      }
     }
 
     try {

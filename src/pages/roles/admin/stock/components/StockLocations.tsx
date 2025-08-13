@@ -191,6 +191,120 @@ export default function StockLocations() {
         </div>
       </div>
 
+      {/* Stock Distribution Overview */}
+      {filteredLocations && filteredLocations.length > 0 && (
+        <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-6 rounded-lg border border-blue-200">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+            Répartition du Stock par Emplacement
+          </h3>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Products Distribution */}
+            <div className="space-y-4">
+              <h4 className="font-medium text-blue-800 flex items-center gap-2">
+                <span className="w-4 h-4 bg-blue-500 rounded"></span>
+                Répartition des Produits
+              </h4>
+              <div className="space-y-2">
+                {filteredLocations
+                  .sort((a, b) => ((b.accessoryQuantity || 0) + (b.sparePartQuantity || 0)) - ((a.accessoryQuantity || 0) + (a.sparePartQuantity || 0)))
+                  .slice(0, 5)
+                  .map((location) => {
+                    const totalProducts = (location.accessoryQuantity || 0) + (location.sparePartQuantity || 0);
+                    const maxProducts = Math.max(...filteredLocations.map(l => (l.accessoryQuantity || 0) + (l.sparePartQuantity || 0)));
+                    const percentage = maxProducts > 0 ? (totalProducts / maxProducts) * 100 : 0;
+                    
+                    return (
+                      <div key={location.id} className="space-y-1">
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="font-medium text-gray-700 truncate max-w-32" title={location.name}>
+                            {location.name}
+                          </span>
+                          <span className="font-bold text-blue-700">
+                            {totalProducts.toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="w-full bg-blue-100 rounded-full h-2">
+                          <div 
+                            className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${percentage}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+
+            {/* Devices Distribution */}
+            <div className="space-y-4">
+              <h4 className="font-medium text-red-800 flex items-center gap-2">
+                <span className="w-4 h-4 bg-red-500 rounded"></span>
+                Répartition des Appareils
+              </h4>
+              <div className="space-y-2">
+                {filteredLocations
+                  .sort((a, b) => (b.totalDeviceCount || 0) - (a.totalDeviceCount || 0))
+                  .slice(0, 5)
+                  .map((location) => {
+                    const totalDevices = location.totalDeviceCount || 0;
+                    const maxDevices = Math.max(...filteredLocations.map(l => l.totalDeviceCount || 0));
+                    const percentage = maxDevices > 0 ? (totalDevices / maxDevices) * 100 : 0;
+                    
+                    return (
+                      <div key={location.id} className="space-y-1">
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="font-medium text-gray-700 truncate max-w-32" title={location.name}>
+                            {location.name}
+                          </span>
+                          <span className="font-bold text-red-700">
+                            {totalDevices.toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="w-full bg-red-100 rounded-full h-2">
+                          <div 
+                            className="bg-gradient-to-r from-red-500 to-red-600 h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${percentage}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          </div>
+
+          {/* Summary Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-4 border-t border-blue-200">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600">
+                {filteredLocations.reduce((sum, location) => sum + ((location.accessoryQuantity || 0) + (location.sparePartQuantity || 0)), 0).toLocaleString()}
+              </div>
+              <div className="text-xs text-blue-700 font-medium">Total Produits</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-red-600">
+                {filteredLocations.reduce((sum, location) => sum + (location.totalDeviceCount || 0), 0).toLocaleString()}
+              </div>
+              <div className="text-xs text-red-700 font-medium">Total Appareils</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">
+                {filteredLocations.filter(location => location.isActive).length}
+              </div>
+              <div className="text-xs text-green-700 font-medium">Emplacements Actifs</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-purple-600">
+                {filteredLocations.reduce((sum, location) => sum + ((location.accessoryCount || 0) + (location.sparePartCount || 0)), 0).toLocaleString()}
+              </div>
+              <div className="text-xs text-purple-700 font-medium">Types de Produits</div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="border rounded-lg">
         <Table>
           <TableHeader>
@@ -206,47 +320,90 @@ export default function StockLocations() {
           </TableHeader>
           <TableBody>
             {paginatedData?.map((location) => (
-              <TableRow key={location.id}>
-                <TableCell className="font-medium">{location.name}</TableCell>
-                <TableCell>{location.description || '-'}</TableCell>
+              <TableRow key={location.id} className="hover:bg-gray-50">
+                <TableCell className="font-medium">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                    <span className="max-w-xs truncate" title={location.name}>
+                      {location.name}
+                    </span>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="max-w-xs truncate" title={location.description || '-'}>
+                    {location.description || <span className="text-gray-400">-</span>}
+                  </div>
+                </TableCell>
                 <TableCell>
                   {location.user ? (
-                    `${location.user.firstName} ${location.user.lastName}`
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-xs font-medium text-blue-700">
+                        {location.user.firstName[0]}{location.user.lastName[0]}
+                      </div>
+                      <span className="text-sm">
+                        {location.user.firstName} {location.user.lastName}
+                      </span>
+                    </div>
                   ) : (
-                    <span className="text-gray-500">Non assigné</span>
+                    <span className="text-gray-400 text-sm italic">Non assigné</span>
                   )}
                 </TableCell>
                 <TableCell>
-                  <Badge variant="secondary">
-                    {/* Show combined quantity of accessory and spare part products */}
-                    {(location.accessoryQuantity || 0) + (location.sparePartQuantity || 0)} produits
-                  </Badge>
-                  <div className="text-xs text-gray-500 mt-1">
-                    <div>Accessoires: {location.accessoryQuantity || 0} ({location.accessoryCount || 0} types)</div>
-                    <div>Pièces: {location.sparePartQuantity || 0} ({location.sparePartCount || 0} types)</div>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center justify-center min-w-12 h-8 px-2 text-sm font-bold bg-blue-100 text-blue-800 rounded-lg border border-blue-200">
+                        {((location.accessoryQuantity || 0) + (location.sparePartQuantity || 0)).toLocaleString()}
+                      </span>
+                      <span className="text-sm font-medium text-blue-700">produits</span>
+                    </div>
+                    <div className="text-xs text-gray-500 space-y-1 bg-gray-50 p-2 rounded">
+                      <div className="flex justify-between">
+                        <span>Accessoires:</span>
+                        <span className="font-medium">{(location.accessoryQuantity || 0).toLocaleString()} ({location.accessoryCount || 0} types)</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Pièces:</span>
+                        <span className="font-medium">{(location.sparePartQuantity || 0).toLocaleString()} ({location.sparePartCount || 0} types)</span>
+                      </div>
+                    </div>
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant="outline">
-                    {location.totalDeviceCount || 0} appareils
-                  </Badge>
-                  <div className="text-xs text-gray-500 mt-1">
-                    <div>Médicaux: {location.medicalDeviceCount || 0}</div>
-                    <div>Diagnostics: {location.diagnosticDeviceCount || 0}</div>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center justify-center min-w-12 h-8 px-2 text-sm font-bold bg-red-100 text-red-800 rounded-lg border border-red-200">
+                        {(location.totalDeviceCount || 0).toLocaleString()}
+                      </span>
+                      <span className="text-sm font-medium text-red-700">appareils</span>
+                    </div>
+                    <div className="text-xs text-gray-500 space-y-1 bg-gray-50 p-2 rounded">
+                      <div className="flex justify-between">
+                        <span>Médicaux:</span>
+                        <span className="font-medium">{(location.medicalDeviceCount || 0).toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Diagnostics:</span>
+                        <span className="font-medium">{(location.diagnosticDeviceCount || 0).toLocaleString()}</span>
+                      </div>
+                    </div>
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant={location.isActive ? "default" : "destructive"}>
+                  <Badge 
+                    variant={location.isActive ? "default" : "destructive"} 
+                    className={location.isActive ? "bg-green-100 text-green-800 border-green-200" : ""}
+                  >
                     {location.isActive ? 'Actif' : 'Inactif'}
                   </Badge>
                 </TableCell>
                 <TableCell>
                   <Button 
-                    variant="ghost" 
+                    variant="outline" 
                     size="sm"
                     onClick={() => handleViewStock(location)}
+                    className="h-8 px-3 text-xs hover:bg-blue-50 hover:border-blue-200"
                   >
-                    <Eye className="h-4 w-4 mr-1" />
+                    <Eye className="h-3 w-3 mr-1" />
                     Voir le stock
                   </Button>
                 </TableCell>
@@ -254,8 +411,13 @@ export default function StockLocations() {
             ))}
             {!paginatedData?.length && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-4">
-                  Aucun emplacement trouvé
+                <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
+                      <Search className="h-6 w-6 text-gray-400" />
+                    </div>
+                    <span>Aucun emplacement trouvé</span>
+                  </div>
                 </TableCell>
               </TableRow>
             )}

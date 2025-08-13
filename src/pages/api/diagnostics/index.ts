@@ -6,7 +6,7 @@ import type { Diagnostic } from '@prisma/client';
 import formidable from 'formidable';
 import fs from 'fs';
 import path from 'path';
-import { createDiagnosticResultNotification } from '@/lib/notifications';
+import { createDiagnosticResultNotification, createDiagnosticCreationNotification } from '@/lib/notifications';
 
 // Enable bodyParser for all methods except POST with multipart/form-data
 export const config = {
@@ -83,6 +83,40 @@ export default async function handler(
                   lastName: true,
                 },
               },
+              // Include sales and rentals to check business outcome
+              sales: {
+                where: {
+                  status: {
+                    in: ['COMPLETED', 'ON_PROGRESS', 'PENDING']
+                  }
+                },
+                select: {
+                  id: true,
+                  saleDate: true,
+                  status: true,
+                  totalAmount: true,
+                },
+                orderBy: {
+                  saleDate: 'desc'
+                },
+                take: 1
+              },
+              rentals: {
+                where: {
+                  status: {
+                    in: ['ACTIVE', 'PENDING', 'COMPLETED']
+                  }
+                },
+                select: {
+                  id: true,
+                  startDate: true,
+                  status: true,
+                },
+                orderBy: {
+                  startDate: 'desc'
+                },
+                take: 1
+              },
             },
           },
           Company: {
@@ -116,6 +150,20 @@ export default async function handler(
           
         // Format device information
         const deviceName = `${diagnostic.medicalDevice.name} ${diagnostic.medicalDevice.brand || ''} ${diagnostic.medicalDevice.model || ''}`.trim();
+        
+        // Determine business outcome (Appareillé ou Non-Appareillé)
+        const hasSale = diagnostic.patient?.sales && diagnostic.patient.sales.length > 0;
+        const hasRental = diagnostic.patient?.rentals && diagnostic.patient.rentals.length > 0;
+        const needsEquipment = diagnostic.result?.iah && diagnostic.result.iah > 15; // IAH > 15 needs equipment
+        
+        let businessOutcome = 'DIAGNOSTIC_ONLY'; // Just diagnostic, no equipment needed
+        if (hasSale || hasRental) {
+          businessOutcome = 'APPAREILLE'; // Patient has equipment (sale or rental)
+        } else if (needsEquipment) {
+          businessOutcome = 'EN_ATTENTE'; // Needs equipment but not yet equipped
+        } else if (diagnostic.result?.iah && diagnostic.result.iah <= 15) {
+          businessOutcome = 'NON_APPAREILLE'; // Doesn't need equipment (IAH too low)
+        }
          
         // Format user information
         const performedBy = diagnostic.performedBy ? 
@@ -136,6 +184,13 @@ export default async function handler(
           status: diagnostic.result?.status || 'PENDING',
           patient: diagnostic.patient,
           medicalDevice: diagnostic.medicalDevice,
+          // Add business outcome data
+          businessOutcome,
+          hasSale,
+          hasRental,
+          needsEquipment,
+          latestSale: diagnostic.patient?.sales?.[0] || null,
+          latestRental: diagnostic.patient?.rentals?.[0] || null,
         };
       });
 
@@ -253,7 +308,17 @@ export default async function handler(
           select: { name: true }
         });
 
-        // Create notification for diagnostic result
+        // Create notification for diagnostic creation (shows immediately)
+        await createDiagnosticCreationNotification(
+          medicalDeviceId,
+          device?.name || 'Unknown Device',
+          clientId,
+          `${patient.firstName} ${patient.lastName}`,
+          diagnostic.id,
+          userId
+        );
+
+        // Create notification for diagnostic result (shows on due date)
         const dueDate = new Date();
         dueDate.setDate(dueDate.getDate() + 3); // Due in 3 days
         
@@ -287,11 +352,11 @@ export default async function handler(
           try {
             await prisma.task.create({
               data: {
-                title: `Suivi diagnostic pour patient`,
-                description: `Suivi requis pour le diagnostic créé le ${new Date().toLocaleDateString()}`,
+                title: `Suivi diagnostic - ${patient.firstName} ${patient.lastName}`,
+                description: `Suivi requis pour le diagnostic de ${patient.firstName} ${patient.lastName} créé le ${new Date().toLocaleDateString('fr-FR')}`,
                 status: 'TODO',
                 priority: 'MEDIUM',
-                startDate: new Date(),
+                startDate: followUpDate, // Changed to show on follow-up date
                 endDate: followUpDate,
                 assignedTo: { connect: { id: userId } },
                 diagnostic: { connect: { id: diagnostic.id } },

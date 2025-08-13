@@ -44,6 +44,15 @@ import {
   CheckCircle2,
   XCircle,
   MoreVertical,
+  Stethoscope,
+  Home,
+  Microscope,
+  FileText,
+  ShoppingCart,
+  Package,
+  Wrench,
+  RotateCcw,
+  ClipboardCheck,
 } from "lucide-react";
 
 interface AppointmentsTableProps {
@@ -59,6 +68,7 @@ export function AppointmentsTable({}: AppointmentsTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
 
@@ -229,6 +239,60 @@ export function AppointmentsTable({}: AppointmentsTableProps) {
     }
   };
 
+  // Get appointment type display
+  const getAppointmentTypeDisplay = (type: string) => {
+    switch (type) {
+      case "DIAGNOSTIC_VISIT":
+        return {
+          label: "Visite Diagnostique",
+          badge: "bg-purple-100 text-purple-800 border-purple-200",
+          icon: <Home className="h-3 w-3" />
+        };
+      case "CONSULTATION":
+        return {
+          label: "Consultation",
+          badge: "bg-blue-100 text-blue-800 border-blue-200",
+          icon: <Stethoscope className="h-3 w-3" />
+        };
+      case "DIAGNOSTIC":
+        return {
+          label: "Diagnostic",
+          badge: "bg-teal-100 text-teal-800 border-teal-200",
+          icon: <Microscope className="h-3 w-3" />
+        };
+      case "LOCATION":
+        return {
+          label: "Location",
+          badge: "bg-orange-100 text-orange-800 border-orange-200",
+          icon: <Package className="h-3 w-3" />
+        };
+      case "VENTE":
+        return {
+          label: "Vente",
+          badge: "bg-green-100 text-green-800 border-green-200",
+          icon: <ShoppingCart className="h-3 w-3" />
+        };
+      case "MAINTENANCE":
+        return {
+          label: "Maintenance",
+          badge: "bg-yellow-100 text-yellow-800 border-yellow-200",
+          icon: <Wrench className="h-3 w-3" />
+        };
+      case "RECUPERATION":
+        return {
+          label: "Récupération",
+          badge: "bg-indigo-100 text-indigo-800 border-indigo-200",
+          icon: <RotateCcw className="h-3 w-3" />
+        };
+      default:
+        return {
+          label: type,
+          badge: "bg-gray-100 text-gray-800 border-gray-200",
+          icon: <FileText className="h-3 w-3" />
+        };
+    }
+  };
+
   // Handle delete
   const handleDeleteClick = (id: string) => {
     setAppointmentToDelete(id);
@@ -260,10 +324,17 @@ export function AppointmentsTable({}: AppointmentsTableProps) {
           ? `${appointment.patient.firstName} ${appointment.patient.lastName}`
           : appointment.company?.companyName || "";
         
+        const appointmentTypeLabel = getAppointmentTypeDisplay(appointment.appointmentType || '').label;
+        const assignedToName = appointment.assignedTo 
+          ? `${appointment.assignedTo.firstName} ${appointment.assignedTo.lastName}`
+          : '';
+        
         return (
           clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
           appointment.appointmentType?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          appointmentTypeLabel.toLowerCase().includes(searchTerm.toLowerCase()) ||
           appointment.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          assignedToName.toLowerCase().includes(searchTerm.toLowerCase()) ||
           appointment.id.toString().includes(searchTerm)
         );
       });
@@ -272,6 +343,11 @@ export function AppointmentsTable({}: AppointmentsTableProps) {
     // Apply status filter
     if (statusFilter !== "all") {
       filtered = filtered.filter((appointment: any) => appointment.status === statusFilter);
+    }
+
+    // Apply type filter
+    if (typeFilter !== "all") {
+      filtered = filtered.filter((appointment: any) => appointment.appointmentType === typeFilter);
     }
 
     // Apply date filter
@@ -301,7 +377,7 @@ export function AppointmentsTable({}: AppointmentsTableProps) {
 
     setFilteredAppointments(filtered);
     setCurrentPage(1);
-  }, [appointments, searchTerm, statusFilter, dateFilter]);
+  }, [appointments, searchTerm, statusFilter, dateFilter, typeFilter]);
 
   // Pagination
   const totalItems = filteredAppointments.length;
@@ -331,7 +407,7 @@ export function AppointmentsTable({}: AppointmentsTableProps) {
             </div>
             <input
               type="text"
-              placeholder="Rechercher par client, type, lieu, ID..."
+              placeholder="Rechercher par client, type (visite diagnostique), lieu, technicien, ID..."
               className="w-full pl-12 pr-4 py-3 bg-white border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-[#1e3a8a] transition-all duration-200 text-sm shadow-sm hover:shadow-md"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -339,7 +415,7 @@ export function AppointmentsTable({}: AppointmentsTableProps) {
           </div>
 
           {/* Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div className="relative">
               <select
                 value={statusFilter}
@@ -377,6 +453,28 @@ export function AppointmentsTable({}: AppointmentsTableProps) {
               </div>
             </div>
 
+            <div className="relative">
+              <select
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+                className="w-full px-4 py-3 pr-10 bg-white border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-[#1e3a8a] text-sm shadow-sm hover:shadow-md transition-all duration-200 appearance-none cursor-pointer"
+              >
+                <option value="all">Tous les types</option>
+                <option value="DIAGNOSTIC_VISIT">Visite Diagnostique</option>
+                <option value="CONSULTATION">Consultation</option>
+                <option value="DIAGNOSTIC">Diagnostic</option>
+                <option value="LOCATION">Location</option>
+                <option value="VENTE">Vente</option>
+                <option value="MAINTENANCE">Maintenance</option>
+                <option value="RECUPERATION">Récupération</option>
+              </select>
+              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                <svg className="h-5 w-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
+
             <div className="flex items-center gap-2 text-sm text-blue-700 bg-blue-100 px-4 py-3 rounded-lg">
               <div className="flex items-center gap-1">
                 <div className="h-2 w-2 bg-blue-600 rounded-full animate-pulse"></div>
@@ -402,8 +500,10 @@ export function AppointmentsTable({}: AppointmentsTableProps) {
                   <TableHead>Type</TableHead>
                   <TableHead>Date & Heure</TableHead>
                   <TableHead>Lieu</TableHead>
+                  <TableHead>Assigné à</TableHead>
                   <TableHead>Priorité</TableHead>
                   <TableHead>Statut</TableHead>
+                  <TableHead>Notes</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -445,8 +545,32 @@ export function AppointmentsTable({}: AppointmentsTableProps) {
                       </TableCell>
                       
                       <TableCell>
-                        <div className="font-medium">{appointment.appointmentType || '-'}</div>
-                        <div className="text-xs text-slate-500">{appointment.duration} min</div>
+                        {appointment.appointmentType ? (
+                          <div className="flex items-center gap-2">
+                            <div className={`px-2 py-1 rounded-full text-xs font-medium border flex items-center gap-1 ${
+                              getAppointmentTypeDisplay(appointment.appointmentType).badge
+                            }`}>
+                              {getAppointmentTypeDisplay(appointment.appointmentType).icon}
+                              {getAppointmentTypeDisplay(appointment.appointmentType).label}
+                            </div>
+                            {appointment.appointmentType === 'DIAGNOSTIC_VISIT' && (
+                              <div className="flex items-center gap-2">
+                                <div className="text-xs text-purple-600 font-medium flex items-center gap-1">
+                                  <Stethoscope className="h-3 w-3" />
+                                  Polygraphie
+                                </div>
+                                {appointment.assignedTo && (
+                                  <div className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
+                                    <ClipboardCheck className="h-3 w-3" />
+                                    Tâche créée
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
                       </TableCell>
                       
                       <TableCell>
@@ -464,11 +588,46 @@ export function AppointmentsTable({}: AppointmentsTableProps) {
                       </TableCell>
                       
                       <TableCell>
+                        {appointment.assignedTo ? (
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center text-white text-xs font-semibold">
+                              {appointment.assignedTo.firstName.charAt(0)}{appointment.assignedTo.lastName.charAt(0)}
+                            </div>
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">
+                                {appointment.assignedTo.firstName} {appointment.assignedTo.lastName}
+                              </div>
+                              {appointment.appointmentType === 'DIAGNOSTIC_VISIT' && (
+                                <div className="text-xs text-green-600 font-medium">Technicien</div>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-xs text-gray-400 italic flex items-center gap-1">
+                            <User className="h-3 w-3" />
+                            Non assigné
+                          </div>
+                        )}
+                      </TableCell>
+                      
+                      <TableCell>
                         {getPriorityBadge(appointment.priority)}
                       </TableCell>
                       
                       <TableCell>
                         {getStatusBadge(appointment.status)}
+                      </TableCell>
+                      
+                      <TableCell>
+                        <div className="max-w-xs">
+                          {appointment.notes ? (
+                            <div className="text-sm text-gray-600 truncate" title={appointment.notes}>
+                              {appointment.notes}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-gray-400 italic">Aucune note</span>
+                          )}
+                        </div>
                       </TableCell>
                       
                       <TableCell>

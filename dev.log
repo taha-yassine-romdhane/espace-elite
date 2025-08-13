@@ -1,0 +1,32 @@
+
+> eiite-sante@0.1.0 dev
+> next dev --turbopack
+
+   ▲ Next.js 15.1.6 (Turbopack)
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.52.113:3000
+   - Environments: .env
+
+ ✓ Starting...
+ ✓ Compiled in 482ms
+ ✓ Ready in 1631ms
+ ○ Compiling /roles/admin/dashboard ...
+ ✓ Compiled /roles/admin/dashboard in 7.3s
+ GET /roles/admin/dashboard 200 in 9054ms
+ GET /roles/admin/dashboard 200 in 82ms
+ ○ Compiling /api/auth/[...nextauth] ...
+ ✓ Compiled /api/auth/[...nextauth] in 686ms
+[next-auth][warn][NEXTAUTH_URL] 
+https://next-auth.js.org/warnings#nextauth_url
+[next-auth][warn][DEBUG_ENABLED] 
+https://next-auth.js.org/warnings#debug_enabled
+Session callback - User role: ADMIN
+Session callback - User role: ADMIN
+ GET /api/auth/session 200 in 470ms
+ GET /api/appointments 200 in 569ms
+ GET /roles/admin/dashboard 200 in 185ms
+Session callback - User role: ADMIN
+ GET /api/auth/session 200 in 66ms
+Session callback - User role: ADMIN
+ GET /api/appointments 304 in 79ms
+[?25h

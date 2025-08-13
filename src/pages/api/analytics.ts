@@ -1,9 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from './auth/[...nextauth]';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 interface AnalyticsData {
   revenue: {
@@ -60,59 +58,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const previousPeriodStart = getPreviousPeriodStart(timeRange as string);
 
     try {
-      // Revenue Analytics
-      const [
-        totalRevenue,
-        previousPeriodRevenue,
-        monthlyRevenue,
-        paymentMethods,
-        
-        // Device Analytics
-        devicesCount,
-        deviceUtilization,
-        popularDevices,
-        
-        // Patient Analytics
-        patientsCount,
-        newPatientsThisMonth,
-        patiensByAffiliation,
-        activeRentals,
-        
-        // CNAM Analytics
-        cnamBonds,
-        cnamByType,
-        
-        // Recent Activity
-        recentSales,
-        recentRentals,
-        recentPayments
-      ] = await Promise.all([
-        // Revenue queries
-        getSalesRevenue(startDate),
-        getSalesRevenue(previousPeriodStart, startDate),
-        getMonthlyRevenue(startDate),
-        getPaymentMethodsBreakdown(startDate),
-        
-        // Device queries
-        getDevicesCount(),
-        getDeviceUtilization(),
-        getPopularDevices(startDate),
-        
-        // Patient queries
-        getPatientsCount(),
-        getNewPatientsThisMonth(),
-        getPatientsByAffiliation(),
-        getActiveRentalsCount(),
-        
-        // CNAM queries
-        getCNAMBonds(startDate),
-        getCNAMByType(startDate),
-        
-        // Recent activity
-        getRecentSales(),
-        getRecentRentals(),
-        getRecentPayments()
-      ]);
+      // Execute queries with individual error handling
+      const totalRevenue = await getSalesRevenue(startDate).catch(() => 0);
+      const previousPeriodRevenue = await getSalesRevenue(previousPeriodStart, startDate).catch(() => 0);
+      const monthlyRevenue = await getMonthlyRevenue(startDate).catch(() => []);
+      const paymentMethods = await getPaymentMethodsBreakdown(startDate).catch(() => []);
+      
+      const devicesCount = await getDevicesCount().catch(() => ({ active: 0, sold: 0, rented: 0 }));
+      const deviceUtilization = await getDeviceUtilization().catch(() => ({ rented: 0, sold: 0, available: 0 }));
+      const popularDevices = await getPopularDevices(startDate).catch(() => []);
+      
+      const patientsCount = await getPatientsCount().catch(() => 0);
+      const newPatientsThisMonth = await getNewPatientsThisMonth().catch(() => 0);
+      const patiensByAffiliation = await getPatientsByAffiliation().catch(() => []);
+      const activeRentals = await getActiveRentalsCount().catch(() => 0);
+      
+      const cnamBonds = await getCNAMBonds(startDate).catch(() => ({ total: 0, approved: 0, totalAmount: 0 }));
+      const cnamByType = await getCNAMByType(startDate).catch(() => []);
+      
+      const recentSales = await getRecentSales().catch(() => []);
+      const recentRentals = await getRecentRentals().catch(() => []);
+      const recentPayments = await getRecentPayments().catch(() => []);
 
       // Calculate growth percentage
       const growth = previousPeriodRevenue > 0 
@@ -289,7 +255,7 @@ async function getDevicesCount() {
 
 async function getDeviceUtilization() {
   const [rented, sold, total] = await Promise.all([
-    prisma.medicalDevice.count({ where: { status: 'FOR_RENT' } }),
+    prisma.medicalDevice.count({ where: { destination: 'FOR_RENT' } }),
     prisma.medicalDevice.count({ where: { status: 'SOLD' } }),
     prisma.medicalDevice.count()
   ]);

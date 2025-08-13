@@ -107,12 +107,12 @@ export function ParameterConfigurationDialog({
         </DialogHeader>
         
         {/* Date selector for results */}
-        <div className="mb-6 bg-blue-50 p-4 rounded-md border border-blue-100">
-          <h3 className="font-medium text-blue-800 mb-2 flex items-center gap-2">
+        <div className="mb-6 bg-green-50 p-4 rounded-md border border-green-100">
+          <h3 className="font-medium text-green-800 mb-2 flex items-center gap-2">
             <Info className="h-4 w-4" />
             Date prévue pour les résultats
           </h3>
-          <p className="text-sm text-blue-700 mb-3">
+          <p className="text-sm text-green-700 mb-3">
             Définissez la date à laquelle les résultats seront attendus. Une tâche sera créée dans le calendrier pour cette date.
           </p>
           
@@ -148,7 +148,7 @@ export function ParameterConfigurationDialog({
                     }}
                     className="rounded-md border-0"
                     classNames={{
-                      day_selected: "bg-blue-900 text-white hover:bg-blue-900 hover:text-white focus:bg-blue-900 focus:text-white",
+                      day_selected: "bg-green-600 text-white hover:bg-green-600 hover:text-white focus:bg-green-600 focus:text-white",
                       day_today: "bg-gray-100 text-gray-900"
                     }}
                   />
@@ -158,7 +158,7 @@ export function ParameterConfigurationDialog({
             
             {/* Show selected date as text for clarity */}
             {selectedDate && (
-              <div className="text-sm text-blue-800 mt-1 flex items-center">
+              <div className="text-sm text-green-800 mt-1 flex items-center">
                 <CalendarIcon className="h-3.5 w-3.5 mr-1.5" />
                 Résultats attendus le {formatDate(selectedDate)}
               </div>
@@ -181,7 +181,7 @@ export function ParameterConfigurationDialog({
           <Button 
             onClick={handleSubmit} 
             disabled={isLoading || !selectedDate}
-            className="bg-blue-900 hover:bg-blue-800 text-white"
+            className="bg-green-600 hover:bg-green-700 text-white"
           >
             {isLoading ? 'Enregistrement...' : 'Enregistrer'}
           </Button>

@@ -5,13 +5,14 @@ import {
   Calendar, Clock, CreditCard, Stethoscope, Building2,
   AlertTriangle, CheckCircle2, User, Users, Filter,
   ChevronLeft, ChevronRight, Plus, BarChart3, Activity,
-  FileText, Bell, MapPin, Phone, Eye, ExternalLink
+  FileText, Bell, MapPin, Phone, Eye, ExternalLink,
+  Mail, Hash, CalendarDays, ArrowRight
 } from 'lucide-react';
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, addDays, addWeeks, subWeeks, addMonths, subMonths } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -19,6 +20,15 @@ import { useToast } from '@/components/ui/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import AdminLayout from '../AdminLayout';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
 
 interface ComprehensiveTask {
   id: string;
@@ -128,6 +138,7 @@ export default function ModernTasksPage() {
   const [filter, setFilter] = useState('all');
   const [assignedUserId, setAssignedUserId] = useState('all');
   const [selectedTask, setSelectedTask] = useState<ComprehensiveTask | null>(null);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
 
   // Calculate date range based on view mode
   const getDateRange = () => {
@@ -188,8 +199,13 @@ export default function ModernTasksPage() {
   const stats = data?.stats || {};
 
   const handleTaskAction = (task: ComprehensiveTask) => {
-    if (task.actionUrl) {
-      router.push(task.actionUrl);
+    setSelectedTask(task);
+    setIsDetailsDialogOpen(true);
+  };
+
+  const handleRedirectToDetails = () => {
+    if (selectedTask?.actionUrl) {
+      router.push(selectedTask.actionUrl);
     }
   };
 
@@ -591,6 +607,256 @@ export default function ModernTasksPage() {
     );
   }
 
+  // Task Details Dialog Component
+  const TaskDetailsDialog = () => {
+    if (!selectedTask) return null;
+
+    const config = taskTypeConfig[selectedTask.type] || taskTypeConfig.TASK;
+    const Icon = config.icon;
+
+    return (
+      <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className={cn("p-2 rounded-lg", config.bgColor)}>
+                <Icon className={cn("h-5 w-5", config.color)} />
+              </div>
+              <div className="flex-1">
+                <DialogTitle className="text-xl">{selectedTask.title}</DialogTitle>
+                <DialogDescription className="mt-1">
+                  {config.label} • {format(new Date(selectedTask.createdAt), 'dd MMMM yyyy à HH:mm', { locale: fr })}
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            {/* Status and Priority */}
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-gray-500">Statut:</span>
+                {getStatusBadge(selectedTask.status)}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-gray-500">Priorité:</span>
+                {getPriorityBadge(selectedTask.priority)}
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Description */}
+            {selectedTask.description && (
+              <div>
+                <h4 className="text-sm font-medium text-gray-500 mb-2">Description</h4>
+                <p className="text-gray-700">{selectedTask.description}</p>
+              </div>
+            )}
+
+            {/* Dates */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <h4 className="text-sm font-medium text-gray-500 mb-2">Date de début</h4>
+                <div className="flex items-center gap-2">
+                  <CalendarDays className="h-4 w-4 text-gray-400" />
+                  <span className="text-gray-700">
+                    {format(new Date(selectedTask.startDate), 'dd/MM/yyyy HH:mm', { locale: fr })}
+                  </span>
+                </div>
+              </div>
+              {selectedTask.endDate && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 mb-2">Date de fin</h4>
+                  <div className="flex items-center gap-2">
+                    <CalendarDays className="h-4 w-4 text-gray-400" />
+                    <span className="text-gray-700">
+                      {format(new Date(selectedTask.endDate), 'dd/MM/yyyy HH:mm', { locale: fr })}
+                    </span>
+                  </div>
+                </div>
+              )}
+              {selectedTask.dueDate && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 mb-2">Date d'échéance</h4>
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-orange-500" />
+                    <span className="text-gray-700 font-medium">
+                      {format(new Date(selectedTask.dueDate), 'dd/MM/yyyy HH:mm', { locale: fr })}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <Separator />
+
+            {/* Assignment */}
+            <div>
+              <h4 className="text-sm font-medium text-gray-500 mb-2">Assignation</h4>
+              {selectedTask.assignedTo ? (
+                <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
+                  <Avatar className="h-10 w-10">
+                    <AvatarFallback className="bg-blue-100">
+                      {`${selectedTask.assignedTo.firstName[0]}${selectedTask.assignedTo.lastName[0]}`}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="font-medium text-gray-900">
+                      {selectedTask.assignedTo.firstName} {selectedTask.assignedTo.lastName}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      {selectedTask.assignedTo.email} • {selectedTask.assignedTo.role}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 p-3 bg-red-50 rounded-lg">
+                  <AlertTriangle className="h-5 w-5 text-red-500" />
+                  <span className="font-medium text-red-800">Non assigné</span>
+                </div>
+              )}
+            </div>
+
+            {/* Client Information */}
+            {selectedTask.client && (
+              <>
+                <Separator />
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 mb-2">Client</h4>
+                  <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                    <Avatar className="h-10 w-10">
+                      <AvatarFallback className="bg-gray-200">
+                        {getClientInitials(selectedTask.client.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-900">
+                        {selectedTask.client.name}
+                        {selectedTask.client.type === 'company' && (
+                          <Building2 className="h-4 w-4 text-gray-400 inline-block ml-2" />
+                        )}
+                      </p>
+                      {selectedTask.client.telephone && (
+                        <div className="flex items-center gap-2 mt-1">
+                          <Phone className="h-3 w-3 text-gray-400" />
+                          <span className="text-sm text-gray-600">{selectedTask.client.telephone}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Related Data */}
+            {selectedTask.relatedData && (
+              <>
+                <Separator />
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 mb-2">Informations supplémentaires</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    {selectedTask.relatedData.deviceName && (
+                      <div className="flex items-center gap-2">
+                        <Stethoscope className="h-4 w-4 text-gray-400" />
+                        <div>
+                          <p className="text-xs text-gray-500">Équipement</p>
+                          <p className="text-sm font-medium">{selectedTask.relatedData.deviceName}</p>
+                        </div>
+                      </div>
+                    )}
+                    {selectedTask.relatedData.amount && (
+                      <div className="flex items-center gap-2">
+                        <CreditCard className="h-4 w-4 text-gray-400" />
+                        <div>
+                          <p className="text-xs text-gray-500">Montant</p>
+                          <p className="text-sm font-medium">{selectedTask.relatedData.amount.toFixed(2)} TND</p>
+                        </div>
+                      </div>
+                    )}
+                    {selectedTask.relatedData.bondNumber && (
+                      <div className="flex items-center gap-2">
+                        <Hash className="h-4 w-4 text-gray-400" />
+                        <div>
+                          <p className="text-xs text-gray-500">N° Bon</p>
+                          <p className="text-sm font-medium">{selectedTask.relatedData.bondNumber}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* IDs for reference */}
+            {(selectedTask.relatedData?.diagnosticId || selectedTask.relatedData?.rentalId || 
+              selectedTask.relatedData?.appointmentId || selectedTask.relatedData?.paymentId) && (
+              <>
+                <Separator />
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 mb-2">Références</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedTask.relatedData.diagnosticId && (
+                      <Badge variant="outline" className="text-xs">
+                        Diagnostic: {selectedTask.relatedData.diagnosticId.slice(-8)}
+                      </Badge>
+                    )}
+                    {selectedTask.relatedData.rentalId && (
+                      <Badge variant="outline" className="text-xs">
+                        Location: {selectedTask.relatedData.rentalId.slice(-8)}
+                      </Badge>
+                    )}
+                    {selectedTask.relatedData.appointmentId && (
+                      <Badge variant="outline" className="text-xs">
+                        RDV: {selectedTask.relatedData.appointmentId.slice(-8)}
+                      </Badge>
+                    )}
+                    {selectedTask.relatedData.paymentId && (
+                      <Badge variant="outline" className="text-xs">
+                        Paiement: {selectedTask.relatedData.paymentId.slice(-8)}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Completion Info */}
+            {selectedTask.completedAt && (
+              <>
+                <Separator />
+                <div className="p-3 bg-green-50 rounded-lg">
+                  <div className="flex items-center gap-2 text-green-700">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span className="text-sm font-medium">
+                      Terminé le {format(new Date(selectedTask.completedAt), 'dd MMMM yyyy à HH:mm', { locale: fr })}
+                    </span>
+                    {selectedTask.completedBy && (
+                      <span className="text-sm">par {selectedTask.completedBy}</span>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDetailsDialogOpen(false)}>
+              Fermer
+            </Button>
+            {selectedTask.actionUrl && (
+              <Button onClick={handleRedirectToDetails} className="gap-2">
+                <Eye className="h-4 w-4" />
+                Voir les détails complets
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  };
+
   return (
     <div className="container mx-auto py-6 px-4 max-w-7xl">
       {/* Header */}
@@ -743,6 +1009,9 @@ export default function ModernTasksPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Task Details Dialog */}
+      <TaskDetailsDialog />
     </div>
   );
 }

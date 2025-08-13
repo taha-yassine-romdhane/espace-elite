@@ -36,7 +36,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             type: 'ACCESSORY',
             brand: accessory.brand,
             model: accessory.model,
-            stockLocationId: accessory.stockLocationId,
+            stockLocation: accessory.stockLocationId ? {
+              connect: { id: accessory.stockLocationId }
+            } : undefined,
             purchasePrice: accessory.purchasePrice,
             sellingPrice: accessory.sellingPrice,
             warrantyExpiration: accessory.warrantyExpiration,

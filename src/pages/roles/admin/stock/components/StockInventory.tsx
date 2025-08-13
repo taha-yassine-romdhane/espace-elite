@@ -19,7 +19,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Loader2 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Tooltip,
   TooltipContent,
@@ -363,79 +363,114 @@ export default function StockInventory() {
           <TableHeader>
             <TableRow>
               <TableHead>Produit</TableHead>
-              <TableHead>Marque</TableHead>
-              <TableHead>Modèle</TableHead>
+              <TableHead>Marque/Modèle</TableHead>
+              <TableHead>N° Série</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Emplacement</TableHead>
-              <TableHead>Quantité</TableHead>
+              <TableHead className="text-center">Quantité</TableHead>
               <TableHead>Statut</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {inventoryData?.items.map((item) => (
-              <TableRow key={item.id}>
-                <TableCell className="font-medium">{item.product.name}</TableCell>
-                <TableCell>{item.product.brand || '-'}</TableCell>
-                <TableCell>{item.product.model || '-'}</TableCell>
-                <TableCell>{getTypeBadge(item.product.type)}</TableCell>
-                <TableCell>{item.location.name}</TableCell>
-                <TableCell>{item.quantity}</TableCell>
+              <TableRow key={item.id} className="hover:bg-gray-50">
+                <TableCell className="font-medium">
+                  <div className="max-w-xs truncate" title={item.product.name}>
+                    {item.product.name}
+                  </div>
+                </TableCell>
                 <TableCell>
-                {getStatusBadge(item.status, item.isDevice, item.reservedFor)}
-                {item.status === 'RESERVED' && item.reservedFor && (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 mt-1">
-                          <Search className="h-3.5 w-3.5" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" className="w-72 p-4">
-                        <div className="space-y-2">
-                          <h4 className="font-semibold text-sm">Détails de la réservation</h4>
-                          <div className="text-xs space-y-1">
-                            <div className="flex justify-between">
-                              <span className="font-medium">{item.reservedFor.isCompany ? 'Société:' : 'Patient:'}</span>
-                              <span>{item.reservedFor.name}</span>
-                            </div>
-                            {item.reservedFor.telephone && (
-                              <div className="flex justify-between">
-                                <span className="font-medium">Téléphone:</span>
-                                <span>{item.reservedFor.telephone}</span>
+                  <div className="space-y-1">
+                    {item.product.brand && (
+                      <div className="font-medium text-sm">{item.product.brand}</div>
+                    )}
+                    {item.product.model && (
+                      <div className="text-xs text-gray-500">{item.product.model}</div>
+                    )}
+                    {!item.product.brand && !item.product.model && (
+                      <span className="text-gray-400">-</span>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  {item.product.serialNumber ? (
+                    <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
+                      {item.product.serialNumber}
+                    </span>
+                  ) : (
+                    <span className="text-gray-400">-</span>
+                  )}
+                </TableCell>
+                <TableCell>{getTypeBadge(item.product.type)}</TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                    <span className="text-sm">{item.location.name}</span>
+                  </div>
+                </TableCell>
+                <TableCell className="text-center">
+                  <span className="inline-flex items-center justify-center w-8 h-8 text-sm font-medium bg-blue-100 text-blue-800 rounded-full">
+                    {item.quantity}
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    {getStatusBadge(item.status, item.isDevice, item.reservedFor)}
+                    {item.status === 'RESERVED' && item.reservedFor && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                              <Search className="h-3.5 w-3.5" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="w-72 p-4">
+                            <div className="space-y-2">
+                              <h4 className="font-semibold text-sm">Détails de la réservation</h4>
+                              <div className="text-xs space-y-1">
+                                <div className="flex justify-between">
+                                  <span className="font-medium">{item.reservedFor.isCompany ? 'Société:' : 'Patient:'}</span>
+                                  <span>{item.reservedFor.name}</span>
+                                </div>
+                                {item.reservedFor.telephone && (
+                                  <div className="flex justify-between">
+                                    <span className="font-medium">Téléphone:</span>
+                                    <span>{item.reservedFor.telephone}</span>
+                                  </div>
+                                )}
+                                <div className="flex justify-between">
+                                  <span className="font-medium">Date de diagnostic:</span>
+                                  <span>{new Date(item.reservedFor.diagnosticDate).toLocaleDateString('fr-FR')}</span>
+                                </div>
+                                {item.reservedFor.resultDueDate && (
+                                  <div className="flex justify-between">
+                                    <span className="font-medium">Date de résultat prévue:</span>
+                                    <span>{new Date(item.reservedFor.resultDueDate).toLocaleDateString('fr-FR')}</span>
+                                  </div>
+                                )}
+                                <div className="mt-2 pt-2 border-t border-gray-100">
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="w-full mt-1 text-xs h-7"
+                                    onClick={() => window.open(`/roles/admin/diagnostics/${item.reservedFor?.diagnosticId}`, '_blank')}
+                                  >
+                                    Voir le diagnostic
+                                  </Button>
+                                </div>
                               </div>
-                            )}
-                            <div className="flex justify-between">
-                              <span className="font-medium">Date de diagnostic:</span>
-                              <span>{new Date(item.reservedFor.diagnosticDate).toLocaleDateString('fr-FR')}</span>
                             </div>
-                            {item.reservedFor.resultDueDate && (
-                              <div className="flex justify-between">
-                                <span className="font-medium">Date de résultat prévue:</span>
-                                <span>{new Date(item.reservedFor.resultDueDate).toLocaleDateString('fr-FR')}</span>
-                              </div>
-                            )}
-                            <div className="mt-2 pt-2 border-t border-gray-100">
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="w-full mt-1 text-xs h-7"
-                                onClick={() => window.open(`/roles/admin/diagnostics/${item.reservedFor?.diagnosticId}`, '_blank')}
-                              >
-                                Voir le diagnostic
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                )}
-              </TableCell>
-            </TableRow>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+                  </div>
+                </TableCell>
+              </TableRow>
             ))}
             {(!inventoryData?.items || inventoryData.items.length === 0) && (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8">
+                <TableCell colSpan={7} className="text-center py-8">
                   Aucun produit trouvé
                 </TableCell>
               </TableRow>

@@ -48,21 +48,16 @@ export function DiagnosticStepperSidebar({
                     className={cn(
                       "absolute top-0 left-5 w-0.5",
                       "h-6 -translate-y-6", // Fixed height and position
-                      isCompleted ? "bg-blue-600" : "bg-gray-200"
+                      isCompleted ? "bg-green-600" : "bg-gray-200"
                     )}
                   />
                 )}
                 <div className="flex gap-4 relative">
-                  <div
-                    className={cn(
-                      "flex-shrink-0 mt-0.5",
-                      isActive && "animate-pulse"
-                    )}
-                  >
+                  <div className="flex-shrink-0 mt-0.5">
                     {isCompleted ? (
-                      <CheckCircle2 className="h-10 w-10 text-blue-600 fill-blue-100" />
+                      <CheckCircle2 className="h-10 w-10 text-green-600 fill-green-100" />
                     ) : isActive ? (
-                      <div className="h-10 w-10 rounded-full border-2 border-blue-600 bg-blue-50 flex items-center justify-center text-blue-600 font-medium">
+                      <div className="h-10 w-10 rounded-full border-2 border-green-600 bg-green-50 flex items-center justify-center text-green-600 font-medium">
                         {step.id}
                       </div>
                     ) : (
@@ -74,9 +69,9 @@ export function DiagnosticStepperSidebar({
                       className={cn(
                         "font-medium",
                         isActive
-                          ? "text-blue-600"
+                          ? "text-green-600"
                           : isCompleted
-                          ? "text-blue-700"
+                          ? "text-green-700"
                           : "text-gray-400"
                       )}
                     >
@@ -102,15 +97,15 @@ export function DiagnosticStepperSidebar({
 
       {/* Total Price - Fixed at bottom */}
       {totalPrice && (
-        <div className="p-4 border-t bg-gradient-to-r from-blue-50 to-indigo-50 sticky bottom-0">
+        <div className="p-4 border-t bg-gradient-to-r from-green-50 to-emerald-50 sticky bottom-0">
           <div className="flex justify-between items-center">
             <div>
               <span className="text-sm text-gray-600">Montant Total</span>
-              <div className="text-l font-bold text-blue-700">
+              <div className="text-l font-bold text-green-700">
                 <p>Cette Operation est gratuit</p>
               </div>
             </div>
-            <div className="bg-blue-600 text-white px-3 py-1 rounded-full text-xs font-medium">
+            <div className="bg-green-600 text-white px-3 py-1 rounded-full text-xs font-medium">
               En cours
             </div>
           </div>

@@ -18,6 +18,13 @@ interface Client {
   name: string;
   hasOngoingDiagnostic?: boolean;
   ongoingDiagnosticId?: string | null;
+  // Additional fields for patient details
+  firstName?: string;
+  lastName?: string;
+  telephone?: string;
+  address?: string;
+  dateOfBirth?: string;
+  cin?: string;
 }
 
 interface ClientSelectionStepProps {
@@ -159,8 +166,18 @@ export function ClientSelectionStep({
           id: newPatient.id,
           name: `${newPatient.lastName} ${newPatient.firstName}`,
           hasOngoingDiagnostic: false,
-          ongoingDiagnosticId: null
+          ongoingDiagnosticId: null,
+          // Pass additional patient details for immediate display
+          firstName: newPatient.firstName,
+          lastName: newPatient.lastName,
+          telephone: newPatient.telephone,
+          address: newPatient.detailedAddress,
+          dateOfBirth: newPatient.dateOfBirth,
+          cin: newPatient.cin
         };
+        
+        // Add to local clients list
+        setClients(prevClients => [...prevClients, newClientData]);
         
         // Add to clients list via callback
         if (onClientAdd) {
@@ -270,14 +287,40 @@ export function ClientSelectionStep({
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/clients?type=${type}`);
+      let response;
+      if (type === "patient") {
+        // For employees, fetch only assigned patients for diagnostics
+        if (action === "diagnostique") {
+          response = await fetch('/api/renseignements/patients?assignedToMe=true');
+        } else {
+          response = await fetch('/api/renseignements/patients');
+        }
+      } else {
+        // For companies, use the clients API
+        response = await fetch(`/api/clients?type=${type}`);
+      }
+      
       if (!response.ok) {
         throw new Error("Failed to fetch clients");
       }
       const data = await response.json();
-      // Ensure data is an array
-      const clientsArray = Array.isArray(data) ? data : (data.clients || data.data || []);
-      setClients(clientsArray);
+      
+      if (type === "patient") {
+        // Transform patient data to match Client interface
+        // Ensure data is an array first
+        const patientsArray = Array.isArray(data) ? data : (data.patients || data.data || []);
+        const clientsArray = patientsArray.map((patient: any) => ({
+          id: patient.id,
+          name: `${patient.lastName} ${patient.firstName}`,
+          hasOngoingDiagnostic: false,
+          ongoingDiagnosticId: null
+        }));
+        setClients(clientsArray);
+      } else {
+        // Ensure data is an array
+        const clientsArray = Array.isArray(data) ? data : (data.clients || data.data || []);
+        setClients(clientsArray);
+      }
     } catch (error) {
       console.error("Error fetching clients:", error);
       setError("Erreur lors du chargement des données");
@@ -323,7 +366,7 @@ export function ClientSelectionStep({
       <div className="space-y-6">
         {showClientTypeSelection ? (
           <div>
-            <Label className="text-base font-semibold text-[#1e3a8a]">Type de Client</Label>
+            <Label className="text-base font-semibold text-green-600">Type de Client</Label>
             <RadioGroup
               className="grid grid-cols-2 gap-4 mt-4"
               value={clientType || ""}
@@ -331,15 +374,15 @@ export function ClientSelectionStep({
             >
               <div className={cn(
                 "flex items-center space-x-3 border rounded-lg p-4 cursor-pointer transition-all",
-                "hover:border-[#1e3a8a] hover:bg-blue-50",
-                clientType === "patient" ? "border-[#1e3a8a] bg-blue-50" : "border-gray-200"
+                "hover:border-green-600 hover:bg-green-50",
+                clientType === "patient" ? "border-green-600 bg-green-50" : "border-gray-200"
               )}>
-                <RadioGroupItem value="patient" id="patient" className="text-[#1e3a8a]" />
+                <RadioGroupItem value="patient" id="patient" className="text-green-600" />
                 <Label htmlFor="patient" className="flex-1 cursor-pointer">
                   <div className="flex items-center gap-2">
-                    <User className="h-5 w-5 text-[#1e3a8a]" />
+                    <User className="h-5 w-5 text-green-600" />
                     <div>
-                      <div className="font-medium text-[#1e3a8a]">Patient</div>
+                      <div className="font-medium text-green-600">Patient</div>
                       <div className="text-sm text-gray-500">Particulier</div>
                     </div>
                   </div>
@@ -347,15 +390,15 @@ export function ClientSelectionStep({
               </div>
               <div className={cn(
                 "flex items-center space-x-3 border rounded-lg p-4 cursor-pointer transition-all",
-                "hover:border-[#1e3a8a] hover:bg-blue-50",
-                clientType === "societe" ? "border-[#1e3a8a] bg-blue-50" : "border-gray-200"
+                "hover:border-green-600 hover:bg-green-50",
+                clientType === "societe" ? "border-green-600 bg-green-50" : "border-gray-200"
               )}>
-                <RadioGroupItem value="societe" id="societe" className="text-[#1e3a8a]" />
+                <RadioGroupItem value="societe" id="societe" className="text-green-600" />
                 <Label htmlFor="societe" className="flex-1 cursor-pointer">
                   <div className="flex items-center gap-2">
-                    <Building2 className="h-5 w-5 text-[#1e3a8a]" />
+                    <Building2 className="h-5 w-5 text-green-600" />
                     <div>
-                      <div className="font-medium text-[#1e3a8a]">Société</div>
+                      <div className="font-medium text-green-600">Société</div>
                       <div className="text-sm text-gray-500">Entreprise</div>
                     </div>
                   </div>
@@ -366,12 +409,12 @@ export function ClientSelectionStep({
         ) : (
           // For location , just show a message indicating patient selection
           <div>
-            <Label className="text-base font-semibold text-[#1e3a8a]">Type de Client</Label>
-            <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
+            <Label className="text-base font-semibold text-green-600">Type de Client</Label>
+            <div className="mt-4 p-4 bg-green-50 rounded-lg border border-green-100">
               <div className="flex items-center gap-2">
-                <User className="h-5 w-5 text-[#1e3a8a]" />
+                <User className="h-5 w-5 text-green-600" />
                 <div>
-                  <div className="font-medium text-[#1e3a8a]">Patient</div>
+                  <div className="font-medium text-green-600">Patient</div>
                   <div className="text-sm text-gray-600">
                     {action === "location" ? 
                       "Les locations sont uniquement disponibles pour les patients" : 
@@ -386,7 +429,7 @@ export function ClientSelectionStep({
         {clientType && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <Label className="text-base font-semibold text-[#1e3a8a] flex items-center gap-2">
+              <Label className="text-base font-semibold text-green-600 flex items-center gap-2">
                 {clientType === "patient" ? (
                   <>
                     <Users className="h-5 w-5" />
@@ -403,7 +446,7 @@ export function ClientSelectionStep({
                 variant="outline"
                 size="sm"
                 onClick={() => setIsCreateFormOpen(true)}
-                className="flex items-center gap-2 text-[#1e3a8a] border-[#1e3a8a] hover:bg-blue-50"
+                className="flex items-center gap-2 text-green-600 border-green-600 hover:bg-green-50"
               >
                 <Plus className="h-4 w-4" />
                 {clientType === "patient" ? "Nouveau Patient" : "Nouvelle Société"}
@@ -425,7 +468,7 @@ export function ClientSelectionStep({
                       <Input
                         type="text"
                         placeholder={clientType === "patient" ? "Rechercher un patient..." : "Rechercher une société..."}
-                        className="pl-8 h-9 w-full border-[#1e3a8a] focus:ring-[#1e3a8a]"
+                        className="pl-8 h-9 w-full border-green-600 focus:ring-green-600"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         onClick={(e) => e.stopPropagation()} // Prevent closing dropdown when clicking input
@@ -491,7 +534,7 @@ export function ClientSelectionStep({
           <Button
             onClick={onNext}
             disabled={!selectedClient}
-            className="bg-[#1e3a8a] hover:bg-[#1e3a8a]/90 text-white flex items-center gap-2"
+            className="bg-green-600 hover:bg-green-600/90 text-white flex items-center gap-2"
           >
             Continuer
             <ChevronRight className="h-4 w-4" />
@@ -503,7 +546,7 @@ export function ClientSelectionStep({
       <Dialog open={isCreateFormOpen} onOpenChange={setIsCreateFormOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader className="flex-shrink-0 border-b pb-4">
-            <DialogTitle className="flex items-center gap-2 text-[#1e3a8a]">
+            <DialogTitle className="flex items-center gap-2 text-green-600">
               {clientType === "patient" ? (
                 <>
                   <UserPlus className="h-5 w-5" />

@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 import { CheckCircle2, Circle, Building2, User, Calendar, CreditCard, Package, MapPin, Phone, Check, Shield, Clock } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";

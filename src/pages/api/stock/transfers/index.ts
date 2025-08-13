@@ -111,7 +111,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       // Start a transaction
       const transfer = await prisma.$transaction(async (tx) => {
-        // 1. Check if there's enough stock in the source location
+        // First check if it's a regular product in Stock table
         const sourceStock = await tx.stock.findFirst({
           where: {
             locationId: fromLocationId,
@@ -132,88 +132,189 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           }
         });
 
-        if (!sourceStock) {
-          const locationInfo = await tx.stockLocation.findUnique({
-            where: { id: fromLocationId },
-            select: { name: true }
+        if (sourceStock) {
+          // It's a regular product (accessory or spare part)
+          if (sourceStock.quantity < quantity) {
+            throw new Error(`Insufficient stock in source location "${sourceStock.location.name}". Available: ${sourceStock.quantity}, Requested: ${quantity}`);
+          }
+
+          // Update source location stock
+          await tx.stock.update({
+            where: { id: sourceStock.id },
+            data: { quantity: sourceStock.quantity - quantity }
           });
-          const productInfo = await tx.product.findUnique({
-            where: { id: productId },
-            select: { name: true }
-          });
-          throw new Error(`No stock found for product "${productInfo?.name || 'Unknown'}" in source location "${locationInfo?.name || 'Unknown'}"`);
-        }
 
-        if (sourceStock.quantity < quantity) {
-          throw new Error(`Insufficient stock in source location "${sourceStock.location.name}". Available: ${sourceStock.quantity}, Requested: ${quantity}`);
-        }
-
-        // 2. Update source location stock
-        await tx.stock.update({
-          where: { id: sourceStock.id },
-          data: { quantity: sourceStock.quantity - quantity }
-        });
-
-        // 3. Update or create destination location stock
-        const destStock = await tx.stock.upsert({
-          where: {
-            locationId_productId: {
+          // Update or create destination location stock
+          await tx.stock.upsert({
+            where: {
+              locationId_productId: {
+                locationId: toLocationId,
+                productId,
+              }
+            },
+            create: {
               locationId: toLocationId,
               productId,
+              quantity,
+              status: newStatus || sourceStock.status,
+            },
+            update: {
+              quantity: { increment: quantity },
+              ...(newStatus ? { status: newStatus } : {})
             }
-          },
-          create: {
-            locationId: toLocationId,
-            productId,
-            quantity,
-            status: newStatus || sourceStock.status,
-          },
-          update: {
-            quantity: { increment: quantity },
-            ...(newStatus ? { status: newStatus } : {})
-          }
-        });
+          });
 
-        // 4. Create transfer record
-        const transfer = await tx.stockTransfer.create({
-          data: {
-            fromLocationId,
-            toLocationId,
-            productId,
-            quantity,
-            newStatus,
-            notes,
-            transferredById: session.user.id,
+          // Create transfer record
+          const transfer = await tx.stockTransfer.create({
+            data: {
+              fromLocationId,
+              toLocationId,
+              productId,
+              quantity,
+              newStatus,
+              notes,
+              transferredById: session.user.id,
+            },
+            include: {
+              fromLocation: true,
+              toLocation: true,
+              product: true,
+              transferredBy: {
+                select: {
+                  firstName: true,
+                  lastName: true,
+                }
+              }
+            }
+          });
+
+          await tx.userActionHistory.create({
+            data: {
+              userId: session.user.id,
+              actionType: 'TRANSFER',
+              relatedItemId: transfer.id,
+              relatedItemType: 'StockTransfer',
+              details: {
+                fromLocationId,
+                toLocationId,
+                productId,
+                productName: sourceStock.product.name,
+                quantity,
+                notes,
+                message: `User initiated a stock transfer of ${quantity} unit(s) of ${sourceStock.product.name} from ${sourceStock.location.name} to destination location.`
+              }
+            }
+          });
+
+          return transfer;
+        }
+
+        // Check if it's a medical device
+        const medicalDevice = await tx.medicalDevice.findFirst({
+          where: {
+            id: productId,
+            stockLocationId: fromLocationId,
+            status: { notIn: ['SOLD', 'RETIRED'] }
           },
           include: {
-            fromLocation: true,
-            toLocation: true,
-            product: true,
-            transferredBy: {
+            stockLocation: {
               select: {
-                firstName: true,
-                lastName: true,
+                name: true
               }
             }
           }
         });
 
-        await tx.userActionHistory.create({
-          data: {
-            userId: session.user.id,
-            actionType: 'TRANSFER',
-            relatedItemId: transfer.id,
-            relatedItemType: 'StockTransfer',
-            details: {
+        if (medicalDevice) {
+          // Medical devices can only be transferred one at a time
+          if (quantity !== 1) {
+            throw new Error('Medical devices can only be transferred one at a time');
+          }
+
+          // Update the medical device's location and status
+          // newStatus for devices uses DeviceStatus enum values
+          await tx.medicalDevice.update({
+            where: { id: productId },
+            data: { 
+              stockLocationId: toLocationId,
+              ...(newStatus && ['ACTIVE', 'MAINTENANCE', 'RETIRED', 'RESERVED', 'SOLD'].includes(newStatus) 
+                ? { status: newStatus as any } 
+                : {})
+            }
+          });
+
+          // Create a product entry if it doesn't exist (for transfer record)
+          let product = await tx.product.findUnique({
+            where: { id: productId }
+          });
+
+          if (!product) {
+            // Create a product entry for the medical device
+            product = await tx.product.create({
+              data: {
+                id: productId,
+                name: medicalDevice.name,
+                type: medicalDevice.type,
+                brand: medicalDevice.brand,
+                model: medicalDevice.model
+              }
+            });
+          }
+
+          // Create transfer record (without newStatus for medical devices)
+          const transfer = await tx.stockTransfer.create({
+            data: {
               fromLocationId,
               toLocationId,
               productId,
-              quantity,
-              notes,
-              message: `User initiated a stock transfer of ${quantity} unit(s) of product ${productId} from location ${fromLocationId} to ${toLocationId}.`
+              quantity: 1,
+              // Don't set newStatus for medical devices as they use different enum
+              // Add device status info to notes if status was changed
+              notes: newStatus 
+                ? `${notes ? notes + ' | ' : ''}Statut du dispositif changé à: ${newStatus}`
+                : notes,
+              transferredById: session.user.id,
+            },
+            include: {
+              fromLocation: true,
+              toLocation: true,
+              product: true,
+              transferredBy: {
+                select: {
+                  firstName: true,
+                  lastName: true,
+                }
+              }
             }
-          }
+          });
+
+          await tx.userActionHistory.create({
+            data: {
+              userId: session.user.id,
+              actionType: 'TRANSFER',
+              relatedItemId: transfer.id,
+              relatedItemType: 'StockTransfer',
+              details: {
+                fromLocationId,
+                toLocationId,
+                productId,
+                deviceName: medicalDevice.name,
+                quantity: 1,
+                notes,
+                message: `User initiated a transfer of medical device ${medicalDevice.name} from ${medicalDevice.stockLocation.name} to destination location.`
+              }
+            }
+          });
+
+          return transfer;
+        }
+
+        // Product not found in either table
+        const locationInfo = await tx.stockLocation.findUnique({
+          where: { id: fromLocationId },
+          select: { name: true }
         });
+        throw new Error(`Product not found in source location "${locationInfo?.name || 'Unknown'}"`);
 
         return transfer;
       });

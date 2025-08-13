@@ -161,7 +161,6 @@ export default async function handler(
                   rentalPrice: data.rentalPrice ? parseFloat(data.rentalPrice) : null,
                   technicalSpecs: data.technicalSpecs,
                   warranty: data.warranty,
-                  availableForRent: data.availableForRent || false,
                   requiresMaintenance: data.requiresMaintenance || false,
                   configuration: data.configuration,
                   status: data.status || 'ACTIVE',
