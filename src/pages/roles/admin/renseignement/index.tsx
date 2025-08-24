@@ -166,6 +166,8 @@ export default function RenseignementPage() {
       const query = searchQuery.toLowerCase().trim();
       filtered = filtered.filter(item =>
         (item.nom && item.nom.toLowerCase().includes(query)) ||
+        (item.patientCode && item.patientCode.toLowerCase().includes(query)) ||
+        (item.companyCode && item.companyCode.toLowerCase().includes(query)) ||
         (item.telephone && item.telephone.includes(query)) ||
         (item.cin && item.cin.includes(query)) ||
         (item.matriculeFiscale && item.matriculeFiscale.includes(query))

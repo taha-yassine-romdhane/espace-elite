@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, isAfter, isBefore, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
+import { useRouter } from "next/router";
 import {
   Table,
   TableBody,
@@ -44,6 +45,7 @@ import {
   SortDesc,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { RentalDetailsDialog } from "../dialogs/RentalDetailsDialog";
 
 interface RentalTableProps {
   onViewDetails?: (id: string) => void;
@@ -52,9 +54,12 @@ interface RentalTableProps {
 
 export function RentalTable({ onViewDetails, onEdit }: RentalTableProps) {
   const { toast } = useToast();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [rentalToDelete, setRentalToDelete] = useState<string | null>(null);
+  const [selectedRental, setSelectedRental] = useState<any>(null);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
 
   // Enhanced filtering states
   const [filteredRentals, setFilteredRentals] = useState<any[]>([]);
@@ -237,11 +242,11 @@ export function RentalTable({ onViewDetails, onEdit }: RentalTableProps) {
   // Function to get CNAM info summary
   const getCnamSummary = (rental: any) => {
     const configuration = rental.configuration || {};
-    const cnamEligible = configuration.cnamEligible || false;
     const cnamBonds = rental.cnamBonds || [];
     const urgentRental = configuration.urgentRental || false;
     
-    if (!cnamEligible || cnamBonds.length === 0) {
+    // Check if we have CNAM bonds
+    if (cnamBonds.length === 0) {
       return {
         eligible: false,
         bonds: 0,
@@ -255,7 +260,7 @@ export function RentalTable({ onViewDetails, onEdit }: RentalTableProps) {
 
     // Get the status of CNAM bonds
     const approvedBonds = cnamBonds.filter((bond: any) => bond.status === 'APPROUVE');
-    const pendingBonds = cnamBonds.filter((bond: any) => bond.status === 'EN_ATTENTE_APPROBATION');
+    const pendingBonds = cnamBonds.filter((bond: any) => bond.status === 'EN_ATTENTE_APPROBATION' || bond.status === 'EN_ATTENTE');
     
     let badgeColor = "bg-blue-100 text-blue-800 border-blue-200";
     let statusText = "CNAM";
@@ -300,16 +305,46 @@ export function RentalTable({ onViewDetails, onEdit }: RentalTableProps) {
 
   // Function to calculate total rental amount
   const getTotalAmount = (rental: any) => {
+    // First try to get from configuration if available
     const configuration = rental.configuration || {};
-    const amount = configuration.totalPaymentAmount || 0;
-    return Number(amount);
+    const configAmount = configuration.totalPaymentAmount;
+    
+    if (configAmount && configAmount > 0) {
+      return Number(configAmount);
+    }
+    
+    // Calculate from rental periods if available
+    const rentalPeriods = rental.rentalPeriods || [];
+    if (rentalPeriods.length > 0) {
+      const totalFromPeriods = rentalPeriods.reduce((sum: number, period: any) => {
+        return sum + Number(period.amount || 0);
+      }, 0);
+      return totalFromPeriods;
+    }
+    
+    // Fallback to device rental price if available
+    const devicePrice = rental.medicalDevice?.rentalPrice;
+    if (devicePrice && devicePrice > 0) {
+      return Number(devicePrice);
+    }
+    
+    return 0;
   };
 
   // Function to get deposit info
   const getDepositInfo = (rental: any) => {
     const configuration = rental.configuration || {};
-    const depositAmount = Number(configuration.depositAmount || 0);
-    const depositMethod = configuration.depositMethod || 'N/A';
+    let depositAmount = Number(configuration.depositAmount || 0);
+    let depositMethod = configuration.depositMethod || 'N/A';
+    
+    // If no deposit in configuration, check payment with isDepositPayment flag
+    if (depositAmount === 0) {
+      const payment = rental.payment;
+      if (payment && payment.isDepositPayment) {
+        depositAmount = Number(payment.amount || 0);
+        depositMethod = payment.method || 'N/A';
+      }
+    }
     
     return { amount: depositAmount, method: depositMethod };
   };
@@ -365,8 +400,11 @@ export function RentalTable({ onViewDetails, onEdit }: RentalTableProps) {
         return (
           clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
           rental.patient?.telephone?.includes(searchTerm) ||
+          rental.patient?.patientCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           rental.patient?.cnamId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           rental.company?.telephone?.includes(searchTerm) ||
+          rental.company?.companyCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          rental.rentalCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           rental.medicalDevice?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           rental.medicalDevice?.serialNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           rental.id.toString().includes(searchTerm)
@@ -679,6 +717,7 @@ export function RentalTable({ onViewDetails, onEdit }: RentalTableProps) {
                       )}
                     </div>
                   </TableHead>
+                  <TableHead>Traité par</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -712,7 +751,19 @@ export function RentalTable({ onViewDetails, onEdit }: RentalTableProps) {
                             )}
                           </div>
                           <div>
-                            <div className="font-semibold text-slate-900">{clientName}</div>
+                            <div className="font-semibold text-slate-900">
+                              {clientName}
+                              {rental.patient?.patientCode && (
+                                <span className="ml-2 text-xs font-normal text-slate-500">
+                                  ({rental.patient.patientCode})
+                                </span>
+                              )}
+                              {rental.company?.companyCode && (
+                                <span className="ml-2 text-xs font-normal text-slate-500">
+                                  ({rental.company.companyCode})
+                                </span>
+                              )}
+                            </div>
                             <div className="text-xs text-slate-500 flex items-center gap-1">
                               {clientType === "patient" ? (
                                 <User className="h-3 w-3" />
@@ -737,7 +788,14 @@ export function RentalTable({ onViewDetails, onEdit }: RentalTableProps) {
                         <div className="flex items-start gap-2">
                           <Package className="h-4 w-4 text-blue-600 mt-1" />
                           <div className="max-w-48">
-                            <div className="font-medium">{rental.medicalDevice?.name || "Appareil inconnu"}</div>
+                            <div className="font-medium">
+                              {rental.medicalDevice?.name || "Appareil inconnu"}
+                              {rental.rentalCode && (
+                                <span className="ml-2 text-xs font-normal text-slate-500">
+                                  ({rental.rentalCode})
+                                </span>
+                              )}
+                            </div>
                             <div className="text-xs text-gray-500 mb-1">
                               {rental.medicalDevice?.type || "Type inconnu"}
                             </div>
@@ -805,6 +863,18 @@ export function RentalTable({ onViewDetails, onEdit }: RentalTableProps) {
                       </TableCell>
                       
                       <TableCell>
+                        <div className="flex items-center space-x-2">
+                          <User className="h-3.5 w-3.5 text-gray-400" />
+                          <span className="text-sm text-gray-700">
+                            {rental.createdBy 
+                              ? `${rental.createdBy.firstName} ${rental.createdBy.lastName}`
+                              : "Non spécifié"
+                            }
+                          </span>
+                        </div>
+                      </TableCell>
+                      
+                      <TableCell>
                         <div className="flex space-x-2">
                           <TooltipProvider>
                             <Tooltip>
@@ -812,7 +882,10 @@ export function RentalTable({ onViewDetails, onEdit }: RentalTableProps) {
                                 <Button 
                                   variant="outline" 
                                   size="sm"
-                                  onClick={() => onViewDetails && onViewDetails(rental.id)}
+                                  onClick={() => {
+                                    setSelectedRental(rental);
+                                    setIsDetailsDialogOpen(true);
+                                  }}
                                   className="flex items-center gap-1 text-xs"
                                 >
                                   <Eye className="h-3.5 w-3.5" />
@@ -824,25 +897,32 @@ export function RentalTable({ onViewDetails, onEdit }: RentalTableProps) {
                             </Tooltip>
                           </TooltipProvider>
                           
-                          {(rental.status === "ACTIVE" || rental.status === "PENDING") && (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm"
-                                    className="border-blue-200 text-blue-800 hover:bg-blue-50 flex items-center gap-1 text-xs"
-                                    onClick={() => onEdit && onEdit(rental.id)}
-                                  >
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  className="border-blue-200 text-blue-800 hover:bg-blue-50 flex items-center gap-1 text-xs"
+                                  onClick={() => router.push(`/roles/admin/rentals/${rental.id}`)}
+                                >
+                                  {(rental.status === "ACTIVE" || rental.status === "PENDING") ? (
                                     <Edit className="h-3.5 w-3.5" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Modifier la location</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          )}
+                                  ) : (
+                                    <Eye className="h-3.5 w-3.5" />
+                                  )}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>
+                                  {(rental.status === "ACTIVE" || rental.status === "PENDING") 
+                                    ? "Modifier la location" 
+                                    : "Consulter la location"
+                                  }
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
 
                           <TooltipProvider>
                             <Tooltip>
@@ -972,6 +1052,16 @@ export function RentalTable({ onViewDetails, onEdit }: RentalTableProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      
+      {/* Rental Details Dialog */}
+      <RentalDetailsDialog
+        isOpen={isDetailsDialogOpen}
+        onClose={() => {
+          setIsDetailsDialogOpen(false);
+          setSelectedRental(null);
+        }}
+        rental={selectedRental}
+      />
     </div>
   );
 }

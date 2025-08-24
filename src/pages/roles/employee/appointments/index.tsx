@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
+import Head from 'next/head';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
   Calendar,
@@ -20,6 +21,7 @@ import {
   CalendarDays
 } from 'lucide-react';
 import EmployeeLayout from '../EmployeeLayout';
+import { EmployeeRdvStepperDialog } from '../dashboard/components/EmployeeRdvStepperDialog';
 
 const AppointmentsPage = () => {
   const { data: session, status } = useSession();
@@ -29,6 +31,7 @@ const AppointmentsPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
+  const [isRdvDialogOpen, setIsRdvDialogOpen] = useState(false);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -123,25 +126,40 @@ const AppointmentsPage = () => {
   }
 
   return (
-    <div className="space-y-6 p-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Rendez-vous</h1>
-          <p className="text-gray-600 mt-1">
-            Gérez vos rendez-vous et planifications
-          </p>
+    <>
+      <Head>
+        <title>Rendez-vous - Espace Elite</title>
+        <meta name="description" content="Gestion des rendez-vous employé" />
+      </Head>
+      
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        {/* Header Section */}
+        <div className="bg-gradient-to-r from-green-600 to-green-700 text-white px-6 py-8">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div>
+                <h1 className="text-3xl font-bold flex items-center gap-3">
+                  <Calendar className="h-8 w-8" />
+                  Mes Rendez-vous
+                </h1>
+                <p className="text-green-100 mt-2">
+                  Gérez vos rendez-vous et planifications
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setIsRdvDialogOpen(true)}
+                  className="bg-white text-green-700 hover:bg-green-50 font-semibold shadow-lg flex items-center gap-2 px-6 py-3 rounded-lg transition-colors"
+                >
+                  <Plus className="h-5 w-5" />
+                  Nouveau RDV
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="flex gap-3">
-          <button
-            onClick={() => {/* Open new appointment dialog */}}
-            className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            Nouveau RDV
-          </button>
-        </div>
-      </div>
+
+        <div className="w-full px-4 -mt-6 space-y-6">
 
       {/* Filters and Search */}
       <Card className="bg-white rounded-xl shadow-sm">
@@ -283,67 +301,15 @@ const AppointmentsPage = () => {
         </CardContent>
       </Card>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-blue-100 text-sm">Aujourd'hui</p>
-                <p className="text-2xl font-bold">
-                  {appointments.filter(a => 
-                    new Date(a.scheduledDate).toDateString() === new Date().toDateString()
-                  ).length}
-                </p>
-              </div>
-              <CalendarDays className="h-8 w-8 text-blue-200" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-r from-green-500 to-green-600 text-white">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-green-100 text-sm">Terminés</p>
-                <p className="text-2xl font-bold">
-                  {appointments.filter(a => a.status === 'COMPLETED').length}
-                </p>
-              </div>
-              <CheckCircle className="h-8 w-8 text-green-200" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-white">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-yellow-100 text-sm">En attente</p>
-                <p className="text-2xl font-bold">
-                  {appointments.filter(a => a.status === 'SCHEDULED').length}
-                </p>
-              </div>
-              <Clock className="h-8 w-8 text-yellow-200" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-r from-red-500 to-red-600 text-white">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-red-100 text-sm">Annulés</p>
-                <p className="text-2xl font-bold">
-                  {appointments.filter(a => a.status === 'CANCELLED').length}
-                </p>
-              </div>
-              <XCircle className="h-8 w-8 text-red-200" />
-            </div>
-          </CardContent>
-        </Card>
+        </div>
       </div>
-    </div>
+      
+      {/* RDV Stepper Dialog */}
+      <EmployeeRdvStepperDialog
+        isOpen={isRdvDialogOpen}
+        onClose={() => setIsRdvDialogOpen(false)}
+      />
+    </>
   );
 };
 

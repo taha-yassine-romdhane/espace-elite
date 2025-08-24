@@ -10,6 +10,8 @@ export interface Person {
 
 export interface Renseignement {
   id: string;
+  patientCode?: string;
+  companyCode?: string;
   type: 'Patient' | 'Société';
   nom: string;
   adresse: string;

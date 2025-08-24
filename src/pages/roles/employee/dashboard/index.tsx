@@ -27,6 +27,14 @@ export default function DashboardPage() {
         
         {/* Action Buttons Row */}
         <div className="grid grid-cols-1 tablet:grid-cols-2 tablet-lg:grid-cols-4 gap-4 mb-8">
+        <Button 
+            className="w-full bg-green-700 hover:bg-green-600 text-white flex items-center justify-start gap-2"
+            onClick={() => setSelectedAction("rdv")}
+          >
+            <Calendar className="h-5 w-5" />
+            <span>Créer un Rendez-vous</span>
+          </Button>
+          
           <Button 
             className="w-full bg-green-700 hover:bg-green-600 text-white flex items-center justify-start gap-2"
             onClick={() => setSelectedAction("diagnostique")}
@@ -51,13 +59,7 @@ export default function DashboardPage() {
             <span>Commencer une Location</span>
           </Button>
           
-          <Button 
-            className="w-full bg-green-700 hover:bg-green-600 text-white flex items-center justify-start gap-2"
-            onClick={() => setSelectedAction("rdv")}
-          >
-            <Calendar className="h-5 w-5" />
-            <span>Créer un Rendez-vous</span>
-          </Button>
+        
         </div>
 
         {/* Tab Switcher */}

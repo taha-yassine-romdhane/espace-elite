@@ -5,6 +5,7 @@ import prisma from '@/lib/db';
 import { Prisma } from '@prisma/client';
 import { Affiliation, BeneficiaryType } from '@prisma/client';
 import formidable from 'formidable';
+import { generatePatientCode } from '@/utils/idGenerator';
 
 export const config = {
   api: {
@@ -103,6 +104,7 @@ export default async function handler(
       const patients = await prisma.patient.findMany({
         select: {
           id: true,
+          patientCode: true,
           firstName: true,
           lastName: true,
           telephone: true,
@@ -135,6 +137,7 @@ export default async function handler(
         
         return {
           id: patient.id,
+          patientCode: patient.patientCode || null,
           firstName: firstName,
           lastName: lastName,
           name: fullName || 'Patient sans nom',
@@ -211,8 +214,12 @@ export default async function handler(
         }
       }
 
+      // Generate patient code
+      const patientCode = await generatePatientCode(prisma);
+
       const patient = await prisma.patient.create({
         data: {
+          patientCode: patientCode,
           firstName: names[0] || '',
           lastName: names.length > 1 ? names.slice(1).join(' ') : '',
           telephone: data.telephonePrincipale || '',

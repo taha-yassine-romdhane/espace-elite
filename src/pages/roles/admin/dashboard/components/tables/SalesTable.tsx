@@ -46,19 +46,104 @@ import {
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
+// Define proper types for better type safety
+interface ProcessedBy {
+  id: string;
+  name?: string;
+  firstName?: string;
+  lastName?: string;
+}
+
+interface Patient {
+  id: string;
+  firstName: string;
+  lastName: string;
+  telephone?: string;
+  cin?: string;
+  patientCode?: string;
+}
+
+interface Company {
+  id: string;
+  companyName: string;
+  telephone?: string;
+  fiscalNumber?: string;
+}
+
+interface DeviceConfiguration {
+  pression?: string;
+  ipap?: string;
+  debit?: string;
+  mode?: string;
+  [key: string]: any;
+}
+
+interface Product {
+  id: string;
+  name: string;
+}
+
+interface MedicalDevice {
+  id: string;
+  name: string;
+}
+
+interface SaleItem {
+  id: string;
+  quantity: number;
+  product?: Product;
+  medicalDevice?: MedicalDevice;
+  deviceConfiguration?: DeviceConfiguration;
+}
+
+interface PaymentDetail {
+  method: string;
+  amount: number;
+  metadata?: {
+    dossierNumber?: string;
+    cnamInfo?: {
+      dossierNumber?: string;
+    };
+  };
+}
+
+interface Payment {
+  id: string;
+  amount: number;
+  status: string;
+  method?: string;
+  paymentDetails?: PaymentDetail[];
+}
+
+interface Sale {
+  id: string;
+  saleCode?: string;
+  invoiceNumber?: string;
+  saleDate: string;
+  status: string;
+  finalAmount: number;
+  totalAmount: number;
+  discount: number;
+  patient?: Patient;
+  company?: Company;
+  items?: SaleItem[];
+  payment?: Payment;
+  processedBy?: ProcessedBy;
+}
+
 interface SalesTableProps {
   onViewDetails?: (id: string) => void;
   onEdit?: (id: string) => void;
 }
 
-export function SalesTable({ onViewDetails, onEdit }: SalesTableProps) {
+const SalesTable = React.memo(({ onViewDetails, onEdit }: SalesTableProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [saleToDelete, setSaleToDelete] = useState<string | null>(null);
 
-  // Enhanced filtering states
-  const [filteredSales, setFilteredSales] = useState<any[]>([]);
+  // Enhanced filtering states with proper typing
+  const [filteredSales, setFilteredSales] = useState<Sale[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [clientTypeFilter, setClientTypeFilter] = useState<string>("all");
@@ -71,7 +156,7 @@ export function SalesTable({ onViewDetails, onEdit }: SalesTableProps) {
   const [itemsPerPage] = useState(10);
 
   // Fetch sales data with enhanced query
-  const { data: salesOperations, isLoading } = useQuery({
+  const { data: salesOperations, isLoading } = useQuery<Sale[]>({
     queryKey: ["sales-operations"],
     queryFn: async () => {
       try {
@@ -279,6 +364,12 @@ export function SalesTable({ onViewDetails, onEdit }: SalesTableProps) {
             Garantie
           </Badge>
         );
+      case "CANCELLED":
+        return (
+          <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">
+            Annulé
+          </Badge>
+        );
       default:
         return (
           <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-200">
@@ -335,9 +426,11 @@ export function SalesTable({ onViewDetails, onEdit }: SalesTableProps) {
         
         return (
           clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          sale.saleCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           sale.invoiceNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           sale.patient?.telephone?.includes(searchTerm) ||
           sale.patient?.cin?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          sale.patient?.patientCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           sale.company?.fiscalNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           sale.id.toString().includes(searchTerm)
         );
@@ -493,15 +586,15 @@ export function SalesTable({ onViewDetails, onEdit }: SalesTableProps) {
             </div>
             <input
               type="text"
-              placeholder="Rechercher par client, facture, téléphone, CIN, ID..."
+              placeholder="Rechercher par client, code patient, facture, téléphone, CIN, ID..."
               className="w-full pl-12 pr-4 py-3 bg-white border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-[#1e3a8a] transition-all duration-200 text-sm shadow-sm hover:shadow-md"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
 
-          {/* Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+          {/* Filters - Optimized for tablets */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {/* Status Filter */}
             <select
               value={statusFilter}
@@ -538,6 +631,7 @@ export function SalesTable({ onViewDetails, onEdit }: SalesTableProps) {
               <option value="PAID">Payé</option>
               <option value="PARTIAL">Partiel</option>
               <option value="GUARANTEE">Garantie</option>
+              <option value="CANCELLED">Annulé</option>
             </select>
 
             {/* Date Filter */}
@@ -596,11 +690,11 @@ export function SalesTable({ onViewDetails, onEdit }: SalesTableProps) {
           </div>
         ) : currentSales && currentSales.length > 0 ? (
           <div className="overflow-x-auto">
-            <Table>
+            <Table className="min-w-[1200px]">
               <TableHeader>
                 <TableRow>
                   <TableHead 
-                    className="cursor-pointer hover:bg-slate-100 transition-colors"
+                    className="cursor-pointer hover:bg-slate-100 transition-colors sticky left-0 bg-white z-10 min-w-[200px]"
                     onClick={() => handleSort("client")}
                   >
                     <div className="flex items-center">
@@ -670,31 +764,48 @@ export function SalesTable({ onViewDetails, onEdit }: SalesTableProps) {
                   
                   return (
                     <TableRow key={sale.id} className={`hover:bg-slate-50 transition-colors duration-150 ${index % 2 === 0 ? 'bg-white' : 'bg-slate-25'}`}>
-                      <TableCell>
+                      <TableCell className="sticky left-0 bg-white z-10 min-w-[200px] border-r border-gray-200">
                         <div className="flex items-start gap-3">
                           <div className="flex-shrink-0">
                             {clientType === "patient" ? (
-                              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white font-semibold text-sm">
+                              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white font-semibold text-sm">
                                 {clientName.charAt(0)?.toUpperCase() || 'N'}
                               </div>
                             ) : (
-                              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-orange-500 to-orange-700 flex items-center justify-center text-white font-semibold text-sm">
+                              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-orange-500 to-orange-700 flex items-center justify-center text-white font-semibold text-sm">
                                 {clientName.charAt(0)?.toUpperCase() || 'E'}
                               </div>
                             )}
                           </div>
-                          <div>
-                            <div className="font-semibold text-slate-900">{clientName}</div>
-                            <div className="text-xs text-slate-500 flex items-center gap-1">
-                              {clientType === "patient" ? (
-                                <User className="h-3 w-3" />
-                              ) : (
-                                <Building2 className="h-3 w-3" />
+                          <div className="flex-1 min-w-0">
+                            <div className="font-semibold text-slate-900 text-sm truncate">{clientName}</div>
+                            <div className="flex items-center gap-2 mt-1">
+                              <div className="flex items-center gap-1">
+                                {clientType === "patient" ? (
+                                  <User className="h-3 w-3 text-blue-600" />
+                                ) : (
+                                  <Building2 className="h-3 w-3 text-orange-600" />
+                                )}
+                                <span className="text-xs text-slate-500">
+                                  {clientType === "patient" ? "Patient" : "Entreprise"}
+                                </span>
+                              </div>
+                              {sale.patient?.patientCode && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                  {sale.patient.patientCode}
+                                </span>
                               )}
-                              {clientType === "patient" ? "Patient" : "Entreprise"}
-                              {sale.patient?.telephone && ` • ${sale.patient.telephone}`}
-                              {sale.company?.telephone && ` • ${sale.company.telephone}`}
                             </div>
+                            {(sale.patient?.telephone || sale.company?.telephone) && (
+                              <div className="flex items-center gap-1 mt-1">
+                                <div className="h-3 w-3 rounded-full bg-green-100 flex items-center justify-center">
+                                  <div className="h-1.5 w-1.5 rounded-full bg-green-600"></div>
+                                </div>
+                                <span className="text-xs text-slate-600">
+                                  {sale.patient?.telephone || sale.company?.telephone}
+                                </span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </TableCell>
@@ -702,68 +813,82 @@ export function SalesTable({ onViewDetails, onEdit }: SalesTableProps) {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Receipt className="h-4 w-4 text-emerald-600" />
-                          <span className="font-medium">{sale.invoiceNumber || "-"}</span>
+                          <span className="font-semibold text-slate-900 text-sm">
+                            {sale.saleCode || "-"}
+                          </span>
                         </div>
                       </TableCell>
                       
                       <TableCell>
-                        <div className="flex items-center space-x-1">
-                          <CalendarIcon className="h-4 w-4 text-emerald-600" />
-                          <span className="text-sm">{formatSimpleDate(sale.saleDate)}</span>
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0 mt-1">
+                            <CalendarIcon className="h-4 w-4 text-emerald-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-slate-900 text-sm">
+                              {formatSimpleDate(sale.saleDate)}
+                            </div>
+                            <div className="text-xs text-slate-500 mt-0.5">
+                              {format(new Date(sale.saleDate), 'HH:mm')}
+                            </div>
+                          </div>
                         </div>
                       </TableCell>
                       
                       <TableCell>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className="flex items-center cursor-help">
-                                <Package className="h-4 w-4 text-emerald-600 mr-1" />
-                                <span className="text-sm">{sale.items?.length || 0} article{sale.items?.length !== 1 ? 's' : ''}</span>
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent className="w-80 p-0">
-                              <div className="bg-white p-3 rounded shadow-lg text-sm">
-                                <h4 className="font-semibold mb-2 text-emerald-900">Articles</h4>
-                                {sale.items && sale.items.length > 0 ? (
-                                  <ul className="space-y-2">
-                                    {sale.items.slice(0, 5).map((item: any) => (
-                                      <li key={item.id} className="text-xs">
-                                        <div className="flex justify-between">
-                                          <span>
-                                            {item.product?.name || item.medicalDevice?.name || "Article inconnu"}
-                                          </span>
-                                          <span className="font-semibold">
-                                            {item.quantity}x {formatCurrency(item.unitPrice)}
-                                          </span>
-                                        </div>
-                                      </li>
-                                    ))}
-                                    {sale.items.length > 5 && (
-                                      <li className="text-gray-600">+ {sale.items.length - 5} autres articles</li>
-                                    )}
-                                  </ul>
-                                ) : (
-                                  <p className="text-xs text-gray-500">Aucun article</p>
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0 mt-1">
+                            <Package className="h-4 w-4 text-emerald-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-slate-900 text-sm">
+                              {sale.items?.length || 0} article{sale.items?.length !== 1 ? 's' : ''}
+                            </div>
+                            
+                            {/* Show first item */}
+                            {sale.items && sale.items.length > 0 && (
+                              <div className="mt-1 space-y-1">
+                                <div className="text-xs text-slate-600 truncate max-w-[120px]">
+                                  {(() => {
+                                    const name = sale.items[0].product?.name || sale.items[0].medicalDevice?.name || "Article";
+                                    // Truncate long names and show only the first part
+                                    if (name.length > 15) {
+                                      return name.split(' ').slice(0, 2).join(' ') + '...';
+                                    }
+                                    return name;
+                                  })()}
+                                </div>
+                                
+                                {/* Show device configuration badge if present */}
+                                {sale.items[0].deviceConfiguration && (
+                                  <div className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    Configuré
+                                  </div>
+                                )}
+                                
+                                {sale.items.length > 1 && (
+                                  <div className="text-xs text-slate-500">
+                                    +{sale.items.length - 1} autre{sale.items.length - 1 > 1 ? 's' : ''}
+                                  </div>
                                 )}
                               </div>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
+                            )}
+                          </div>
+                        </div>
                       </TableCell>
                       
                       <TableCell>
-                        <div className="flex flex-col">
-                          <div className="font-semibold text-emerald-700">
+                        <div className="text-right">
+                          <div className="font-semibold text-emerald-700 text-sm">
                             {formatCurrency(sale.finalAmount)}
                           </div>
                           {sale.discount > 0 && (
-                            <div className="text-xs text-red-500">
-                              Remise: {formatCurrency(sale.discount)}
+                            <div className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 mt-1">
+                              -{formatCurrency(sale.discount)}
                             </div>
                           )}
-                          {sale.totalAmount !== sale.finalAmount && (
-                            <div className="text-xs text-slate-500">
+                          {sale.totalAmount !== sale.finalAmount && sale.discount === 0 && (
+                            <div className="text-xs text-slate-500 mt-0.5">
                               Total: {formatCurrency(sale.totalAmount)}
                             </div>
                           )}
@@ -772,24 +897,80 @@ export function SalesTable({ onViewDetails, onEdit }: SalesTableProps) {
                       
                       <TableCell>
                         {sale.payment ? (
-                          <div className="flex flex-col space-y-1">
-                            <div className="flex items-center space-x-1">
-                              <Banknote className="h-3.5 w-3.5 text-green-600" />
-                              <span className="text-sm font-medium">{formatCurrency(sale.payment.amount)}</span>
+                          <div className="flex items-start gap-3">
+                            <div className="flex-shrink-0 mt-1">
+                              <CreditCard className="h-4 w-4 text-green-600" />
                             </div>
-                            <div>
-                              {getPaymentStatusBadge(sale.payment.status || "PENDING")}
-                            </div>
-                            {sale.payment.method && (
-                              <div className="text-xs text-slate-500">
-                                {sale.payment.method}
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-slate-900 text-sm">
+                                {formatCurrency(sale.payment.amount)}
                               </div>
-                            )}
+                              <div className="mt-1">
+                                {getPaymentStatusBadge(sale.payment.status || "PENDING")}
+                              </div>
+                            
+                            {/* Show payment methods directly - tablet friendly */}
+                            {(() => {
+                              const paymentDetails = sale.payment.paymentDetails || [];
+                              const hasMultiplePayments = paymentDetails.length > 1 || sale.payment.method?.toLowerCase() === 'mixed';
+                              
+                              // Helper function to format payment method names
+                              const formatPaymentMethod = (method: string) => {
+                                switch (method?.toLowerCase()) {
+                                  case 'cnam': return 'CNAM';
+                                  case 'especes': case 'cash': return 'Espèces';
+                                  case 'carte_bancaire': case 'credit_card': return 'CB';
+                                  case 'cheque': case 'check': return 'Chèque';
+                                  case 'traite': case 'draft': return 'Traite';
+                                  case 'virement': case 'bank_transfer': return 'Virement';
+                                  case 'mandat': case 'mandate': return 'Mandat';
+                                  case 'mixed': return 'Mixte';
+                                  default: return method || 'Inconnu';
+                                }
+                              };
+                              
+                              if (hasMultiplePayments) {
+                                return (
+                                  <div className="mt-1 space-y-1">
+                                    <div className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                      Paiement mixte
+                                    </div>
+                                    <div className="flex flex-wrap gap-1">
+                                      {paymentDetails.slice(0, 2).map((detail: any, index: number) => (
+                                        <div key={index} className="text-xs text-slate-600">
+                                          {formatPaymentMethod(detail.method)}
+                                        </div>
+                                      ))}
+                                      {paymentDetails.length > 2 && (
+                                        <div className="text-xs text-slate-500">+{paymentDetails.length - 2}</div>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              } else if (sale.payment.method) {
+                                // Single payment method
+                                return (
+                                  <div className="text-xs text-slate-600 mt-1">
+                                    {formatPaymentMethod(sale.payment.method)}
+                                  </div>
+                                );
+                              } else {
+                                return null;
+                              }
+                            })()}
+                            </div>
                           </div>
                         ) : (
-                          <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-200">
-                            Non payé
-                          </Badge>
+                          <div className="flex items-start gap-3">
+                            <div className="flex-shrink-0 mt-1">
+                              <CreditCard className="h-4 w-4 text-gray-400" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-200">
+                                Non payé
+                              </Badge>
+                            </div>
+                          </div>
                         )}
                       </TableCell>
                       
@@ -798,60 +979,63 @@ export function SalesTable({ onViewDetails, onEdit }: SalesTableProps) {
                       </TableCell>
 
                       <TableCell>
-                        <div className="text-sm">
-                          {sale.processedBy && (sale.processedBy.firstName || sale.processedBy.lastName || sale.processedBy.name) ? (
-                            <div className="flex items-center space-x-2">
-                              <div className="h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center">
-                                <span className="text-blue-700 text-xs font-medium">
+                        {sale.processedBy && (sale.processedBy.firstName || sale.processedBy.lastName || sale.processedBy.name) ? (
+                          <div className="flex items-start gap-3">
+                            <div className="flex-shrink-0 mt-0.5">
+                              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center">
+                                <span className="text-white text-xs font-semibold">
                                   {(sale.processedBy.firstName?.charAt(0) || sale.processedBy.name?.charAt(0) || 'U').toUpperCase()}
                                 </span>
                               </div>
-                              <span className="text-slate-700">
-                                {sale.processedBy.name || `${sale.processedBy.firstName || ''} ${sale.processedBy.lastName || ''}`.trim() || 'Utilisateur'}
-                              </span>
                             </div>
-                          ) : (
-                            <span className="text-slate-500">Non assigné</span>
-                          )}
-                        </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-slate-900 text-sm truncate">
+                                {sale.processedBy.name || `${sale.processedBy.firstName || ''} ${sale.processedBy.lastName || ''}`.trim() || 'Utilisateur'}
+                              </div>
+                              <div className="text-xs text-slate-500 mt-0.5">
+                                Employé
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-start gap-3">
+                            <div className="flex-shrink-0 mt-0.5">
+                              <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center">
+                                <span className="text-gray-400 text-xs font-semibold">?</span>
+                              </div>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <span className="text-slate-500 text-sm">Non assigné</span>
+                            </div>
+                          </div>
+                        )}
                       </TableCell>
                       
                       <TableCell>
-                        <div className="flex space-x-2">
+                        <div className="flex flex-col sm:flex-row space-y-1 sm:space-y-0 sm:space-x-2">
                           <Button 
                             variant="outline" 
                             size="sm"
                             onClick={() => onViewDetails && onViewDetails(sale.id)}
-                            className="flex items-center gap-1 text-xs"
+                            className="flex items-center justify-center gap-2 text-xs min-h-[36px] w-full sm:w-auto touch-manipulation hover:bg-blue-50 border-blue-200"
                           >
-                            <Eye className="h-3.5 w-3.5" />
-                            <span>Détails</span>
+                            <FileText className="h-4 w-4" />
+                            <span className="hidden sm:inline">Détails</span>
                           </Button>
-                          
-                          {(sale.status === "PENDING" || sale.status === "ON_PROGRESS") && (
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              className="border-blue-200 text-blue-800 hover:bg-blue-50 flex items-center gap-1 text-xs"
-                              onClick={() => onEdit && onEdit(sale.id)}
-                            >
-                              <Edit className="h-3.5 w-3.5" />
-                              <span>Modifier</span>
-                            </Button>
-                          )}
 
                           <Button 
                             variant="outline" 
                             size="sm"
                             onClick={() => handleDeleteClick(sale.id)}
-                            className="flex items-center gap-1 border-red-200 hover:bg-red-50 hover:text-red-600 text-xs"
+                            className="flex items-center justify-center gap-2 border-red-200 hover:bg-red-50 hover:text-red-600 text-xs min-h-[36px] w-full sm:w-auto touch-manipulation"
                             disabled={deleteSale.isPending}
                           >
                             {deleteSale.isPending && saleToDelete === sale.id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
-                              <Trash2 className="h-3.5 w-3.5" />
+                              <Trash2 className="h-4 w-4" />
                             )}
+                            <span className="hidden sm:inline">Supprimer</span>
                           </Button>
                         </div>
                       </TableCell>
@@ -877,20 +1061,20 @@ export function SalesTable({ onViewDetails, onEdit }: SalesTableProps) {
         )}
       </div>
 
-      {/* Pagination */}
+      {/* Pagination - Tablet optimized */}
       {totalPages > 1 && (
-        <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
-          <div className="flex items-center justify-between">
+        <div className="bg-gray-50 px-4 sm:px-6 py-4 border-t border-gray-200">
+          <div className="flex flex-col sm:flex-row items-center justify-between space-y-3 sm:space-y-0">
             <div className="flex items-center text-sm text-gray-600">
               <span>
                 Affichage de {startIndex + 1} à {Math.min(endIndex, totalItems)} sur {totalItems} ventes
               </span>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1 sm:space-x-2">
               <button
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
-                className="px-3 py-1 rounded-md text-sm font-medium text-gray-600 hover:text-[#1e3a8a] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-[#1e3a8a] disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation min-h-[40px]"
               >
                 Précédent
               </button>
@@ -912,7 +1096,7 @@ export function SalesTable({ onViewDetails, onEdit }: SalesTableProps) {
                   <button
                     key={page}
                     onClick={() => handlePageChange(page)}
-                    className={`px-3 py-1 rounded-md text-sm font-medium ${
+                    className={`px-3 py-2 rounded-md text-sm font-medium touch-manipulation min-h-[40px] ${
                       currentPage === page
                         ? 'bg-[#1e3a8a] text-white'
                         : 'text-gray-600 hover:text-[#1e3a8a]'
@@ -926,7 +1110,7 @@ export function SalesTable({ onViewDetails, onEdit }: SalesTableProps) {
               <button
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={currentPage === totalPages}
-                className="px-3 py-1 rounded-md text-sm font-medium text-gray-600 hover:text-[#1e3a8a] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-[#1e3a8a] disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation min-h-[40px]"
               >
                 Suivant
               </button>
@@ -961,6 +1145,9 @@ export function SalesTable({ onViewDetails, onEdit }: SalesTableProps) {
       </AlertDialog>
     </div>
   );
-}
+});
 
+SalesTable.displayName = 'SalesTable';
+
+export { SalesTable };
 export default SalesTable;

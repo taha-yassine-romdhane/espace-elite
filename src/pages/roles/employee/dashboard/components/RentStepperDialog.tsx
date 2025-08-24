@@ -8,19 +8,18 @@ import { AccessoryForm } from "@/components/appareils/forms/AccessoryForm";
 import RentStepperSidebar from "./RentStepperSidebar";
 import { toast } from "@/components/ui/use-toast";
 import { ProductSelectionStep } from "./steps/ProductSelectionStep";
-import { RentalDetailsStep } from "@/components/rental/steps/RentalDetailsStep";
-import { PaymentStep } from "@/components/steps/PaymentStep";
+import { SimplifiedRentalFinalStep } from "@/components/rental/steps/SimplifiedRentalFinalStep";
 
 interface RentStepperDialogProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+// 3-step process for employees (same as admin)
 const steps = [
-  { id: 1, name: "Type de Renseignement", description: "Sélectionner le type de client et le client" },
-  { id: 2, name: "Ajout Produits", description: "Sélectionner ou créer des produits" },
-  { id: 3, name: "Détails Location", description: "Configurer les détails de la location" },
-  { id: 4, name: "Ajout Paiement", description: "Configurer les détails du paiement" },
+  { id: 1, name: "Sélection Client", description: "Choisir le patient ou la société" },
+  { id: 2, name: "Produits", description: "Sélectionner les équipements" },
+  { id: 3, name: "Finalisation", description: "Période et informations de base" },
 ] as const;
 
 export function RentStepperDialog({ isOpen, onClose }: RentStepperDialogProps) {
@@ -106,8 +105,21 @@ export function RentStepperDialog({ isOpen, onClose }: RentStepperDialogProps) {
   };
 
   // Product Selection Handlers
-  const handleProductSelect = (product: any) => {
-    setSelectedProducts([...selectedProducts, { ...product, quantity: 1 }]);
+  const handleProductSelect = (products: any | any[]) => {
+    // Handle both single product and array of products
+    if (Array.isArray(products)) {
+      // Filter out products that are already selected to prevent duplicates
+      const newProducts = products.filter(product => 
+        !selectedProducts.some(selected => selected.id === product.id)
+      );
+      const productsWithQuantity = newProducts.map(p => ({ ...p, quantity: 1 }));
+      setSelectedProducts([...selectedProducts, ...productsWithQuantity]);
+    } else {
+      // Check if single product is already selected
+      if (!selectedProducts.some(selected => selected.id === products.id)) {
+        setSelectedProducts([...selectedProducts, { ...products, quantity: 1 }]);
+      }
+    }
   };
 
   const handleRemoveProduct = (index: number) => {
@@ -156,38 +168,27 @@ export function RentStepperDialog({ isOpen, onClose }: RentStepperDialogProps) {
     onClose();
   };
 
-  // Handle rental details completion
-  const handleRentalDetailsComplete = (rentalData: any) => {
-    setStartDate(rentalData.startDate || startDate);
-    setEndDate(rentalData.endDate || endDate);
-    setRentalNotes(rentalData.notes || rentalNotes);
-    handleNext();
-  };
-
-  // Handle payment completion
-  const handlePaymentComplete = (paymentData: any) => {
-    setPaymentData(paymentData);
-    
-    // Prepare the final rental data
+  // Handle simplified rental submission from step 3
+  const handleSimplifiedRentalSubmit = (rentalData: any) => {
+    // Prepare the simplified rental data
     const finalRentalData = {
+      ...rentalData,
       clientId: clientDetails.id,
       clientType: clientType,
-      products: selectedProducts.map(product => ({
+      products: rentalData.products || selectedProducts.map(product => ({
         productId: product.id,
         quantity: product.quantity,
-        rentalPrice: product.rentalPrice
+        rentalPrice: product.rentalPrice || 0,
+        type: product.type,
+        name: product.name
       })),
-      startDate: startDate,
-      endDate: endDate,
-      notes: rentalNotes,
-      payment: paymentData,
       status: "ACTIVE",
-      totalPrice: calculateTotalPrice(),
-      paidAmount: paymentData.paidAmount || 0,
-      remainingAmount: paymentData.remainingAmount || calculateTotalPrice()
+      isRental: true,
+      // Mark for post-creation management if CNAM
+      requiresPostCreationSetup: rentalData.hasCnamCoverage
     };
     
-    // Submit the rental data
+    // Submit the simplified rental data
     createRentalMutation.mutate(finalRentalData);
   };
 
@@ -227,8 +228,8 @@ export function RentStepperDialog({ isOpen, onClose }: RentStepperDialogProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-6xl p-0 overflow-hidden">
-        <div className="flex h-[80vh]">
+      <DialogContent className="max-w-[95vw] w-full p-0 overflow-hidden max-h-[95vh]">
+        <div className="flex h-[90vh]">
           {/* Sidebar */}
           <RentStepperSidebar
             steps={steps}
@@ -239,15 +240,15 @@ export function RentStepperDialog({ isOpen, onClose }: RentStepperDialogProps) {
           />
 
           {/* Main Content */}
-          <div className="flex-1 overflow-auto">
-            <DialogHeader className="p-6 border-b">
-              <DialogTitle className="text-xl font-semibold text-blue-900">
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <DialogHeader className="p-6 border-b flex-shrink-0">
+              <DialogTitle className="text-xl font-semibold text-green-900">
                 Nouvelle Location
               </DialogTitle>
             </DialogHeader>
 
-            <div className="p-6">
-              <div className="space-y-6">
+            <div className="p-6 flex-1 overflow-hidden">
+              <div className="h-full">
                 {currentStep === 1 && (
                   <ClientSelectionStep
                     onClientTypeChange={handleClientTypeChange}
@@ -283,27 +284,13 @@ export function RentStepperDialog({ isOpen, onClose }: RentStepperDialogProps) {
                 )}
 
                 {currentStep === 3 && (
-                  <RentalDetailsStep
-                    startDate={startDate}
-                    endDate={endDate}
-                    notes={rentalNotes}
-                    onStartDateChange={setStartDate}
-                    onEndDateChange={setEndDate}
-                    onNotesChange={setRentalNotes}
-                    onBack={handleBack}
-                    onComplete={handleRentalDetailsComplete}
-                    isSubmitting={false}
-                  />
-                )}
-                
-                {currentStep === 4 && (
-                  <PaymentStep
-                    onBack={handleBack}
-                    onComplete={handlePaymentComplete}
+                  <SimplifiedRentalFinalStep
                     selectedClient={clientDetails}
                     selectedProducts={selectedProducts}
-                    calculateTotal={calculateTotalPrice}
-                    isRental={true}
+                    onBack={handleBack}
+                    onComplete={handleSimplifiedRentalSubmit}
+                    isSubmitting={createRentalMutation.isPending}
+                    theme="green"
                   />
                 )}
               </div>

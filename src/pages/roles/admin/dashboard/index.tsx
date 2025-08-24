@@ -68,7 +68,9 @@ function DashboardPage() {
         
         {/* Tables */}
         {activeTab === "appointments" && (
-          <AppointmentsTable />
+          <AppointmentsTable 
+            onViewDetails={(id) => router.push(`/roles/admin/appointments/${id}`)}
+          />
         )}
         
         {activeTab === "diagnostics" && (

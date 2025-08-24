@@ -3,9 +3,9 @@ import { UseFormReturn } from 'react-hook-form';
 import FormSection from '../components/FormSection';
 
 interface AdditionalInfoBlockProps {
-  // eslint-disable-next-line no-unused-vars
+   
   form: UseFormReturn<any>;
-  // eslint-disable-next-line no-unused-vars
+   
   onInputChange: (e: any) => void;
 }
 

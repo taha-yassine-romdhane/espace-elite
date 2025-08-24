@@ -37,6 +37,7 @@ interface PaymentStepProps {
   selectedProducts: any[];
   calculateTotal: () => number;
   isRental?: boolean;
+  initialPaymentData?: any; // Add support for initial payment data
 }
 
 export function PaymentStep({
@@ -45,9 +46,13 @@ export function PaymentStep({
   selectedClient,
   selectedProducts,
   calculateTotal,
-  isRental = false
+  isRental = false,
+  initialPaymentData
 }: PaymentStepProps) {
-  const [paymentAssignments, setPaymentAssignments] = useState<PaymentAssignment[]>([]);
+  // Initialize paymentAssignments with existing data if available
+  const [paymentAssignments, setPaymentAssignments] = useState<PaymentAssignment[]>(
+    initialPaymentData && Array.isArray(initialPaymentData) ? initialPaymentData : []
+  );
   const [useEnhancedMatrix, setUseEnhancedMatrix] = useState(true);
   const { toast } = useToast();
 

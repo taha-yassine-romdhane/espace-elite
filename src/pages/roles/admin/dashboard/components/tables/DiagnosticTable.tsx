@@ -50,24 +50,116 @@ import {
 } from "lucide-react";
 import { calculateIAHSeverity, formatIAHValue } from "@/utils/diagnosticUtils";
 
+// Define proper types for better type safety
+interface Technician {
+  id: string;
+  firstName: string;
+  lastName: string;
+}
+
+interface Supervisor {
+  id: string;
+  firstName: string;
+  lastName: string;
+}
+
+interface Patient {
+  id: string;
+  patientCode?: string;
+  firstName?: string;
+  lastName?: string;
+  telephone?: string;
+  governorate?: string;
+  delegation?: string;
+  detailedAddress?: string;
+  technician?: Technician;
+  supervisor?: Supervisor;
+}
+
+interface MedicalDevice {
+  id: string;
+  name: string;
+  serialNumber?: string;
+}
+
+interface DiagnosticResult {
+  id: string;
+  iah: number | null;
+  idValue: number | null;
+  remarque: string | null;
+  status: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+interface Diagnostic {
+  id: string;
+  diagnosticCode?: string;
+  date: string;
+  patientName: string;
+  deviceName: string;
+  performedBy: string;
+  hasSale: boolean;
+  hasRental: boolean;
+  daysSinceFirstEquipment?: number;
+  firstEquipmentDate?: string;
+  patient?: Patient;
+  medicalDevice?: MedicalDevice;
+  result?: DiagnosticResult;
+}
+
+interface DiagnosticGroup {
+  patient: Patient;
+  patientName: string;
+  diagnostics: Diagnostic[];
+  latestDate: string;
+  totalDiagnostics: number;
+}
+
 interface DiagnosticTableProps {
   onViewDetails?: (id: string) => void;
   onEnterResults?: (id: string) => void;
   onAddDocuments?: (id: string) => void;
 }
 
-// Define result type based on the new schema structure
-interface DiagnosticResultType {
-  id: string;
-  iah: number | null;
-  idValue: number | null;
-  remarque: string | null;
-  status: string;
-}
-
-export function DiagnosticTable({ onViewDetails, onEnterResults, onAddDocuments }: DiagnosticTableProps) {
+const DiagnosticTable = React.memo(({ onViewDetails, onEnterResults, onAddDocuments }: DiagnosticTableProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Utility function to format days since equipment installation
+  const formatDaysSinceEquipment = (days: number) => {
+    if (days < 1) {
+      return "Aujourd'hui";
+    } else if (days === 1) {
+      return "1 jour";
+    } else if (days < 7) {
+      return `${days} jours`;
+    } else if (days < 30) {
+      const weeks = Math.floor(days / 7);
+      const remainingDays = days % 7;
+      if (weeks === 1) {
+        return remainingDays > 0 ? `1 semaine et ${remainingDays} jour${remainingDays > 1 ? 's' : ''}` : "1 semaine";
+      } else {
+        return remainingDays > 0 ? `${weeks} semaines et ${remainingDays} jour${remainingDays > 1 ? 's' : ''}` : `${weeks} semaines`;
+      }
+    } else if (days < 365) {
+      const months = Math.floor(days / 30);
+      const remainingDays = days % 30;
+      if (months === 1) {
+        return remainingDays > 0 ? `1 mois et ${remainingDays} jour${remainingDays > 1 ? 's' : ''}` : "1 mois";
+      } else {
+        return remainingDays > 0 ? `${months} mois et ${remainingDays} jour${remainingDays > 1 ? 's' : ''}` : `${months} mois`;
+      }
+    } else {
+      const years = Math.floor(days / 365);
+      const remainingDays = days % 365;
+      if (years === 1) {
+        return remainingDays > 0 ? `1 an et ${remainingDays} jour${remainingDays > 1 ? 's' : ''}` : "1 an";
+      } else {
+        return remainingDays > 0 ? `${years} ans et ${remainingDays} jour${remainingDays > 1 ? 's' : ''}` : `${years} ans`;
+      }
+    }
+  };
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [diagnosticToDelete, setDiagnosticToDelete] = useState<string | null>(null);
   
@@ -166,12 +258,56 @@ export function DiagnosticTable({ onViewDetails, onEnterResults, onAddDocuments 
     return format(new Date(dateString), "PPP 'à' HH:mm", { locale: fr });
   };
   
-  // Function to check if a date is overdue
-  const isOverdue = (dateString: string | null) => {
-    if (!dateString) return false;
+  // Function to calculate follow-up duration for non-appareillé devices
+  const calculateFollowUpDuration = (diagnostic: any) => {
+    // Only show for non-appareillé devices
+    const hasSale = diagnostic.hasSale;
+    const hasRental = diagnostic.hasRental;
+    if (hasSale || hasRental) return null;
+
     const today = new Date();
-    const dueDate = new Date(dateString);
-    return isBefore(dueDate, today);
+    let startDate: Date;
+
+    // Use result date if available, otherwise installation date
+    if (diagnostic.result?.createdAt || diagnostic.result?.updatedAt) {
+      startDate = new Date(diagnostic.result.createdAt || diagnostic.result.updatedAt);
+    } else {
+      startDate = new Date(diagnostic.date); // Installation date
+    }
+
+    const diffTime = today.getTime() - startDate.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) return null;
+
+    // Format duration in French
+    if (diffDays === 0) return "Aujourd'hui";
+    if (diffDays === 1) return "1 jour";
+    if (diffDays < 7) return `${diffDays} jours`;
+    
+    const weeks = Math.floor(diffDays / 7);
+    const remainingDaysFromWeeks = diffDays % 7;
+    
+    if (diffDays < 30) {
+      if (remainingDaysFromWeeks === 0) {
+        return weeks === 1 ? "1 semaine" : `${weeks} semaines`;
+      } else {
+        const weekText = weeks === 1 ? "1 semaine" : `${weeks} semaines`;
+        const dayText = remainingDaysFromWeeks === 1 ? "1 jour" : `${remainingDaysFromWeeks} jours`;
+        return `${weekText} et ${dayText}`;
+      }
+    }
+    
+    const months = Math.floor(diffDays / 30);
+    const remainingDaysFromMonths = diffDays % 30;
+    
+    if (remainingDaysFromMonths === 0) {
+      return months === 1 ? "1 mois" : `${months} mois`;
+    } else {
+      const monthText = months === 1 ? "1 mois" : `${months} mois`;
+      const dayText = remainingDaysFromMonths === 1 ? "1 jour" : `${remainingDaysFromMonths} jours`;
+      return `${monthText} et ${dayText}`;
+    }
   };
 
   // Function to get business status - Only Appareillé ou Non Appareillé
@@ -182,10 +318,18 @@ export function DiagnosticTable({ onViewDetails, onEnterResults, onAddDocuments 
     
     if (hasSale || hasRental) {
       return (
-        <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200 text-xs flex items-center gap-1">
-          <CheckCircle className="h-3 w-3" />
-          Appareillé
-        </Badge>
+        <div className="flex flex-col space-y-1">
+          <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200 text-xs flex items-center gap-1">
+            <CheckCircle className="h-3 w-3" />
+            Appareillé
+          </Badge>
+          {diagnostic.daysSinceFirstEquipment !== null && diagnostic.daysSinceFirstEquipment !== undefined && (
+            <div className="text-xs text-green-700 bg-green-50 border border-green-200 rounded px-2 py-1 inline-flex items-center">
+              <Calendar className="h-3 w-3 mr-1" />
+              Depuis {formatDaysSinceEquipment(diagnostic.daysSinceFirstEquipment)}
+            </div>
+          )}
+        </div>
       );
     } else {
       return (
@@ -273,10 +417,12 @@ export function DiagnosticTable({ onViewDetails, onEnterResults, onAddDocuments 
     if (searchTerm.trim()) {
       filtered = filtered.filter((diagnostic: any) =>
         diagnostic.patientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        diagnostic.patient?.patientCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         diagnostic.patient?.telephone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         diagnostic.patient?.governorate?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         diagnostic.patient?.detailedAddress?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         diagnostic.deviceName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        diagnostic.diagnosticCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         diagnostic.id.toString().includes(searchTerm)
       );
     }
@@ -479,8 +625,8 @@ export function DiagnosticTable({ onViewDetails, onEnterResults, onAddDocuments 
             />
           </div>
 
-          {/* Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+          {/* Filters - Optimized for tablets */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {/* Region Filter */}
             <select
               value={regionFilter}
@@ -636,6 +782,11 @@ export function DiagnosticTable({ onViewDetails, onEnterResults, onAddDocuments 
                                 <div>
                                   <div className="font-medium text-sm">
                                     {diagnostic.deviceName || "Appareil inconnu"}
+                                    {diagnostic.diagnosticCode && (
+                                      <span className="ml-2 text-xs font-normal text-slate-500">
+                                        ({diagnostic.diagnosticCode})
+                                      </span>
+                                    )}
                                   </div>
                                   {diagnostic.medicalDevice?.serialNumber && (
                                     <div className="text-xs text-slate-500">
@@ -684,31 +835,45 @@ export function DiagnosticTable({ onViewDetails, onEnterResults, onAddDocuments 
                             </TableCell>
                             
                             <TableCell>
-                              {getStatusBadge(diagnostic)}
+                              <div className="flex flex-col space-y-1">
+                                {getStatusBadge(diagnostic)}
+                                {(() => {
+                                  const duration = calculateFollowUpDuration(diagnostic);
+                                  if (duration) {
+                                    return (
+                                      <div className="text-xs text-slate-600 bg-orange-50 border border-orange-200 rounded px-2 py-1 inline-flex items-center">
+                                        <Clock className="h-3 w-3 mr-1" />
+                                        Depuis {duration}
+                                      </div>
+                                    );
+                                  }
+                                  return null;
+                                })()}
+                              </div>
                             </TableCell>
                             
                             <TableCell>
-                              <div className="flex space-x-2">
+                              <div className="flex flex-col sm:flex-row space-y-1 sm:space-y-0 sm:space-x-2">
                                 <Button 
                                   variant="outline" 
                                   size="sm"
                                   onClick={() => onViewDetails && onViewDetails(diagnostic.id)}
-                                  className="flex items-center gap-1 text-xs"
+                                  className="flex items-center justify-center gap-1 text-xs min-h-[32px] w-full sm:w-auto touch-manipulation"
                                 >
-                                  <FileText className="h-3 w-3" />
-                                  Détails
+                                  <FileText className="h-4 w-4" />
+                                  <span className="hidden sm:inline">Détails</span>
                                 </Button>
                                 <Button 
                                   variant="outline" 
                                   size="sm"
                                   onClick={() => handleDeleteClick(diagnostic.id)}
-                                  className="flex items-center gap-1 border-red-200 hover:bg-red-50 hover:text-red-600 text-xs"
+                                  className="flex items-center justify-center gap-1 border-red-200 hover:bg-red-50 hover:text-red-600 text-xs min-h-[32px] w-full sm:w-auto touch-manipulation"
                                   disabled={deleteDiagnostic.isPending}
                                 >
                                   {deleteDiagnostic.isPending && diagnosticToDelete === diagnostic.id ? (
-                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                    <Loader2 className="h-4 w-4 animate-spin" />
                                   ) : (
-                                    <Trash2 className="h-3 w-3" />
+                                    <Trash2 className="h-4 w-4" />
                                   )}
                                 </Button>
                               </div>
@@ -724,7 +889,7 @@ export function DiagnosticTable({ onViewDetails, onEnterResults, onAddDocuments 
           </div>
         ) : currentDiagnostics && currentDiagnostics.length > 0 ? (
           <div className="overflow-x-auto">
-            <Table>
+            <Table className="min-w-[1200px]">
               <TableHeader>
                 <TableRow>
                   <TableHead 
@@ -774,7 +939,14 @@ export function DiagnosticTable({ onViewDetails, onEnterResults, onAddDocuments 
                             </div>
                           </div>
                           <div className="ml-4">
-                            <div className="text-sm font-semibold text-slate-900">{operation.patientName || 'N/A'}</div>
+                            <div className="text-sm font-semibold text-slate-900">
+                              {operation.patientName || 'N/A'}
+                              {operation.patient?.patientCode && (
+                                <span className="ml-2 text-xs font-normal text-blue-600">
+                                  ({operation.patient.patientCode})
+                                </span>
+                              )}
+                            </div>
                             <div className="text-xs text-slate-500">
                               {operation.patient?.telephone && `${operation.patient.telephone}`}
                               {operation.patient?.governorate && ` • ${operation.patient.governorate}`}
@@ -789,6 +961,11 @@ export function DiagnosticTable({ onViewDetails, onEnterResults, onAddDocuments 
                           <div>
                             <div className="font-medium text-sm">
                               {operation.deviceName || "Appareil inconnu"}
+                              {operation.diagnosticCode && (
+                                <span className="ml-2 text-xs font-normal text-slate-500">
+                                  ({operation.diagnosticCode})
+                                </span>
+                              )}
                             </div>
                             {operation.medicalDevice?.serialNumber && (
                               <div className="text-xs text-slate-500">
@@ -878,38 +1055,45 @@ export function DiagnosticTable({ onViewDetails, onEnterResults, onAddDocuments 
                       </TableCell>
                       
                       <TableCell>
-                        {getStatusBadge(operation)}
-                        {operation.followUpRequired && (
-                          <div className="mt-1">
-                            <Badge variant="outline" className={`text-xs ${isOverdue(operation.followUpDate) ? 'bg-red-50 text-red-700 border-red-100' : 'bg-blue-50 text-blue-700 border-blue-100'}`}>
-                              {isOverdue(operation.followUpDate) ? 'Suivi en retard' : 'Suivi requis'}
-                            </Badge>
-                          </div>
-                        )}
+                        <div className="flex flex-col space-y-1">
+                          {getStatusBadge(operation)}
+                          {(() => {
+                            const duration = calculateFollowUpDuration(operation);
+                            if (duration) {
+                              return (
+                                <div className="text-xs text-slate-600 bg-orange-50 border border-orange-200 rounded px-2 py-1 inline-flex items-center">
+                                  <Clock className="h-3 w-3 mr-1" />
+                                  Depuis {duration}
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
+                        </div>
                       </TableCell>
                       
                       <TableCell>
-                        <div className="flex space-x-2">
+                        <div className="flex flex-col sm:flex-row space-y-1 sm:space-y-0 sm:space-x-2">
                           <Button 
                             variant="outline" 
                             size="sm"
                             onClick={() => onViewDetails && onViewDetails(operation.id)}
-                            className="flex items-center gap-1"
+                            className="flex items-center justify-center gap-1 text-xs min-h-[36px] w-full sm:w-auto touch-manipulation"
                           >
-                            <FileText className="h-3.5 w-3.5" />
-                            <span>Détails</span>
+                            <FileText className="h-4 w-4" />
+                            <span className="hidden sm:inline">Détails</span>
                           </Button>
                           <Button 
                             variant="outline" 
                             size="sm"
                             onClick={() => handleDeleteClick(operation.id)}
-                            className="flex items-center gap-1 border-red-200 hover:bg-red-50 hover:text-red-600"
+                            className="flex items-center justify-center gap-1 border-red-200 hover:bg-red-50 hover:text-red-600 text-xs min-h-[36px] w-full sm:w-auto touch-manipulation"
                             disabled={deleteDiagnostic.isPending}
                           >
                             {deleteDiagnostic.isPending && diagnosticToDelete === operation.id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
-                              <Trash2 className="h-3.5 w-3.5" />
+                              <Trash2 className="h-4 w-4" />
                             )}
                           </Button>
                         </div>
@@ -933,10 +1117,10 @@ export function DiagnosticTable({ onViewDetails, onEnterResults, onAddDocuments 
         )}
       </div>
 
-      {/* Pagination */}
+      {/* Pagination - Tablet optimized */}
       {totalPages > 1 && (
-        <div className="bg-slate-50 px-6 py-4 border-t border-slate-200">
-          <div className="flex items-center justify-between">
+        <div className="bg-slate-50 px-4 sm:px-6 py-4 border-t border-slate-200">
+          <div className="flex flex-col sm:flex-row items-center justify-between space-y-3 sm:space-y-0">
             <div className="flex items-center text-sm text-slate-600">
               <span>
                 {viewMode === "grouped" && groupedDiagnostics
@@ -945,11 +1129,11 @@ export function DiagnosticTable({ onViewDetails, onEnterResults, onAddDocuments 
                 }
               </span>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1 sm:space-x-2">
               <button
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
-                className="px-3 py-1 rounded-md text-sm font-medium text-slate-500 hover:text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-2 rounded-md text-sm font-medium text-slate-500 hover:text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation min-h-[40px]"
               >
                 Précédent
               </button>
@@ -958,7 +1142,7 @@ export function DiagnosticTable({ onViewDetails, onEnterResults, onAddDocuments 
                 <button
                   key={page}
                   onClick={() => handlePageChange(page)}
-                  className={`px-3 py-1 rounded-md text-sm font-medium ${
+                  className={`px-3 py-2 rounded-md text-sm font-medium touch-manipulation min-h-[40px] ${
                     currentPage === page
                       ? 'bg-[#1e3a8a] text-white'
                       : 'text-gray-600 hover:text-[#1e3a8a]'
@@ -971,7 +1155,7 @@ export function DiagnosticTable({ onViewDetails, onEnterResults, onAddDocuments 
               <button
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={currentPage === totalPages}
-                className="px-3 py-1 rounded-md text-sm font-medium text-slate-500 hover:text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-2 rounded-md text-sm font-medium text-slate-500 hover:text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation min-h-[40px]"
               >
                 Suivant
               </button>
@@ -1002,6 +1186,9 @@ export function DiagnosticTable({ onViewDetails, onEnterResults, onAddDocuments 
       </AlertDialog>
     </div>
   );
-}
+});
 
+DiagnosticTable.displayName = 'DiagnosticTable';
+
+export { DiagnosticTable };
 export default DiagnosticTable;

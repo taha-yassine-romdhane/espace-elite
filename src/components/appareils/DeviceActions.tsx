@@ -36,14 +36,14 @@ export const DeviceActions: React.FC<DeviceActionsProps> = ({ device, stockLocat
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 gap-3">
-            {device.type.toUpperCase().includes('DIAGNOSTIC') && (
+            {(device.type.toUpperCase().includes('DIAGNOSTIC') || device.type === 'DIAGNOSTIC_DEVICE') && (
               <Button 
                 variant="outline" 
-                className="flex items-center justify-center gap-2"
+                className="flex items-center justify-center gap-2 bg-blue-50 hover:bg-blue-100 border-blue-200"
                 onClick={() => router.push(`/roles/admin/diagnostics/new?deviceId=${device.id}`)}
               >
-                <ClipboardIcon className="h-4 w-4" />
-                <span>Nouveau diagnostic</span>
+                <ClipboardIcon className="h-4 w-4 text-blue-600" />
+                <span className="text-blue-700 font-medium">Nouveau diagnostic</span>
               </Button>
             )}
             

@@ -410,7 +410,7 @@ async function handleGetPayments(req: NextApiRequest, res: NextApiResponse, sale
       let cnamDossierNumber = null;
       let isPending = true;
       let cnamMetadata = null;
-      let legacyPayments = [];
+      const legacyPayments = [];
       
       // First check PaymentDetail records for CNAM information
       if (payment.paymentDetails?.length !== undefined && payment.paymentDetails?.length > 0) {

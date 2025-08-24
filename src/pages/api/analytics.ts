@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from './auth/[...nextauth]';
-import { prisma } from '@/lib/prisma';
+import prisma from '@/lib/db';
 
 interface AnalyticsData {
   revenue: {
@@ -86,9 +86,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         : 0;
 
       // Format payment methods with percentages
+      const totalPaymentAmount = paymentMethods.reduce((sum, pm) => sum + pm.amount, 0);
       const paymentMethodsWithPercentage = paymentMethods.map(pm => ({
         ...pm,
-        percentage: totalRevenue > 0 ? (pm.amount / totalRevenue) * 100 : 0
+        percentage: totalPaymentAmount > 0 ? Math.round((pm.amount / totalPaymentAmount) * 100 * 10) / 10 : 0
       }));
 
       // Combine recent activity
@@ -101,7 +102,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         })),
         ...recentRentals.map(rental => ({
           type: 'rental',
-          description: `Location ${rental.medicalDevice.name} - ${rental.patient?.firstName || rental.Company?.companyName || 'Client'}`,
+          description: `Location ${rental.medicalDevice?.name || 'Appareil'} - ${rental.patient?.firstName || rental.company?.companyName || 'Client'}`,
           amount: rental.payment ? Number(rental.payment.amount) : undefined,
           date: rental.startDate.toISOString().split('T')[0]
         })),
@@ -205,11 +206,12 @@ async function getMonthlyRevenue(startDate: Date) {
   
   // Process sales
   sales.forEach(sale => {
-    const month = sale.saleDate.toLocaleDateString('fr-FR', { month: 'short' });
-    if (!monthlyData.has(month)) {
-      monthlyData.set(month, { month, amount: 0, sales: 0, rentals: 0 });
+    const month = sale.saleDate.toLocaleDateString('en-US', { month: 'short' });
+    const monthKey = `${sale.saleDate.getFullYear()}-${month}`;
+    if (!monthlyData.has(monthKey)) {
+      monthlyData.set(monthKey, { month, amount: 0, sales: 0, rentals: 0 });
     }
-    const data = monthlyData.get(month);
+    const data = monthlyData.get(monthKey);
     data.amount += Number(sale.finalAmount);
     data.sales += 1;
   });
@@ -217,11 +219,12 @@ async function getMonthlyRevenue(startDate: Date) {
   // Process rentals
   rentals.forEach(rental => {
     if (rental.payment) {
-      const month = rental.startDate.toLocaleDateString('fr-FR', { month: 'short' });
-      if (!monthlyData.has(month)) {
-        monthlyData.set(month, { month, amount: 0, sales: 0, rentals: 0 });
+      const month = rental.startDate.toLocaleDateString('en-US', { month: 'short' });
+      const monthKey = `${rental.startDate.getFullYear()}-${month}`;
+      if (!monthlyData.has(monthKey)) {
+        monthlyData.set(monthKey, { month, amount: 0, sales: 0, rentals: 0 });
       }
-      const data = monthlyData.get(month);
+      const data = monthlyData.get(monthKey);
       data.amount += Number(rental.payment.amount);
       data.rentals += 1;
     }
@@ -255,13 +258,13 @@ async function getDevicesCount() {
 
 async function getDeviceUtilization() {
   const [rented, sold, total] = await Promise.all([
-    prisma.medicalDevice.count({ where: { destination: 'FOR_RENT' } }),
+    prisma.rental.count({ where: { status: 'ACTIVE' } }),
     prisma.medicalDevice.count({ where: { status: 'SOLD' } }),
-    prisma.medicalDevice.count()
+    prisma.medicalDevice.count({ where: { status: 'ACTIVE' } })
   ]);
 
   const available = total - rented - sold;
-  return { rented, sold, available };
+  return { rented, sold, available: Math.max(0, available) };
 }
 
 async function getPopularDevices(startDate: Date) {
@@ -381,7 +384,7 @@ async function getRecentSales() {
     take: 5,
     orderBy: { saleDate: 'desc' },
     include: {
-      patient: { select: { firstName: true, lastName: true } },
+      patient: { select: { firstName: true, lastName: true, patientCode: true } },
       company: { select: { companyName: true } }
     }
   });
@@ -394,7 +397,7 @@ async function getRecentRentals() {
     include: {
       medicalDevice: { select: { name: true } },
       patient: { select: { firstName: true, lastName: true } },
-      Company: { select: { companyName: true } },
+      company: { select: { companyName: true } },
       payment: { select: { amount: true } }
     }
   });

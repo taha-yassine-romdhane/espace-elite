@@ -14,11 +14,11 @@ export default function ParametreCPAPForm({ onSubmit, initialValues, readOnly = 
   const { register, handleSubmit, setValue, watch } = useForm({
     defaultValues: initialValues || {
       pressionRampe: '',
-      dureeRampe: 5,
+      dureeRampe: 0,
       auto1: false,
       pression: '',
       auto2: false,
-      dureeRampe2: 8,
+      pressionTraitement: 0,
       EPR: '',
     },
   });
@@ -31,9 +31,9 @@ export default function ParametreCPAPForm({ onSubmit, initialValues, readOnly = 
         <Input {...register("pressionRampe")} placeholder="Value" disabled={readOnly} />
       </div>
       <div>
-        <label>Durée Rampe <span className="text-xs text-gray-400">5-45 min</span></label>
+        <label>Durée Rampe <span className="text-xs text-gray-400">0-45 min</span></label>
         <Slider 
-          min={5} 
+          min={0} 
           max={45} 
           step={1} 
           defaultValue={[watch("dureeRampe")]} 
@@ -62,13 +62,13 @@ export default function ParametreCPAPForm({ onSubmit, initialValues, readOnly = 
         <label>Auto</label>
       </div>
       <div>
-        <label>Durée Rampe <span className="text-xs text-gray-400">8-18 Cm H₂O</span></label>
+        <label>Pression de traitement <span className="text-xs text-gray-400">0-20 Cm H₂O</span></label>
         <Slider 
-          min={8} 
-          max={18} 
+          min={0} 
+          max={20} 
           step={1} 
-          defaultValue={[watch("dureeRampe2")]} 
-          onValueChange={v => !readOnly && setValue("dureeRampe2", v[0])} 
+          defaultValue={[watch("pressionTraitement")]} 
+          onValueChange={v => !readOnly && setValue("pressionTraitement", v[0])} 
           disabled={readOnly}
         />
       </div>

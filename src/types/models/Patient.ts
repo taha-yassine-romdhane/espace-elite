@@ -12,6 +12,7 @@ import { PatientHistory } from './PatientHistory';
 
 export interface Patient {
   id: string;
+  patientCode?: string;
   firstName: string;
   lastName: string;
   telephone: string;

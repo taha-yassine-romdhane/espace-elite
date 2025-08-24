@@ -19,7 +19,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     if (req.method === 'GET') {
       // First try to find a patient with this ID
-      let patient = await prisma.patient.findUnique({
+      const patient = await prisma.patient.findUnique({
         where: { id },
         select: {
           id: true,

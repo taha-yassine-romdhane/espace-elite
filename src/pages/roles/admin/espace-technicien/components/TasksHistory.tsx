@@ -20,6 +20,7 @@ interface TasksHistoryProps {
 
 interface Task {
   id: string;
+  taskCode?: string;
   title: string;
   description: string;
   status: "TODO" | "IN_PROGRESS" | "COMPLETED";

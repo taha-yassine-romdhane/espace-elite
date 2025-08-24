@@ -211,7 +211,7 @@ export default function AccessoriesImport() {
         
         const columnIndex = excelHeaders.indexOf(excelColumn);
         if (columnIndex !== -1) {
-          let value = row[columnIndex];
+          const value = row[columnIndex];
           
           // Handle date fields
           if (['warrantyExpiration'].includes(fieldKey) && value) {

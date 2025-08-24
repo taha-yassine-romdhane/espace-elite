@@ -12,7 +12,7 @@ export default function ParametreVNIForm({ onSubmit, initialValues }: ParametreV
   const { register, handleSubmit, setValue, watch } = useForm({
     defaultValues: initialValues || {
       pressionRampe: '',
-      dureeRampe: 5,
+      dureeRampe: 0,
       IPAP: '',
       EPAP: '',
       AID: '',
@@ -30,8 +30,8 @@ export default function ParametreVNIForm({ onSubmit, initialValues }: ParametreV
         <Input {...register("pressionRampe")} placeholder="Value" />
       </div>
       <div>
-        <label>Durée Rampe <span className="text-xs text-gray-400">5-45 min</span></label>
-        <Slider min={5} max={45} step={1} defaultValue={[watch("dureeRampe")]} onValueChange={v => setValue("dureeRampe", v[0])} />
+        <label>Durée Rampe <span className="text-xs text-gray-400">0-45 min</span></label>
+        <Slider min={0} max={45} step={1} defaultValue={[watch("dureeRampe")]} onValueChange={v => setValue("dureeRampe", v[0])} />
       </div>
       <div>
         <label>IPAP</label>

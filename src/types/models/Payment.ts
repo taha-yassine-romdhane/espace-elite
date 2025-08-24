@@ -5,6 +5,7 @@ import { Rental } from './Rental';
 
 export interface Payment {
   id: string;
+  paymentCode?: string;
   amount: number;
   method: PaymentMethod;
   status: PaymentStatus;

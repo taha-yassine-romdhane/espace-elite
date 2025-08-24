@@ -33,6 +33,7 @@ import { Separator } from "@/components/ui/separator";
 
 interface ComprehensiveTask {
   id: string;
+  taskCode?: string;
   title: string;
   description?: string;
   type: 'TASK' | 'DIAGNOSTIC_PENDING' | 'RENTAL_EXPIRING' | 'PAYMENT_DUE' | 'APPOINTMENT_REMINDER' | 'CNAM_RENEWAL' | 'MAINTENANCE_DUE';

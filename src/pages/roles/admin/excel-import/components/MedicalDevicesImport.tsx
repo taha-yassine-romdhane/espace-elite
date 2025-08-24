@@ -297,7 +297,7 @@ export default function MedicalDevicesImport() {
         
         const columnIndex = excelHeaders.indexOf(excelColumn);
         if (columnIndex !== -1) {
-          let value = row[columnIndex];
+          const value = row[columnIndex];
           
           // Handle date fields
           if (['installationDate'].includes(fieldKey) && value) {

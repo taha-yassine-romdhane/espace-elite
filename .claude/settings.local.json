@@ -7,7 +7,9 @@
       "Bash(touch:*)",
       "Bash(ls:*)",
       "mcp__ide__getDiagnostics",
-      "Bash(yarn build)"
+      "Bash(yarn build)",
+      "mcp__postgres__execute_sql",
+      "Bash(grep:*)"
     ],
     "deny": []
   }

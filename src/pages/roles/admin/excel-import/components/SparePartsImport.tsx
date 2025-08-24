@@ -211,7 +211,7 @@ export default function SparePartsImport() {
         
         const columnIndex = excelHeaders.indexOf(excelColumn);
         if (columnIndex !== -1) {
-          let value = row[columnIndex];
+          const value = row[columnIndex];
           
           // Handle number fields
           if (['purchasePrice', 'sellingPrice', 'stockQuantity'].includes(fieldKey) && value) {

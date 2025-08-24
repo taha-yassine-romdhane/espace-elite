@@ -56,10 +56,10 @@ import {
 } from "lucide-react";
 
 interface AppointmentsTableProps {
-  // Simple appointments table - no need for details or edit actions
+  onViewDetails?: (id: string) => void;
 }
 
-export function AppointmentsTable({}: AppointmentsTableProps) {
+export function AppointmentsTable({ onViewDetails }: AppointmentsTableProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -331,6 +331,7 @@ export function AppointmentsTable({}: AppointmentsTableProps) {
         
         return (
           clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          appointment.appointmentCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           appointment.appointmentType?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           appointmentTypeLabel.toLowerCase().includes(searchTerm.toLowerCase()) ||
           appointment.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -414,8 +415,8 @@ export function AppointmentsTable({}: AppointmentsTableProps) {
             />
           </div>
 
-          {/* Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          {/* Filters - Optimized for tablets */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             <div className="relative">
               <select
                 value={statusFilter}
@@ -493,7 +494,7 @@ export function AppointmentsTable({}: AppointmentsTableProps) {
           </div>
         ) : currentAppointments && currentAppointments.length > 0 ? (
           <div className="overflow-x-auto">
-            <Table>
+            <Table className="min-w-[1000px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Client</TableHead>
@@ -546,25 +547,37 @@ export function AppointmentsTable({}: AppointmentsTableProps) {
                       
                       <TableCell>
                         {appointment.appointmentType ? (
-                          <div className="flex items-center gap-2">
-                            <div className={`px-2 py-1 rounded-full text-xs font-medium border flex items-center gap-1 ${
+                          <div className="space-y-1">
+                            <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${
                               getAppointmentTypeDisplay(appointment.appointmentType).badge
                             }`}>
                               {getAppointmentTypeDisplay(appointment.appointmentType).icon}
-                              {getAppointmentTypeDisplay(appointment.appointmentType).label}
-                            </div>
-                            {appointment.appointmentType === 'DIAGNOSTIC_VISIT' && (
-                              <div className="flex items-center gap-2">
-                                <div className="text-xs text-purple-600 font-medium flex items-center gap-1">
-                                  <Stethoscope className="h-3 w-3" />
-                                  Polygraphie
-                                </div>
-                                {appointment.assignedTo && (
-                                  <div className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
-                                    <ClipboardCheck className="h-3 w-3" />
-                                    Tâche créée
-                                  </div>
+                              <span className="hidden sm:inline">
+                                {getAppointmentTypeDisplay(appointment.appointmentType).label}
+                                {appointment.appointmentCode && (
+                                  <span className="ml-1 font-normal opacity-75">
+                                    ({appointment.appointmentCode})
+                                  </span>
                                 )}
+                              </span>
+                              <span className="sm:hidden">
+                                {/* Abbreviated labels for mobile */}
+                                {appointment.appointmentType === 'DIAGNOSTIC_VISIT' ? 'Visite' :
+                                 appointment.appointmentType === 'CONSULTATION' ? 'Consult.' :
+                                 appointment.appointmentType === 'DIAGNOSTIC' ? 'Diag.' :
+                                 appointment.appointmentType === 'LOCATION' ? 'Loc.' :
+                                 appointment.appointmentType === 'VENTE' ? 'Vente' :
+                                 appointment.appointmentType === 'MAINTENANCE' ? 'Maint.' :
+                                 appointment.appointmentType === 'RECUPERATION' ? 'Récup.' :
+                                 'Autre'}
+                              </span>
+                            </div>
+                            {/* Show Polygraphie as a small indicator only for diagnostic visits */}
+                            {appointment.appointmentType === 'DIAGNOSTIC_VISIT' && (
+                              <div className="text-xs text-purple-600 flex items-center gap-1">
+                                <Stethoscope className="h-3 w-3" />
+                                <span className="hidden md:inline">Polygraphie</span>
+                                <span className="md:hidden">Poly.</span>
                               </div>
                             )}
                           </div>
@@ -593,19 +606,18 @@ export function AppointmentsTable({}: AppointmentsTableProps) {
                             <div className="w-6 h-6 rounded-full bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center text-white text-xs font-semibold">
                               {appointment.assignedTo.firstName.charAt(0)}{appointment.assignedTo.lastName.charAt(0)}
                             </div>
-                            <div>
-                              <div className="text-sm font-medium text-gray-900">
-                                {appointment.assignedTo.firstName} {appointment.assignedTo.lastName}
-                              </div>
-                              {appointment.appointmentType === 'DIAGNOSTIC_VISIT' && (
-                                <div className="text-xs text-green-600 font-medium">Technicien</div>
-                              )}
+                            <div className="text-sm font-medium text-gray-900">
+                              <span className="hidden sm:inline">{appointment.assignedTo.firstName} {appointment.assignedTo.lastName}</span>
+                              <span className="sm:hidden">{appointment.assignedTo.firstName.charAt(0)}. {appointment.assignedTo.lastName}</span>
                             </div>
                           </div>
                         ) : (
-                          <div className="text-xs text-gray-400 italic flex items-center gap-1">
-                            <User className="h-3 w-3" />
-                            Non assigné
+                          <div className="text-xs text-gray-400 italic">
+                            <span className="hidden sm:inline flex items-center gap-1">
+                              <User className="h-3 w-3" />
+                              Non assigné
+                            </span>
+                            <span className="sm:hidden">-</span>
                           </div>
                         )}
                       </TableCell>
@@ -631,19 +643,43 @@ export function AppointmentsTable({}: AppointmentsTableProps) {
                       </TableCell>
                       
                       <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
+                        <div className="flex items-center gap-2">
+                          {onViewDetails && (
                             <Button 
-                              variant="ghost" 
+                              variant="outline" 
                               size="sm"
-                              className="h-8 w-8 p-0"
+                              onClick={() => onViewDetails(appointment.id)}
+                              className="flex items-center gap-1 text-xs min-h-[36px] px-3 touch-manipulation"
                             >
-                              <MoreVertical className="h-4 w-4" />
+                              <FileText className="h-4 w-4" />
+                              <span className="hidden lg:inline">Détails</span>
                             </Button>
-                          </DropdownMenuTrigger>
+                          )}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                className="h-10 w-10 p-0 touch-manipulation"
+                              >
+                                <MoreVertical className="h-5 w-5" />
+                              </Button>
+                            </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
                             <DropdownMenuSeparator />
+                            {onViewDetails && (
+                              <>
+                                <DropdownMenuItem
+                                  onClick={() => onViewDetails(appointment.id)}
+                                  className="text-blue-600"
+                                >
+                                  <FileText className="h-4 w-4 mr-2" />
+                                  Voir les détails
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                              </>
+                            )}
                             <DropdownMenuItem
                               onClick={() => updateAppointmentStatus.mutate({ id: appointment.id, status: 'SCHEDULED' })}
                               disabled={appointment.status === 'SCHEDULED'}
@@ -681,7 +717,8 @@ export function AppointmentsTable({}: AppointmentsTableProps) {
                               Supprimer
                             </DropdownMenuItem>
                           </DropdownMenuContent>
-                        </DropdownMenu>
+                          </DropdownMenu>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -705,20 +742,20 @@ export function AppointmentsTable({}: AppointmentsTableProps) {
         )}
       </div>
 
-      {/* Pagination */}
+      {/* Pagination - Tablet optimized */}
       {totalPages > 1 && (
-        <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
-          <div className="flex items-center justify-between">
+        <div className="bg-gray-50 px-4 sm:px-6 py-4 border-t border-gray-200">
+          <div className="flex flex-col sm:flex-row items-center justify-between space-y-3 sm:space-y-0">
             <div className="flex items-center text-sm text-gray-600">
               <span>
                 Affichage de {startIndex + 1} à {Math.min(endIndex, totalItems)} sur {totalItems} rendez-vous
               </span>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1 sm:space-x-2">
               <button
                 onClick={() => setCurrentPage(currentPage - 1)}
                 disabled={currentPage === 1}
-                className="px-3 py-1 rounded-md text-sm font-medium text-gray-600 hover:text-[#1e3a8a] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-[#1e3a8a] disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation min-h-[40px]"
               >
                 Précédent
               </button>
@@ -740,7 +777,7 @@ export function AppointmentsTable({}: AppointmentsTableProps) {
                   <button
                     key={page}
                     onClick={() => setCurrentPage(page)}
-                    className={`px-3 py-1 rounded-md text-sm font-medium ${
+                    className={`px-3 py-2 rounded-md text-sm font-medium touch-manipulation min-h-[40px] ${
                       currentPage === page
                         ? 'bg-[#1e3a8a] text-white'
                         : 'text-gray-600 hover:text-[#1e3a8a]'
@@ -754,7 +791,7 @@ export function AppointmentsTable({}: AppointmentsTableProps) {
               <button
                 onClick={() => setCurrentPage(currentPage + 1)}
                 disabled={currentPage === totalPages}
-                className="px-3 py-1 rounded-md text-sm font-medium text-gray-600 hover:text-[#1e3a8a] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-[#1e3a8a] disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation min-h-[40px]"
               >
                 Suivant
               </button>

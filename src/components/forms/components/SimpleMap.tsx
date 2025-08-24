@@ -18,7 +18,7 @@ const SimpleMap: React.FC<SimpleMapProps> = ({ center, zoom, address, onLocation
         const L = await import('leaflet');
         
         // Fix icon issues
-        // eslint-disable-next-line no-undef
+         
         delete (L.Icon.Default.prototype as any)._getIconUrl;
         L.Icon.Default.mergeOptions({
           iconUrl: '/images/marker-icon.png',
@@ -46,7 +46,7 @@ const SimpleMap: React.FC<SimpleMapProps> = ({ center, zoom, address, onLocation
         marker.bindPopup(address).openPopup();
         
         // Handle click events
-        // eslint-disable-next-line no-undef
+         
         map.on('click', (e: any) => {
           const { lat, lng } = e.latlng;
           
@@ -85,7 +85,7 @@ const SimpleMap: React.FC<SimpleMapProps> = ({ center, zoom, address, onLocation
         if (!mapContainer) return;
         
         // Get the map instance
-        // eslint-disable-next-line no-undef
+         
         const mapInstance = L.DomUtil.get('map-container') as any;
         if (mapInstance && mapInstance._leaflet_id) {
           const map = L.map(mapInstance);

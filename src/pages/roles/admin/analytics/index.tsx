@@ -98,7 +98,8 @@ const AnalyticsPage: React.FC = () => {
     } catch (error) {
       console.error('Error fetching analytics:', error);
       setError('Failed to load analytics data');
-      // Mock data for development
+      // Enhanced mock data for development
+      console.warn('Using mock data due to API error:', error);
       setAnalyticsData({
         revenue: {
           total: 125000,
@@ -206,6 +207,19 @@ const AnalyticsPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Error/Mock Data Banner */}
+      {error && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <RefreshCw className="h-5 w-5 text-yellow-600 mr-2" />
+            <div>
+              <p className="text-yellow-800 font-medium">Données de démonstration</p>
+              <p className="text-yellow-700 text-sm">L'API de données analytiques rencontre des difficultés. Affichage des données d'exemple.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -337,7 +351,7 @@ const AnalyticsPage: React.FC = () => {
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ method, percentage }) => `${method} ${percentage}%`}
+                  label={({ method, percentage }) => `${method} ${percentage.toFixed(1)}%`}
                   outerRadius={80}
                   fill="#8884d8"
                   dataKey="amount"

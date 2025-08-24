@@ -290,7 +290,12 @@ export default function EnhancedSaleDetailsPage() {
         <Button variant="outline" onClick={handleBack}>
           <ArrowLeft className="mr-2 h-4 w-4" /> Retour
         </Button>
-        <h1 className="text-3xl font-bold text-blue-900">Détails de la Vente #{sale.invoiceNumber}</h1>
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900">
+            {sale.saleCode ? `Vente ${sale.saleCode}` : 'Détails de la Vente'}
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">Reçu #{sale.invoiceNumber}</p>
+        </div>
         <div className="w-[100px]"></div> {/* Spacer for alignment */}
       </div>
 
@@ -322,7 +327,10 @@ export default function EnhancedSaleDetailsPage() {
         <TabsContent value="general">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Informations Générales</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Informations Générales
+              </CardTitle>
               {!isEditingGeneral ? (
                 <Button variant="outline" size="sm" onClick={() => setIsEditingGeneral(true)}>
                   <Edit2 className="mr-2 h-4 w-4" />
@@ -344,75 +352,106 @@ export default function EnhancedSaleDetailsPage() {
                 </div>
               )}
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            <CardContent className="space-y-6">
+              {/* Basic Information */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <Label>Numéro de Reçu</Label>
-                  <p className="font-medium">{sale.invoiceNumber}</p>
-                </div>
-                <div>
-                  <Label>Date</Label>
-                  <p className="font-medium">{new Date(sale.saleDate).toLocaleDateString('fr-TN')}</p>
-                </div>
-                <div>
-                  <Label>Statut</Label>
-                  {isEditingGeneral ? (
-                    <Select
-                      value={editedSale?.status || sale.status}
-                      onValueChange={(value) => setEditedSale({ ...editedSale, status: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="PENDING">En attente</SelectItem>
-                        <SelectItem value="COMPLETED">Complété</SelectItem>
-                        <SelectItem value="CANCELLED">Annulé</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <Badge variant={sale.status === 'COMPLETED' ? 'default' : 'secondary'}>
-                      {sale.status}
-                    </Badge>
-                  )}
-                </div>
-                <div>
-                  <Label>Montant Total</Label>
-                  <p className="font-medium">{Number(sale.totalAmount).toFixed(2)} DT</p>
-                </div>
-                <div>
-                  <Label>Remise</Label>
-                  {isEditingGeneral ? (
-                    <Input
-                      type="number"
-                      value={editedSale?.discount || 0}
-                      onChange={(e) => setEditedSale({ 
-                        ...editedSale, 
-                        discount: parseFloat(e.target.value) || 0,
-                        finalAmount: Number(sale.totalAmount) - (parseFloat(e.target.value) || 0)
-                      })}
-                    />
-                  ) : (
-                    <p className="font-medium">{Number(sale.discount || 0).toFixed(2)} DT</p>
-                  )}
-                </div>
-                <div>
-                  <Label>Montant Final</Label>
-                  <p className="font-medium text-lg text-blue-600">
-                    {Number(editedSale?.finalAmount || sale.finalAmount).toFixed(2)} DT
+                  <Label className="text-sm font-medium text-gray-600">Date de Vente</Label>
+                  <p className="text-base font-semibold mt-1">
+                    {new Date(sale.saleDate).toLocaleDateString('fr-FR', { 
+                      weekday: 'long',
+                      year: 'numeric', 
+                      month: 'long', 
+                      day: 'numeric'
+                    })}
                   </p>
                 </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-600">Statut</Label>
+                  <div className="mt-1">
+                    {isEditingGeneral ? (
+                      <Select
+                        value={editedSale?.status || sale.status}
+                        onValueChange={(value) => setEditedSale({ ...editedSale, status: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="PENDING">En attente</SelectItem>
+                          <SelectItem value="COMPLETED">Complété</SelectItem>
+                          <SelectItem value="CANCELLED">Annulé</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                        sale.status === 'COMPLETED' 
+                          ? 'bg-green-100 text-green-800' 
+                          : sale.status === 'PENDING' 
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {sale.status === 'COMPLETED' ? 'Complété' : 
+                         sale.status === 'PENDING' ? 'En attente' : 
+                         'Annulé'}
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
-              <div>
-                <Label>Notes</Label>
+
+              {/* Financial Summary */}
+              <div className="border-t pt-6">
+                <h3 className="text-lg font-semibold mb-4">Résumé Financier</h3>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Montant Total</span>
+                    <span className="font-semibold">{Number(sale.totalAmount).toFixed(2)} DT</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Remise</span>
+                    {isEditingGeneral ? (
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={editedSale?.discount || 0}
+                        onChange={(e) => setEditedSale({ 
+                          ...editedSale, 
+                          discount: parseFloat(e.target.value) || 0,
+                          finalAmount: Number(sale.totalAmount) - (parseFloat(e.target.value) || 0)
+                        })}
+                        className="w-32 text-right"
+                      />
+                    ) : (
+                      <span className="font-semibold text-red-600">-{Number(sale.discount || 0).toFixed(2)} DT</span>
+                    )}
+                  </div>
+                  <div className="flex justify-between items-center text-lg font-bold border-t pt-3">
+                    <span>Montant Final</span>
+                    <span>{Number(editedSale?.finalAmount || sale.finalAmount).toFixed(2)} DT</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div className="border-t pt-6">
+                <Label className="text-sm font-medium text-gray-600">Notes</Label>
                 {isEditingGeneral ? (
                   <Textarea
                     value={editedSale?.notes || ''}
                     onChange={(e) => setEditedSale({ ...editedSale, notes: e.target.value })}
                     rows={3}
+                    className="mt-2"
+                    placeholder="Ajouter des notes concernant cette vente..."
                   />
                 ) : (
-                  <p className="text-gray-700">{sale.notes || 'Aucune note'}</p>
+                  <div className="mt-2">
+                    {sale.notes ? (
+                      <p className="text-gray-700 bg-gray-50 p-3 rounded-md">{sale.notes}</p>
+                    ) : (
+                      <p className="text-gray-500 italic">Aucune note</p>
+                    )}
+                  </div>
                 )}
               </div>
             </CardContent>
@@ -680,124 +719,105 @@ export default function EnhancedSaleDetailsPage() {
 
         {/* Client Tab */}
         <TabsContent value="client">
-          <Card className="shadow-lg">
-            <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-t-lg">
-              <CardTitle className="flex items-center gap-2 text-green-900">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
                 {sale.patient ? <User className="h-5 w-5" /> : <Building2 className="h-5 w-5" />}
                 {sale.patient ? 'Informations Patient' : 'Informations Société'}
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-6">
+            <CardContent className="space-y-8">
               {sale.patient ? (
-                <div className="space-y-6">
-                  {/* Personal Information */}
-                  <div className="bg-blue-50 rounded-lg p-4">
-                    <h3 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
-                      <User className="h-4 w-4" />
-                      Informations Personnelles
-                    </h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-white p-3 rounded border">
-                        <Label className="text-sm text-gray-500">Nom complet</Label>
-                        <p className="font-semibold text-gray-800">{sale.patient.fullName}</p>
-                      </div>
-                      <div className="bg-white p-3 rounded border">
-                        <Label className="text-sm text-gray-500">Prénom</Label>
-                        <p className="font-semibold text-gray-800">{sale.patient.firstName}</p>
-                      </div>
-                      <div className="bg-white p-3 rounded border">
-                        <Label className="text-sm text-gray-500">Nom de famille</Label>
-                        <p className="font-semibold text-gray-800">{sale.patient.lastName}</p>
+                <>
+                  {/* Patient Identity */}
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4">Identité</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <Label className="text-sm font-medium text-gray-600">Nom complet</Label>
+                        <p className="text-base font-semibold mt-1">{sale.patient.firstName} {sale.patient.lastName}</p>
                       </div>
                       {sale.patient.cin && (
-                        <div className="bg-white p-3 rounded border">
-                          <Label className="text-sm text-gray-500">CIN</Label>
-                          <p className="font-semibold text-gray-800">{sale.patient.cin}</p>
+                        <div>
+                          <Label className="text-sm font-medium text-gray-600">CIN</Label>
+                          <p className="text-base font-semibold mt-1">{sale.patient.cin}</p>
                         </div>
                       )}
                     </div>
                   </div>
 
-                  {/* Contact Information */}
-                  <div className="bg-purple-50 rounded-lg p-4">
-                    <h3 className="font-semibold text-purple-900 mb-3 flex items-center gap-2">
-                      <Phone className="h-4 w-4" />
-                      Informations de Contact
-                    </h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-white p-3 rounded border">
-                        <Label className="text-sm text-gray-500">Téléphone Principal</Label>
-                        <p className="font-semibold text-gray-800">{sale.patient.telephone || '-'}</p>
+                  {/* Contact */}
+                  <div className="border-t pt-6">
+                    <h3 className="text-lg font-semibold mb-4">Contact</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <Label className="text-sm font-medium text-gray-600">Téléphone</Label>
+                        <p className="text-base font-semibold mt-1">{sale.patient.telephone || '-'}</p>
                       </div>
                       {sale.patient.telephoneTwo && (
-                        <div className="bg-white p-3 rounded border">
-                          <Label className="text-sm text-gray-500">Téléphone Secondaire</Label>
-                          <p className="font-semibold text-gray-800">{sale.patient.telephoneTwo}</p>
+                        <div>
+                          <Label className="text-sm font-medium text-gray-600">Téléphone 2</Label>
+                          <p className="text-base font-semibold mt-1">{sale.patient.telephoneTwo}</p>
                         </div>
                       )}
                     </div>
                     {sale.patient.address && (
-                      <div className="mt-4 bg-white p-3 rounded border">
-                        <Label className="text-sm text-gray-500">Adresse Complète</Label>
-                        <p className="font-semibold text-gray-800">{sale.patient.address}</p>
+                      <div className="mt-4">
+                        <Label className="text-sm font-medium text-gray-600">Adresse</Label>
+                        <p className="text-base font-semibold mt-1">{sale.patient.address}</p>
                       </div>
                     )}
                   </div>
 
                   {/* CNAM Information */}
                   {(sale.patient.cnamId || sale.patient.affiliation || sale.patient.beneficiaryType) && (
-                    <div className="bg-indigo-50 rounded-lg p-4">
-                      <h3 className="font-semibold text-indigo-900 mb-3 flex items-center gap-2">
-                        <CreditCard className="h-4 w-4" />
-                        Informations CNAM
-                      </h3>
-                      <div className="grid grid-cols-2 gap-4">
+                    <div className="border-t pt-6">
+                      <h3 className="text-lg font-semibold mb-4">CNAM</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {sale.patient.cnamId && (
-                          <div className="bg-white p-3 rounded border">
-                            <Label className="text-sm text-gray-500">Numéro CNAM</Label>
-                            <p className="font-semibold text-gray-800">{sale.patient.cnamId}</p>
+                          <div>
+                            <Label className="text-sm font-medium text-gray-600">Numéro CNAM</Label>
+                            <p className="text-base font-semibold mt-1">{sale.patient.cnamId}</p>
                           </div>
                         )}
                         {sale.patient.affiliation && (
-                          <div className="bg-white p-3 rounded border">
-                            <Label className="text-sm text-gray-500">Affiliation</Label>
-                            <p className="font-semibold text-gray-800">{sale.patient.affiliation}</p>
+                          <div>
+                            <Label className="text-sm font-medium text-gray-600">Affiliation</Label>
+                            <p className="text-base font-semibold mt-1">{sale.patient.affiliation}</p>
                           </div>
                         )}
                         {sale.patient.beneficiaryType && (
-                          <div className="bg-white p-3 rounded border col-span-2">
-                            <Label className="text-sm text-gray-500">Type de Bénéficiaire</Label>
-                            <p className="font-semibold text-gray-800">{sale.patient.beneficiaryType}</p>
+                          <div className="md:col-span-2">
+                            <Label className="text-sm font-medium text-gray-600">Type de Bénéficiaire</Label>
+                            <p className="text-base font-semibold mt-1">
+                              {sale.patient.beneficiaryType === 'ASSURE_SOCIAL' ? 'Assuré Social' : 
+                               sale.patient.beneficiaryType === 'AYANT_DROIT' ? 'Ayant Droit' : 
+                               sale.patient.beneficiaryType}
+                            </p>
                           </div>
                         )}
                       </div>
                     </div>
                   )}
-                </div>
+                </>
               ) : sale.company ? (
-                <div className="space-y-6">
-                  {/* Company Information */}
-                  <div className="bg-orange-50 rounded-lg p-4">
-                    <h3 className="font-semibold text-orange-900 mb-3 flex items-center gap-2">
-                      <Building2 className="h-4 w-4" />
-                      Informations Société
-                    </h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-white p-3 rounded border">
-                        <Label className="text-sm text-gray-500">Nom de la société</Label>
-                        <p className="font-semibold text-gray-800">{sale.company.companyName}</p>
-                      </div>
-                      <div className="bg-white p-3 rounded border">
-                        <Label className="text-sm text-gray-500">Téléphone</Label>
-                        <p className="font-semibold text-gray-800">{sale.company.telephone || '-'}</p>
-                      </div>
-                      {sale.company.fiscalNumber && (
-                        <div className="bg-white p-3 rounded border col-span-2">
-                          <Label className="text-sm text-gray-500">Matricule Fiscal</Label>
-                          <p className="font-semibold text-gray-800">{sale.company.fiscalNumber}</p>
-                        </div>
-                      )}
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">Société</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <Label className="text-sm font-medium text-gray-600">Nom de la société</Label>
+                      <p className="text-base font-semibold mt-1">{sale.company.companyName}</p>
                     </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-600">Téléphone</Label>
+                      <p className="text-base font-semibold mt-1">{sale.company.telephone || '-'}</p>
+                    </div>
+                    {sale.company.fiscalNumber && (
+                      <div className="md:col-span-2">
+                        <Label className="text-sm font-medium text-gray-600">Matricule Fiscal</Label>
+                        <p className="text-base font-semibold mt-1">{sale.company.fiscalNumber}</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : (

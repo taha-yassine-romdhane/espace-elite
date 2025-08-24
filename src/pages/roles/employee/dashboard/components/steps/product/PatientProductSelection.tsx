@@ -8,9 +8,10 @@ import {
   ChevronLeft,
   Stethoscope,
   Puzzle,
-  Info,
+  Search,
   X,
-  Settings
+  Settings,
+  PlusCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ProductParameterDialog from "./ProductParameterDialog";
@@ -39,39 +40,51 @@ const ProductTypeButton = ({ type, onSelect, onCreateNew }: {
   onCreateNew: () => void;
 }) => {
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
+      {/* Header with category */}
+      <div className="flex items-center gap-2 px-2">
+        <type.icon className="h-5 w-5 text-green-600" />
+        <span className="font-semibold text-green-800">{type.label}</span>
+      </div>
+      
       <div className="flex flex-col gap-2">
+        {/* Select Button - Primary Action */}
         <Button
-          variant="outline"
+          variant="default"
           size="sm"
           className={cn(
-            "w-full h-10 flex items-center gap-2 px-4",
-            "border-[#1e3a8a] border-opacity-20 hover:border-opacity-100",
-            "bg-white text-[#1e3a8a]",
-            "hover:bg-blue-50 transition-all duration-200",
-            "rounded-md"
+            "w-full h-12 flex items-center gap-3 px-4",
+            "bg-green-600 hover:bg-green-700 text-white",
+            "shadow-sm hover:shadow-md transition-all duration-200",
+            "rounded-lg font-medium"
           )}
           onClick={onSelect}
         >
-          <type.icon className="h-4 w-4 flex-shrink-0" />
-          <span className="text-sm font-medium flex-1 text-left">{type.selectLabel}</span>
-          <Info className="h-4 w-4 text-[#1e3a8a] opacity-50" />
+          <Search className="h-5 w-5 flex-shrink-0" />
+          <div className="flex-1 text-left">
+            <div className="text-sm font-semibold">{type.selectLabel}</div>
+            <div className="text-xs text-green-100">Choisir depuis le stock</div>
+          </div>
         </Button>
+        
+        {/* Create Button - Secondary Action */}
         <Button
           variant="outline"
           size="sm"
           className={cn(
-            "w-full h-10 flex items-center gap-2 px-4",
-            "border-[#1e3a8a] border-opacity-20 hover:border-opacity-100",
-            "bg-blue-50/30 text-[#1e3a8a]",
-            "hover:bg-blue-50 transition-all duration-200",
-            "rounded-md"
+            "w-full h-12 flex items-center gap-3 px-4",
+            "border-2 border-green-300 hover:border-green-500",
+            "bg-white hover:bg-green-50 text-green-700",
+            "transition-all duration-200",
+            "rounded-lg font-medium"
           )}
           onClick={onCreateNew}
         >
-          <type.icon className="h-4 w-4 flex-shrink-0" />
-          <span className="text-sm font-medium flex-1 text-left">{type.createLabel}</span>
-          <Plus className="h-4 w-4 text-[#1e3a8a] opacity-50" />
+          <PlusCircle className="h-5 w-5 flex-shrink-0" />
+          <div className="flex-1 text-left">
+            <div className="text-sm font-semibold">{type.createLabel}</div>
+            <div className="text-xs text-green-500">Ajouter nouveau produit</div>
+          </div>
         </Button>
       </div>
     </div>
@@ -131,7 +144,7 @@ const ProductCard = ({
         <div className="flex-1">
           <div className="flex items-center gap-2">
             <div className="flex-shrink-0">
-              {product.type === "MEDICAL_DEVICE" && <Stethoscope className="h-5 w-5 text-blue-500" />}
+              {product.type === "MEDICAL_DEVICE" && <Stethoscope className="h-5 w-5 text-green-500" />}
               {product.type === "ACCESSORY" && <Puzzle className="h-5 w-5 text-green-500" />}
             </div>
             <div>
@@ -174,8 +187,8 @@ const ProductCard = ({
               variant="outline"
               size="sm"
               className={cn(
-                "h-8 w-8 p-0 hover:bg-blue-50 border-blue-200",
-                hasParameters ? "text-green-500 hover:text-green-700" : "text-blue-500 hover:text-blue-700"
+                "h-8 w-8 p-0 hover:bg-green-50 border-green-200",
+                hasParameters ? "text-green-500 hover:text-green-700" : "text-green-500 hover:text-green-700"
               )}
               onClick={onConfigure}
               title={hasParameters ? "Modifier les paramètres" : "Configurer les paramètres"}
@@ -198,7 +211,7 @@ const ProductCard = ({
       
       {/* Display configured parameters if they exist */}
       {hasParameters && parametersList.length > 0 && (
-        <div className="mt-2 ml-7 pl-2 border-l-2 border-blue-100">
+        <div className="mt-2 ml-7 pl-2 border-l-2 border-green-100">
           <div className="text-xs text-gray-500 font-medium mb-1">Paramètres configurés:</div>
           <div className="grid grid-cols-2 gap-x-4 gap-y-1">
             {parametersList.map((param, index) => (
@@ -290,7 +303,7 @@ export function PatientProductSelection({
 
 
       {/* Product Type Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {productTypes.map((type) => (
           <ProductTypeButton 
             key={type.id} 
@@ -305,16 +318,16 @@ export function PatientProductSelection({
       {(selectedProducts && selectedProducts.length > 0) && (
         <div className="mt-6 space-y-3">
           <div className="flex justify-between items-center">
-            <h3 className="text-base font-medium text-blue-900">Produits Sélectionnés</h3>
-            <Badge variant="secondary" className="bg-blue-100 text-blue-700 hover:bg-blue-200">
+            <h3 className="text-base font-medium text-green-900">Produits Sélectionnés</h3>
+            <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-200">
               {selectedProducts?.length || 0} {(selectedProducts?.length || 0) > 1 ? 'produits' : 'produit'}
             </Badge>
           </div>
           
-          <Card className="overflow-hidden border border-blue-100">
-            <div className="bg-blue-50 px-4 py-2 border-b border-blue-100 flex justify-between items-center">
-              <div className="font-medium text-blue-900">Récapitulatif des produits</div>
-              <div className="text-sm text-blue-700">Total: <span className="font-semibold">{typeof totalPrice === 'number' ? totalPrice.toFixed(2) : '0.00'} DT</span></div>
+          <Card className="overflow-hidden border border-green-100">
+            <div className="bg-green-50 px-4 py-2 border-b border-green-100 flex justify-between items-center">
+              <div className="font-medium text-green-900">Récapitulatif des produits</div>
+              <div className="text-sm text-green-700">Total: <span className="font-semibold">{typeof totalPrice === 'number' ? totalPrice.toFixed(2) : '0.00'} DT</span></div>
             </div>
             
             <div className="divide-y divide-gray-100">
@@ -337,7 +350,7 @@ export function PatientProductSelection({
         <Button
           variant="outline"
           onClick={onBack}
-          className="text-blue-700 border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center gap-2"
+          className="text-green-700 border-green-200 hover:bg-green-50 hover:border-green-300 flex items-center gap-2"
         >
           <ChevronLeft className="h-4 w-4" />
           Retour
@@ -346,14 +359,14 @@ export function PatientProductSelection({
         <div className="flex items-center gap-3">
           {(selectedProducts && selectedProducts.length > 0) && (
             <div className="text-sm text-gray-600">
-              <span className="font-medium text-blue-700">{selectedProducts.length}</span> produits pour un total de <span className="font-medium text-blue-700">{typeof totalPrice === 'number' ? totalPrice.toFixed(2) : '0.00'} DT</span>
+              <span className="font-medium text-green-700">{selectedProducts.length}</span> produits pour un total de <span className="font-medium text-green-700">{typeof totalPrice === 'number' ? totalPrice.toFixed(2) : '0.00'} DT</span>
             </div>
           )}
           
           <Button
             onClick={onNext}
             disabled={!selectedProducts || selectedProducts.length === 0}
-            className="bg-blue-700 hover:bg-blue-800 text-white flex items-center gap-2 disabled:opacity-50"
+            className="bg-green-700 hover:bg-green-800 text-white flex items-center gap-2 disabled:opacity-50"
           >
             Continuer
             <ChevronRight className="h-4 w-4" />

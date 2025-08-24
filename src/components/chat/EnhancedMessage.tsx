@@ -40,7 +40,7 @@ interface Props {
 const colors = {
   blue: {
     own: 'bg-blue-600 text-white',
-    ownTime: 'text-blue-100',
+    ownTime: 'text-blue-300',
     other: 'bg-gray-100 text-gray-900',
     otherTime: 'text-gray-500',
     reference: 'bg-blue-50 border-blue-200 text-blue-800',
@@ -48,7 +48,7 @@ const colors = {
   },
   green: {
     own: 'bg-green-600 text-white',
-    ownTime: 'text-green-100',
+    ownTime: 'text-green-300',
     other: 'bg-gray-100 text-gray-900',
     otherTime: 'text-gray-500',
     reference: 'bg-green-50 border-green-200 text-green-800',
@@ -56,7 +56,7 @@ const colors = {
   },
   red: {
     own: 'bg-red-600 text-white',
-    ownTime: 'text-red-100',
+    ownTime: 'text-red-300',
     other: 'bg-gray-100 text-gray-900',
     otherTime: 'text-gray-500',
     reference: 'bg-red-50 border-red-200 text-red-800',
@@ -102,37 +102,46 @@ export const EnhancedMessage: React.FC<Props> = ({
   };
 
   const parseMessageContent = (content: string) => {
-    const referenceRegex = /@(patient|device|appointment|rental|user):(.*?)(?=\s|$)/g;
-    const parts: Array<{ type: 'text' | 'reference'; content: string; refType?: string; refTitle?: string }> = [];
+    // Supported forms:
+    // @type:"Title With Spaces"{id:"123",sub:"details"}
+    // @type:'Title' {id:"123"}
+    // @type:[Title With Brackets]
+    // @type:Simple
+    const referenceRegex = /@(patient|device|appointment|rental|user):(?:"([^\"]+)"|'([^']+)'|\[([^\]]+)\]|([^\s\{]+))(?:\{([^}]*)\})?/g;
+    const parts: Array<{ type: 'text' | 'reference'; content: string; refType?: string; refTitle?: string; refId?: string; refSubtitle?: string }> = [];
     let lastIndex = 0;
 
-    let match;
+    let match: RegExpExecArray | null;
     while ((match = referenceRegex.exec(content)) !== null) {
-      // Add text before the reference
       if (match.index > lastIndex) {
-        parts.push({
-          type: 'text',
-          content: content.slice(lastIndex, match.index)
-        });
+        parts.push({ type: 'text', content: content.slice(lastIndex, match.index) });
       }
 
-      // Add the reference
+      const refTitle = (match[2] || match[3] || match[4] || match[5] || '').trim();
+      const info = match[6] || '';
+      let refId: string | undefined;
+      let refSubtitle: string | undefined;
+      if (info) {
+        const idMatch = info.match(/id:\"([^\"]*)\"/);
+        const subMatch = info.match(/sub:\"([^\"]*)\"/);
+        refId = idMatch?.[1];
+        refSubtitle = subMatch?.[1];
+      }
+
       parts.push({
         type: 'reference',
         content: match[0],
         refType: match[1],
-        refTitle: match[2]
+        refTitle,
+        refId,
+        refSubtitle
       });
 
       lastIndex = match.index + match[0].length;
     }
 
-    // Add remaining text
     if (lastIndex < content.length) {
-      parts.push({
-        type: 'text',
-        content: content.slice(lastIndex)
-      });
+      parts.push({ type: 'text', content: content.slice(lastIndex) });
     }
 
     return parts.length > 0 ? parts : [{ type: 'text' as const, content }];
@@ -165,25 +174,29 @@ export const EnhancedMessage: React.FC<Props> = ({
             "px-4 py-3 rounded-lg shadow-sm",
             isOwnMessage ? currentColors.own : currentColors.other
           )}>
-            <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-1">
               {contentParts.map((part, index) => {
                 if (part.type === 'reference') {
                   return (
                     <button
                       key={index}
-                      onClick={() => onReferenceClick?.(part.refType!, part.refTitle!)}
+                      onClick={() => onReferenceClick?.(part.refType!, part.refId || part.refTitle!)}
                       className={cn(
                         "inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border transition-colors hover:shadow-sm",
                         currentColors.reference
                       )}
+                      title={`${part.refType}: ${part.refTitle}${part.refSubtitle ? ' — ' + part.refSubtitle : ''}`}
                     >
                       {getReferenceIcon(part.refType!)}
-                      <span className="ml-1">{part.refTitle}</span>
+                      <span className="ml-1 font-medium">{part.refTitle}</span>
+                      {part.refSubtitle && (
+                        <span className="ml-1 opacity-80">• {part.refSubtitle}</span>
+                      )}
                     </button>
                   );
                 }
                 return (
-                  <span key={index} className="text-sm">
+                  <span key={index} className="text-sm whitespace-pre-wrap">
                     {part.content}
                   </span>
                 );

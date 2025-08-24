@@ -289,8 +289,8 @@ export function ClientSelectionStep({
     try {
       let response;
       if (type === "patient") {
-        // For employees, fetch only assigned patients for diagnostics
-        if (action === "diagnostique") {
+        // For employees, fetch only assigned patients for diagnostics, rentals, and sales
+        if (action === "diagnostique" || action === "location" || action === "vente") {
           response = await fetch('/api/renseignements/patients?assignedToMe=true');
         } else {
           response = await fetch('/api/renseignements/patients');

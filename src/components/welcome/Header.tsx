@@ -4,7 +4,6 @@ import { Menu, X, ChevronDown } from "lucide-react";
 
 const Header: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isProductsOpen, setIsProductsOpen] = useState(false);
 
   return (
     <header className="bg-white/95 backdrop-blur-sm border-b border-gray-100 sticky top-0 z-50 shadow-sm">
@@ -25,38 +24,35 @@ const Header: React.FC = () => {
           {/* Desktop Navigation */}
           <div className="hidden lg:flex items-center space-x-8">
             <div className="relative group">
-              <button 
+              <button
                 className="flex items-center space-x-1 text-gray-700 hover:text-blue-600 font-medium transition-colors"
-                onMouseEnter={() => setIsProductsOpen(true)}
-                onMouseLeave={() => setIsProductsOpen(false)}
+                aria-haspopup="true"
+                aria-expanded="false"
               >
                 <span>Solutions</span>
                 <ChevronDown className="w-4 h-4" />
               </button>
-              {isProductsOpen && (
-                <div 
-                  className="absolute top-full left-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-100 py-4"
-                  onMouseEnter={() => setIsProductsOpen(true)}
-                  onMouseLeave={() => setIsProductsOpen(false)}
-                >
-                  <div className="px-6 py-2">
-                    <div className="grid gap-4">
-                      <div className="space-y-2">
-                        <h3 className="font-semibold text-gray-900">Gestion Médicale</h3>
-                        <p className="text-sm text-gray-600">Suivi patients et appareils CPAP/VNI</p>
-                      </div>
-                      <div className="space-y-2">
-                        <h3 className="font-semibold text-gray-900">Gestion Commerciale</h3>
-                        <p className="text-sm text-gray-600">Ventes, paiements et suivi CNAM</p>
-                      </div>
-                      <div className="space-y-2">
-                        <h3 className="font-semibold text-gray-900">Analytics & Reports</h3>
-                        <p className="text-sm text-gray-600">Tableaux de bord et rapports avancés</p>
-                      </div>
+              <div
+                className="absolute top-full left-0 mt-0 w-80 bg-white rounded-xl shadow-lg border border-gray-100 py-4 hidden group-hover:block z-50"
+                role="menu"
+              >
+                <div className="px-6 py-2">
+                  <div className="grid gap-4">
+                    <div className="space-y-2">
+                      <h3 className="font-semibold text-gray-900">Gestion Médicale</h3>
+                      <p className="text-sm text-gray-600">Suivi patients et appareils CPAP/VNI</p>
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="font-semibold text-gray-900">Gestion Commerciale</h3>
+                      <p className="text-sm text-gray-600">Ventes, paiements et suivi CNAM</p>
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="font-semibold text-gray-900">Analytics & Reports</h3>
+                      <p className="text-sm text-gray-600">Tableaux de bord et rapports avancés</p>
                     </div>
                   </div>
                 </div>
-              )}
+              </div>
             </div>
             <Link href="#features" className="text-gray-700 hover:text-blue-600 font-medium transition-colors">
               Fonctionnalités

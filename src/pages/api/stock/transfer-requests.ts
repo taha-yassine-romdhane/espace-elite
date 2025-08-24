@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]';
 import prisma from '@/lib/db';
+import { generateTransferCode } from '@/utils/idGenerator';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const session = await getServerSession(req, res, authOptions);
@@ -311,7 +312,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         requestedQuantity: parseInt(requestedQuantity) as number,
         reason: reason.trim() as string,
         urgency: urgency as 'LOW' | 'MEDIUM' | 'HIGH',
-        status: 'PENDING' as 'PENDING',
+        status: 'PENDING' as const,
         requestedById: session.user.id as string
       };
 
@@ -321,9 +322,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         : { ...baseRequestData, productId: productId as string };
 
 
-      // First create the transfer request
+      // Generate transfer code and create the transfer request
+      const transferCode = await generateTransferCode(prisma);
       const transferRequest = await prisma.stockTransferRequest.create({
-        data: requestData
+        data: {
+          ...requestData,
+          transferCode: transferCode
+        }
       });
 
       // Then fetch it with includes to return to client

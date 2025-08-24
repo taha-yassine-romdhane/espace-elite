@@ -3,24 +3,42 @@ import prisma from '@/lib/db';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]';
 import { PaymentMethod, PaymentStatus, CNAMBondType, CNAMStatus } from '@prisma/client';
+import { generateSaleCode, generatePaymentCode, generateCNAMDossierNumber } from '@/utils/idGenerator';
 
 // Helper function to map frontend payment types to Prisma PaymentMethod enum
 function mapPaymentMethod(frontendMethod: string): PaymentMethod {
-  switch (frontendMethod?.toLowerCase()) {
+  if (!frontendMethod) {
+    console.warn('Payment method is null/undefined, defaulting to CASH');
+    return PaymentMethod.CASH;
+  }
+
+  const method = frontendMethod.toLowerCase().trim();
+  
+  switch (method) {
     case 'cheque':
+    case 'check':
       return PaymentMethod.CHEQUE;
     case 'especes':
+    case 'cash':
+    case 'liquid':
+    case 'liquide':
       return PaymentMethod.CASH;
     case 'cnam':
       return PaymentMethod.CNAM;
     case 'virement':
+    case 'bank_transfer':
+    case 'banktransfer':
+    case 'transfer':
       return PaymentMethod.VIREMENT;
     case 'traite':
+    case 'draft':
       return PaymentMethod.TRAITE;
     case 'mandat':
+    case 'mandate':
       return PaymentMethod.MANDAT;
-    // For other payment types not in the enum, default to CASH
     default:
+      // Log unrecognized payment methods for debugging
+      console.warn(`Unrecognized payment method: "${frontendMethod}", defaulting to CASH`);
       return PaymentMethod.CASH;
   }
 }
@@ -78,7 +96,20 @@ export default async function handler(
 ) {
   try {
     if (req.method === 'GET') {
+      // Get the createdBy filter from query params for employee filtering
+      const { createdBy, processedBy } = req.query;
+      
+      // Build the where clause
+      const whereClause: any = {};
+      if (createdBy) {
+        whereClause.processedById = createdBy as string;
+      }
+      if (processedBy) {
+        whereClause.processedById = processedBy as string;
+      }
+      
       const sales = await prisma.sale.findMany({
+        where: whereClause,
         include: {
           processedBy: {
             select: {
@@ -94,6 +125,7 @@ export default async function handler(
               firstName: true,
               lastName: true,
               telephone: true,
+              patientCode: true,
             },
           },
           company: {
@@ -103,11 +135,16 @@ export default async function handler(
               telephone: true,
             },
           },
-          payment: true,
+          payment: {
+            include: {
+              paymentDetails: true, // Include payment details for complex payments
+            },
+          },
           items: {
             include: {
               product: true,
               medicalDevice: true,
+              configuration: true, // Include the new configuration
             },
           },
         },
@@ -116,9 +153,32 @@ export default async function handler(
         },
       });
 
+      // Get all payments for all sales in a single query
+      const saleIds = sales.map(sale => sale.id);
+      const allPayments = await prisma.payment.findMany({
+        where: {
+          saleId: {
+            in: saleIds
+          }
+        },
+        orderBy: {
+          paymentDate: 'asc'
+        }
+      });
+
+      // Group payments by saleId
+      const paymentsBySale = allPayments.reduce((acc, payment) => {
+        if (!acc[payment.saleId!]) {
+          acc[payment.saleId!] = [];
+        }
+        acc[payment.saleId!].push(payment);
+        return acc;
+      }, {} as Record<string, typeof allPayments>);
+
       // Transform the data to match the expected format in the frontend
       const transformedSales = sales.map(sale => ({
         id: sale.id,
+        saleCode: sale.saleCode,
         invoiceNumber: sale.invoiceNumber || `INV-${sale.id.substring(0, 8).toUpperCase()}`,
         saleDate: sale.saleDate,
         totalAmount: sale.totalAmount,
@@ -144,6 +204,7 @@ export default async function handler(
           firstName: sale.patient.firstName,
           lastName: sale.patient.lastName,
           telephone: sale.patient.telephone,
+          patientCode: sale.patient.patientCode,
           fullName: `${sale.patient.firstName} ${sale.patient.lastName}`,
         } : null,
         
@@ -161,14 +222,57 @@ export default async function handler(
         
         clientType: sale.patient ? 'PATIENT' : (sale.company ? 'COMPANY' : null),
         
-        // Payment information
+        // Payment information - handle multiple payments
         paymentId: sale.paymentId,
-        payment: sale.payment ? {
-          id: sale.payment.id,
-          amount: sale.payment.amount,
-          status: sale.payment.status,
-          method: sale.payment.method,
-        } : null,
+        payment: (() => {
+          const salePayments = paymentsBySale[sale.id] || [];
+          
+          // If there are multiple payments via saleId, aggregate them
+          if (salePayments.length > 0) {
+            const totalAmount = salePayments.reduce((sum, p) => sum + Number(p.amount), 0);
+            const allPaid = salePayments.every(p => p.status === 'PAID');
+            const anyPending = salePayments.some(p => p.status === 'PENDING');
+            const hasPartial = salePayments.some(p => p.status === 'PARTIAL');
+            
+            let aggregatedStatus = 'PENDING';
+            if (allPaid) {
+              aggregatedStatus = 'PAID';
+            } else if (hasPartial || (salePayments.some(p => p.status === 'PAID') && anyPending)) {
+              aggregatedStatus = 'PARTIAL';
+            }
+            
+            return {
+              id: salePayments[0].id,
+              amount: totalAmount,
+              status: aggregatedStatus,
+              method: salePayments.length > 1 ? 'MIXED' : salePayments[0].method,
+              paymentDetails: salePayments.map(p => ({
+                method: p.method,
+                amount: Number(p.amount),
+                status: p.status,
+                paymentDate: p.paymentDate,
+                referenceNumber: p.referenceNumber,
+                metadata: {
+                  dossierNumber: p.cnamBondNumber,
+                  cnamInfo: p.cnamBondNumber ? {
+                    dossierNumber: p.cnamBondNumber,
+                    bondType: p.cnamBondType,
+                    status: p.cnamStatus
+                  } : null
+                }
+              }))
+            };
+          }
+          
+          // Fallback to single payment
+          return sale.payment ? {
+            id: sale.payment.id,
+            amount: sale.payment.amount,
+            status: sale.payment.status,
+            method: sale.payment.method,
+            paymentDetails: sale.payment.paymentDetails || []
+          } : null;
+        })(),
         
         // Items in the sale
         items: sale.items.map(item => ({
@@ -199,6 +303,25 @@ export default async function handler(
             model: item.medicalDevice.model || null,
             serialNumber: item.medicalDevice.serialNumber || null,
           } : null,
+          
+          // Include device configuration data
+          deviceConfiguration: item.configuration ? {
+            pression: item.configuration.pression,
+            pressionRampe: item.configuration.pressionRampe,
+            dureeRampe: item.configuration.dureeRampe,
+            epr: item.configuration.epr,
+            ipap: item.configuration.ipap,
+            epap: item.configuration.epap,
+            aid: item.configuration.aid,
+            mode: item.configuration.mode,
+            frequenceRespiratoire: item.configuration.frequenceRespiratoire,
+            volumeCourant: item.configuration.volumeCourant,
+            debit: item.configuration.debit,
+            ...(item.configuration.additionalParams as any || {})
+          } : null,
+          
+          // Include raw configuration for debugging
+          configuration: item.configuration,
           
           // Item name for display
           name: item.product 
@@ -310,8 +433,10 @@ export default async function handler(
               const primaryPayment = payments.find(p => p.classification === 'principale') || payments[0];
               
               // Create the main payment record
+              const paymentCode = await generatePaymentCode(tx as any);
               const payment = await tx.payment.create({
                 data: {
+                  paymentCode: paymentCode,
                   amount: totalPaymentAmount,
                   method: mapPaymentMethod(primaryPayment.type || 'cash'),
                   status: totalPaymentAmount >= Number(saleData.finalAmount) ? PaymentStatus.PAID : PaymentStatus.PARTIAL,
@@ -410,14 +535,16 @@ export default async function handler(
           const minutes = now.getMinutes().toString().padStart(2, '0');
           const seconds = now.getSeconds().toString().padStart(2, '0');
           
-          // Try to generate a unique invoice number (format: YYYYMMDD-HHMMSS-XXX)
-          let attempts = 0;
+          // Generate a unique invoice number using timestamp + random suffix
           let newInvoiceNumber = '';
           let isUnique = false;
+          let attempts = 0;
+          const maxAttempts = 1000; // Increased from 100 to 1000
           
-          while (!isUnique && attempts < 100) {
-            const suffix = attempts === 0 ? '' : `-${attempts.toString().padStart(3, '0')}`;
-            newInvoiceNumber = `${year}${month}${day}-${hours}${minutes}${seconds}${suffix}`;
+          while (!isUnique && attempts < maxAttempts) {
+            // Generate random 4-digit suffix for uniqueness
+            const randomSuffix = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+            newInvoiceNumber = `${year}${month}${day}-${hours}${minutes}${seconds}-${randomSuffix}`;
             
             // Check if this invoice number already exists
             const existingSale = await tx.sale.findUnique({
@@ -428,15 +555,27 @@ export default async function handler(
               isUnique = true;
             } else {
               attempts++;
+              // Add small delay to ensure different timestamp on next iteration
+              await new Promise(resolve => setTimeout(resolve, 1));
             }
           }
           
           if (!isUnique) {
-            throw new Error('Unable to generate unique invoice number after 100 attempts');
+            // Final fallback: use UUID-based approach
+            const { randomUUID } = await import('crypto');
+            const uuid = randomUUID().replace(/-/g, '').substring(0, 8).toUpperCase();
+            newInvoiceNumber = `${year}${month}${day}-${uuid}`;
+            
+            // Final check - if this still exists (extremely unlikely), let database handle the constraint
+            console.warn(`Invoice generation required fallback to UUID: ${newInvoiceNumber}`);
           }
 
+          // Generate sale code
+          const saleCode = await generateSaleCode(tx as any);
+          
           const sale = await tx.sale.create({
             data: {
+              saleCode: saleCode,
               invoiceNumber: newInvoiceNumber,
               saleDate: new Date(saleData.saleDate || new Date()),
               totalAmount: parseFloat(saleData.totalAmount),
@@ -455,6 +594,9 @@ export default async function handler(
           // 3. Create the sale items
           const saleItems = [];
           for (const item of saleData.items) {
+            // Check if item has parameters (device configuration)
+            const hasParameters = item.parameters && Object.keys(item.parameters).length > 0;
+            
             const saleItem = await tx.saleItem.create({
               data: {
                 saleId: sale.id,
@@ -463,31 +605,96 @@ export default async function handler(
                 discount: item.discount ? parseFloat(item.discount) : 0,
                 itemTotal: parseFloat(item.itemTotal),
                 serialNumber: item.serialNumber,
-                warranty: item.warranty,
+                warranty: item.warranty, // Keep warranty for actual warranty info
                 productId: item.productId || null,
                 medicalDeviceId: item.medicalDeviceId || null,
+                // Create configuration if parameters exist
+                ...(hasParameters && {
+                  configuration: {
+                    create: {
+                      // CPAP parameters
+                      pression: item.parameters.pression || null,
+                      pressionRampe: item.parameters.pressionRampe || null,
+                      dureeRampe: item.parameters.dureeRampe ? parseInt(item.parameters.dureeRampe) : null,
+                      epr: item.parameters.epr || null,
+                      // VNI parameters
+                      ipap: item.parameters.ipap || null,
+                      epap: item.parameters.epap || null,
+                      aid: item.parameters.aid || null,
+                      mode: item.parameters.mode || null,
+                      frequenceRespiratoire: item.parameters.frequenceRespiratoire || null,
+                      volumeCourant: item.parameters.volumeCourant || null,
+                      // Oxygen concentrator parameters
+                      debit: item.parameters.debit || null,
+                      // Store any additional parameters in JSON field
+                      additionalParams: (() => {
+                        const knownParams = ['pression', 'pressionRampe', 'dureeRampe', 'epr', 
+                                           'ipap', 'epap', 'aid', 'mode', 'frequenceRespiratoire', 
+                                           'volumeCourant', 'debit'];
+                        const additional = Object.keys(item.parameters)
+                          .filter(key => !knownParams.includes(key))
+                          .reduce((acc, key) => {
+                            acc[key] = item.parameters[key];
+                            return acc;
+                          }, {} as any);
+                        return Object.keys(additional).length > 0 ? additional : null;
+                      })()
+                    }
+                  }
+                })
+              },
+              include: {
+                configuration: true // Include configuration in response
               }
             });
             saleItems.push(saleItem);
             
             // 4. Update inventory if needed
             if (item.productId) {
-              // Find all stock records for this product
-              const stockRecords = await tx.stock.findMany({
-                where: { productId: item.productId },
-                orderBy: { updatedAt: 'desc' }
+              // Calculate total available stock across all locations
+              const totalAvailable = await tx.stock.aggregate({
+                where: { 
+                  productId: item.productId,
+                  quantity: { gt: 0 }
+                },
+                _sum: { quantity: true }
               });
               
-              if (stockRecords.length > 0) {
-                // Update the most recently updated stock record
-                const stockToUpdate = stockRecords[0];
-                const newQuantity = Math.max(0, stockToUpdate.quantity - parseInt(item.quantity));
+              const requestedQuantity = parseInt(item.quantity);
+              const availableQuantity = totalAvailable._sum.quantity || 0;
+              
+              if (availableQuantity < requestedQuantity) {
+                throw new Error(`Stock insuffisant pour le produit. Disponible: ${availableQuantity}, Demandé: ${requestedQuantity}`);
+              }
+              
+              // Find stock records with available quantity, ordered by FIFO (oldest first)
+              const stockRecords = await tx.stock.findMany({
+                where: { 
+                  productId: item.productId,
+                  quantity: { gt: 0 }
+                },
+                orderBy: { createdAt: 'asc' } // FIFO: First In, First Out
+              });
+              
+              // Distribute the deduction across multiple stock records if needed
+              let remainingToDeduct = requestedQuantity;
+              
+              for (const stockRecord of stockRecords) {
+                if (remainingToDeduct <= 0) break;
+                
+                const deductFromThis = Math.min(stockRecord.quantity, remainingToDeduct);
+                const newQuantity = stockRecord.quantity - deductFromThis;
                 
                 await tx.stock.update({
-                  where: { id: stockToUpdate.id },
+                  where: { id: stockRecord.id },
                   data: { quantity: newQuantity }
                 });
+                
+                remainingToDeduct -= deductFromThis;
               }
+              
+              // Log stock transaction for audit trail
+              console.log(`Stock updated for product ${item.productId}: deducted ${requestedQuantity} units across ${stockRecords.length} locations`);
             }
             
             if (item.medicalDeviceId) {
@@ -507,10 +714,12 @@ export default async function handler(
           const cnamDossierIds: string[] = [];
           if (cnamPaymentsData.length > 0 && saleData.patientId) {
             for (const cnamData of cnamPaymentsData) {
+              // Generate CNAM dossier number
+              const dossierNumber = await generateCNAMDossierNumber(tx as any);
               // Create CNAM dossier with proper sale reference
               const cnamDossier = await tx.cNAMDossier.create({
                 data: {
-                  dossierNumber: cnamData.dossierNumber,
+                  dossierNumber: dossierNumber,
                   bondType: cnamData.bondType,
                   bondAmount: cnamData.bondAmount,
                   devicePrice: cnamData.devicePrice,
