@@ -461,7 +461,7 @@ export async function generateCNAMDossierNumber(prisma: PrismaClient): Promise<s
       const lastDossier = await prisma.cNAMDossier.findFirst({
         where: {
           dossierNumber: {
-            not: null,
+            not: undefined,
             startsWith: 'CNAM-'
           }
         },

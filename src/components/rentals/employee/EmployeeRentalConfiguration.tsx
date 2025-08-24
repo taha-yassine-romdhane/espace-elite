@@ -253,13 +253,13 @@ export default function EmployeeRentalConfiguration({
                 <div>
                   <Label htmlFor="endDate">Date de Fin</Label>
                   <DatePicker
-                    value={globalConfig.globalEndDate}
-                    onChange={(date) => setGlobalConfig(prev => ({ 
+                    value={globalConfig.globalEndDate || undefined}
+                    onChange={globalConfig.isGlobalOpenEnded ? undefined : (date) => setGlobalConfig(prev => ({ 
                       ...prev, 
-                      globalEndDate: date,
+                      globalEndDate: date || null,
                       isGlobalOpenEnded: !date
                     }))}
-                    disabled={globalConfig.isGlobalOpenEnded}
+                    className={globalConfig.isGlobalOpenEnded ? "opacity-50 pointer-events-none" : ""}
                   />
                 </div>
 

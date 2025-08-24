@@ -96,19 +96,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const recentActivity = [
         ...recentSales.map(sale => ({
           type: 'sale',
-          description: `Vente - ${sale.patient?.firstName || sale.company?.companyName || 'Client'}`,
+          description: `Vente - ${(sale as any).patient?.firstName || (sale as any).company?.companyName || 'Client'}`,
           amount: Number(sale.finalAmount),
           date: sale.saleDate.toISOString().split('T')[0]
         })),
         ...recentRentals.map(rental => ({
           type: 'rental',
-          description: `Location ${rental.medicalDevice?.name || 'Appareil'} - ${rental.patient?.firstName || rental.company?.companyName || 'Client'}`,
-          amount: rental.payment ? Number(rental.payment.amount) : undefined,
+          description: `Location ${(rental as any).medicalDevice?.name || 'Appareil'} - ${(rental as any).patient?.firstName || (rental as any).Company?.companyName || 'Client'}`,
+          amount: (rental as any).payment ? Number((rental as any).payment.amount) : undefined,
           date: rental.startDate.toISOString().split('T')[0]
         })),
         ...recentPayments.map(payment => ({
           type: 'payment',
-          description: `Paiement ${payment.method} - ${payment.patient?.firstName || payment.company?.companyName || 'Client'}`,
+          description: `Paiement ${payment.method} - ${(payment as any).patient?.firstName || (payment as any).company?.companyName || 'Client'}`,
           amount: Number(payment.amount),
           date: payment.paymentDate.toISOString().split('T')[0]
         }))
@@ -397,7 +397,7 @@ async function getRecentRentals() {
     include: {
       medicalDevice: { select: { name: true } },
       patient: { select: { firstName: true, lastName: true } },
-      company: { select: { companyName: true } },
+      Company: { select: { companyName: true } },
       payment: { select: { amount: true } }
     }
   });

@@ -84,7 +84,7 @@ export default async function handler(
               name: d.name,
               type: d.type,
               stockLocationId: d.stockLocationId,
-              stockLocationName: d.stockLocation?.name
+              stockLocationName: (d as any).stockLocation?.name
             }))
           });
         }
@@ -128,7 +128,7 @@ export default async function handler(
             technicalSpecs: device.technicalSpecs,
             destination: device.destination,
             requiresMaintenance: device.requiresMaintenance,
-            stockLocation: device.stockLocation,
+            stockLocation: (device as any).stockLocation,
             stockLocationId: device.stockLocationId,
             stockQuantity: device.stockQuantity || 1, // Default to 1 if not specified
             status: device.status,
@@ -138,7 +138,7 @@ export default async function handler(
             reservedUntil: device.reservedUntil,
             location: device.location,
             isReserved: isReserved,
-            patient: device.Patient
+            patient: (device as any).Patient
           };
         });
 

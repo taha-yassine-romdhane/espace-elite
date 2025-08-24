@@ -48,6 +48,7 @@ interface DeviceParameter {
   // Concentrateur & Bouteille - string as per schema
   debit?: string;
   // Common
+  notes?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -288,14 +289,14 @@ export default function EnhancedRentalDeviceParameters({
   };
 
   const renderParameterField = (field: any) => {
-    const value = editingParams?.[field.key];
+    const value = editingParams?.[field.key as keyof DeviceParameter];
     
     switch (field.type) {
       case 'number':
         return (
           <Input
             type="number"
-            value={value || ''}
+            value={typeof value === 'boolean' ? value.toString() : (value || '')}
             onChange={(e) => updateParam(field.key, parseInt(e.target.value) || null)}
             placeholder={field.label}
             min={field.min}
@@ -306,14 +307,14 @@ export default function EnhancedRentalDeviceParameters({
       case 'boolean':
         return (
           <Switch
-            checked={value || false}
+            checked={Boolean(value)}
             onCheckedChange={(checked) => updateParam(field.key, checked)}
           />
         );
       
       case 'select':
         return (
-          <Select value={value || ''} onValueChange={(val) => updateParam(field.key, val)}>
+          <Select value={value?.toString() || ''} onValueChange={(val) => updateParam(field.key, val)}>
             <SelectTrigger>
               <SelectValue placeholder="Sélectionner..." />
             </SelectTrigger>
@@ -330,7 +331,7 @@ export default function EnhancedRentalDeviceParameters({
         return (
           <Input
             type="text"
-            value={value || ''}
+            value={value?.toString() || ''}
             onChange={(e) => updateParam(field.key, e.target.value || null)}
             placeholder={field.label}
           />

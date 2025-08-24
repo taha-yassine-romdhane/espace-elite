@@ -166,11 +166,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
 
       // Get summary statistics
+      const summaryWhereCondition = user.role === 'ADMIN' 
+        ? {} 
+        : user.stockLocation 
+        ? { toLocationId: user.stockLocation.id }
+        : { id: 'non-existent-id' }; // This will match no records
+      
       const summary = await prisma.stockTransferRequest.groupBy({
         by: ['status'],
-        where: {
-          toLocationId: user.stockLocation.id
-        },
+        where: summaryWhereCondition,
         _count: {
           status: true
         }

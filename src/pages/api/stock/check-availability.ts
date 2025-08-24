@@ -87,7 +87,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             availableQuantity: 1,
             requestedQuantity: quantity,
             productName: medicalDevice.name,
-            locationName: medicalDevice.stockLocation.name,
+            locationName: medicalDevice.stockLocation?.name || 'Non assigné',
             productType: medicalDevice.type,
             isDevice: true
           }

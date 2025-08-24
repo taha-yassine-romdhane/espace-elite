@@ -426,7 +426,7 @@ export default function SparePartsImport() {
           <FieldMapper
             excelHeaders={excelHeaders}
             excelData={excelData}
-            targetFields={sparePartFields}
+            targetFields={sparePartFields as any}
             onMappingComplete={handleMappingComplete}
             onCancel={resetImport}
             entityName="pièces de rechange"

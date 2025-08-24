@@ -457,7 +457,7 @@ export default function ProductsImport() {
           <FieldMapper
             excelHeaders={excelHeaders}
             excelData={excelData}
-            targetFields={productFields}
+            targetFields={productFields as any}
             onMappingComplete={handleMappingComplete}
             onCancel={resetImport}
             entityName="produits"

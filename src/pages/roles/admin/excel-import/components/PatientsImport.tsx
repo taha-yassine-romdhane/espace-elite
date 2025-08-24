@@ -268,7 +268,7 @@ export default function PatientsImport() {
             const columnIndex = excelHeaders.indexOf(originalColumn);
             if (columnIndex !== -1) {
               const fullValue = row[columnIndex]?.toString().trim() || '';
-              const words = fullValue.split(/\s+/).filter(word => word.length > 0);
+              const words = fullValue.split(/\s+/).filter((word: string) => word.length > 0);
               
               if (fieldKey === 'firstName') {
                 // First name is the first word

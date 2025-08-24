@@ -315,11 +315,11 @@ export default async function handler(
             },
             createdAt: rental.createdAt,
             updatedAt: rental.updatedAt,
-            createdBy: rental.createdBy ? {
-              id: rental.createdBy.id,
-              firstName: rental.createdBy.firstName,
-              lastName: rental.createdBy.lastName,
-              email: rental.createdBy.email,
+            createdBy: (rental as any).createdBy ? {
+              id: (rental as any).createdBy.id,
+              firstName: (rental as any).createdBy.firstName,
+              lastName: (rental as any).createdBy.lastName,
+              email: (rental as any).createdBy.email,
             } : null,
           };
         });

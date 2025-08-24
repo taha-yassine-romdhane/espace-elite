@@ -113,10 +113,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             : '/roles/employee/patients';
           actionLabel = 'Voir le patient';
           break;
-        case NotificationType.TRANSFER:
-          actionUrl = '/roles/employee/stock';
-          actionLabel = 'Voir le stock';
-          break;
         default:
           actionUrl = '/roles/employee/dashboard';
           break;
@@ -162,7 +158,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         [NotificationType.MAINTENANCE]: groupedNotifications[NotificationType.MAINTENANCE]?.length || 0,
         [NotificationType.FOLLOW_UP]: groupedNotifications[NotificationType.FOLLOW_UP]?.length || 0,
         [NotificationType.PAYMENT_DUE]: groupedNotifications[NotificationType.PAYMENT_DUE]?.length || 0,
-        [NotificationType.TRANSFER]: groupedNotifications[NotificationType.TRANSFER]?.length || 0,
         [NotificationType.OTHER]: groupedNotifications[NotificationType.OTHER]?.length || 0
       }
     };

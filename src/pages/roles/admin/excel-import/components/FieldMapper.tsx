@@ -80,7 +80,7 @@ export default function FieldMapper({
     // Count how many samples have multiple words
     const multiWordCount = samples.filter(value => {
       const words = value.trim().split(/\s+/);
-      return words.length >= 2 && words.every(word => word.length > 1);
+      return words.length >= 2 && words.every((word: string) => word.length > 1);
     }).length;
     
     // If more than 60% have multiple words, it's likely a full name column

@@ -436,7 +436,7 @@ export default function AccessoriesImport() {
           <FieldMapper
             excelHeaders={excelHeaders}
             excelData={excelData}
-            targetFields={accessoryFields}
+            targetFields={accessoryFields as any}
             onMappingComplete={handleMappingComplete}
             onCancel={resetImport}
             entityName="accessoires"

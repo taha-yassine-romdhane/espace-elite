@@ -142,7 +142,7 @@ export default function EmployeeNotificationsPage() {
       );
 
       // Update stats locally
-      setStats(prev => prev ? {
+      setStats((prev: any) => prev ? {
         ...prev,
         unread: Math.max(0, prev.unread - 1)
       } : null);
@@ -185,7 +185,7 @@ export default function EmployeeNotificationsPage() {
       );
 
       // Update stats locally
-      setStats(prev => prev ? {
+      setStats((prev: any) => prev ? {
         ...prev,
         unread: 0
       } : null);

@@ -111,7 +111,7 @@ const HistoryPage = () => {
       'Box': <Box className="h-5 w-5" />,
       'Clock': <Clock className="h-5 w-5" />
     };
-    return iconMap[icon] || <Activity className="h-5 w-5" />;
+    return iconMap[icon as keyof typeof iconMap] || <Activity className="h-5 w-5" />;
   };
 
   const getStatusBadge = (status: string) => {
@@ -123,7 +123,7 @@ const HistoryPage = () => {
       'ACTIVE': { color: 'bg-purple-100 text-purple-800', icon: <Activity className="h-3 w-3" /> },
       'SCHEDULED': { color: 'bg-indigo-100 text-indigo-800', icon: <Calendar className="h-3 w-3" /> }
     };
-    const config = statusConfig[status] || { color: 'bg-gray-100 text-gray-800', icon: null };
+    const config = statusConfig[status as keyof typeof statusConfig] || { color: 'bg-gray-100 text-gray-800', icon: null };
     
     return (
       <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${config.color}`}>
@@ -139,7 +139,7 @@ const HistoryPage = () => {
       'NORMAL': { color: 'bg-gray-100 text-gray-800', label: 'Normal' },
       'LOW': { color: 'bg-blue-100 text-blue-800', label: 'Faible' }
     };
-    const config = priorityConfig[priority] || { color: 'bg-gray-100 text-gray-800', label: priority };
+    const config = priorityConfig[priority as keyof typeof priorityConfig] || { color: 'bg-gray-100 text-gray-800', label: priority };
     
     return (
       <span className={`px-2 py-1 rounded-full text-xs font-medium ${config.color}`}>

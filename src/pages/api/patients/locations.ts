@@ -72,7 +72,7 @@ function getPatientSelectFields() {
     createdAt: true,
     appointments: {
       orderBy: {
-        scheduledDate: 'desc'
+        scheduledDate: 'desc' as any
       },
       take: 1,
       select: {
@@ -90,7 +90,7 @@ function getPatientSelectFields() {
     rentals: {
       where: {
         status: {
-          in: ['ACTIVE', 'PENDING']
+          in: ['ACTIVE' as any, 'PENDING' as any]
         }
       },
       select: {
@@ -110,7 +110,7 @@ function getPatientSelectFields() {
         }
       },
       orderBy: {
-        startDate: 'desc'
+        startDate: 'desc' as any
       }
     },
     sales: {
@@ -136,7 +136,7 @@ function getPatientSelectFields() {
         }
       },
       orderBy: {
-        saleDate: 'desc'
+        saleDate: 'desc' as any
       }
     },
     medicalDevices: {
@@ -158,7 +158,7 @@ function getPatientSelectFields() {
           gte: new Date() // Only current/future follow-ups
         },
         status: {
-          in: ['PENDING', 'COMPLETED'] // Active diagnostics
+          in: ['PENDING' as any, 'COMPLETED' as any] // Active diagnostics
         }
       },
       select: {
@@ -186,7 +186,7 @@ function getPatientSelectFields() {
         }
       },
       orderBy: {
-        followUpDate: 'asc'
+        followUpDate: 'asc' as any
       }
     }
   };

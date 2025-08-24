@@ -225,7 +225,7 @@ const EmployeeProfilePage = () => {
         </div>
 
         {/* Additional Information */}
-        {(profile.speciality || profile.companyName || profile.department) && (
+        {(profile.speciality || (profile as any).companyName || (profile as any).department) && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
@@ -244,22 +244,22 @@ const EmployeeProfilePage = () => {
                 </div>
               )}
 
-              {profile.companyName && (
+              {(profile as any).companyName && (
                 <div className="flex items-center space-x-3">
                   <Briefcase className="h-4 w-4 text-gray-400" />
                   <div>
                     <p className="text-sm font-medium text-gray-900">Entreprise</p>
-                    <p className="text-sm text-gray-600">{profile.companyName}</p>
+                    <p className="text-sm text-gray-600">{(profile as any).companyName}</p>
                   </div>
                 </div>
               )}
 
-              {profile.department && (
+              {(profile as any).department && (
                 <div className="flex items-center space-x-3">
                   <UserCircle className="h-4 w-4 text-gray-400" />
                   <div>
                     <p className="text-sm font-medium text-gray-900">Département</p>
-                    <p className="text-sm text-gray-600">{profile.department}</p>
+                    <p className="text-sm text-gray-600">{(profile as any).department}</p>
                   </div>
                 </div>
               )}
