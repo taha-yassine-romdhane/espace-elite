@@ -117,7 +117,7 @@ export default async function handler(
           data: {
             title: 'Correction des montants de période',
             message: `Les montants des périodes gap ont été corrigés pour la location ${rental.rentalCode}. ${corrections.length} période(s) corrigée(s).`,
-            type: 'INFO',
+            type: 'INFO' as any,
             userId: session.user.id
           }
         });

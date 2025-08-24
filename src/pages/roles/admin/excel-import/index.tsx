@@ -529,7 +529,7 @@ export default function ExcelImportExportPage() {
         <ImportExportModal
           isOpen={isModalOpen}
           onClose={handleModalClose}
-          type={selectedOption.type}
+          type={selectedOption.type as any}
           onImportComplete={handleImportComplete}
         />
       )}

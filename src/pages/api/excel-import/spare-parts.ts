@@ -123,9 +123,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             model: sparePartData.model || null,
             purchasePrice: purchasePrice,
             sellingPrice: sellingPrice,
-            warranty: sparePartData.warranty || null,
-            status: sparePartData.status || 'FOR_SALE',
-            stockQuantity: sparePartData.stockQuantity || 1,
+            status: (sparePartData.status as any) || 'ACTIVE',
             ...(stockLocationId && {
               stockLocation: {
                 connect: { id: stockLocationId }

@@ -320,13 +320,13 @@ export default function AdvancedRentalConfiguration({
                 <div>
                   <Label htmlFor="endDate">Date de Fin Globale</Label>
                   <DatePicker
-                    value={globalConfig.globalEndDate}
-                    onChange={(date) => setGlobalConfig(prev => ({ 
+                    value={globalConfig.globalEndDate || undefined}
+                    onChange={globalConfig.isGlobalOpenEnded ? undefined : (date) => setGlobalConfig(prev => ({ 
                       ...prev, 
-                      globalEndDate: date,
+                      globalEndDate: date || null,
                       isGlobalOpenEnded: !date
                     }))}
-                    disabled={globalConfig.isGlobalOpenEnded}
+                    className={globalConfig.isGlobalOpenEnded ? "opacity-50 pointer-events-none" : ""}
                   />
                 </div>
 
@@ -515,12 +515,12 @@ export default function AdvancedRentalConfiguration({
                     <div>
                       <Label>Date de Fin</Label>
                       <DatePicker
-                        value={period.endDate}
-                        onChange={(date) => updateProductPeriod(period.id, { 
-                          endDate: date,
+                        value={period.endDate || undefined}
+                        onChange={period.isOpenEnded ? undefined : (date) => updateProductPeriod(period.id, { 
+                          endDate: date || undefined,
                           isOpenEnded: !date
                         })}
-                        disabled={period.isOpenEnded}
+                        className={period.isOpenEnded ? "opacity-50 pointer-events-none" : ""}
                       />
                     </div>
                     

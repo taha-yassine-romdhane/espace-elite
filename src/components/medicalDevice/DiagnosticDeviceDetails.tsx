@@ -134,13 +134,13 @@ export const DiagnosticDeviceDetails: React.FC<DiagnosticDeviceDetailsProps> = (
                     </div>
                   </TableCell>
                   <TableCell>
-                    {formatIAH(diagnostic.result?.iah)}
+                    {formatIAH(diagnostic.result?.iah ?? null)}
                   </TableCell>
                   <TableCell className="font-medium">
                     {diagnostic.result?.idValue || '-'}
                   </TableCell>
                   <TableCell>
-                    {getStatusBadge(diagnostic.result?.status)}
+                    {getStatusBadge(diagnostic.result?.status || '')}
                   </TableCell>
                   <TableCell className="max-w-[200px]">
                     <div className="text-sm text-slate-600">

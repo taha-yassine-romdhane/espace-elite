@@ -330,7 +330,7 @@ const MapPreview: React.FC = () => {
   );
 };
 
-MapPreview.getLayout = (page: React.ReactNode) => (
+(MapPreview as any).getLayout = (page: React.ReactNode) => (
   <EmployeeLayout>{page}</EmployeeLayout>
 );
 

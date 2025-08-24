@@ -90,7 +90,7 @@ const AppointmentsPage = () => {
       }
     };
     
-    const config = statusConfig[status] || { 
+    const config = statusConfig[status as keyof typeof statusConfig] || { 
       color: 'bg-gray-100 text-gray-800', 
       icon: null, 
       label: status 

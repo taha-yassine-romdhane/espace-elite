@@ -449,7 +449,7 @@ export default function DiagnosticDevicesImport() {
           <FieldMapper
             excelHeaders={excelHeaders}
             excelData={excelData}
-            targetFields={diagnosticDeviceFields}
+            targetFields={diagnosticDeviceFields as any}
             onMappingComplete={handleMappingComplete}
             onCancel={resetImport}
             entityName="appareils de diagnostic"

@@ -133,8 +133,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             purchasePrice: purchasePrice,
             sellingPrice: sellingPrice,
             warrantyExpiration: warrantyExpiration || null,
-            status: accessoryData.status || 'FOR_SALE',
-            stockQuantity: accessoryData.stockQuantity || 1,
+            status: (accessoryData.status as any) || 'ACTIVE',
             ...(stockLocationId && {
               stockLocation: {
                 connect: { id: stockLocationId }

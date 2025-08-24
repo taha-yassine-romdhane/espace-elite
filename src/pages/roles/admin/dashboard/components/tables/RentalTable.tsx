@@ -45,7 +45,7 @@ import {
   SortDesc,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { RentalDetailsDialog } from "../dialogs/RentalDetailsDialog";
+import { RentalDetailsDialog } from "@/components/rental/dialogs/RentalDetailsDialog";
 
 interface RentalTableProps {
   onViewDetails?: (id: string) => void;

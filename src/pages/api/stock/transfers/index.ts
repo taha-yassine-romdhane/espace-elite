@@ -110,7 +110,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       // Start a transaction
-      const transfer = await prisma.$transaction(async (tx) => {
+      const transfer: any = await prisma.$transaction(async (tx) => {
         // First check if it's a regular product in Stock table
         const sourceStock = await tx.stock.findFirst({
           where: {
@@ -254,7 +254,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               data: {
                 id: productId,
                 name: medicalDevice.name,
-                type: medicalDevice.type,
+                type: medicalDevice.type as any,
                 brand: medicalDevice.brand,
                 model: medicalDevice.model
               }
@@ -301,7 +301,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 deviceName: medicalDevice.name,
                 quantity: 1,
                 notes,
-                message: `User initiated a transfer of medical device ${medicalDevice.name} from ${medicalDevice.stockLocation.name} to destination location.`
+                message: `User initiated a transfer of medical device ${medicalDevice.name} from ${medicalDevice.stockLocation?.name || 'unknown location'} to destination location.`
               }
             }
           });

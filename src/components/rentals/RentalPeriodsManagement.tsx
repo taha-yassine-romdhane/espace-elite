@@ -353,8 +353,8 @@ export default function RentalPeriodsManagement({ rental, rentalPeriods, onUpdat
     } else {
       // Process CNAM bonds and create periods
       const sortedBonds = cnamBonds
-        .filter(bond => bond.startDate && bond.endDate)
-        .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+        .filter((bond: any) => bond.startDate && bond.endDate)
+        .sort((a: any, b: any) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
 
       let currentDate = rentalStart;
 
@@ -377,7 +377,7 @@ export default function RentalPeriodsManagement({ rental, rentalPeriods, onUpdat
       }
 
       // Process each CNAM bond
-      sortedBonds.forEach((bond, index) => {
+      sortedBonds.forEach((bond: any, index: number) => {
         const bondStart = new Date(bond.startDate);
         const bondEnd = new Date(bond.endDate);
         
@@ -460,13 +460,13 @@ export default function RentalPeriodsManagement({ rental, rentalPeriods, onUpdat
   const gaps = detectGaps();
   // Calculate total including gap periods (all periods contribute to total)
   const totalAmount = periods.reduce((sum, period) => {
-    const amount = parseFloat(period.amount) || 0;
+    const amount = typeof period.amount === 'number' ? period.amount : parseFloat(period.amount) || 0;
     return sum + amount;
   }, 0);
   // Calculate CNAM coverage only
   const cnamAmount = periods.reduce((sum, period) => {
     if (period.paymentMethod === 'CNAM') {
-      const amount = parseFloat(period.amount) || 0;
+      const amount = typeof period.amount === 'number' ? period.amount : parseFloat(period.amount) || 0;
       return sum + amount;
     }
     return sum;
@@ -474,7 +474,7 @@ export default function RentalPeriodsManagement({ rental, rentalPeriods, onUpdat
   // Calculate patient responsibility (gaps and cash payments)
   const patientAmount = periods.reduce((sum, period) => {
     if (period.isGapPeriod || period.paymentMethod === 'CASH') {
-      const amount = parseFloat(period.amount) || 0;
+      const amount = typeof period.amount === 'number' ? period.amount : parseFloat(period.amount) || 0;
       return sum + amount;
     }
     return sum;
@@ -713,7 +713,7 @@ export default function RentalPeriodsManagement({ rental, rentalPeriods, onUpdat
                       <TableCell>
                         <div className="space-y-1">
                           <div className="font-medium">
-                            {(parseFloat(period.amount) || 0).toFixed(2)} TND
+                            {(typeof period.amount === 'number' ? period.amount : parseFloat(period.amount) || 0).toFixed(2)} TND
                           </div>
                           {period.isGapPeriod && (
                             <Badge variant="outline" className="bg-orange-100 text-orange-800 text-xs">

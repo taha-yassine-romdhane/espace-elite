@@ -498,7 +498,7 @@ const EmployeeChat: React.FC = () => {
     );
 };
 
-EmployeeChat.getLayout = function getLayout(page: React.ReactElement) {
+(EmployeeChat as any).getLayout = function getLayout(page: React.ReactElement) {
     return <EmployeeLayout>{page}</EmployeeLayout>;
 };
 

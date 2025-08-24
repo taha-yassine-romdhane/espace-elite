@@ -357,8 +357,8 @@ export default function EmployeeRentalOverview({
                 <div className="text-sm font-medium text-gray-500">Date de Début</div>
                 {isEditing ? (
                   <DatePicker
-                    value={editData.startDate}
-                    onChange={(date) => setEditData({ ...editData, startDate: date })}
+                    value={editData.startDate || undefined}
+                    onChange={(date) => setEditData({ ...editData, startDate: date || null })}
                   />
                 ) : (
                   <div className="text-base font-semibold flex items-center gap-2">
@@ -372,8 +372,8 @@ export default function EmployeeRentalOverview({
                 <div className="text-sm font-medium text-gray-500">Date de Fin</div>
                 {isEditing ? (
                   <DatePicker
-                    value={editData.endDate}
-                    onChange={(date) => setEditData({ ...editData, endDate: date })}
+                    value={editData.endDate || undefined}
+                    onChange={(date) => setEditData({ ...editData, endDate: date || null })}
                   />
                 ) : (
                   <div className="text-base font-semibold flex items-center gap-2">

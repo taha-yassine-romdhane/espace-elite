@@ -271,7 +271,7 @@ export function RecapitulationStep({
           {/* Payment Status Overview */}
           <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
             <div className="flex items-center gap-2">
-              {isFullyPaid ? (
+              {fullyPaid ? (
                 <CheckCircle2 className="h-5 w-5 text-green-500" />
               ) : (
                 <Clock className="h-5 w-5 text-amber-500" />

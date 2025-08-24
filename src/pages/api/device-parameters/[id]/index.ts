@@ -51,33 +51,26 @@ export default async function handler(
           where: { id },
           data: {
             // CPAP Parameters
-            ...(pression !== undefined && { pression: pression ? parseFloat(pression) : null }),
-            ...(pressionRampe !== undefined && { pressionRampe: pressionRampe ? parseFloat(pressionRampe) : null }),
+            ...(pression !== undefined && { pression: pression || null }),
+            ...(pressionRampe !== undefined && { pressionRampe: pressionRampe || null }),
             ...(dureeRampe !== undefined && { dureeRampe: dureeRampe ? parseInt(dureeRampe) : null }),
-            ...(epr !== undefined && { epr: epr ? parseInt(epr) : null }),
+            ...(epr !== undefined && { epr: epr || null }),
             ...(autoPression !== undefined && { autoPression }),
             ...(autoRampe !== undefined && { autoRampe }),
             // VNI Parameters
-            ...(ipap !== undefined && { ipap: ipap ? parseFloat(ipap) : null }),
-            ...(epap !== undefined && { epap: epap ? parseFloat(epap) : null }),
-            ...(aid !== undefined && { aid: aid ? parseFloat(aid) : null }),
-            ...(frequenceRespiratoire !== undefined && { frequenceRespiratoire: frequenceRespiratoire ? parseInt(frequenceRespiratoire) : null }),
-            ...(volumeCourant !== undefined && { volumeCourant: volumeCourant ? parseInt(volumeCourant) : null }),
+            ...(ipap !== undefined && { ipap: ipap || null }),
+            ...(epap !== undefined && { epap: epap || null }),
+            ...(aid !== undefined && { aid: aid || null }),
+            ...(frequenceRespiratoire !== undefined && { frequenceRespiratoire: frequenceRespiratoire || null }),
+            ...(volumeCourant !== undefined && { volumeCourant: volumeCourant || null }),
             ...(mode !== undefined && { mode }),
             // Concentrateur & Bouteille
-            ...(debit !== undefined && { debit: debit ? parseFloat(debit) : null }),
+            ...(debit !== undefined && { debit: debit || null }),
             // Common
             ...(notes !== undefined && { notes }),
             updatedAt: new Date(),
           },
           include: {
-            medicalDevice: {
-              select: {
-                name: true,
-                type: true,
-                serialNumber: true,
-              }
-            },
             patient: {
               select: {
                 firstName: true,

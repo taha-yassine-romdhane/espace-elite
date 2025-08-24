@@ -523,7 +523,7 @@ export default function MedicalDevicesImport() {
           <FieldMapper
             excelHeaders={excelHeaders}
             excelData={excelData}
-            targetFields={medicalDeviceFields}
+            targetFields={medicalDeviceFields as any}
             onMappingComplete={handleMappingComplete}
             onCancel={resetImport}
             entityName="appareils médicaux"

@@ -287,11 +287,13 @@ export default async function handler(
         
         // Generate diagnostic code
         const diagnosticCode = await generateDiagnosticCode(prisma);
-        diagnosticData.diagnosticCode = diagnosticCode;
         
         // Create the diagnostic record
         const diagnostic = await prisma.diagnostic.create({
-          data: diagnosticData
+          data: {
+            ...diagnosticData,
+            diagnosticCode
+          }
         });
         
         // Create diagnostic result

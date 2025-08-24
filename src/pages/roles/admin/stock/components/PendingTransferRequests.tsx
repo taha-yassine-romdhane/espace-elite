@@ -146,8 +146,8 @@ export default function PendingTransferRequests() {
       queryClient.invalidateQueries({ queryKey: ['adminTransferRequests'] });
       
       toast({
-        title: `Demande ${variables.action === 'APPROVED' ? 'approuvée' : 'refusée'}`,
-        description: variables.action === 'APPROVED' 
+        title: `Demande ${variables.action === 'APPROVE' ? 'approuvée' : 'refusée'}`,
+        description: variables.action === 'APPROVE' 
           ? 'La demande de transfert a été approuvée avec succès.'
           : 'La demande de transfert a été refusée.',
       });

@@ -358,9 +358,9 @@ export function ProductDialog({ isOpen, onClose, type, onSelect }: ProductDialog
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Toutes les marques</SelectItem>
-                    {availableBrands.map((brand: string) => (
-                      <SelectItem key={brand} value={brand}>
-                        {brand}
+                    {availableBrands.map((brand) => (
+                      <SelectItem key={String(brand)} value={String(brand)}>
+                        {String(brand)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -376,9 +376,9 @@ export function ProductDialog({ isOpen, onClose, type, onSelect }: ProductDialog
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Tous les noms</SelectItem>
-                    {availableNames.map((name: string) => (
-                      <SelectItem key={name} value={name}>
-                        {name}
+                    {availableNames.map((name) => (
+                      <SelectItem key={String(name)} value={String(name)}>
+                        {String(name)}
                       </SelectItem>
                     ))}
                   </SelectContent>

@@ -142,9 +142,9 @@ export default async function handler(
           const configuration = {
             totalPaymentAmount: dailyPrice,
             depositAmount: depositAmount,
-            depositMethod: depositMethod,
+            depositMethod: depositMethod as any,
             urgentRental: urgentRental,
-            pricingMode: pricingMode,
+            pricingMode: pricingMode as any,
             dailyPrice: dailyPrice,
             monthlyPrice: pricingMode === 'MONTHLY' ? dailyPrice : dailyPrice * 30,
             notes: notes,
@@ -160,7 +160,9 @@ export default async function handler(
               startDate: startDate,
               endDate: endDate,
               status: rentalData['Statut'] as any,
-              configuration: configuration,
+              configuration: {
+                create: configuration
+              },
               createdAt: startDate, // Use rental start date as creation date for historical imports
               updatedAt: new Date()
             }
@@ -178,7 +180,7 @@ export default async function handler(
                 startDate: startDate,
                 endDate: endDate,
                 amount: periodPrice,
-                status: 'COMPLETED',
+                paymentMethod: depositMethod as any,
                 notes: `Période importée depuis Excel - ${notes}`,
                 createdAt: startDate
               }
