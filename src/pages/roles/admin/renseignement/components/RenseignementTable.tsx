@@ -144,7 +144,14 @@ function RenseignementTable({
             </div>
           </div>
           <div>
-            <div className="font-semibold text-gray-900">{row.original.nom}</div>
+            <div className="font-semibold text-gray-900">
+              {row.original.nom}
+              {row.original.patientCode && (
+                <span className="ml-2 text-xs font-normal text-gray-500">
+                  ({row.original.patientCode})
+                </span>
+              )}
+            </div>
             <div className="space-y-0.5">
               {row.original.telephone && (
                 <div className="flex items-center gap-1 text-xs text-gray-600">
@@ -387,7 +394,14 @@ function RenseignementTable({
             </div>
           </div>
           <div>
-            <div className="font-semibold text-gray-900">{row.original.nom}</div>
+            <div className="font-semibold text-gray-900">
+              {row.original.nom}
+              {row.original.companyCode && (
+                <span className="ml-2 text-xs font-normal text-gray-500">
+                  ({row.original.companyCode})
+                </span>
+              )}
+            </div>
             <div className="text-sm text-gray-500">{row.original.telephone}</div>
             {row.original.telephoneSecondaire && (
               <div className="text-sm text-gray-400">{row.original.telephoneSecondaire}</div>

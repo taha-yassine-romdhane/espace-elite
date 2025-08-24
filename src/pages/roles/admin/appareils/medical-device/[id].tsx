@@ -115,7 +115,13 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       include: {
         stockLocation: { select: { name: true } },
         deviceParameters: { orderBy: { updatedAt: 'desc' } },
-        Rental: { orderBy: { startDate: 'desc' }, take: 5 },
+        Rental: { 
+          orderBy: { startDate: 'desc' }, 
+          include: {
+            patient: { select: { firstName: true, lastName: true, patientCode: true } },
+            Company: { select: { companyName: true } }
+          }
+        },
         Diagnostic: {
           orderBy: { diagnosticDate: 'desc' },
           include: {
@@ -136,7 +142,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
 
     const stockLocationsPromise = prisma.stockLocation.findMany();
 
-    let device = await devicePromise;
+    const device = await devicePromise;
 
     if (!device) {
       return { notFound: true };

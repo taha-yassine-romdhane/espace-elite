@@ -120,27 +120,34 @@ export function SaleStepperDialog({ isOpen, onClose, action }: StepperDialogProp
   };
 
   // Product Selection Handlers
-  const handleProductSelect = (product: any) => {
-    const isDevice = product.type === 'MEDICAL_DEVICE' || product.type === 'DIAGNOSTIC_DEVICE';
-    const existingProductIndex = selectedProducts.findIndex(p => p.id === product.id);
-    const isAlreadySelected = existingProductIndex !== -1;
-
-    if (isAlreadySelected) {
-      if (isDevice) {
-        toast({
-          title: "Appareil déjà sélectionné",
-          description: "Cet appareil a déjà été ajouté à la vente.",
-          variant: "destructive",
-        });
-        return;
-      } else {
-        const updatedProducts = [...selectedProducts];
-        const currentProduct = updatedProducts[existingProductIndex];
-        updatedProducts[existingProductIndex] = { ...currentProduct, quantity: (currentProduct.quantity || 1) + 1 };
-        setSelectedProducts(updatedProducts);
-      }
-    } else {
-      setSelectedProducts(prev => [...prev, { ...product, quantity: 1 }]);
+  const handleProductSelect = (products: any) => {
+    // Handle both single product and array of products
+    const productsArray = Array.isArray(products) ? products : [products];
+    
+    // Filter out duplicates and add new products
+    const newProducts = productsArray.filter(product => 
+      !selectedProducts.some(selected => selected.id === product.id)
+    );
+    
+    if (newProducts.length > 0) {
+      // Add quantity property and append to selected products
+      const productsWithQuantity = newProducts.map(product => ({
+        ...product,
+        quantity: 1
+      }));
+      
+      setSelectedProducts(prev => [...prev, ...productsWithQuantity]);
+      
+      toast({
+        title: "Produits ajoutés",
+        description: `${newProducts.length} produit(s) ajouté(s) avec succès.`
+      });
+    } else if (productsArray.length > 0) {
+      toast({
+        title: "Produits déjà sélectionnés",
+        description: "Tous les produits sélectionnés ont déjà été ajoutés.",
+        variant: "destructive"
+      });
     }
 
     setProductDialogOpen(false);
@@ -254,6 +261,7 @@ export function SaleStepperDialog({ isOpen, onClose, action }: StepperDialogProp
           itemTotal: (product.quantity || 1) * (product.sellingPrice || 0),
           serialNumber: product.serialNumber,
           warranty: product.warranty,
+          parameters: product.parameters || null, // Include device configuration parameters
           productId: product.type === 'ACCESSORY' || product.type === 'SPARE_PART' ? product.id : null,
           medicalDeviceId: product.type === 'MEDICAL_DEVICE' ? product.id : null,
         }))
@@ -298,7 +306,7 @@ export function SaleStepperDialog({ isOpen, onClose, action }: StepperDialogProp
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-[95vw] max-h-[95vh] overflow-hidden p-0 flex flex-col">
+      <DialogContent className="max-w-[95vw] max-h-[95vh] min-h-[85vh] overflow-hidden p-0 flex flex-col">
         <div className="flex h-full overflow-hidden">
           {/* Sale Stepper Sidebar */}
           {action === "vente" && (
@@ -354,6 +362,7 @@ export function SaleStepperDialog({ isOpen, onClose, action }: StepperDialogProp
                         selectedClient={clientDetails}
                         selectedProducts={selectedProducts}
                         calculateTotal={calculateTotalPrice}
+                        initialPaymentData={paymentData} // Pass existing payment data for restoration
                       />
                     </div>
                     <div className="p-6 border-t bg-gray-50">

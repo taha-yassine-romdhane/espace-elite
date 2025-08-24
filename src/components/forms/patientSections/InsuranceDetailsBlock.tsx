@@ -12,9 +12,9 @@ import FormSection from '../components/FormSection';
 type CaisseAffiliation = 'CNSS' | 'CNRPS';
 
 interface InsuranceDetailsBlockProps {
-  // eslint-disable-next-line no-unused-vars
+   
   form: UseFormReturn<any>;
-  // eslint-disable-next-line no-unused-vars
+   
   onInputChange: (e: any) => void;
 }
 

@@ -114,8 +114,20 @@ export function SaleStepperDialog({ isOpen, onClose, action }: StepperDialogProp
   };
 
   // Product Selection Handlers
-  const handleProductSelect = (product: any) => {
-    setSelectedProducts([...selectedProducts, product]);
+  const handleProductSelect = (products: any | any[]) => {
+    // Handle both single product and array of products
+    if (Array.isArray(products)) {
+      // Filter out products that are already selected to prevent duplicates
+      const newProducts = products.filter(product => 
+        !selectedProducts.some(selected => selected.id === product.id)
+      );
+      setSelectedProducts([...selectedProducts, ...newProducts]);
+    } else {
+      // Check if single product is already selected
+      if (!selectedProducts.some(selected => selected.id === products.id)) {
+        setSelectedProducts([...selectedProducts, products]);
+      }
+    }
   };
 
   const handleRemoveProduct = (index: number) => {
@@ -299,7 +311,7 @@ export function SaleStepperDialog({ isOpen, onClose, action }: StepperDialogProp
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-7xl max-h-[90vh] overflow-hidden p-0 flex flex-col">
+      <DialogContent className="max-w-[95vw] w-full min-h-[85vh] max-h-[95vh] overflow-hidden p-0 flex flex-col">
         <div className="flex h-full overflow-hidden">
           {/* Sale Stepper Sidebar */}
           {action === "vente" && (

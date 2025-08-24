@@ -137,9 +137,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
 
         // Convert string prices to Decimal
-        let purchasePrice = deviceData.purchasePrice ? parseFloat(deviceData.purchasePrice.toString()) : null;
-        let sellingPrice = deviceData.sellingPrice ? parseFloat(deviceData.sellingPrice.toString()) : null;
-        let rentalPrice = deviceData.rentalPrice ? parseFloat(deviceData.rentalPrice.toString()) : null;
+        const purchasePrice = deviceData.purchasePrice ? parseFloat(deviceData.purchasePrice.toString()) : null;
+        const sellingPrice = deviceData.sellingPrice ? parseFloat(deviceData.sellingPrice.toString()) : null;
+        const rentalPrice = deviceData.rentalPrice ? parseFloat(deviceData.rentalPrice.toString()) : null;
 
         // Create the medical device
         const newDevice = await prisma.medicalDevice.create({

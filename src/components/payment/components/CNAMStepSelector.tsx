@@ -104,7 +104,7 @@ export const CNAMStepSelector: React.FC<CNAMStepSelectorProps> = ({
 
   const handleSave = () => {
     // Auto-adjust step based on status before saving
-    let finalInfo = { ...editedInfo };
+    const finalInfo = { ...editedInfo };
     
     if (editedInfo.status === 'en_attente_approbation') {
       finalInfo.currentStep = 1;

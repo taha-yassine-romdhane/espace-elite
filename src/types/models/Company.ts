@@ -9,6 +9,7 @@ import { Notification } from './Notification';
 
 export interface Company {
   id: string;
+  companyCode?: string;
   companyName: string;
   telephone: string;
   telephoneSecondaire?: string;

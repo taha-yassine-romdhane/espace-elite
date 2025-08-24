@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import prisma from '@/lib/db';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]';
+import { generateRepairCode } from '@/utils/idGenerator';
 import type { RepairLog, DeviceStatus } from '@prisma/client';
 
 export default async function handler(
@@ -88,9 +89,12 @@ export default async function handler(
           }
         });
 
+        // Generate repair code
+        const repairCode = await generateRepairCode(tx as any);
         // Create repair log
         return await tx.repairLog.create({
           data: {
+            repairCode: repairCode,
             notes,
             repairCost: new Prisma.Decimal(repairCost),
             repairDate: new Date(repairDate),

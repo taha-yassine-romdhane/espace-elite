@@ -21,7 +21,7 @@ export default async function handler(
     const { search } = req.query;
 
     // Get all users except current user for messaging
-    let whereClause: any = {
+    const whereClause: any = {
       id: {
         not: session.user.id
       },

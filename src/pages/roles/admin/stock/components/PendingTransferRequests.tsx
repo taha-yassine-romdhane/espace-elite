@@ -33,6 +33,7 @@ import { CheckCircle, XCircle, Clock, Eye, AlertTriangle } from 'lucide-react';
 
 interface TransferRequest {
   id: string;
+  transferCode?: string;
   fromLocation: {
     id: string;
     name: string;

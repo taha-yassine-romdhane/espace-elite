@@ -94,7 +94,7 @@ export default function SocieteForm({ formData, onInputChange, onFileChange, onB
     }
   }, [formData.existingFiles]);
 
-  // eslint-disable-next-line no-unused-vars
+   
   useEffect(() => {
     const fetchTechnicians = async () => {
       try {

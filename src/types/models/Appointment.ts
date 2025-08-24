@@ -4,6 +4,7 @@ import { Company } from './Company';
 
 export interface Appointment {
   id: string;
+  appointmentCode?: string;
   doctorId: string;
   doctor: Doctor;
   patientId: string;

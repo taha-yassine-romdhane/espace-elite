@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]';
 import prisma from '@/lib/db';
+import { generateTaskCode } from '@/utils/idGenerator';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const session = await getServerSession(req, res, authOptions);
@@ -54,8 +55,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const { title, description, status, priority, startDate, endDate } = req.body;
 
       const task = await prisma.$transaction(async (tx) => {
+        const taskCode = await generateTaskCode(tx as any);
         const newTask = await tx.task.create({
           data: {
+            taskCode: taskCode,
             title,
             description,
             status,

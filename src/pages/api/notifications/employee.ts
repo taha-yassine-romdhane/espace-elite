@@ -43,7 +43,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     startDate.setDate(startDate.getDate() - daysBack);
 
     // Build where clause
-    let whereClause: any = {
+    const whereClause: any = {
       userId: user.id,
       createdAt: {
         gte: startDate

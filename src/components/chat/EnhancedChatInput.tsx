@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   Send,
-  Paperclip,
   Smile,
   AtSign,
   User,
@@ -139,7 +138,14 @@ export const EnhancedChatInput: React.FC<Props> = ({
   };
 
   const insertReference = (reference: Reference) => {
-    const referenceText = `@${reference.type}:${reference.title}`;
+    // Wrap title in quotes to preserve spaces/special characters in mentions
+    const safeTitle = reference.title.replace(/"/g, '\\"');
+    const safeSubtitle = (reference.subtitle || '').replace(/"/g, '\\"');
+    // Include optional structured info block for richer rendering later (id and subtitle)
+    const infoParts = [`id:\"${reference.id}\"`];
+    if (reference.subtitle) infoParts.push(`sub:\"${safeSubtitle}\"`);
+    const infoBlock = `{${infoParts.join(',')}}`;
+    const referenceText = `@${reference.type}:"${safeTitle}"${infoBlock}`;
     const cursorPosition = inputRef.current?.selectionStart || message.length;
     const newMessage = message.slice(0, cursorPosition) + referenceText + message.slice(cursorPosition);
     onChange(newMessage);
@@ -309,15 +315,6 @@ export const EnhancedChatInput: React.FC<Props> = ({
             disabled={disabled}
           >
             <Hash className="h-4 w-4" />
-          </Button>
-          
-          <Button
-            variant="ghost"
-            size="sm"
-            className={cn("h-8 w-8 p-0", currentColors.accent)}
-            disabled={disabled}
-          >
-            <Paperclip className="h-4 w-4" />
           </Button>
         </div>
 

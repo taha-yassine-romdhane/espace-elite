@@ -13,11 +13,11 @@ import AddressSelector from '../components/AddressSelector';
 
 interface PersonalInfoBlockProps {
   // Use a more flexible form type
-  // eslint-disable-next-line no-unused-vars
+   
   form: UseFormReturn<any>;
   onInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
   validationErrors?: Record<string, string>;
-  // eslint-disable-next-line no-unused-vars
+   
   onPatientSelect?: (patient: any) => void;
 }
 

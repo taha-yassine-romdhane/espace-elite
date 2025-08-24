@@ -3,6 +3,7 @@ import prisma from '@/lib/db';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]';
 import { createAppointmentReminderNotification } from '@/lib/notifications';
+import { generateAppointmentCode } from '@/utils/idGenerator';
 
 export default async function handler(
   req: NextApiRequest,
@@ -72,6 +73,7 @@ async function handleGetAppointments(req: NextApiRequest, res: NextApiResponse) 
     // Transform the data for frontend consumption
     const transformedAppointments = appointments.map(appointment => ({
       id: appointment.id,
+      appointmentCode: appointment.appointmentCode,
       appointmentType: appointment.appointmentType,
       scheduledDate: appointment.scheduledDate,
       location: appointment.location,
@@ -183,9 +185,13 @@ async function handleCreateAppointment(
       }
     }
 
+    // Generate appointment code
+    const appointmentCode = await generateAppointmentCode(prisma);
+    
     // Create the appointment
     const appointment = await prisma.appointment.create({
       data: {
+        appointmentCode: appointmentCode,
         appointmentType,
         scheduledDate: new Date(scheduledDate),
         location,

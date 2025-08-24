@@ -23,7 +23,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Validate and import medical devices
     const results = [];
     let imported = 0;
-    let errors = [];
+    const errors = [];
 
     for (let i = 0; i < medicalDevices.length; i++) {
       const device = medicalDevices[i];

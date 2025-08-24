@@ -120,8 +120,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
 
         // Convert string prices to numbers
-        let purchasePrice = accessoryData.purchasePrice ? parseFloat(accessoryData.purchasePrice.toString()) : null;
-        let sellingPrice = accessoryData.sellingPrice ? parseFloat(accessoryData.sellingPrice.toString()) : null;
+        const purchasePrice = accessoryData.purchasePrice ? parseFloat(accessoryData.purchasePrice.toString()) : null;
+        const sellingPrice = accessoryData.sellingPrice ? parseFloat(accessoryData.sellingPrice.toString()) : null;
 
         // Create the accessory
         const newAccessory = await prisma.product.create({

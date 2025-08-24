@@ -24,7 +24,6 @@ import {
     Calendar,
     FileText,
     MapPin,
-    Settings,
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
@@ -56,11 +55,9 @@ const Sidebar: React.FC = () => {
         { id: 'calendar', icon: <Calendar size={20} />, label: "Calendrier", path: "/roles/employee/tasks/modern" },
         { id: 'stock', icon: <Box size={20} />, label: "Stock", path: "/roles/employee/stock" },
         { id: 'map', icon: <MapPin size={20} />, label: "Carte", path: "/roles/employee/map" },
-        { id: 'reports', icon: <FileText size={20} />, label: "Rapports", path: "/roles/employee/reports" },
         { id: 'notifications', icon: <Bell size={20} />, label: "Notifications", path: "/roles/employee/notifications" },
         { id: 'chat', icon: <MessageCircle size={20} />, label: "Messages", path: "/roles/employee/chat" },
         { id: 'history', icon: <History size={20} />, label: "Historique", path: "/roles/employee/history" },
-        { id: 'settings', icon: <Settings size={20} />, label: "Paramètres", path: "/roles/employee/settings" },
     ];
 
     const [menuItems, setMenuItems] = useState<MenuItem[]>(defaultMenuItems);

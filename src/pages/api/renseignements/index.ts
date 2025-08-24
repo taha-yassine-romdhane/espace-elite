@@ -661,6 +661,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const transformedPatients = patients.map((patient) => ({
         id: patient.id,
+        patientCode: patient.patientCode,
         type: 'Patient' as const,
         nom: `${patient.firstName} ${patient.lastName}`,
         adresse: `${patient.governorate || ''} ${patient.delegation || ''} ${patient.detailedAddress || ''}`.trim(),
@@ -708,6 +709,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const transformedCompanies = companies.map((company ) => ({
         id: company.id,
+        companyCode: company.companyCode,
         type: 'Société' as const,
         nom: company.companyName,
         adresse: `${company.governorate || ''} ${company.delegation || ''} ${company.detailedAddress || ''}`.trim(),

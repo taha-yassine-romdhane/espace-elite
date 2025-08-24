@@ -23,7 +23,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Validate and import accessories
     const results = [];
     let imported = 0;
-    let errors = [];
+    const errors = [];
 
     for (let i = 0; i < accessories.length; i++) {
       const accessory = accessories[i];

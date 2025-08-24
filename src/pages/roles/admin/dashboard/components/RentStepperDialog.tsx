@@ -8,9 +8,7 @@ import { AccessoryForm } from "@/components/appareils/forms/AccessoryForm";
 import RentStepperSidebar from "./RentStepperSidebar";
 import { toast } from "@/components/ui/use-toast";
 import { ProductSelectionStep } from "./steps/ProductSelectionStep";
-import { EnhancedRentalDetailsStep } from "@/components/rental/steps/EnhancedRentalDetailsStep";
-import { RentalPaymentStep } from "@/components/rental/steps/RentalPaymentStep";
-import { RentalRecapStep } from "@/components/rental/steps/RentalRecapStep";
+import { SimplifiedRentalFinalStep } from "@/components/rental/steps/SimplifiedRentalFinalStep";
 
 interface RentStepperDialogProps {
   isOpen: boolean;
@@ -18,37 +16,15 @@ interface RentStepperDialogProps {
 }
 
 const steps = [
-  { id: 1, name: "Type de Renseignement", description: "Sélectionner le type de client et le client" },
-  { id: 2, name: "Ajout Produits", description: "Sélectionner ou créer des produits" },
-  { id: 3, name: "Configuration Location", description: "Configurer les périodes et détails avancés" },
-  { id: 4, name: "Gestion Paiements", description: "Gérer les paiements, CNAM et gaps" },
-  { id: 5, name: "Récapitulatif Complet", description: "Vérifier et finaliser la location" },
+  { id: 1, name: "Sélection Client", description: "Choisir le patient ou la société" },
+  { id: 2, name: "Produits", description: "Sélectionner les équipements" },
+  { id: 3, name: "Finalisation", description: "Période et paiement initial" },
 ] as const;
 
 export function RentStepperDialog({ isOpen, onClose }: RentStepperDialogProps) {
   // Step Management
   const [currentStep, setCurrentStep] = useState(1);
   
-  // Payment State
-  const [paymentData, setPaymentData] = useState<any>(null);
-  
-  // Existing Rental State
-  const [existingRentalData, setExistingRentalData] = useState<{
-    isExistingRental: boolean;
-    importDate?: Date;
-    hasActiveCnam?: boolean;
-    cnamExpirationDate?: Date;
-    cnamMonthlyAmount?: number;
-    currentUnpaidAmount?: number;
-  }>({
-    isExistingRental: false,
-    importDate: new Date(),
-    hasActiveCnam: false,
-    cnamExpirationDate: undefined,
-    cnamMonthlyAmount: 0,
-    currentUnpaidAmount: 0,
-  });
-
   // Client Selection State
   const [clientType, setClientType] = useState<"patient" | "societe" | null>(null);
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
@@ -61,10 +37,6 @@ export function RentStepperDialog({ isOpen, onClose }: RentStepperDialogProps) {
   const [currentProductType, setCurrentProductType] = useState<
     "medical-device" | "accessory" | null
   >(null);
-
-  // Enhanced Rental Details State
-  const [rentalDetailsData, setRentalDetailsData] = useState<any>(null);
-  const [submitting, setSubmitting] = useState(false);
 
   // Calculate total price - Fixed to handle both daily and monthly pricing
   const calculateTotalPrice = useCallback(() => {
@@ -122,6 +94,11 @@ export function RentStepperDialog({ isOpen, onClose }: RentStepperDialogProps) {
     }
   }, [fetchedClientDetails]);
 
+  // Enhanced rental configuration state
+  const [rentalConfiguration, setRentalConfiguration] = useState<any>(null);
+  const [paymentConfiguration, setPaymentConfiguration] = useState<any>(null);
+  const [finalRentalData, setFinalRentalData] = useState<any>(null);
+
   // Handle client type change
   const handleClientTypeChange = (type: "patient" | "societe") => {
     setClientType(type);
@@ -174,71 +151,32 @@ export function RentStepperDialog({ isOpen, onClose }: RentStepperDialogProps) {
     setSelectedClient(null);
     setClientDetails(null);
     setSelectedProducts([]);
-    setRentalDetailsData(null);
-    setPaymentData(null);
-    setExistingRentalData({
-      isExistingRental: false,
-      importDate: new Date(),
-      hasActiveCnam: false,
-      cnamExpirationDate: undefined,
-      cnamMonthlyAmount: 0,
-      currentUnpaidAmount: 0,
-    });
     onClose();
   };
 
-  // Handle enhanced rental details completion
-  const handleRentalDetailsComplete = (rentalData: any) => {
-    setRentalDetailsData(rentalData);
-    handleNext();
-  };
-
-  // Handle enhanced payment completion - now goes to step 5
-  const handlePaymentComplete = (paymentData: any) => {
-    setPaymentData(paymentData);
-    handleNext(); // Go to step 5 (Récapitulatif)
-  };
-
-  // Handle final rental submission from step 5
-  const handleFinalSubmit = () => {
-    // Prepare the comprehensive rental data
+  // Handle simplified rental submission from step 3
+  const handleSimplifiedRentalSubmit = (rentalData: any) => {
+    // Prepare the simplified rental data
     const finalRentalData = {
+      ...rentalData,
       clientId: clientDetails.id,
       clientType: clientType,
-      products: selectedProducts.map(product => ({
+      // The simplified step already includes the products array
+      // Just ensure we have the complete structure
+      products: rentalData.products || selectedProducts.map(product => ({
         productId: product.id,
         quantity: product.quantity,
         rentalPrice: product.rentalPrice || 0,
         type: product.type,
-        name: product.name,
-        parameters: product.parameters || {} // Include device parameters
+        name: product.name
       })),
-      // Enhanced rental details
-      globalStartDate: rentalDetailsData?.globalStartDate || new Date(),
-      globalEndDate: rentalDetailsData?.globalEndDate,
-      isGlobalOpenEnded: rentalDetailsData?.isGlobalOpenEnded || false,
-      urgentRental: rentalDetailsData?.urgentRental || false,
-      productPeriods: rentalDetailsData?.productPeriods || [],
-      identifiedGaps: rentalDetailsData?.identifiedGaps || [],
-      notes: rentalDetailsData?.notes || "",
-      // Enhanced payment data with CNAM bonds
-      paymentPeriods: paymentData?.paymentPeriods || [],
-      cnamBonds: paymentData?.cnamBonds || [],
-      depositAmount: paymentData?.depositAmount || 0,
-      depositMethod: paymentData?.depositMethod || "CASH",
-      paymentGaps: paymentData?.gaps || [],
-      upcomingAlerts: paymentData?.upcomingAlerts || [],
-      patientStatus: paymentData?.patientStatus || "ACTIVE",
-      cnamEligible: paymentData?.cnamEligible || false,
-      // Status and totals
       status: "ACTIVE",
-      totalPrice: rentalDetailsData?.totalCost || calculateTotalPrice(),
-      totalPaymentAmount: paymentData?.totalAmount || 0,
-      totalCnamAmount: paymentData?.cnamBonds?.reduce((sum: number, bond: any) => sum + bond.totalAmount, 0) || 0,
-      isRental: true
+      isRental: true,
+      // Mark for post-creation management
+      requiresPostCreationSetup: rentalData.hasCnamCoverage
     };
     
-    // Submit the comprehensive rental data
+    // Submit the simplified rental data
     createRentalMutation.mutate(finalRentalData);
   };
 
@@ -300,7 +238,9 @@ export function RentStepperDialog({ isOpen, onClose }: RentStepperDialogProps) {
     onSuccess: (result) => {
       toast({
         title: "Location créée avec succès",
-        description: `${result.summary?.totalRentals || 1} location(s) créée(s) pour un montant total de ${result.summary?.totalAmount?.toFixed(2) || 0} DT`,
+        description: result.requiresPostCreationSetup 
+          ? "La location a été créée. Veuillez configurer les détails CNAM dans la page de gestion."
+          : `Location créée avec un tarif de ${result.totalDailyRate || 0} DT/jour`,
       });
       handleClose();
     },
@@ -326,8 +266,6 @@ export function RentStepperDialog({ isOpen, onClose }: RentStepperDialogProps) {
             clientDetails={clientDetails}
             selectedProducts={selectedProducts}
             totalPrice={totalPrice}
-            rentalDetails={rentalDetailsData}
-            paymentData={paymentData}
           />
 
           {/* Main Content */}
@@ -349,7 +287,6 @@ export function RentStepperDialog({ isOpen, onClose }: RentStepperDialogProps) {
                     action="location"
                     onNext={handleNext}
                     onClose={handleClose}
-                    onExistingRentalDataChange={setExistingRentalData}
                   />
                 )}
 
@@ -377,49 +314,11 @@ export function RentStepperDialog({ isOpen, onClose }: RentStepperDialogProps) {
 
                 {currentStep === 3 && (
                   <div className="h-full">
-                    <EnhancedRentalDetailsStep
-                      selectedProducts={selectedProducts.map(product => ({
-                        id: product.id,
-                        name: product.name,
-                        type: product.type,
-                        rentalPrice: product.rentalPrice || 0,
-                        quantity: product.quantity || 1,
-                        requiresReturn: true
-                      }))}
-                      onBack={handleBack}
-                      onComplete={handleRentalDetailsComplete}
-                      isSubmitting={submitting}
-                      clientDetails={clientDetails}
-                    />
-                  </div>
-                )}
-                
-                {currentStep === 4 && (
-                  <div className="h-full">
-                    <RentalPaymentStep
-                      selectedProducts={selectedProducts}
-                      selectedClient={clientDetails}
-                      rentalDetails={rentalDetailsData}
-                      calculateTotal={calculateTotalPrice}
-                      onBack={handleBack}
-                      onComplete={handlePaymentComplete}
-                      isSubmitting={false}
-                      existingPaymentData={paymentData} // Pass existing data for persistence
-                      existingRentalData={existingRentalData} // Pass existing rental import data
-                    />
-                  </div>
-                )}
-
-                {currentStep === 5 && (
-                  <div className="h-full">
-                    <RentalRecapStep
+                    <SimplifiedRentalFinalStep
                       selectedClient={clientDetails}
                       selectedProducts={selectedProducts}
-                      rentalDetails={rentalDetailsData}
-                      paymentData={paymentData}
-                      calculateTotal={calculateTotalPrice}
                       onBack={handleBack}
-                      onFinalize={handleFinalSubmit}
+                      onComplete={handleSimplifiedRentalSubmit}
                       isSubmitting={createRentalMutation.isPending}
                     />
                   </div>

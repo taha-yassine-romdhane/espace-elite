@@ -5,6 +5,7 @@ import { Company } from './Company';
 
 export interface Rental {
   id: string;
+  rentalCode?: string;
   medicalDeviceId: string;
   medicalDevice: MedicalDevice;
   patientId: string;

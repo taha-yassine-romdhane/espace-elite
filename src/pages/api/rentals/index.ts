@@ -5,6 +5,7 @@ import { authOptions } from '../auth/[...nextauth]';
 import { PaymentMethod, CNAMBondType, CNAMStatus } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import { createRentalExpirationNotification, createPaymentDueNotification } from '@/lib/notifications';
+import { generateRentalCode, generatePaymentCode } from '@/utils/idGenerator';
 
 // Type definitions for request body
 interface ProductItem {
@@ -67,8 +68,24 @@ export default async function handler(
   try {
     switch (req.method) {
       case 'GET':
+        // Build query filters
+        const where: any = {};
+        
+        // Filter by createdById if provided (for employee role)
+        if (req.query.createdById) {
+          where.createdById = req.query.createdById;
+        }
+        
+        // Filter by role if employee
+        if (req.query.role === 'employee' && session.user?.id) {
+          // For employee role, only show rentals they created
+          // Since createdById might not exist yet in DB, we handle this carefully
+          where.createdById = session.user.id;
+        }
+        
         // Fetch all rentals with enhanced related data including new relations
         const rentals = await prisma.rental.findMany({
+          where,
           include: {
             medicalDevice: {
               select: {
@@ -141,6 +158,14 @@ export default async function handler(
                 gapReason: true,
               }
             },
+            createdBy: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              }
+            },
           },
           orderBy: {
             createdAt: 'desc',
@@ -191,6 +216,7 @@ export default async function handler(
           
           return {
             id: rental.id,
+            rentalCode: rental.rentalCode,
             medicalDeviceId: rental.medicalDeviceId,
             medicalDevice: {
               id: rental.medicalDevice.id,
@@ -289,6 +315,12 @@ export default async function handler(
             },
             createdAt: rental.createdAt,
             updatedAt: rental.updatedAt,
+            createdBy: rental.createdBy ? {
+              id: rental.createdBy.id,
+              firstName: rental.createdBy.firstName,
+              lastName: rental.createdBy.lastName,
+              email: rental.createdBy.email,
+            } : null,
           };
         });
 
@@ -388,7 +420,7 @@ export default async function handler(
           // Start a transaction to ensure all operations succeed or fail together
           const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
             // Create CNAM bonds first if provided (only for patients)
-            let cnamBondRecords = [];
+            const cnamBondRecords = [];
             if (cnamBonds && Array.isArray(cnamBonds) && cnamBonds.length > 0 && clientId) {
               for (const bond of cnamBonds) {
                 const cnamBondRecord = await tx.cNAMBondRental.create({
@@ -414,13 +446,15 @@ export default async function handler(
             }
 
             // Create enhanced payment records if payment periods are provided
-            let paymentRecords = [];
+            const paymentRecords = [];
             
             // Handle enhanced payment periods
             if (paymentPeriods && Array.isArray(paymentPeriods) && paymentPeriods.length > 0) {
               for (const period of paymentPeriods) {
+                const paymentCode = await generatePaymentCode(tx as any);
                 const paymentRecord = await tx.payment.create({
                   data: {
+                    paymentCode: paymentCode,
                     amount: period.amount,
                     method: period.paymentMethod || 'CASH',
                     status: period.cnamStatus === 'APPROUVE' ? 'PAID' : 'PENDING',
@@ -445,8 +479,10 @@ export default async function handler(
             // Handle deposit payment if provided
             let depositRecord = null;
             if (depositAmount && depositAmount > 0) {
+              const depositPaymentCode = await generatePaymentCode(tx as any);
               depositRecord = await tx.payment.create({
                 data: {
+                  paymentCode: depositPaymentCode,
                   amount: depositAmount,
                   method: depositMethod || 'CASH',
                   status: 'GUARANTEE', // Deposit is a guarantee payment
@@ -485,8 +521,10 @@ export default async function handler(
                 }
               }
               
+              const legacyPaymentCode = await generatePaymentCode(tx as any);
               legacyPaymentRecord = await tx.payment.create({
                 data: {
+                  paymentCode: legacyPaymentCode,
                   amount: payment.amount || totalPrice,
                   method: paymentMethod,
                   status: paymentStatus,
@@ -519,15 +557,20 @@ export default async function handler(
               const productStartDate = productPeriod?.startDate || rentalStartDate;
               const productEndDate = productPeriod?.endDate || rentalEndDate;
               
+              // Generate rental code
+              const rentalCode = await generateRentalCode(tx as any);
+              
               // Create the enhanced rental record for medical devices only
               const rental = await tx.rental.create({
                 data: {
+                  rentalCode: rentalCode,
                   medicalDeviceId: product.productId,
                   patientId: clientId, // Since we only support patient rentals now
                   startDate: new Date(productStartDate),
                   endDate: productEndDate ? new Date(productEndDate) : null,
                   notes: notes || null,
                   paymentId: legacyPaymentRecord?.id || paymentRecords[0]?.id || null,
+                  createdById: session.user?.id || null, // Track who created the rental
                 },
                 include: {
                   medicalDevice: true,
@@ -729,7 +772,7 @@ export default async function handler(
             }
             
             // Create rental periods for enhanced tracking
-            let rentalPeriodRecords = [];
+            const rentalPeriodRecords = [];
             if (paymentPeriods && Array.isArray(paymentPeriods) && paymentPeriods.length > 0 && rentalRecords.length > 0) {
               for (const period of paymentPeriods) {
                 // Find corresponding payment and CNAM bond

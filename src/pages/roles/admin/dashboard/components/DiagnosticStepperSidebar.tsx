@@ -15,7 +15,7 @@ interface StepperSidebarProps {
     description: string;
   }[];
   currentStep: number;
-  // eslint-disable-next-line no-unused-vars
+   
   clientDetails: any | null;
   totalPrice?: string;
 }

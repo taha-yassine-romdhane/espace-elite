@@ -2,13 +2,13 @@ import * as React from 'react';
 
 import { cn } from '@/lib/utils';
 
-// eslint-disable-next-line no-unused-vars
+ 
 export interface TextareaProps
   extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {}
 
 const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
   ({ className, ...props }, ref) => {
-    // eslint-disable-next-line no-unused-vars
+     
     return (
       <textarea
         className={cn(

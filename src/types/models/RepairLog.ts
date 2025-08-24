@@ -5,6 +5,7 @@ import { RepairSparePart } from './RepairSparePart';
 
 export interface RepairLog {
   id: string;
+  repairCode?: string;
   medicalDeviceId: string;
   medicalDevice: MedicalDevice;
   repairCost: number;

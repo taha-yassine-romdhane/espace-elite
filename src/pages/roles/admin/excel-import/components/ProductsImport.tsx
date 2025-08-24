@@ -235,7 +235,7 @@ export default function ProductsImport() {
         
         const columnIndex = excelHeaders.indexOf(excelColumn);
         if (columnIndex !== -1) {
-          let value = row[columnIndex];
+          const value = row[columnIndex];
           
           // Handle date fields
           if (['purchaseDate', 'warrantyExpiration'].includes(fieldKey) && value) {

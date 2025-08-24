@@ -18,8 +18,38 @@ export const DeviceHeader: React.FC<DeviceHeaderProps> = ({ device }) => {
         return 'bg-red-100 text-red-800';
       case 'RESERVED':
         return 'bg-blue-100 text-blue-800';
+      case 'SOLD':
+        return 'bg-purple-100 text-purple-800';
       default:
         return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status.toUpperCase()) {
+      case 'ACTIVE':
+        return 'Disponible';
+      case 'MAINTENANCE':
+        return 'Maintenance';
+      case 'RETIRED':
+        return 'Retiré';
+      case 'RESERVED':
+        return 'Réservé';
+      case 'SOLD':
+        return 'Vendu';
+      default:
+        return status;
+    }
+  };
+
+  const getDeviceTypeLabel = (type: string) => {
+    switch (type) {
+      case 'DIAGNOSTIC_DEVICE':
+        return 'Appareil de diagnostic';
+      case 'MEDICAL_DEVICE':
+        return 'Appareil médical';
+      default:
+        return type;
     }
   };
 
@@ -34,7 +64,7 @@ export const DeviceHeader: React.FC<DeviceHeaderProps> = ({ device }) => {
             </p>
           </div>
           <Badge className={getStatusColor(device.status)}>
-            {device.status}
+            {getStatusLabel(device.status)}
           </Badge>
         </div>
       </CardHeader>
@@ -42,7 +72,7 @@ export const DeviceHeader: React.FC<DeviceHeaderProps> = ({ device }) => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <h3 className="text-sm font-medium text-gray-500">Type</h3>
-            <p>{device.type}</p>
+            <p>{getDeviceTypeLabel(device.type)}</p>
           </div>
           <div>
             <h3 className="text-sm font-medium text-gray-500">Prix de vente</h3>

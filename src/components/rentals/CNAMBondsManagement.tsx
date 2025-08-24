@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useToast } from '@/components/ui/use-toast';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import {
@@ -76,6 +78,9 @@ const predefinedBonds = [
 ];
 
 export default function CNAMBondsManagement({ rental, cnamBonds, onUpdate }: CNAMBondsManagementProps) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
   const [bonds, setBonds] = useState<CNAMBond[]>(cnamBonds || []);
   const [editingBond, setEditingBond] = useState<CNAMBond | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -86,6 +91,45 @@ export default function CNAMBondsManagement({ rental, cnamBonds, onUpdate }: CNA
     coveredMonths: 1,
     totalAmount: 0,
     renewalReminderDays: 30,
+  });
+
+  // Mutation for saving bonds to the database
+  const saveBondsMutation = useMutation({
+    mutationFn: async (bondsData: CNAMBond[]) => {
+      const response = await fetch('/api/cnam-bonds', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          rentalId: rental.id,
+          bonds: bondsData,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save CNAM bonds');
+      }
+
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setBonds(data.bonds);
+      onUpdate?.(data.bonds);
+      queryClient.invalidateQueries({ queryKey: ['rental', rental.id] });
+      toast({
+        title: "Bons CNAM sauvegardés",
+        description: "Les modifications ont été sauvegardées avec succès.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: "Impossible de sauvegarder les bons CNAM.",
+      });
+      console.error('Error saving CNAM bonds:', error);
+    },
   });
 
   const formatDate = (date: Date | string | null | undefined) => {
@@ -164,6 +208,11 @@ export default function CNAMBondsManagement({ rental, cnamBonds, onUpdate }: CNA
 
   const handleSaveNewBond = () => {
     if (!newBond.bondType || !newBond.totalAmount) {
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: "Le type de bon et le montant total sont requis.",
+      });
       return;
     }
 
@@ -185,8 +234,7 @@ export default function CNAMBondsManagement({ rental, cnamBonds, onUpdate }: CNA
     };
 
     const updatedBonds = [...bonds, bond];
-    setBonds(updatedBonds);
-    onUpdate?.(updatedBonds);
+    saveBondsMutation.mutate(updatedBonds);
     setShowAddDialog(false);
     setNewBond({
       bondType: 'CONCENTRATEUR_OXYGENE',
@@ -208,15 +256,13 @@ export default function CNAMBondsManagement({ rental, cnamBonds, onUpdate }: CNA
     const updatedBonds = bonds.map(bond => 
       bond.id === editingBond.id ? editingBond : bond
     );
-    setBonds(updatedBonds);
-    onUpdate?.(updatedBonds);
+    saveBondsMutation.mutate(updatedBonds);
     setEditingBond(null);
   };
 
   const handleDeleteBond = (bondId: string) => {
     const updatedBonds = bonds.filter(bond => bond.id !== bondId);
-    setBonds(updatedBonds);
-    onUpdate?.(updatedBonds);
+    saveBondsMutation.mutate(updatedBonds);
   };
 
   const calculateMonthlyAmount = (total: number, months: number) => {
@@ -229,19 +275,19 @@ export default function CNAMBondsManagement({ rental, cnamBonds, onUpdate }: CNA
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
           <Shield className="h-5 w-5 text-blue-600" />
-          Gestion des Bonds CNAM
+          Gestion des Bons CNAM
         </h2>
         
         <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
           <DialogTrigger asChild>
             <Button className="flex items-center gap-2">
               <Plus className="h-4 w-4" />
-              Nouveau Bond
+              Nouveau Bon
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Ajouter un nouveau Bond CNAM</DialogTitle>
+              <DialogTitle>Ajouter un nouveau Bon CNAM</DialogTitle>
             </DialogHeader>
             
             <div className="space-y-6">
@@ -270,7 +316,7 @@ export default function CNAMBondsManagement({ rental, cnamBonds, onUpdate }: CNA
                 <Label className="text-base font-medium">Ou créer manuellement</Label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                   <div>
-                    <Label htmlFor="bondNumber">Numéro de Bond</Label>
+                    <Label htmlFor="bondNumber">Numéro de Bon</Label>
                     <Input
                       id="bondNumber"
                       value={newBond.bondNumber || ''}
@@ -280,7 +326,7 @@ export default function CNAMBondsManagement({ rental, cnamBonds, onUpdate }: CNA
                   </div>
                   
                   <div>
-                    <Label htmlFor="bondType">Type de Bond</Label>
+                    <Label htmlFor="bondType">Type de Bon</Label>
                     <Select value={newBond.bondType} onValueChange={(value) => setNewBond({ ...newBond, bondType: value })}>
                       <SelectTrigger>
                         <SelectValue />
@@ -359,11 +405,28 @@ export default function CNAMBondsManagement({ rental, cnamBonds, onUpdate }: CNA
                 </div>
                 
                 <div className="flex gap-2 mt-6">
-                  <Button onClick={handleSaveNewBond} className="flex items-center gap-1">
-                    <Save className="h-3.5 w-3.5" />
-                    Ajouter le Bond
+                  <Button 
+                    onClick={handleSaveNewBond} 
+                    disabled={saveBondsMutation.isPending}
+                    className="flex items-center gap-1"
+                  >
+                    {saveBondsMutation.isPending ? (
+                      <>
+                        <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        Sauvegarde...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-3.5 w-3.5" />
+                        Ajouter le Bon
+                      </>
+                    )}
                   </Button>
-                  <Button variant="outline" onClick={() => setShowAddDialog(false)}>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowAddDialog(false)}
+                    disabled={saveBondsMutation.isPending}
+                  >
                     Annuler
                   </Button>
                 </div>
@@ -380,7 +443,7 @@ export default function CNAMBondsManagement({ rental, cnamBonds, onUpdate }: CNA
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Bond & Type</TableHead>
+                  <TableHead>Bon & Type</TableHead>
                   <TableHead>Statut</TableHead>
                   <TableHead>Période</TableHead>
                   <TableHead>Montants</TableHead>
@@ -425,7 +488,8 @@ export default function CNAMBondsManagement({ rental, cnamBonds, onUpdate }: CNA
                           variant="outline"
                           size="sm"
                           onClick={() => handleEditBond(bond)}
-                          className="h-8 w-8 p-0"
+                          disabled={saveBondsMutation.isPending}
+                          className="h-8 w-8 p-0 disabled:opacity-50"
                         >
                           <Edit className="h-3.5 w-3.5" />
                         </Button>
@@ -433,7 +497,8 @@ export default function CNAMBondsManagement({ rental, cnamBonds, onUpdate }: CNA
                           variant="outline"
                           size="sm"
                           onClick={() => handleDeleteBond(bond.id)}
-                          className="h-8 w-8 p-0 border-red-200 text-red-600 hover:bg-red-50"
+                          disabled={saveBondsMutation.isPending}
+                          className="h-8 w-8 p-0 border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
@@ -449,13 +514,13 @@ export default function CNAMBondsManagement({ rental, cnamBonds, onUpdate }: CNA
         <Card>
           <CardContent className="text-center py-8">
             <Shield className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Aucun Bond CNAM</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Aucun Bon CNAM</h3>
             <p className="text-gray-600 mb-4">
-              Aucun bond CNAM n'a été ajouté pour cette location.
+              Aucun bon CNAM n'a été ajouté pour cette location.
             </p>
             <Button onClick={() => setShowAddDialog(true)} className="flex items-center gap-2 mx-auto">
               <Plus className="h-4 w-4" />
-              Ajouter un Bond
+              Ajouter un Bon
             </Button>
           </CardContent>
         </Card>
@@ -466,13 +531,13 @@ export default function CNAMBondsManagement({ rental, cnamBonds, onUpdate }: CNA
         <Dialog open={!!editingBond} onOpenChange={() => setEditingBond(null)}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Modifier le Bond CNAM</DialogTitle>
+              <DialogTitle>Modifier le Bon CNAM</DialogTitle>
             </DialogHeader>
             
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="editBondNumber">Numéro de Bond</Label>
+                  <Label htmlFor="editBondNumber">Numéro de Bon</Label>
                   <Input
                     id="editBondNumber"
                     value={editingBond.bondNumber}
@@ -558,11 +623,28 @@ export default function CNAMBondsManagement({ rental, cnamBonds, onUpdate }: CNA
               </div>
               
               <div className="flex gap-2">
-                <Button onClick={handleSaveEdit} className="flex items-center gap-1">
-                  <Save className="h-3.5 w-3.5" />
-                  Sauvegarder
+                <Button 
+                  onClick={handleSaveEdit} 
+                  disabled={saveBondsMutation.isPending}
+                  className="flex items-center gap-1"
+                >
+                  {saveBondsMutation.isPending ? (
+                    <>
+                      <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      Sauvegarde...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-3.5 w-3.5" />
+                      Sauvegarder
+                    </>
+                  )}
                 </Button>
-                <Button variant="outline" onClick={() => setEditingBond(null)}>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setEditingBond(null)}
+                  disabled={saveBondsMutation.isPending}
+                >
                   Annuler
                 </Button>
               </div>

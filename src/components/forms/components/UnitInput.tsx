@@ -4,7 +4,7 @@ import { UseFormReturn } from 'react-hook-form';
 interface UnitInputProps {
   name: string;
   label: string;
-  // eslint-disable-next-line no-unused-vars
+   
   form: UseFormReturn<any>;
   unit: string;
   min?: number;
@@ -12,7 +12,7 @@ interface UnitInputProps {
   step?: string;
   placeholder?: string;
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  // eslint-disable-next-line no-unused-vars
+   
   onParentChange?: (e: any) => void;
   className?: string;
 }

@@ -33,6 +33,7 @@ model User {
   assignedPatients     Patient[]              @relation("AssignedPatients")
   patientHistories     PatientHistory[]
   processedSales       Sale[]
+  createdRentals       Rental[]               @relation("CreatedRentals")
   stockLocation        StockLocation?
   receivedTransfers    StockTransfer[]        @relation("ReceivedTransfers")
   sentTransfers        StockTransfer[]        @relation("SentTransfers")
@@ -50,6 +51,7 @@ model User {
 
 model Task {
   id            String       @id @default(cuid())
+  taskCode      String?      @unique
   title         String
   description   String?
   userId        String
@@ -126,6 +128,7 @@ model StockTransfer {
 
 model StockTransferRequest {
   id                String                 @id @default(cuid())
+  transferCode      String?                @unique
   fromLocationId    String
   toLocationId      String
   productId         String?
@@ -175,6 +178,7 @@ model Product {
 
 model Patient {
   id                 String                   @id @default(cuid())
+  patientCode        String?                  @unique
   firstName          String
   lastName           String
   telephone          String                   @unique
@@ -220,6 +224,7 @@ model Patient {
 
 model Company {
   id                  String          @id @default(cuid())
+  companyCode         String?         @unique
   companyName         String
   telephone           String          @unique
   telephoneSecondaire String?
@@ -246,6 +251,7 @@ model Company {
 
 model RepairLog {
   id              String            @id @default(cuid())
+  repairCode      String?           @unique
   repairCost      Decimal           @db.Decimal(10, 2)
   locationId      String
   repairDate      DateTime
@@ -285,6 +291,7 @@ model RepairLocation {
 
 model Payment {
   id               String          @id @default(cuid())
+  paymentCode      String?         @unique
   amount           Decimal         @db.Decimal(10, 2)
   method           PaymentMethod
   status           PaymentStatus   @default(PENDING)
@@ -407,6 +414,7 @@ model DiagnosticResult {
 
 model Diagnostic {
   id               String            @id @default(cuid())
+  diagnosticCode   String?           @unique
   medicalDeviceId  String
   patientId        String
   notes            String?
@@ -472,6 +480,7 @@ model UserActionHistory {
 
 model Rental {
   id              String               @id @default(cuid())
+  rentalCode      String?              @unique
   medicalDeviceId String
   patientId       String
   startDate       DateTime
@@ -483,11 +492,13 @@ model Rental {
   companyId       String?
   invoiceNumber   String?
   status          RentalStatus         @default(PENDING)
+  createdById     String?
   cnamBonds       CNAMBondRental[]
   payment         Payment?
   Company         Company?             @relation(fields: [companyId], references: [id])
   medicalDevice   MedicalDevice        @relation(fields: [medicalDeviceId], references: [id])
   patient         Patient              @relation(fields: [patientId], references: [id])
+  createdBy       User?                @relation("CreatedRentals", fields: [createdById], references: [id])
   accessories     RentalAccessory[]
   configuration   RentalConfiguration?
   gaps            RentalGap[]
@@ -542,6 +553,7 @@ model MedicalDeviceParametre {
 
 model Sale {
   id            String        @id @default(cuid())
+  saleCode      String?       @unique
   invoiceNumber String?       @unique
   saleDate      DateTime
   totalAmount   Decimal       @db.Decimal(10, 2)
@@ -564,21 +576,54 @@ model Sale {
 }
 
 model SaleItem {
-  id              String         @id @default(cuid())
+  id              String             @id @default(cuid())
   saleId          String
   productId       String?
   medicalDeviceId String?
   quantity        Int
-  unitPrice       Decimal        @db.Decimal(10, 2)
-  discount        Decimal?       @db.Decimal(10, 2)
-  itemTotal       Decimal        @db.Decimal(10, 2)
+  unitPrice       Decimal            @db.Decimal(10, 2)
+  discount        Decimal?           @db.Decimal(10, 2)
+  itemTotal       Decimal            @db.Decimal(10, 2)
   serialNumber    String?
   warranty        String?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  medicalDevice   MedicalDevice? @relation(fields: [medicalDeviceId], references: [id])
-  product         Product?       @relation(fields: [productId], references: [id])
-  sale            Sale           @relation(fields: [saleId], references: [id])
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  medicalDevice   MedicalDevice?     @relation(fields: [medicalDeviceId], references: [id])
+  product         Product?           @relation(fields: [productId], references: [id])
+  sale            Sale               @relation(fields: [saleId], references: [id])
+  configuration   SaleConfiguration?
+}
+
+model SaleConfiguration {
+  id                    String   @id @default(cuid())
+  saleItemId            String   @unique
+  
+  // CPAP parameters
+  pression              String?
+  pressionRampe         String?
+  dureeRampe            Int?
+  epr                   String?
+  
+  // VNI parameters
+  ipap                  String?
+  epap                  String?
+  aid                   String?
+  mode                  String?
+  frequenceRespiratoire String?
+  volumeCourant         String?
+  
+  // Oxygen concentrator parameters
+  debit                 String?
+  
+  // Generic fields for any other parameters
+  additionalParams      Json?
+  
+  // Relations
+  saleItem              SaleItem @relation(fields: [saleItemId], references: [id], onDelete: Cascade)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  @@index([saleItemId])
 }
 
 model AppSettings {
@@ -607,6 +652,7 @@ model DatabaseBackup {
 
 model Appointment {
   id              String              @id @default(cuid())
+  appointmentCode String?             @unique
   patientId       String?
   notes           String?
   createdAt       DateTime            @default(now())

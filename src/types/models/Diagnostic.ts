@@ -5,6 +5,7 @@ import { User } from './User';
 
 export interface Diagnostic {
   id: string;
+  diagnosticCode?: string;
   medicalDeviceId: string;
   medicalDevice: MedicalDevice;
   patientId: string;

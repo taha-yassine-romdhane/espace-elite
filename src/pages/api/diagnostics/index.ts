@@ -7,6 +7,7 @@ import formidable from 'formidable';
 import fs from 'fs';
 import path from 'path';
 import { createDiagnosticResultNotification, createDiagnosticCreationNotification } from '@/lib/notifications';
+import { generateDiagnosticCode } from '@/utils/idGenerator';
 
 // Enable bodyParser for all methods except POST with multipart/form-data
 export const config = {
@@ -63,6 +64,7 @@ export default async function handler(
           patient: {
             select: {
               id: true,
+              patientCode: true,
               firstName: true,
               lastName: true,
               telephone: true,
@@ -97,9 +99,8 @@ export default async function handler(
                   totalAmount: true,
                 },
                 orderBy: {
-                  saleDate: 'desc'
-                },
-                take: 1
+                  saleDate: 'asc'
+                }
               },
               rentals: {
                 where: {
@@ -113,9 +114,8 @@ export default async function handler(
                   status: true,
                 },
                 orderBy: {
-                  startDate: 'desc'
-                },
-                take: 1
+                  startDate: 'asc'
+                }
               },
             },
           },
@@ -170,8 +170,35 @@ export default async function handler(
           `${diagnostic.performedBy.firstName} ${diagnostic.performedBy.lastName}`.trim() : 
           'N/A';
 
+        // Calculate days since first equipment installation
+        let daysSinceFirstEquipment = null;
+        let firstEquipmentDate = null;
+        
+        if (hasSale || hasRental) {
+          const firstSaleDate = diagnostic.patient?.sales?.[0]?.saleDate;
+          const firstRentalDate = diagnostic.patient?.rentals?.[0]?.startDate;
+          
+          // Find the earliest date between first sale and first rental
+          if (firstSaleDate && firstRentalDate) {
+            firstEquipmentDate = new Date(firstSaleDate) < new Date(firstRentalDate) 
+              ? new Date(firstSaleDate) 
+              : new Date(firstRentalDate);
+          } else if (firstSaleDate) {
+            firstEquipmentDate = new Date(firstSaleDate);
+          } else if (firstRentalDate) {
+            firstEquipmentDate = new Date(firstRentalDate);
+          }
+          
+          if (firstEquipmentDate) {
+            const now = new Date();
+            const timeDiff = now.getTime() - firstEquipmentDate.getTime();
+            daysSinceFirstEquipment = Math.floor(timeDiff / (1000 * 3600 * 24));
+          }
+        }
+
         return {
           id: diagnostic.id,
+          diagnosticCode: diagnostic.diagnosticCode,
           deviceName,
           patientName,
           companyName: 'N/A',
@@ -191,6 +218,9 @@ export default async function handler(
           needsEquipment,
           latestSale: diagnostic.patient?.sales?.[0] || null,
           latestRental: diagnostic.patient?.rentals?.[0] || null,
+          // Add equipment installation tracking
+          daysSinceFirstEquipment,
+          firstEquipmentDate,
         };
       });
 
@@ -254,6 +284,10 @@ export default async function handler(
           performedBy: { connect: { id: userId } },
           patient: { connect: { id: clientId } }
         };
+        
+        // Generate diagnostic code
+        const diagnosticCode = await generateDiagnosticCode(prisma);
+        diagnosticData.diagnosticCode = diagnosticCode;
         
         // Create the diagnostic record
         const diagnostic = await prisma.diagnostic.create({

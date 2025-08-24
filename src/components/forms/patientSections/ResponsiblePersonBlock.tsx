@@ -4,7 +4,7 @@ import SearchSelect from '../components/SearchSelect';
 import FormSection from '../components/FormSection';
 
 interface ResponsiblePersonBlockProps {
-  // eslint-disable-next-line no-unused-vars
+   
   form: UseFormReturn<any>;
   doctors: any[]; // API returns { id, name, speciality }
   technicians: any[]; // API returns { id, name, role }

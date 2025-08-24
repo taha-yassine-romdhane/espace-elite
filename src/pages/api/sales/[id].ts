@@ -30,6 +30,61 @@ interface LegacyPaymentDetail {
   isPending?: boolean;
 }
 
+// Helper function to aggregate payment data
+function getAggregatedPaymentData(sale: any, additionalPayments: any[]) {
+  // If there are additional payments via saleId, aggregate them
+  if (additionalPayments.length > 0) {
+    const totalAmount = additionalPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+    const allPaid = additionalPayments.every(p => p.status === 'PAID');
+    const anyPending = additionalPayments.some(p => p.status === 'PENDING');
+    const hasPartial = additionalPayments.some(p => p.status === 'PARTIAL');
+    
+    let aggregatedStatus = 'PENDING';
+    if (allPaid) {
+      aggregatedStatus = 'PAID';
+    } else if (hasPartial || (additionalPayments.some(p => p.status === 'PAID') && anyPending)) {
+      aggregatedStatus = 'PARTIAL';
+    }
+    
+    return {
+      id: additionalPayments[0].id,
+      amount: totalAmount,
+      status: aggregatedStatus,
+      method: additionalPayments.length > 1 ? 'MIXED' : additionalPayments[0].method,
+      paymentDetails: additionalPayments.map(p => ({
+        id: p.id,
+        method: p.method,
+        amount: Number(p.amount),
+        status: p.status,
+        paymentDate: p.paymentDate,
+        referenceNumber: p.referenceNumber,
+        classification: p.method, // Use method as classification for simplicity
+        metadata: {
+          dossierNumber: p.cnamBondNumber,
+          cnamInfo: p.cnamBondNumber ? {
+            dossierNumber: p.cnamBondNumber,
+            bondType: p.cnamBondType,
+            status: p.cnamStatus
+          } : null
+        }
+      }))
+    };
+  }
+  
+  // Fallback to single payment
+  return sale.payment ? {
+    id: sale.payment.id,
+    amount: sale.payment.amount,
+    status: sale.payment.status,
+    method: sale.payment.method,
+    createdAt: sale.payment.createdAt,
+    // Handle both storage approaches: PaymentDetail records or JSON in notes
+    paymentDetails: getPaymentDetails(sale.payment),
+    // Group payment details by method for easy display
+    paymentByMethod: groupPaymentDetailsByMethod(getPaymentDetails(sale.payment))
+  } : null;
+}
+
 /**
  * Sale details API endpoint
  * 
@@ -102,6 +157,7 @@ export default async function handler(
               include: {
                 product: true,
                 medicalDevice: true,
+                configuration: true, // Include the new configuration
               },
             },
           },
@@ -111,6 +167,16 @@ export default async function handler(
           console.log(`[SALE-API] Sale not found with ID: ${id}`);
           return res.status(404).json({ error: 'Sale not found' });
         }
+
+        // Fetch additional payments linked via saleId (for mixed payments)
+        const additionalPayments = await prisma.payment.findMany({
+          where: {
+            saleId: id
+          },
+          orderBy: {
+            paymentDate: 'asc'
+          }
+        });
 
         console.log(`[SALE-API] Sale found with ID: ${id}, payment ID: ${sale.paymentId || 'none'}`);
 
@@ -142,6 +208,7 @@ export default async function handler(
         // Transform the data to match the expected format in the frontend
         const transformedSale = {
           id: sale.id,
+          saleCode: sale.saleCode,
           invoiceNumber: sale.invoiceNumber || `INV-${sale.id.substring(0, 8).toUpperCase()}`,
           saleDate: sale.saleDate,
           totalAmount: sale.totalAmount,
@@ -188,19 +255,9 @@ export default async function handler(
           
           clientType: sale.patient ? 'PATIENT' : (sale.company ? 'COMPANY' : null),
           
-          // Payment information with details
+          // Payment information with details - handle multiple payments
           paymentId: sale.paymentId,
-          payment: sale.payment ? {
-            id: sale.payment.id,
-            amount: sale.payment.amount,
-            status: sale.payment.status,
-            method: sale.payment.method,
-            createdAt: sale.payment.createdAt,
-            // Handle both storage approaches: PaymentDetail records or JSON in notes
-            paymentDetails: getPaymentDetails(sale.payment),
-            // Group payment details by method for easy display
-            paymentByMethod: groupPaymentDetailsByMethod(getPaymentDetails(sale.payment))
-          } : null,
+          payment: getAggregatedPaymentData(sale, additionalPayments),
           
           // Items in the sale
           items: sale.items.map(item => ({
@@ -237,18 +294,24 @@ export default async function handler(
               ? item.product.name 
               : (item.medicalDevice ? item.medicalDevice.name : 'Article inconnu'),
             
-            // Extract device configuration from warranty field
-            deviceConfiguration: (() => {
-              try {
-                if (item.warranty && typeof item.warranty === 'string') {
-                  const parsed = JSON.parse(item.warranty);
-                  return parsed.deviceConfiguration || null;
-                }
-              } catch {
-                // If parsing fails, return null
-              }
-              return null;
-            })(),
+            // Use the new configuration table
+            deviceConfiguration: item.configuration ? {
+              pression: item.configuration.pression,
+              pressionRampe: item.configuration.pressionRampe,
+              dureeRampe: item.configuration.dureeRampe,
+              epr: item.configuration.epr,
+              ipap: item.configuration.ipap,
+              epap: item.configuration.epap,
+              aid: item.configuration.aid,
+              mode: item.configuration.mode,
+              frequenceRespiratoire: item.configuration.frequenceRespiratoire,
+              volumeCourant: item.configuration.volumeCourant,
+              debit: item.configuration.debit,
+              ...(item.configuration.additionalParams as any || {})
+            } : null,
+            
+            // Include raw configuration for debugging
+            configuration: item.configuration,
           })),
           
           createdAt: sale.createdAt,
@@ -292,6 +355,7 @@ export default async function handler(
               include: {
                 product: true,
                 medicalDevice: true,
+                configuration: true, // Include the new configuration
               },
             },
           },

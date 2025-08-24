@@ -26,6 +26,7 @@ import { fr } from 'date-fns/locale';
 
 interface TransferRequest {
   id: string;
+  transferCode?: string;
   fromLocation: {
     id: string;
     name: string;

@@ -107,39 +107,121 @@ export const ProductPaymentMatrixEnhanced: React.FC<ProductPaymentMatrixEnhanced
   const [paymentMethod, setPaymentMethod] = useState('');
   const [paymentFormData, setPaymentFormData] = useState<any>(null);
 
+  // Calculate allocated amounts with proper cascading redistribution
+  const calculateAllocationForAssignment = (assignment: any) => {
+    // If custom product allocations exist, use those
+    if (assignment.paymentDetails?.productAllocations) {
+      return assignment.paymentDetails.productAllocations;
+    }
+
+    // Otherwise, calculate smart proportional allocation with cascading
+    const assignmentProducts = assignment.productIds
+      .map((id: string) => products.find(p => p.id === id))
+      .filter(Boolean) as any[];
+    
+    if (assignmentProducts.length === 0) return {};
+
+    const allocations: Record<string, number> = {};
+    let remainingAmount = assignment.amount;
+
+    // First pass: Calculate ideal proportional shares
+    const totalValue = assignmentProducts.reduce((sum, product) => 
+      sum + (Number(product.sellingPrice || 0) * (product.quantity || 1)), 0
+    );
+
+    const idealShares: Record<string, number> = {};
+    assignmentProducts.forEach(product => {
+      const productPrice = Number(product.sellingPrice || 0) * (product.quantity || 1);
+      idealShares[product.id] = totalValue > 0 
+        ? (productPrice / totalValue) * assignment.amount
+        : assignment.amount / assignmentProducts.length;
+    });
+
+    // Second pass: Apply caps and redistribute excess
+    const unfulfilledProducts = [...assignmentProducts];
+    
+    while (remainingAmount > 0.01 && unfulfilledProducts.length > 0) {
+      let redistributed = false;
+      
+      for (let i = unfulfilledProducts.length - 1; i >= 0; i--) {
+        const product = unfulfilledProducts[i];
+        const productPrice = Number(product.sellingPrice || 0) * (product.quantity || 1);
+        const currentAllocation = allocations[product.id] || 0;
+        const availableCapacity = productPrice - currentAllocation;
+        
+        if (availableCapacity <= 0.01) {
+          // Product is fully allocated, remove from unfulfilled list
+          unfulfilledProducts.splice(i, 1);
+          continue;
+        }
+        
+        // Calculate fair share for this iteration
+        const remainingProducts = unfulfilledProducts.length;
+        const shareForThisProduct = Math.min(
+          remainingAmount / remainingProducts, // Equal share of remaining
+          availableCapacity, // Product's remaining capacity
+          idealShares[product.id] - currentAllocation // Don't exceed ideal share unless redistributing
+        );
+        
+        if (shareForThisProduct > 0.01) {
+          allocations[product.id] = currentAllocation + shareForThisProduct;
+          remainingAmount -= shareForThisProduct;
+          redistributed = true;
+        }
+      }
+      
+      // If no redistribution happened but we still have unfulfilled products,
+      // distribute remaining amount equally among products with capacity
+      if (!redistributed && unfulfilledProducts.length > 0) {
+        const productsWithCapacity = unfulfilledProducts.filter(product => {
+          const productPrice = Number(product.sellingPrice || 0) * (product.quantity || 1);
+          const currentAllocation = allocations[product.id] || 0;
+          return productPrice - currentAllocation > 0.01;
+        });
+        
+        if (productsWithCapacity.length > 0) {
+          const equalShare = remainingAmount / productsWithCapacity.length;
+          productsWithCapacity.forEach(product => {
+            const productPrice = Number(product.sellingPrice || 0) * (product.quantity || 1);
+            const currentAllocation = allocations[product.id] || 0;
+            const availableCapacity = productPrice - currentAllocation;
+            const allocation = Math.min(equalShare, availableCapacity);
+            
+            allocations[product.id] = currentAllocation + allocation;
+            remainingAmount -= allocation;
+          });
+        } else {
+          // No products have capacity, break to avoid infinite loop
+          break;
+        }
+      }
+    }
+
+    return allocations;
+  };
+
   // Calculate allocated and remaining amounts per product
   const getProductPaymentStatus = (productId: string) => {
     const product = products.find(p => p.id === productId);
     if (!product) return { allocated: 0, remaining: 0, totalPrice: 0 };
 
     const totalPrice = Number(product.sellingPrice || 0) * (product.quantity || 1);
+    
+    // Calculate total allocated from all assignments
     const allocated = paymentAssignments
       .filter(assignment => assignment.productIds.includes(productId))
       .reduce((sum, assignment) => {
-        // Check if this assignment has custom product allocations (for CNAM payments)
-        if (assignment.paymentDetails?.productAllocations && assignment.paymentDetails.productAllocations[productId]) {
-          return sum + assignment.paymentDetails.productAllocations[productId];
-        }
-        
-        // Otherwise, use proportional allocation based on product prices
-        const assignmentProductIds = assignment.productIds;
-        const assignmentProducts = assignmentProductIds.map(id => products.find(p => p.id === id)).filter(Boolean) as any[];
-        const totalAssignmentValue = assignmentProducts.reduce((total, prod) => {
-          return total + (Number(prod?.sellingPrice || 0) * (prod?.quantity || 1));
-        }, 0);
-        
-        // Proportional share = (product price / total assignment price) * assignment amount
-        const productShare = totalAssignmentValue > 0 
-          ? (totalPrice / totalAssignmentValue) * assignment.amount
-          : assignment.amount / assignment.productIds.length; // Fallback to equal split if no price data
-        
-        return sum + productShare;
+        const allocations = calculateAllocationForAssignment(assignment);
+        return sum + (allocations[productId] || 0);
       }, 0);
+    
+    // Ensure allocated never exceeds product price
+    const cappedAllocated = Math.min(allocated, totalPrice);
     
     return {
       totalPrice,
-      allocated,
-      remaining: Math.max(0, totalPrice - allocated)
+      allocated: cappedAllocated,
+      remaining: Math.max(0, totalPrice - cappedAllocated)
     };
   };
 

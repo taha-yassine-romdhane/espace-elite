@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ControlledDatePicker } from './ControlledDatePicker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format } from 'date-fns';
+import { roundToCents } from '@/utils/priceUtils';
 import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ProductAllocationControl } from './ProductAllocationControl';
@@ -646,11 +647,67 @@ export const SimpleCNAMForm: React.FC<SimplePaymentFormProps & { selectedProduct
 
   const distributeEqually = () => {
     if (selectedProducts.length === 0) return;
-    const equalAmount = bondAmount / selectedProducts.length;
+    
+    // Use cascading allocation algorithm
     const newAllocations: Record<string, number> = {};
-    selectedProducts.forEach(product => {
-      newAllocations[product.id] = equalAmount;
-    });
+    let remainingAmount = bondAmount;
+    const unfulfilledProducts = [...selectedProducts];
+    
+    while (remainingAmount > 0.01 && unfulfilledProducts.length > 0) {
+      let redistributed = false;
+      const equalShare = remainingAmount / unfulfilledProducts.length;
+      
+      for (let i = unfulfilledProducts.length - 1; i >= 0; i--) {
+        const product = unfulfilledProducts[i];
+        const productPrice = Number(product.sellingPrice || 0) * (product.quantity || 1);
+        const currentAllocation = newAllocations[product.id] || 0;
+        const availableCapacity = productPrice - currentAllocation;
+        
+        if (availableCapacity <= 0.01) {
+          unfulfilledProducts.splice(i, 1);
+          continue;
+        }
+        
+        const allocation = Math.min(equalShare, availableCapacity);
+        if (allocation > 0.01) {
+          newAllocations[product.id] = roundToCents(currentAllocation + allocation);
+          remainingAmount = roundToCents(remainingAmount - allocation);
+          redistributed = true;
+        }
+      }
+      
+      if (!redistributed) break;
+    }
+    
+    // Final adjustment to ensure total exactly matches bondAmount
+    const totalAllocated = Object.values(newAllocations).reduce((sum, amount) => sum + amount, 0);
+    const difference = roundToCents(bondAmount - totalAllocated);
+    
+    if (Math.abs(difference) > 0.001 && selectedProducts.length > 0) {
+      // Find the product with the most room to absorb the difference
+      const adjustableProducts = selectedProducts
+        .map(product => ({
+          id: product.id,
+          productPrice: Number(product.sellingPrice || 0) * (product.quantity || 1),
+          currentAllocation: newAllocations[product.id] || 0
+        }))
+        .filter(p => {
+          if (difference > 0) {
+            // Need to add more: find products with room
+            return p.currentAllocation + difference <= p.productPrice;
+          } else {
+            // Need to subtract: find products with enough allocation
+            return p.currentAllocation + difference >= 0;
+          }
+        })
+        .sort((a, b) => b.currentAllocation - a.currentAllocation); // Sort by highest allocation first
+      
+      if (adjustableProducts.length > 0) {
+        const targetProduct = adjustableProducts[0];
+        newAllocations[targetProduct.id] = roundToCents(targetProduct.currentAllocation + difference);
+      }
+    }
+    
     setProductAllocations(newAllocations);
   };
 
@@ -661,11 +718,99 @@ export const SimpleCNAMForm: React.FC<SimplePaymentFormProps & { selectedProduct
     );
     if (totalValue === 0) return;
 
+    // Use cascading allocation algorithm
     const newAllocations: Record<string, number> = {};
+    let remainingAmount = bondAmount;
+    
+    // Calculate ideal proportional shares
+    const idealShares: Record<string, number> = {};
     selectedProducts.forEach(product => {
-      const productValue = Number(product.sellingPrice || 0) * (product.quantity || 1);
-      newAllocations[product.id] = (productValue / totalValue) * bondAmount;
+      const productPrice = Number(product.sellingPrice || 0) * (product.quantity || 1);
+      idealShares[product.id] = (productPrice / totalValue) * bondAmount;
     });
+
+    // Cascading allocation
+    const unfulfilledProducts = [...selectedProducts];
+    
+    while (remainingAmount > 0.01 && unfulfilledProducts.length > 0) {
+      let redistributed = false;
+      
+      for (let i = unfulfilledProducts.length - 1; i >= 0; i--) {
+        const product = unfulfilledProducts[i];
+        const productPrice = Number(product.sellingPrice || 0) * (product.quantity || 1);
+        const currentAllocation = newAllocations[product.id] || 0;
+        const availableCapacity = productPrice - currentAllocation;
+        
+        if (availableCapacity <= 0.01) {
+          unfulfilledProducts.splice(i, 1);
+          continue;
+        }
+        
+        const shareForThisProduct = Math.min(
+          remainingAmount / unfulfilledProducts.length,
+          availableCapacity,
+          Math.max(0, idealShares[product.id] - currentAllocation)
+        );
+        
+        if (shareForThisProduct > 0.01) {
+          newAllocations[product.id] = roundToCents(currentAllocation + shareForThisProduct);
+          remainingAmount = roundToCents(remainingAmount - shareForThisProduct);
+          redistributed = true;
+        }
+      }
+      
+      // Final redistribution if no progress made
+      if (!redistributed && unfulfilledProducts.length > 0) {
+        const productsWithCapacity = unfulfilledProducts.filter(product => {
+          const productPrice = Number(product.sellingPrice || 0) * (product.quantity || 1);
+          return (productPrice - (newAllocations[product.id] || 0)) > 0.01;
+        });
+        
+        if (productsWithCapacity.length > 0) {
+          const equalShare = remainingAmount / productsWithCapacity.length;
+          productsWithCapacity.forEach(product => {
+            const productPrice = Number(product.sellingPrice || 0) * (product.quantity || 1);
+            const currentAllocation = newAllocations[product.id] || 0;
+            const allocation = Math.min(equalShare, productPrice - currentAllocation);
+            
+            newAllocations[product.id] = roundToCents(currentAllocation + allocation);
+            remainingAmount = roundToCents(remainingAmount - allocation);
+          });
+        } else {
+          break;
+        }
+      }
+    }
+    
+    // Final adjustment to ensure total exactly matches bondAmount
+    const totalAllocated = Object.values(newAllocations).reduce((sum, amount) => sum + amount, 0);
+    const difference = roundToCents(bondAmount - totalAllocated);
+    
+    if (Math.abs(difference) > 0.001 && selectedProducts.length > 0) {
+      // Find the product with the most room to absorb the difference
+      const adjustableProducts = selectedProducts
+        .map(product => ({
+          id: product.id,
+          productPrice: Number(product.sellingPrice || 0) * (product.quantity || 1),
+          currentAllocation: newAllocations[product.id] || 0
+        }))
+        .filter(p => {
+          if (difference > 0) {
+            // Need to add more: find products with room
+            return p.currentAllocation + difference <= p.productPrice;
+          } else {
+            // Need to subtract: find products with enough allocation
+            return p.currentAllocation + difference >= 0;
+          }
+        })
+        .sort((a, b) => b.currentAllocation - a.currentAllocation); // Sort by highest allocation first
+      
+      if (adjustableProducts.length > 0) {
+        const targetProduct = adjustableProducts[0];
+        newAllocations[targetProduct.id] = roundToCents(targetProduct.currentAllocation + difference);
+      }
+    }
+    
     setProductAllocations(newAllocations);
   };
 

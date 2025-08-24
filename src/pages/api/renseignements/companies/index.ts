@@ -5,6 +5,7 @@ import prisma from '@/lib/db';
 import formidable, { File as FormidableFile } from 'formidable';
 import fs from 'fs/promises';
 import path from 'path';
+import { generateCompanyCode } from '@/utils/idGenerator';
 
 interface FileWithId {
   id: string;
@@ -67,8 +68,12 @@ export default async function handler(
         }
       }
 
+      // Generate company code
+      const companyCode = await generateCompanyCode(prisma);
+
       const company = await prisma.company.create({
         data: {
+          companyCode: companyCode,
           companyName: data.nomSociete || '',
           telephone: data.telephonePrincipale || '',
           telephoneSecondaire: data.telephoneSecondaire || '',

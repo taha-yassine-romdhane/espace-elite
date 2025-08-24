@@ -1,5 +1,7 @@
 import { cn } from "@/lib/utils";
 import { CheckCircle2, Circle, Building2, User, Activity, ShoppingCart, CreditCard, FileCheck, Clock } from "lucide-react";
+import { toNumber, formatPrice, formatCurrency, calculatePaymentsTotal, calculateRemainingAmount, isFullyPaid } from "@/utils/priceUtils";
+import StepperErrorBoundary from "@/components/StepperErrorBoundary";
 
 interface ClientDetails {
   id: string;
@@ -43,7 +45,8 @@ export function SaleStepperSidebar({
   paymentData = null
 }: SaleStepperSidebarProps) {
   return (
-    <div className="w-80 border-r flex-shrink-0 flex flex-col bg-gradient-to-b from-gray-50 to-white">
+    <StepperErrorBoundary stepperType="sale">
+      <div className="w-80 border-r flex-shrink-0 flex flex-col bg-gradient-to-b from-gray-50 to-white">
       <div className="p-4 border-b bg-blue-50 sticky top-0">
         <h3 className="font-semibold text-blue-800 flex items-center gap-2">
           <ShoppingCart className="h-5 w-5" />
@@ -133,7 +136,7 @@ export function SaleStepperSidebar({
                        product.type === "SPARE_PART" ? "Pièce" : "Diagnostic"}
                     </div>
                   </div>
-                  <div className="font-medium">{typeof product.sellingPrice === 'number' ? product.sellingPrice.toFixed(2) : (parseFloat(product.sellingPrice) || 0).toFixed(2)} DT</div>
+                  <div className="font-medium">{formatCurrency(product.sellingPrice)}</div>
                 </div>
               ))}
             </div>
@@ -198,7 +201,7 @@ export function SaleStepperSidebar({
                         </div>
                       </div>
                       <div className="font-bold text-green-700">
-                        {typeof payment.amount === 'number' ? payment.amount.toFixed(2) : (parseFloat(payment.amount) || 0).toFixed(2)} DT
+                        {formatCurrency(payment.amount)}
                       </div>
                     </div>
                     
@@ -218,10 +221,10 @@ export function SaleStepperSidebar({
                           } else {
                             // Fallback to proportional calculation
                             const totalProductsValue = payment.metadata.products.reduce((sum: number, p: any) => 
-                              sum + (p ? (Number(p.sellingPrice || 0) * (p.quantity || 1)) : 0), 0
+                              sum + (p ? (toNumber(p.sellingPrice) * toNumber(p.quantity || 1)) : 0), 0
                             );
-                            const productValue = Number(product.sellingPrice || 0) * (product.quantity || 1);
-                            const paymentAmount = typeof payment.amount === 'number' ? payment.amount : (parseFloat(payment.amount) || 0);
+                            const productValue = toNumber(product.sellingPrice) * toNumber(product.quantity || 1);
+                            const paymentAmount = toNumber(payment.amount);
                             
                             allocatedAmount = totalProductsValue > 0 
                               ? (productValue / totalProductsValue) * paymentAmount
@@ -231,7 +234,7 @@ export function SaleStepperSidebar({
                           return (
                             <div key={prodIndex} className="flex justify-between items-center text-xs bg-green-50 rounded px-2 py-1">
                               <span className="text-gray-600">{product.name}</span>
-                              <span className="font-medium text-green-700">{allocatedAmount.toFixed(2)} DT</span>
+                              <span className="font-medium text-green-700">{formatCurrency(allocatedAmount)}</span>
                             </div>
                           );
                         })}
@@ -245,9 +248,7 @@ export function SaleStepperSidebar({
               <div className="flex justify-between font-medium text-green-800">
                 <span>Total Payé:</span>
                 <span>
-                  {paymentData.reduce((sum: number, payment: any) => 
-                    sum + (typeof payment.amount === 'number' ? payment.amount : (parseFloat(payment.amount) || 0)), 0
-                  ).toFixed(2)} DT
+                  {formatCurrency(calculatePaymentsTotal(paymentData))}
                 </span>
               </div>
             </div>
@@ -322,7 +323,7 @@ export function SaleStepperSidebar({
             <div>
               <span className="text-sm text-gray-600">Montant Total</span>
               <div className="text-xl font-bold text-blue-700">
-                {totalPrice > 0 ? `${typeof totalPrice === 'number' ? totalPrice.toFixed(2) : '0.00'} DT` : "À calculer"}
+                {totalPrice > 0 ? formatCurrency(totalPrice) : "À calculer"}
               </div>
             </div>
           </div>
@@ -333,21 +334,15 @@ export function SaleStepperSidebar({
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Payé:</span>
                 <span className="font-medium text-green-700">
-                  {paymentData.reduce((sum: number, payment: any) => 
-                    sum + (typeof payment.amount === 'number' ? payment.amount : (parseFloat(payment.amount) || 0)), 0
-                  ).toFixed(2)} DT
+                  {formatCurrency(calculatePaymentsTotal(paymentData))}
                 </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Reste:</span>
                 <span className={`font-medium ${
-                  totalPrice - paymentData.reduce((sum: number, payment: any) => 
-                    sum + (typeof payment.amount === 'number' ? payment.amount : (parseFloat(payment.amount) || 0)), 0
-                  ) <= 0.01 ? 'text-green-600' : 'text-amber-600'
+                  isFullyPaid(totalPrice, calculatePaymentsTotal(paymentData)) ? 'text-green-600' : 'text-amber-600'
                 }`}>
-                  {Math.max(0, totalPrice - paymentData.reduce((sum: number, payment: any) => 
-                    sum + (typeof payment.amount === 'number' ? payment.amount : (parseFloat(payment.amount) || 0)), 0
-                  )).toFixed(2)} DT
+                  {formatCurrency(calculateRemainingAmount(totalPrice, calculatePaymentsTotal(paymentData)))}
                 </span>
               </div>
             </div>
@@ -356,21 +351,18 @@ export function SaleStepperSidebar({
           <div className="flex justify-center">
             <div className={`px-3 py-1 rounded-full text-xs font-medium ${
               paymentData && Array.isArray(paymentData) && paymentData.length > 0 && totalPrice > 0 && 
-              totalPrice - paymentData.reduce((sum: number, payment: any) => 
-                sum + (typeof payment.amount === 'number' ? payment.amount : (parseFloat(payment.amount) || 0)), 0
-              ) <= 0.01
+              isFullyPaid(totalPrice, calculatePaymentsTotal(paymentData))
                 ? 'bg-green-600 text-white'
                 : 'bg-blue-600 text-white'
             }`}>
               {paymentData && Array.isArray(paymentData) && paymentData.length > 0 && totalPrice > 0 && 
-               totalPrice - paymentData.reduce((sum: number, payment: any) => 
-                 sum + (typeof payment.amount === 'number' ? payment.amount : (parseFloat(payment.amount) || 0)), 0
-               ) <= 0.01 ? 'Payé' : 'En cours'}
+               isFullyPaid(totalPrice, calculatePaymentsTotal(paymentData)) ? 'Payé' : 'En cours'}
             </div>
           </div>
         </div>
       </div>
     </div>
+    </StepperErrorBoundary>
   );
 }
 

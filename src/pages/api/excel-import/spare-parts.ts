@@ -111,8 +111,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
 
         // Convert string prices to numbers
-        let purchasePrice = sparePartData.purchasePrice ? parseFloat(sparePartData.purchasePrice.toString()) : null;
-        let sellingPrice = sparePartData.sellingPrice ? parseFloat(sparePartData.sellingPrice.toString()) : null;
+        const purchasePrice = sparePartData.purchasePrice ? parseFloat(sparePartData.purchasePrice.toString()) : null;
+        const sellingPrice = sparePartData.sellingPrice ? parseFloat(sparePartData.sellingPrice.toString()) : null;
 
         // Create the spare part
         const newSparePart = await prisma.product.create({

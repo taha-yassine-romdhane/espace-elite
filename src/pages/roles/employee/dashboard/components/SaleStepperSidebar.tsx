@@ -42,8 +42,8 @@ export function SaleStepperSidebar({
 }: SaleStepperSidebarProps) {
   return (
     <div className="w-80 border-r flex-shrink-0 flex flex-col bg-gradient-to-b from-gray-50 to-white">
-      <div className="p-4 border-b bg-blue-50 sticky top-0">
-        <h3 className="font-semibold text-blue-800 flex items-center gap-2">
+      <div className="p-4 border-b bg-green-50 sticky top-0">
+        <h3 className="font-semibold text-green-800 flex items-center gap-2">
           <ShoppingCart className="h-5 w-5" />
           Nouvelle Vente
         </h3>
@@ -52,9 +52,9 @@ export function SaleStepperSidebar({
       <div className="p-5 flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
         {/* Client Info Card - Show when a client is selected */}
         {clientDetails && (
-          <div className="mb-6 overflow-hidden rounded-lg border border-blue-200 bg-gradient-to-br from-blue-50 to-blue-100/50 shadow-sm">
+          <div className="mb-6 overflow-hidden rounded-lg border border-green-200 bg-gradient-to-br from-green-50 to-green-100/50 shadow-sm">
             {/* Header with client name */}
-            <div className="bg-blue-600 p-3 text-white">
+            <div className="bg-green-600 p-3 text-white">
               <div className="flex items-center gap-2">
                 <div className="h-9 w-9 rounded-full bg-white/20 flex items-center justify-center">
                   {clientDetails.type === "patient" ? (
@@ -69,7 +69,7 @@ export function SaleStepperSidebar({
                       ? (clientDetails.nomComplet || `${clientDetails.firstName} ${clientDetails.lastName}`)
                       : clientDetails.nomSociete}
                   </h4>
-                  <p className="text-xs text-blue-100">
+                  <p className="text-xs text-green-100">
                     {clientDetails.type === "patient" ? "Patient" : "Société"}
                   </p>
                 </div>
@@ -157,12 +157,7 @@ export function SaleStepperSidebar({
                   />
                 )}
                 <div className="flex gap-4 relative">
-                  <div
-                    className={cn(
-                      "flex-shrink-0 mt-0.5",
-                      isActive && "animate-pulse"
-                    )}
-                  >
+                  <div className="flex-shrink-0 mt-0.5">
                     {isCompleted ? (
                       <CheckCircle2 className="h-10 w-10 text-green-600 fill-green-100" />
                     ) : isActive ? (

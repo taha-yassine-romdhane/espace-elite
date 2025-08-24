@@ -23,6 +23,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import CNAMStepSelector from '@/components/payment/components/CNAMStepSelector';
+import { toNumber, formatPrice, formatCurrency, calculatePaymentsTotal, calculateRemainingAmount, isFullyPaid } from '@/utils/priceUtils';
+import StepperErrorBoundary from '@/components/StepperErrorBoundary';
 
 interface RecapitulationStepProps {
   onBack: () => void;
@@ -80,15 +82,16 @@ export function RecapitulationStep({
   isLoading = false
 }: RecapitulationStepProps) {
   const totalAmount = calculateTotal();
-  const paidAmount = paymentData ? (paymentData.reduce ? paymentData.reduce((sum: number, payment: any) => sum + payment.amount, 0) : 0) : 0;
-  const remainingAmount = Math.max(0, totalAmount - paidAmount);
-  const isFullyPaid = remainingAmount <= 0.01;
+  const paidAmount = paymentData ? calculatePaymentsTotal(Array.isArray(paymentData) ? paymentData : [paymentData]) : 0;
+  const remainingAmount = calculateRemainingAmount(totalAmount, paidAmount);
+  const fullyPaid = isFullyPaid(totalAmount, paidAmount);
 
   // Process payment data - handle both array and individual payment formats
   const payments = Array.isArray(paymentData) ? paymentData : (paymentData ? [paymentData] : []);
 
   return (
-    <div className="space-y-6">
+    <StepperErrorBoundary stepperType="sale" onGoBack={onBack}>
+      <div className="space-y-6">
       <div className="flex justify-between items-center">
         <Button variant="outline" onClick={onBack} className="flex items-center gap-2">
           <ChevronLeft className="h-4 w-4" /> Retour
@@ -175,8 +178,8 @@ export function RecapitulationStep({
           </CardHeader>
           <CardContent className="space-y-3">
             {selectedProducts.map((product, index) => {
-              const quantity = product.quantity || 1;
-              const unitPrice = Number(product.sellingPrice || 0);
+              const quantity = toNumber(product.quantity) || 1;
+              const unitPrice = toNumber(product.sellingPrice);
               const totalPrice = quantity * unitPrice;
               
               return (
@@ -188,12 +191,12 @@ export function RecapitulationStep({
                         <div className="font-medium text-sm">{product.name}</div>
                         <div className="text-xs text-gray-500">
                           {quantity > 1 && `Qté: ${quantity} × `}
-                          {unitPrice.toFixed(2)} DT
+                          {formatCurrency(unitPrice)}
                         </div>
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="font-medium text-sm">{totalPrice.toFixed(2)} DT</div>
+                      <div className="font-medium text-sm">{formatCurrency(totalPrice)}</div>
                     </div>
                   </div>
                   
@@ -250,7 +253,7 @@ export function RecapitulationStep({
             <Separator />
             <div className="flex justify-between items-center font-bold">
               <span>Total:</span>
-              <span className="text-lg">{totalAmount.toFixed(2)} DT</span>
+              <span className="text-lg">{formatCurrency(totalAmount)}</span>
             </div>
           </CardContent>
         </Card>
@@ -274,16 +277,16 @@ export function RecapitulationStep({
                 <Clock className="h-5 w-5 text-amber-500" />
               )}
               <span className="font-medium">
-                {isFullyPaid ? 'Paiement Complet' : 'Paiement Partiel'}
+                {fullyPaid ? 'Paiement Complet' : 'Paiement Partiel'}
               </span>
             </div>
             <div className="text-right">
               <div className="text-sm text-gray-500">
-                Payé: {paidAmount.toFixed(2)} DT / {totalAmount.toFixed(2)} DT
+                Payé: {formatCurrency(paidAmount)} / {formatCurrency(totalAmount)}
               </div>
-              {remainingAmount > 0.01 && (
+              {!fullyPaid && (
                 <div className="text-sm text-amber-600 font-medium">
-                  Reste: {remainingAmount.toFixed(2)} DT
+                  Reste: {formatCurrency(remainingAmount)}
                 </div>
               )}
             </div>
@@ -308,7 +311,7 @@ export function RecapitulationStep({
                       )}
                     </div>
                     <Badge className="bg-green-100 text-green-800">
-                      {payment.amount?.toFixed(2)} DT
+                      {formatCurrency(payment.amount)}
                     </Badge>
                   </div>
 
@@ -405,7 +408,8 @@ export function RecapitulationStep({
           {isLoading ? 'Finalisation...' : 'Finaliser la Vente'}
         </Button>
       </div>
-    </div>
+      </div>
+    </StepperErrorBoundary>
   );
 }
 

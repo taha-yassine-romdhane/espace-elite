@@ -11,9 +11,10 @@ import {
   Puzzle,
   Cog,
   Activity,
-  Info,
+  Search,
   X,
   Minus,
+  PlusCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/use-toast";
@@ -51,39 +52,52 @@ const ProductTypeButton = ({ type, onSelect, onCreateNew, isSelected = false }: 
   isSelected?: boolean;
 }) => {
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
+      {/* Header with category */}
+      <div className="flex items-center gap-2 px-2">
+        <type.icon className="h-5 w-5 text-blue-600" />
+        <span className="font-semibold text-blue-800">{type.label}</span>
+      </div>
+      
       <div className="flex flex-col gap-2">
+        {/* Select Button - Primary Action */}
         <Button
-          variant="outline"
+          variant="default"
           size="sm"
           className={cn(
-            "w-full h-10 flex items-center gap-2 px-4",
-            "border-[#1e3a8a] border-opacity-20 hover:border-opacity-100",
-            isSelected ? "bg-blue-50 text-[#1e3a8a] border-blue-500" : "bg-white text-[#1e3a8a]",
-            "hover:bg-blue-50 transition-all duration-200",
-            "rounded-md"
+            "w-full h-12 flex items-center gap-3 px-4",
+            "bg-blue-600 hover:bg-blue-700 text-white",
+            "shadow-sm hover:shadow-md transition-all duration-200",
+            "rounded-lg font-medium",
+            isSelected && "ring-2 ring-blue-300"
           )}
           onClick={onSelect}
         >
-          <type.icon className="h-4 w-4 flex-shrink-0" />
-          <span className="text-sm font-medium flex-1 text-left">{type.selectLabel}</span>
-          <Info className="h-4 w-4 text-[#1e3a8a] opacity-50" />
+          <Search className="h-5 w-5 flex-shrink-0" />
+          <div className="flex-1 text-left">
+            <div className="text-sm font-semibold">{type.selectLabel}</div>
+            <div className="text-xs text-blue-100">Choisir depuis le stock</div>
+          </div>
         </Button>
+        
+        {/* Create Button - Secondary Action */}
         <Button
           variant="outline"
           size="sm"
           className={cn(
-            "w-full h-10 flex items-center gap-2 px-4",
-            "border-[#1e3a8a] border-opacity-20 hover:border-opacity-100",
-            "bg-blue-50/30 text-[#1e3a8a]",
-            "hover:bg-blue-50 transition-all duration-200",
-            "rounded-md"
+            "w-full h-12 flex items-center gap-3 px-4",
+            "border-2 border-blue-300 hover:border-blue-500",
+            "bg-white hover:bg-blue-50 text-blue-700",
+            "transition-all duration-200",
+            "rounded-lg font-medium"
           )}
           onClick={onCreateNew}
         >
-          <type.icon className="h-4 w-4 flex-shrink-0" />
-          <span className="text-sm font-medium flex-1 text-left">{type.createLabel}</span>
-          <Plus className="h-4 w-4 text-[#1e3a8a] opacity-50" />
+          <PlusCircle className="h-5 w-5 flex-shrink-0" />
+          <div className="flex-1 text-left">
+            <div className="text-sm font-semibold">{type.createLabel}</div>
+            <div className="text-xs text-blue-500">Ajouter nouveau produit</div>
+          </div>
         </Button>
       </div>
     </div>
@@ -393,7 +407,7 @@ export const CompanyProductSelection = ({
   return (
     <div className="space-y-6">
       {/* Product Type Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {productTypes.map((type) => {
           // Check if any products of this type are selected
           const hasSelectedProducts = selectedProducts.some(product => {

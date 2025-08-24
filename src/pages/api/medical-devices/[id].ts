@@ -19,7 +19,7 @@ export default async function handler(
     switch (req.method) {
       case 'GET':
         // Try to find medical device first
-        let device = await prisma.medicalDevice.findUnique({
+        const device = await prisma.medicalDevice.findUnique({
           where: { id: id as string },
           include: {
             stockLocation: true

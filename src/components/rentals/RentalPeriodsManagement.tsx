@@ -12,6 +12,10 @@ import {
   CheckCircle,
   Clock,
   CreditCard,
+  Zap,
+  Sparkles,
+  Eye,
+  Loader2,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -64,6 +68,19 @@ interface RentalPeriodsManagementProps {
   onUpdate?: (periods: RentalPeriod[]) => void;
 }
 
+interface GeneratedPeriod {
+  id: string;
+  startDate: Date;
+  endDate: Date;
+  amount: number;
+  paymentMethod: 'CASH' | 'CNAM';
+  isGapPeriod: boolean;
+  gapReason?: string;
+  source: 'CNAM_BOND' | 'GAP_AUTO';
+  notes?: string;
+  cnamBondId?: string;
+}
+
 export default function RentalPeriodsManagement({ rental, rentalPeriods, onUpdate }: RentalPeriodsManagementProps) {
   const [periods, setPeriods] = useState<RentalPeriod[]>(rentalPeriods || []);
   const [editingPeriod, setEditingPeriod] = useState<RentalPeriod | null>(null);
@@ -73,6 +90,11 @@ export default function RentalPeriodsManagement({ rental, rentalPeriods, onUpdat
     isGapPeriod: false,
     amount: 0,
   });
+
+  // Auto-generation state
+  const [showAutoGeneration, setShowAutoGeneration] = useState(false);
+  const [generatedPeriods, setGeneratedPeriods] = useState<GeneratedPeriod[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const formatDate = (date: Date | string | null | undefined) => {
     if (!date) return '-';
@@ -115,7 +137,25 @@ export default function RentalPeriodsManagement({ rental, rentalPeriods, onUpdat
     
     const sortedPeriods = [...periods].sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
     const gaps = [];
+    const rentalStart = new Date(rental.startDate);
+    const rentalEnd = rental.endDate ? new Date(rental.endDate) : null;
     
+    // Gap before first period
+    if (sortedPeriods.length > 0) {
+      const firstPeriodStart = new Date(sortedPeriods[0].startDate);
+      if (isBefore(rentalStart, firstPeriodStart)) {
+        const gapDays = differenceInDays(firstPeriodStart, rentalStart);
+        if (gapDays > 0) {
+          gaps.push({
+            start: rentalStart,
+            end: addDays(firstPeriodStart, -1),
+            duration: gapDays,
+          });
+        }
+      }
+    }
+    
+    // Gaps between consecutive periods
     for (let i = 0; i < sortedPeriods.length - 1; i++) {
       const currentEnd = new Date(sortedPeriods[i].endDate);
       const nextStart = new Date(sortedPeriods[i + 1].startDate);
@@ -126,6 +166,21 @@ export default function RentalPeriodsManagement({ rental, rentalPeriods, onUpdat
           end: addDays(nextStart, -1),
           duration: differenceInDays(nextStart, addDays(currentEnd, 1)),
         });
+      }
+    }
+    
+    // Gap after last period
+    if (sortedPeriods.length > 0 && rentalEnd) {
+      const lastPeriodEnd = new Date(sortedPeriods[sortedPeriods.length - 1].endDate);
+      if (isAfter(rentalEnd, lastPeriodEnd)) {
+        const gapDays = differenceInDays(rentalEnd, lastPeriodEnd);
+        if (gapDays > 0) {
+          gaps.push({
+            start: addDays(lastPeriodEnd, 1),
+            end: rentalEnd,
+            duration: gapDays,
+          });
+        }
       }
     }
     
@@ -174,10 +229,39 @@ export default function RentalPeriodsManagement({ rental, rentalPeriods, onUpdat
     setEditingPeriod(null);
   };
 
-  const handleDeletePeriod = (periodId: string) => {
+  const handleDeletePeriod = async (periodId: string) => {
+    console.log('Deleting period with ID:', periodId);
+    console.log('Current periods:', periods.map(p => ({ id: p.id, start: p.startDate, end: p.endDate })));
+    
+    const periodToDelete = periods.find(p => p.id === periodId);
+    if (!periodToDelete) {
+      console.error('Period not found for deletion:', periodId);
+      return;
+    }
+    
     const updatedPeriods = periods.filter(period => period.id !== periodId);
+    console.log('Periods after deletion:', updatedPeriods.map(p => ({ id: p.id, start: p.startDate, end: p.endDate })));
+    
+    // Update local state first
     setPeriods(updatedPeriods);
-    onUpdate?.(updatedPeriods);
+    
+    // Clear auto-generation if it was showing
+    if (showAutoGeneration) {
+      setShowAutoGeneration(false);
+      setGeneratedPeriods([]);
+    }
+    
+    // Call the parent update function
+    try {
+      if (onUpdate) {
+        await onUpdate(updatedPeriods);
+        console.log('Delete operation completed successfully');
+      }
+    } catch (error) {
+      console.error('Error updating periods after deletion:', error);
+      // Revert the local state if the update fails
+      setPeriods(periods);
+    }
   };
 
   const handleCreateGapPeriod = (gap: any) => {
@@ -193,12 +277,224 @@ export default function RentalPeriodsManagement({ rental, rentalPeriods, onUpdat
     setShowAddDialog(true);
   };
 
+  // Auto-generation functions
+  const generatePeriods = () => {
+    setIsGenerating(true);
+    
+    const cnamBonds = rental.cnamBonds || [];
+    const rentalStart = new Date(rental.startDate);
+    const rentalEnd = rental.endDate ? new Date(rental.endDate) : null;
+    
+    // Calculate daily rate from monthly rental price
+    // Assuming rentalPrice is monthly, divide by 30 for daily rate
+    const monthlyPrice = rental.medicalDevice?.rentalPrice ? parseFloat(rental.medicalDevice.rentalPrice) : 1500;
+    const dailyRate = monthlyPrice / 30; // Convert monthly to daily rate
+    
+    // For gap periods, we should use patient responsibility rate
+    // CNAM typically covers 70-80%, so patient pays 20-30%
+    // Or we can use the CNAM bond daily rate as reference
+    const getGapDailyRate = () => {
+      // If we have CNAM bonds, calculate the patient's daily contribution based on CNAM coverage
+      if (cnamBonds.length > 0) {
+        const firstBond = cnamBonds[0];
+        // Ensure we get a valid monthly amount
+        let cnamMonthlyAmount = 0;
+        if (firstBond.monthlyAmount) {
+          cnamMonthlyAmount = parseFloat(firstBond.monthlyAmount);
+        } else if (firstBond.totalAmount && firstBond.coveredMonths) {
+          cnamMonthlyAmount = parseFloat(firstBond.totalAmount) / firstBond.coveredMonths;
+        }
+        
+        // If CNAM amount is 0 or invalid, use equipment rate percentage
+        if (!cnamMonthlyAmount || cnamMonthlyAmount === 0) {
+          console.log('Invalid CNAM amount, using 20% of equipment rate');
+          return dailyRate * 0.2;
+        }
+        
+        const cnamDailyRate = cnamMonthlyAmount / 30;
+        // Patient typically pays the difference or a small daily fee during gaps
+        // Use 20% of equipment rate or CNAM daily rate, whichever is lower
+        const calculatedRate = Math.min(dailyRate * 0.2, cnamDailyRate);
+        console.log('Gap rate calculation:', {
+          equipmentMonthly: monthlyPrice,
+          equipmentDaily: dailyRate,
+          equipment20Percent: dailyRate * 0.2,
+          cnamMonthly: cnamMonthlyAmount,
+          cnamDaily: cnamDailyRate,
+          finalGapRate: calculatedRate
+        });
+        
+        // Ensure we never return 0 or negative
+        return Math.max(calculatedRate, 1); // Minimum 1 TND per day
+      }
+      // Default to 20% of equipment daily rate for gaps
+      return dailyRate * 0.2;
+    };
+    
+    const gapDailyRate = getGapDailyRate();
+    
+    const periods: GeneratedPeriod[] = [];
+
+    if (cnamBonds.length === 0) {
+      // No CNAM bonds - create simple cash period
+      const endDate = rentalEnd || addDays(rentalStart, 30);
+      const days = differenceInDays(endDate, rentalStart) + 1;
+      
+      periods.push({
+        id: `cash-${Date.now()}`,
+        startDate: rentalStart,
+        endDate: endDate,
+        amount: dailyRate * days,
+        paymentMethod: 'CASH',
+        isGapPeriod: false,
+        source: 'GAP_AUTO',
+        notes: 'Période sans couverture CNAM',
+      });
+    } else {
+      // Process CNAM bonds and create periods
+      const sortedBonds = cnamBonds
+        .filter(bond => bond.startDate && bond.endDate)
+        .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+
+      let currentDate = rentalStart;
+
+      // Gap before first CNAM bond
+      const firstBond = sortedBonds[0];
+      if (firstBond && isBefore(currentDate, new Date(firstBond.startDate))) {
+        const gapDays = differenceInDays(new Date(firstBond.startDate), currentDate);
+        periods.push({
+          id: `gap-pre-${firstBond.id}`,
+          startDate: currentDate,
+          endDate: addDays(new Date(firstBond.startDate), -1),
+          amount: gapDailyRate * gapDays,  // Use gap daily rate
+          paymentMethod: 'CASH',
+          isGapPeriod: true,
+          gapReason: 'CNAM_PENDING',
+          source: 'GAP_AUTO',
+          notes: `Gap avant couverture CNAM (${gapDays} jours × ${gapDailyRate.toFixed(2)} TND/jour)`,
+        });
+        currentDate = new Date(firstBond.startDate);
+      }
+
+      // Process each CNAM bond
+      sortedBonds.forEach((bond, index) => {
+        const bondStart = new Date(bond.startDate);
+        const bondEnd = new Date(bond.endDate);
+        
+        // Add CNAM period
+        periods.push({
+          id: `cnam-${bond.id}`,
+          startDate: bondStart,
+          endDate: bondEnd,
+          amount: parseFloat(bond.totalAmount) || 0,
+          paymentMethod: 'CNAM',
+          isGapPeriod: false,
+          cnamBondId: bond.id,
+          source: 'CNAM_BOND',
+          notes: `Bon CNAM - ${bond.bondType}`,
+        });
+
+        currentDate = addDays(bondEnd, 1);
+
+        // Gap to next bond
+        const nextBond = sortedBonds[index + 1];
+        if (nextBond && isBefore(currentDate, new Date(nextBond.startDate))) {
+          const gapDays = differenceInDays(new Date(nextBond.startDate), currentDate);
+          periods.push({
+            id: `gap-between-${bond.id}-${nextBond.id}`,
+            startDate: currentDate,
+            endDate: addDays(new Date(nextBond.startDate), -1),
+            amount: gapDailyRate * gapDays,  // Use gap daily rate
+            paymentMethod: 'CASH',
+            isGapPeriod: true,
+            gapReason: 'CNAM_GAP',
+            source: 'GAP_AUTO',
+            notes: `Gap entre bons CNAM (${gapDays} jours × ${gapDailyRate.toFixed(2)} TND/jour)`,
+          });
+        }
+      });
+
+      // Gap after last CNAM bond
+      if (rentalEnd && isAfter(rentalEnd, currentDate)) {
+        const gapDays = differenceInDays(rentalEnd, currentDate) + 1;
+        periods.push({
+          id: `gap-post-${Date.now()}`,
+          startDate: currentDate,
+          endDate: rentalEnd,
+          amount: gapDailyRate * gapDays,  // Use gap daily rate
+          paymentMethod: 'CASH',
+          isGapPeriod: true,
+          gapReason: 'CNAM_EXPIRED',
+          source: 'GAP_AUTO',
+          notes: `Gap après expiration CNAM (${gapDays} jours × ${gapDailyRate.toFixed(2)} TND/jour)`,
+        });
+      }
+    }
+
+    setGeneratedPeriods(periods);
+    setShowAutoGeneration(true);
+    setIsGenerating(false);
+  };
+
+  const applyGeneratedPeriods = () => {
+    const newPeriods = generatedPeriods.map(gp => ({
+      id: gp.id,
+      startDate: gp.startDate,
+      endDate: gp.endDate,
+      amount: gp.amount,
+      paymentMethod: gp.paymentMethod,
+      isGapPeriod: gp.isGapPeriod,
+      gapReason: gp.gapReason,
+      notes: gp.notes,
+      cnamBondId: gp.cnamBondId,
+    }));
+
+    // Replace all existing periods with the generated ones to avoid duplicates
+    const updatedPeriods = newPeriods;
+    setPeriods(updatedPeriods);
+    onUpdate?.(updatedPeriods);
+    setShowAutoGeneration(false);
+    setGeneratedPeriods([]);
+  };
+
   const gaps = detectGaps();
-  const totalAmount = periods.reduce((sum, period) => sum + (period.isGapPeriod ? 0 : period.amount), 0);
+  // Calculate total including gap periods (all periods contribute to total)
+  const totalAmount = periods.reduce((sum, period) => {
+    const amount = parseFloat(period.amount) || 0;
+    return sum + amount;
+  }, 0);
+  // Calculate CNAM coverage only
+  const cnamAmount = periods.reduce((sum, period) => {
+    if (period.paymentMethod === 'CNAM') {
+      const amount = parseFloat(period.amount) || 0;
+      return sum + amount;
+    }
+    return sum;
+  }, 0);
+  // Calculate patient responsibility (gaps and cash payments)
+  const patientAmount = periods.reduce((sum, period) => {
+    if (period.isGapPeriod || period.paymentMethod === 'CASH') {
+      const amount = parseFloat(period.amount) || 0;
+      return sum + amount;
+    }
+    return sum;
+  }, 0);
   const totalDuration = periods.reduce((sum, period) => sum + calculateDuration(period.startDate, period.endDate), 0);
 
   return (
     <div className="space-y-6">
+      {/* Info Alert for Gap Calculation */}
+      {periods.some(p => p.isGapPeriod) && (
+        <Alert className="mb-4">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            <strong>Calcul des périodes Gap:</strong> Les périodes sans couverture CNAM utilisent un tarif réduit 
+            (20% du tarif équipement ou tarif CNAM journalier). Les montants sont calculés automatiquement pour 
+            refléter la contribution patient pendant les périodes d'attente.
+          </AlertDescription>
+        </Alert>
+      )}
+      
       {/* Header with Add Button and Summary */}
       <div className="flex justify-between items-start">
         <div>
@@ -207,20 +503,49 @@ export default function RentalPeriodsManagement({ rental, rentalPeriods, onUpdat
             Gestion des Périodes de Location
           </h2>
           <div className="flex gap-4 mt-2 text-sm text-gray-600">
-            <span>Total: {totalAmount.toFixed(2)} TND</span>
+            <span>Total: {(totalAmount || 0).toFixed(2)} TND</span>
+            {cnamAmount > 0 && patientAmount > 0 && (
+              <span className="text-xs">
+                (<span className="text-blue-600">CNAM: {cnamAmount.toFixed(2)}</span> + 
+                <span className="text-orange-600 ml-1">Patient: {patientAmount.toFixed(2)}</span>)
+              </span>
+            )}
             <span>Durée: {totalDuration} jours</span>
             <span>Périodes: {periods.length}</span>
+            {rental.cnamBonds?.length > 0 && (
+              <span className="text-blue-600">Bons CNAM: {rental.cnamBonds.length}</span>
+            )}
           </div>
         </div>
         
-        <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-          <DialogTrigger asChild>
-            <Button className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              Nouvelle Période
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+        <div className="flex gap-2">
+          <Button 
+            onClick={generatePeriods}
+            disabled={isGenerating}
+            variant="outline"
+            className="flex items-center gap-2"
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Génération...
+              </>
+            ) : (
+              <>
+                <Zap className="h-4 w-4" />
+                Auto-Génération
+              </>
+            )}
+          </Button>
+          
+          <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+            <DialogTrigger asChild>
+              <Button className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Nouvelle Période
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Ajouter une nouvelle période</DialogTitle>
             </DialogHeader>
@@ -329,6 +654,7 @@ export default function RentalPeriodsManagement({ rental, rentalPeriods, onUpdat
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Gap Detection Alert */}
@@ -370,7 +696,7 @@ export default function RentalPeriodsManagement({ rental, rentalPeriods, onUpdat
                 {periods
                   .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
                   .map((period) => (
-                    <TableRow key={period.id}>
+                    <TableRow key={`period-${period.id}-${period.startDate}`}>
                       <TableCell>
                         <div className="text-sm">
                           <div>Du {formatDate(period.startDate)}</div>
@@ -385,13 +711,16 @@ export default function RentalPeriodsManagement({ rental, rentalPeriods, onUpdat
                       </TableCell>
                       
                       <TableCell>
-                        {period.isGapPeriod ? (
-                          <Badge variant="outline" className="bg-gray-100 text-gray-800">
-                            Non facturé
-                          </Badge>
-                        ) : (
-                          <div className="font-medium">{period.amount.toFixed(2)} TND</div>
-                        )}
+                        <div className="space-y-1">
+                          <div className="font-medium">
+                            {(parseFloat(period.amount) || 0).toFixed(2)} TND
+                          </div>
+                          {period.isGapPeriod && (
+                            <Badge variant="outline" className="bg-orange-100 text-orange-800 text-xs">
+                              Gap - Patient
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       
                       <TableCell>
@@ -425,7 +754,11 @@ export default function RentalPeriodsManagement({ rental, rentalPeriods, onUpdat
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleDeletePeriod(period.id)}
+                            onClick={async (e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              await handleDeletePeriod(period.id);
+                            }}
                             className="h-8 w-8 p-0 border-red-200 text-red-600 hover:bg-red-50"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -556,6 +889,94 @@ export default function RentalPeriodsManagement({ rental, rentalPeriods, onUpdat
             </div>
           </DialogContent>
         </Dialog>
+      )}
+
+      {/* Auto-generation Preview */}
+      {showAutoGeneration && generatedPeriods.length > 0 && (
+        <Card className="border-blue-200 bg-blue-50">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2 justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-blue-600" />
+                Périodes Générées Automatiquement
+                <Badge variant="outline">{generatedPeriods.length} périodes</Badge>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={applyGeneratedPeriods}
+                  className="flex items-center gap-1"
+                >
+                  <CheckCircle className="h-4 w-4" />
+                  Remplacer les périodes ({generatedPeriods.length})
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowAutoGeneration(false)}
+                  className="flex items-center gap-1"
+                >
+                  <X className="h-4 w-4" />
+                  Annuler
+                </Button>
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <div className="flex items-center gap-2 text-amber-800">
+                <AlertTriangle className="h-4 w-4" />
+                <span className="text-sm font-medium">
+                  ⚠️ Attention: Appliquer ces périodes remplacera toutes les périodes existantes
+                </span>
+              </div>
+            </div>
+            <div className="space-y-3">
+              {generatedPeriods.map((period, index) => (
+                <div key={index} className="flex justify-between items-center p-3 bg-white rounded-lg border">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="font-medium">
+                        {formatDate(period.startDate)} → {formatDate(period.endDate)}
+                      </div>
+                      <Badge variant="outline" className={
+                        period.isGapPeriod 
+                          ? 'bg-orange-100 text-orange-800 border-orange-200'
+                          : period.paymentMethod === 'CNAM' 
+                            ? 'bg-blue-100 text-blue-800 border-blue-200'
+                            : 'bg-green-100 text-green-800 border-green-200'
+                      }>
+                        {period.isGapPeriod ? 'Gap' : period.paymentMethod}
+                      </Badge>
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      {period.notes}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {differenceInDays(period.endDate, period.startDate) + 1} jours
+                      {period.isGapPeriod && (
+                        <span className="ml-2">
+                          (Tarif réduit patient)
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-bold text-lg">
+                      {period.amount.toFixed(2)} TND
+                    </div>
+                  </div>
+                </div>
+              ))}
+              <div className="mt-4 p-3 bg-blue-100 rounded-lg">
+                <div className="flex justify-between items-center">
+                  <span className="font-medium text-blue-900">Total estimé:</span>
+                  <span className="font-bold text-xl text-blue-900">
+                    {generatedPeriods.reduce((sum, p) => sum + p.amount, 0).toFixed(2)} TND
+                  </span>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Gap Details */}

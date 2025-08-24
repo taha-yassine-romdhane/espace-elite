@@ -6,6 +6,7 @@ import { SaleItem } from './SaleItem';
 
 export interface Sale {
   id: string;
+  saleCode?: string;
   invoiceNumber?: string;
   saleDate: Date;
   totalAmount: string | number;

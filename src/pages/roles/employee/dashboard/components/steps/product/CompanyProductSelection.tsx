@@ -60,32 +60,32 @@ const ProductTypeButton = ({ type, onSelect, onCreateNew }: {
           size="sm"
           className={cn(
             "w-full h-10 flex items-center gap-2 px-4",
-            "border-[#1e3a8a] border-opacity-20 hover:border-opacity-100",
-            "bg-white text-[#1e3a8a]",
-            "hover:bg-blue-50 transition-all duration-200",
+            "border-green-600 border-opacity-20 hover:border-opacity-100",
+            "bg-white text-green-600",
+            "hover:bg-green-50 transition-all duration-200",
             "rounded-md"
           )}
           onClick={onSelect}
         >
           <type.icon className="h-4 w-4 flex-shrink-0" />
           <span className="text-sm font-medium flex-1 text-left">{type.selectLabel}</span>
-          <Info className="h-4 w-4 text-[#1e3a8a] opacity-50" />
+          <Info className="h-4 w-4 text-green-600 opacity-50" />
         </Button>
         <Button
           variant="outline"
           size="sm"
           className={cn(
             "w-full h-10 flex items-center gap-2 px-4",
-            "border-[#1e3a8a] border-opacity-20 hover:border-opacity-100",
-            "bg-blue-50/30 text-[#1e3a8a]",
-            "hover:bg-blue-50 transition-all duration-200",
+            "border-green-600 border-opacity-20 hover:border-opacity-100",
+            "bg-green-50/30 text-green-600",
+            "hover:bg-green-50 transition-all duration-200",
             "rounded-md"
           )}
           onClick={onCreateNew}
         >
           <type.icon className="h-4 w-4 flex-shrink-0" />
           <span className="text-sm font-medium flex-1 text-left">{type.createLabel}</span>
-          <Plus className="h-4 w-4 text-[#1e3a8a] opacity-50" />
+          <Plus className="h-4 w-4 text-green-600 opacity-50" />
         </Button>
       </div>
     </div>
@@ -111,7 +111,7 @@ const ProductCard = ({
       <div className="flex-1">
         <div className="flex items-center gap-2">
           <div className="flex-shrink-0">
-            {product.type === "MEDICAL_DEVICE" && <Stethoscope className="h-5 w-5 text-blue-500" />}
+            {product.type === "MEDICAL_DEVICE" && <Stethoscope className="h-5 w-5 text-green-500" />}
             {product.type === "ACCESSORY" && <Puzzle className="h-5 w-5 text-green-500" />}
             {product.type === "SPARE_PART" && <Cog className="h-5 w-5 text-amber-500" />}
             {product.type === "DIAGNOSTIC_DEVICE" && <Activity className="h-5 w-5 text-purple-500" />}
@@ -285,17 +285,17 @@ export function CompanyProductSelection({
           <Input
             type="text"
             placeholder="Rechercher des produits..."
-            className="pl-9 border-blue-200 focus:border-blue-500"
+            className="pl-9 border-green-200 focus:border-green-500"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <Button variant="outline" size="sm" className="gap-2 border-blue-200">
-          <Filter className="h-4 w-4 text-blue-500" />
+        <Button variant="outline" size="sm" className="gap-2 border-green-200">
+          <Filter className="h-4 w-4 text-green-500" />
           <span>Filtres</span>
         </Button>
-        <Button variant="outline" size="sm" className="gap-2 border-blue-200">
-          <LayoutGrid className="h-4 w-4 text-blue-500" />
+        <Button variant="outline" size="sm" className="gap-2 border-green-200">
+          <LayoutGrid className="h-4 w-4 text-green-500" />
           <span>Catégories</span>
         </Button>
       </div>
@@ -316,16 +316,16 @@ export function CompanyProductSelection({
       {(selectedProducts && selectedProducts.length > 0) && (
         <div className="mt-6 space-y-3">
           <div className="flex justify-between items-center">
-            <h3 className="text-base font-medium text-blue-900">Produits Sélectionnés</h3>
-            <Badge variant="secondary" className="bg-blue-100 text-blue-700 hover:bg-blue-200">
+            <h3 className="text-base font-medium text-green-900">Produits Sélectionnés</h3>
+            <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-200">
               {selectedProducts?.length || 0} {(selectedProducts?.length || 0) > 1 ? 'produits' : 'produit'}
             </Badge>
           </div>
           
-          <Card className="overflow-hidden border border-blue-100">
-            <div className="bg-blue-50 px-4 py-2 border-b border-blue-100 flex justify-between items-center">
-              <div className="font-medium text-blue-900">Récapitulatif des produits</div>
-              <div className="text-sm text-blue-700">Total: <span className="font-semibold">{typeof totalPrice === 'number' ? totalPrice.toFixed(2) : '0.00'} DT</span></div>
+          <Card className="overflow-hidden border border-green-100">
+            <div className="bg-green-50 px-4 py-2 border-b border-green-100 flex justify-between items-center">
+              <div className="font-medium text-green-900">Récapitulatif des produits</div>
+              <div className="text-sm text-green-700">Total: <span className="font-semibold">{typeof totalPrice === 'number' ? totalPrice.toFixed(2) : '0.00'} DT</span></div>
             </div>
             
             <div className="divide-y divide-gray-100">
@@ -349,7 +349,7 @@ export function CompanyProductSelection({
         <Button
           variant="outline"
           onClick={onBack}
-          className="text-blue-700 border-blue-200 hover:bg-blue-50 hover:border-blue-300 flex items-center gap-2"
+          className="text-green-700 border-green-200 hover:bg-green-50 hover:border-green-300 flex items-center gap-2"
         >
           <ChevronLeft className="h-4 w-4" />
           Retour
@@ -358,14 +358,14 @@ export function CompanyProductSelection({
         <div className="flex items-center gap-3">
           {(selectedProducts && selectedProducts.length > 0) && (
             <div className="text-sm text-gray-600">
-              <span className="font-medium text-blue-700">{selectedProducts.length}</span> produits pour un total de <span className="font-medium text-blue-700">{typeof totalPrice === 'number' ? totalPrice.toFixed(2) : '0.00'} DT</span>
+              <span className="font-medium text-green-700">{selectedProducts.length}</span> produits pour un total de <span className="font-medium text-green-700">{typeof totalPrice === 'number' ? totalPrice.toFixed(2) : '0.00'} DT</span>
             </div>
           )}
           
           <Button
             onClick={onNext}
             disabled={!selectedProducts || selectedProducts.length === 0}
-            className="bg-blue-700 hover:bg-blue-800 text-white flex items-center gap-2 disabled:opacity-50"
+            className="bg-green-700 hover:bg-green-800 text-white flex items-center gap-2 disabled:opacity-50"
           >
             Continuer
             <ChevronRight className="h-4 w-4" />
