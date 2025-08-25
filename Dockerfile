@@ -18,7 +18,8 @@ COPY . .
 ENV DATABASE_URL=postgresql://postgres:postgres@localhost:5432/espace-elite
 ENV SKIP_ENV_VALIDATION=1
 RUN npx prisma generate --schema=./prisma/schema.prisma
-RUN npm run build
+ENV NODE_OPTIONS="--max-old-space-size=1536"
+RUN npm run build || (echo "Build failed, trying with reduced memory" && NODE_OPTIONS="--max-old-space-size=1024" npm run build)
 
 # Stage 4: Runner
 FROM base AS runner
