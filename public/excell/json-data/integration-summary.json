@@ -1,0 +1,225 @@
+{
+  "metadata": {
+    "generatedAt": "2025-08-27T14:29:16.004Z",
+    "totalSteps": 10,
+    "readySteps": 4,
+    "pendingSteps": 6,
+    "completedSteps": 0
+  },
+  "fileStatus": {
+    "patients.json": true,
+    "doctors-import.json": true,
+    "dashboard.json": true,
+    "technician-mappings.json": true,
+    "patients-enhanced.json": true,
+    "devices-prisma-ready.json": true,
+    "rentals-cleaned.json": true,
+    "cnam-bonds-cleaned.json": true,
+    "rental-periods-cleaned.json": true,
+    "validation-report.json": false
+  },
+  "integrationSteps": [
+    {
+      "order": 1,
+      "name": "Generate Doctor Users",
+      "description": "Extract doctors from patient data and prepare for user creation",
+      "script": "generateDoctorsImport.ts",
+      "inputFiles": [
+        "patients.json"
+      ],
+      "outputFiles": [
+        "doctors-import.json"
+      ],
+      "dependencies": [],
+      "status": "ready"
+    },
+    {
+      "order": 2,
+      "name": "Generate Technician Mappings",
+      "description": "Map technician names to existing users and identify new users needed",
+      "script": "generateTechnicianMappings.ts",
+      "inputFiles": [
+        "patients.json",
+        "dashboard.json"
+      ],
+      "outputFiles": [
+        "technician-mappings.json"
+      ],
+      "dependencies": [],
+      "status": "ready"
+    },
+    {
+      "order": 3,
+      "name": "Create New Users",
+      "description": "Import doctors and missing technicians as users in database",
+      "inputFiles": [
+        "doctors-import.json",
+        "technician-mappings.json"
+      ],
+      "outputFiles": [],
+      "dependencies": [
+        "Generate Doctor Users",
+        "Generate Technician Mappings"
+      ],
+      "status": "pending"
+    },
+    {
+      "order": 4,
+      "name": "Enhance Patient Data",
+      "description": "Clean and enhance patient data with proper formatting and relationships",
+      "script": "enhancePatientsData.ts",
+      "inputFiles": [
+        "patients.json",
+        "technician-mappings.json"
+      ],
+      "outputFiles": [
+        "patients-enhanced.json"
+      ],
+      "dependencies": [
+        "Generate Technician Mappings"
+      ],
+      "status": "ready"
+    },
+    {
+      "order": 5,
+      "name": "Import Patients",
+      "description": "Import enhanced patients to database with proper relationships",
+      "inputFiles": [
+        "patients-enhanced.json"
+      ],
+      "outputFiles": [],
+      "dependencies": [
+        "Create New Users",
+        "Enhance Patient Data"
+      ],
+      "status": "pending"
+    },
+    {
+      "order": 6,
+      "name": "Import Medical Devices",
+      "description": "Import medical devices from Prisma-ready file",
+      "inputFiles": [
+        "devices-prisma-ready.json"
+      ],
+      "outputFiles": [],
+      "dependencies": [],
+      "status": "ready"
+    },
+    {
+      "order": 7,
+      "name": "Import Rentals",
+      "description": "Import rental records with patient and device relationships",
+      "inputFiles": [
+        "rentals-cleaned.json"
+      ],
+      "outputFiles": [],
+      "dependencies": [
+        "Import Patients",
+        "Import Medical Devices"
+      ],
+      "status": "pending"
+    },
+    {
+      "order": 8,
+      "name": "Import CNAM Bonds",
+      "description": "Import CNAM insurance bonds and link to rentals",
+      "inputFiles": [
+        "cnam-bonds-cleaned.json"
+      ],
+      "outputFiles": [],
+      "dependencies": [
+        "Import Rentals"
+      ],
+      "status": "pending"
+    },
+    {
+      "order": 9,
+      "name": "Import Rental Periods",
+      "description": "Import rental payment periods",
+      "inputFiles": [
+        "rental-periods-cleaned.json"
+      ],
+      "outputFiles": [],
+      "dependencies": [
+        "Import Rentals",
+        "Import CNAM Bonds"
+      ],
+      "status": "pending"
+    },
+    {
+      "order": 10,
+      "name": "Verify Data Integrity",
+      "description": "Run validation checks on all imported data",
+      "inputFiles": [],
+      "outputFiles": [
+        "validation-report.json"
+      ],
+      "dependencies": [
+        "Import Rental Periods"
+      ],
+      "status": "pending"
+    }
+  ],
+  "executionOrder": [
+    {
+      "order": 1,
+      "name": "Generate Doctor Users",
+      "script": "generateDoctorsImport.ts",
+      "status": "ready"
+    },
+    {
+      "order": 2,
+      "name": "Generate Technician Mappings",
+      "script": "generateTechnicianMappings.ts",
+      "status": "ready"
+    },
+    {
+      "order": 3,
+      "name": "Create New Users",
+      "script": "Manual process",
+      "status": "pending"
+    },
+    {
+      "order": 4,
+      "name": "Enhance Patient Data",
+      "script": "enhancePatientsData.ts",
+      "status": "ready"
+    },
+    {
+      "order": 5,
+      "name": "Import Patients",
+      "script": "Manual process",
+      "status": "pending"
+    },
+    {
+      "order": 6,
+      "name": "Import Medical Devices",
+      "script": "Manual process",
+      "status": "ready"
+    },
+    {
+      "order": 7,
+      "name": "Import Rentals",
+      "script": "Manual process",
+      "status": "pending"
+    },
+    {
+      "order": 8,
+      "name": "Import CNAM Bonds",
+      "script": "Manual process",
+      "status": "pending"
+    },
+    {
+      "order": 9,
+      "name": "Import Rental Periods",
+      "script": "Manual process",
+      "status": "pending"
+    },
+    {
+      "order": 10,
+      "name": "Verify Data Integrity",
+      "script": "Manual process",
+      "status": "pending"
+    }
+  ]
+}

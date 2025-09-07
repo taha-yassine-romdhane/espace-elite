@@ -260,8 +260,8 @@ export function ProductDialog({ isOpen, onClose, type, onSelect }: ProductDialog
       setSelectedProducts([]);
       onClose();
     }}>
-      <DialogContent className="max-w-[90vw] w-full max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
+      <DialogContent className="max-w-[90vw] w-full h-[85vh] overflow-hidden flex flex-col p-0">
+        <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
           <DialogTitle className="flex items-center justify-between">
             <span>{getTitle()}</span>
             <div className="flex items-center gap-2">
@@ -275,9 +275,10 @@ export function ProductDialog({ isOpen, onClose, type, onSelect }: ProductDialog
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
-          {/* Enhanced Filter Section */}
-          <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 space-y-3">
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          <div className="space-y-4">
+            {/* Enhanced Filter Section */}
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 space-y-3">
             <div className="flex items-center gap-2 text-blue-700 font-medium mb-2">
               <Filter className="h-4 w-4" />
               <span>Filtres</span>
@@ -424,19 +425,19 @@ export function ProductDialog({ isOpen, onClose, type, onSelect }: ProductDialog
             </div>
           </div>
 
-          {/* Products Display */}
-          <div className={cn(
-            "max-h-[50vh] overflow-y-auto pr-2 flex-1",
-            viewMode === "grid" ? "grid grid-cols-5 gap-2" : "space-y-2"
-          )}>
-            {isLoading ? (
-              <div className="text-center py-4 text-gray-500">Chargement...</div>
-            ) : filteredProducts?.length === 0 ? (
-              <div className="text-center py-8">
-                <Package className="h-12 w-12 mx-auto text-gray-400 mb-3" />
-                <p className="text-gray-500 font-medium">Aucun produit trouvé</p>
-              </div>
-            ) : (
+            {/* Products Display */}
+            <div className={cn(
+              "overflow-y-auto pr-2",
+              viewMode === "grid" ? "grid grid-cols-5 gap-2" : "space-y-2"
+            )}>
+              {isLoading ? (
+                <div className="text-center py-4 text-gray-500">Chargement...</div>
+              ) : filteredProducts?.length === 0 ? (
+                <div className="text-center py-8">
+                  <Package className="h-12 w-12 mx-auto text-gray-400 mb-3" />
+                  <p className="text-gray-500 font-medium">Aucun produit trouvé</p>
+                </div>
+              ) : (
               filteredProducts?.map((product: any) => {
                 const isSelected = selectedProducts.some(p => p.id === product.id);
                 const isStockable = product.type === 'ACCESSORY' || product.type === 'SPARE_PART';
@@ -610,11 +611,12 @@ export function ProductDialog({ isOpen, onClose, type, onSelect }: ProductDialog
                 );
               })
             )}
+            </div>
           </div>
         </div>
         
         {/* Footer with action buttons - Fixed positioning */}
-        <div className="flex-shrink-0 flex items-center justify-between bg-gray-50 px-6 py-4 border-t mt-auto">
+        <div className="flex-shrink-0 flex items-center justify-between bg-gray-50 px-6 py-4 border-t">
           <div className="flex items-center gap-2">
             {selectedProducts.length > 0 && (
               <Button

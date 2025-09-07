@@ -21,7 +21,7 @@ import * as z from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Eye} from "lucide-react";
 import {
   Dialog,
@@ -43,6 +43,7 @@ import {
 
 // Form validation schema for medical devices
 const medicalDeviceSchema = z.object({
+  deviceCode: z.string().optional(),
   name: z.string({ required_error: "Veuillez sélectionner un nom." }),
   customName: z.string().optional(),
   type: z.literal("MEDICAL_DEVICE"),
@@ -80,14 +81,42 @@ interface MedicalDeviceFormProps {
 export function MedicalDeviceForm({ initialData, onSubmit, stockLocations, isEditMode = false }: MedicalDeviceFormProps) {
   // State to control parameter preview dialog
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [nextDeviceCode, setNextDeviceCode] = useState<string>('');
 
   const standardDeviceNames = ["CPAP", "VNI", "Concentrateur O²", "Vi", "Bouteil O²"];
   const isCustomName = isEditMode && initialData?.name && !standardDeviceNames.includes(initialData.name);
+
+  // Generate next device code for new devices
+  useEffect(() => {
+    if (!isEditMode && !nextDeviceCode) {
+      fetchNextDeviceCode();
+    }
+  }, [isEditMode, nextDeviceCode]);
+
+  const fetchNextDeviceCode = async () => {
+    try {
+      const response = await fetch('/api/medical-devices/next-code');
+      if (response.ok) {
+        const { nextCode } = await response.json();
+        setNextDeviceCode(nextCode);
+      } else {
+        // Fallback: generate a random code if API fails
+        const timestamp = Date.now().toString().slice(-4);
+        setNextDeviceCode(`APP${timestamp}`);
+      }
+    } catch (error) {
+      console.error('Error fetching next device code:', error);
+      // Fallback: generate a random code if API fails
+      const timestamp = Date.now().toString().slice(-4);
+      setNextDeviceCode(`APP${timestamp}`);
+    }
+  };
 
   const form = useForm<MedicalDeviceFormValues>({
     resolver: zodResolver(medicalDeviceSchema),
     defaultValues: {
       ...initialData,
+      deviceCode: isEditMode ? initialData?.deviceCode : nextDeviceCode,
       name: isCustomName ? 'Autre' : initialData?.name,
       customName: isCustomName ? initialData.name : undefined,
       type: "MEDICAL_DEVICE",
@@ -96,6 +125,13 @@ export function MedicalDeviceForm({ initialData, onSubmit, stockLocations, isEdi
       destination: initialData?.destination || "FOR_SALE"
     },
   });
+
+  // Update device code in form when it's generated
+  useEffect(() => {
+    if (!isEditMode && nextDeviceCode) {
+      form.setValue('deviceCode', nextDeviceCode);
+    }
+  }, [nextDeviceCode, form, isEditMode]);
 
   const handleSubmit = async (values: MedicalDeviceFormValues) => {
     try {
@@ -152,6 +188,32 @@ export function MedicalDeviceForm({ initialData, onSubmit, stockLocations, isEdi
               <TabsContent value="basic">
                 <Card>
                   <CardContent className="space-y-4 pt-4">
+                    <FormField
+                      control={form.control}
+                      name="deviceCode"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Code de l'appareil</FormLabel>
+                          <FormControl>
+                            <div className="flex items-center space-x-2">
+                              <Input
+                                {...field}
+                                value={field.value || (isEditMode ? 'Code existant' : nextDeviceCode || 'Génération...')}
+                                readOnly
+                                className="bg-gray-50 font-mono text-lg font-semibold text-blue-600"
+                                placeholder="Code automatique..."
+                              />
+                              {!isEditMode && (
+                                <div className="text-sm text-gray-500 whitespace-nowrap">
+                                  Auto-généré
+                                </div>
+                              )}
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                     <FormField
                       control={form.control}
                       name="name"

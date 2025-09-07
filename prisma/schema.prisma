@@ -364,6 +364,7 @@ model File {
 
 model MedicalDevice {
   id                  String                   @id @default(cuid())
+  deviceCode          String?                  @unique
   name                String
   type                String
   installationDate    DateTime?
