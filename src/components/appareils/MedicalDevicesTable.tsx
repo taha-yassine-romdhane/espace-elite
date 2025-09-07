@@ -84,6 +84,7 @@ export const MedicalDevicesTable: React.FC<MedicalDevicesTableProps> = ({
         (item.brand && item.brand.toLowerCase().includes(query)) ||
         (item.model && item.model.toLowerCase().includes(query)) ||
         (item.serialNumber && item.serialNumber.toLowerCase().includes(query)) ||
+        ((item as any).deviceCode && (item as any).deviceCode.toLowerCase().includes(query)) ||
         (item.stockLocation && typeof item.stockLocation === 'object' && 
          item.stockLocation.name && item.stockLocation.name.toLowerCase().includes(query))
       );
@@ -329,6 +330,7 @@ export const MedicalDevicesTable: React.FC<MedicalDevicesTableProps> = ({
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Code</TableHead>
               <TableHead>Nom</TableHead>
               <TableHead>Marque/Modèle</TableHead>
               <TableHead>Num Serie</TableHead>
@@ -342,6 +344,11 @@ export const MedicalDevicesTable: React.FC<MedicalDevicesTableProps> = ({
           <TableBody>
             {paginatedData.map((device) => (
             <TableRow key={device.id}>
+              <TableCell className="font-medium">
+                <Badge variant="outline" className="font-mono text-xs">
+                  {(device as any).deviceCode || 'N/A'}
+                </Badge>
+              </TableCell>
               <TableCell className="font-medium">{device.name}</TableCell>
               <TableCell>
                 <div className="text-sm text-gray-600">

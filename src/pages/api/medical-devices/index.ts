@@ -117,6 +117,7 @@ export default async function handler(
           
           return {
             id: device.id,
+            deviceCode: device.deviceCode,
             name: device.name,
             type: device.type,
             brand: device.brand,
@@ -171,6 +172,7 @@ export default async function handler(
           if (type === 'MEDICAL_DEVICE' || type === 'DIAGNOSTIC_DEVICE') {
             const newMedicalDevice = await prisma.medicalDevice.create({
               data: {
+                deviceCode: data.deviceCode,
                 name: data.name,
                 type: type,
                 brand: data.brand,
@@ -224,6 +226,7 @@ export default async function handler(
 
             return res.status(201).json({
               id: newMedicalDevice.id,
+              deviceCode: newMedicalDevice.deviceCode,
               name: newMedicalDevice.name,
               type: newMedicalDevice.type,
               brand: newMedicalDevice.brand,

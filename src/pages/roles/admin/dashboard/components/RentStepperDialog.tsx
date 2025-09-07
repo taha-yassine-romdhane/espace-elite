@@ -107,8 +107,16 @@ export function RentStepperDialog({ isOpen, onClose }: RentStepperDialogProps) {
   };
 
   // Product Selection Handlers
-  const handleProductSelect = (product: any) => {
-    setSelectedProducts([...selectedProducts, { ...product, quantity: 1 }]);
+  const handleProductSelect = (products: any) => {
+    // Handle both single product and array of products
+    if (Array.isArray(products)) {
+      // If it's an array, add all products with quantity 1
+      const productsWithQuantity = products.map(product => ({ ...product, quantity: 1 }));
+      setSelectedProducts([...selectedProducts, ...productsWithQuantity]);
+    } else {
+      // If it's a single product, add it with quantity 1
+      setSelectedProducts([...selectedProducts, { ...products, quantity: 1 }]);
+    }
   };
 
   const handleRemoveProduct = (index: number) => {
