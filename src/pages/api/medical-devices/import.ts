@@ -14,9 +14,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const { medicalDevices } = req.body;
+    // Accept both 'devices' and 'medicalDevices' for backward compatibility
+    const { devices, medicalDevices } = req.body;
+    const devicesToImport = devices || medicalDevices;
 
-    if (!Array.isArray(medicalDevices) || medicalDevices.length === 0) {
+    if (!Array.isArray(devicesToImport) || devicesToImport.length === 0) {
       return res.status(400).json({ error: 'Invalid medical devices data' });
     }
 
@@ -25,8 +27,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let imported = 0;
     const errors = [];
 
-    for (let i = 0; i < medicalDevices.length; i++) {
-      const device = medicalDevices[i];
+    for (let i = 0; i < devicesToImport.length; i++) {
+      const device = devicesToImport[i];
       
       try {
         // Check for duplicate serial numbers
@@ -47,9 +49,59 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           }
         }
 
+        // Generate next device code based on type
+        // DIAGNOSTIC_DEVICE: APP-DIAG-01, APP-DIAG-02, etc.
+        // MEDICAL_DEVICE: APP0001, APP0002, etc.
+        let nextDeviceCode = 'APP0001';
+
+        if (device.type === 'DIAGNOSTIC_DEVICE') {
+          const lastDiagDevice = await prisma.medicalDevice.findFirst({
+            where: {
+              deviceCode: {
+                startsWith: 'APP-DIAG-'
+              }
+            },
+            orderBy: {
+              deviceCode: 'desc'
+            }
+          });
+
+          nextDeviceCode = 'APP-DIAG-01';
+          if (lastDiagDevice && lastDiagDevice.deviceCode) {
+            const lastNumber = parseInt(lastDiagDevice.deviceCode.replace('APP-DIAG-', ''));
+            if (!isNaN(lastNumber)) {
+              nextDeviceCode = `APP-DIAG-${String(lastNumber + 1).padStart(2, '0')}`;
+            }
+          }
+        } else {
+          // For regular medical devices
+          const lastDevice = await prisma.medicalDevice.findFirst({
+            where: {
+              deviceCode: {
+                startsWith: 'APP',
+                not: {
+                  startsWith: 'APP-DIAG-'
+                }
+              }
+            },
+            orderBy: {
+              deviceCode: 'desc'
+            }
+          });
+
+          nextDeviceCode = 'APP0001';
+          if (lastDevice && lastDevice.deviceCode) {
+            const lastNumber = parseInt(lastDevice.deviceCode.replace('APP', ''));
+            if (!isNaN(lastNumber)) {
+              nextDeviceCode = `APP${String(lastNumber + 1).padStart(4, '0')}`;
+            }
+          }
+        }
+
         // Create the medical device
         const newDevice = await prisma.medicalDevice.create({
           data: {
+            deviceCode: nextDeviceCode,
             name: device.name,
             type: device.type || 'MEDICAL_DEVICE',
             brand: device.brand,
@@ -63,7 +115,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             rentalPrice: device.rentalPrice,
             technicalSpecs: device.technicalSpecs,
             destination: device.destination || 'FOR_SALE',
-            requiresMaintenance: device.requiresMaintenance || false,
             status: device.status || 'ACTIVE',
             stockQuantity: device.stockQuantity || 1,
             configuration: device.configuration,
@@ -85,7 +136,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     res.status(200).json({
       imported,
-      total: medicalDevices.length,
+      total: devicesToImport.length,
       errors: errors.length > 0 ? errors : undefined,
     });
 

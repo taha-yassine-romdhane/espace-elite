@@ -2,7 +2,6 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { SaleStepperDialog } from "./components/SaleStepperDialog";
 import { DiagnosticStepperDialog } from "./components/DiagnosticStepperDialog";
-import { RentStepperDialog } from "./components/RentStepperDialog";
 import { RdvStepperDialog } from "./components/RdvStepperDialog";
 import { Building2, ShoppingCart, Stethoscope, Calendar } from "lucide-react";
 import { useRouter } from "next/router";
@@ -12,11 +11,11 @@ import AdminLayout from "../AdminLayout";
 import { AppointmentsTable } from "./components/tables/AppointmentsTable";
 import { DiagnosticTable } from "./components/tables/DiagnosticTable";
 import { SalesTable } from "./components/tables/SalesTable";
-import { RentalTable } from "./components/tables/RentalTable";
+import RentalStatistics from "../location/components/RentalStatistics";
 import { TabSwitcher } from "./components/TabSwitcher";
 
 function DashboardPage() {
-  const [selectedAction, setSelectedAction] = useState<"rdv" | "diagnostique" | "vente" | "location" | null>(null);
+  const [selectedAction, setSelectedAction] = useState<"rdv" | "diagnostique" | "vente" | null>(null);
   const [activeTab, setActiveTab] = useState<"appointments" | "diagnostics" | "sales" | "rentals">("appointments");
   const router = useRouter();
 
@@ -53,12 +52,12 @@ function DashboardPage() {
               <span>Commencer une Vente</span>
             </Button>
             
-            <Button 
+            <Button
               className="w-full bg-blue-900 hover:bg-blue-700 text-white flex items-center justify-start gap-2"
-              onClick={() => setSelectedAction("location")}
+              onClick={() => router.push("/roles/admin/location")}
             >
               <Building2 className="h-5 w-5" />
-              <span>Location Détaillée</span>
+              <span>Gestion des Locations</span>
             </Button>
           </div>
         </div>
@@ -88,10 +87,7 @@ function DashboardPage() {
         )}
         
         {activeTab === "rentals" && (
-          <RentalTable 
-            onViewDetails={(id) => router.push(`/roles/admin/rentals/${id}`)}
-            onEdit={(id) => router.push(`/roles/admin/rentals/${id}/edit`)}
-          />
+          <RentalStatistics />
         )}
 
         {/* Stepper Dialogs */}
@@ -114,13 +110,6 @@ function DashboardPage() {
             isOpen={true}
             onClose={() => setSelectedAction(null)}
             action={selectedAction}
-          />
-        )}
-        
-        {selectedAction === "location" && (
-          <RentStepperDialog
-            isOpen={true}
-            onClose={() => setSelectedAction(null)}
           />
         )}
     </div>

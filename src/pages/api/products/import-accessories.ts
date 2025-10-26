@@ -29,38 +29,83 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const accessory = accessories[i];
       
       try {
-        // Create the product first
-        const product = await prisma.product.create({
-          data: {
+        // Check if product with same name already exists
+        const existingProduct = await prisma.product.findFirst({
+          where: {
             name: accessory.name,
             type: 'ACCESSORY',
-            brand: accessory.brand,
-            model: accessory.model,
-            stockLocation: accessory.stockLocationId ? {
-              connect: { id: accessory.stockLocationId }
-            } : undefined,
-            purchasePrice: accessory.purchasePrice,
-            sellingPrice: accessory.sellingPrice,
-            warrantyExpiration: accessory.warrantyExpiration,
-            status: 'ACTIVE', // Products use ProductStatus enum
           },
         });
 
-        // Create stock entry if stockLocationId is provided
-        if (accessory.stockLocationId && accessory.stockQuantity > 0) {
-          await prisma.stock.create({
+        let product;
+
+        if (existingProduct) {
+          // Product exists, just add or update stock for this location
+          product = existingProduct;
+
+          if (accessory.stockLocationId && accessory.stockQuantity > 0) {
+            // Check if stock entry exists for this location
+            const existingStock = await prisma.stock.findUnique({
+              where: {
+                locationId_productId: {
+                  locationId: accessory.stockLocationId,
+                  productId: product.id,
+                },
+              },
+            });
+
+            if (existingStock) {
+              // Update existing stock quantity
+              await prisma.stock.update({
+                where: { id: existingStock.id },
+                data: {
+                  quantity: existingStock.quantity + accessory.stockQuantity,
+                  status: accessory.status || existingStock.status,
+                },
+              });
+            } else {
+              // Create new stock entry for this location
+              await prisma.stock.create({
+                data: {
+                  productId: product.id,
+                  locationId: accessory.stockLocationId,
+                  quantity: accessory.stockQuantity,
+                  status: accessory.status || 'FOR_SALE',
+                },
+              });
+            }
+          }
+        } else {
+          // Create new product
+          product = await prisma.product.create({
             data: {
-              productId: product.id,
-              locationId: accessory.stockLocationId,
-              quantity: accessory.stockQuantity,
-              status: accessory.status || 'FOR_SALE', // Stock uses StockStatus enum
+              name: accessory.name,
+              type: 'ACCESSORY',
+              brand: accessory.brand,
+              model: accessory.model,
+              purchasePrice: accessory.purchasePrice,
+              sellingPrice: accessory.sellingPrice,
+              warrantyExpiration: accessory.warrantyExpiration,
+              status: 'ACTIVE', // Products use ProductStatus enum
             },
           });
+
+          // Create stock entry if stockLocationId is provided
+          if (accessory.stockLocationId && accessory.stockQuantity > 0) {
+            await prisma.stock.create({
+              data: {
+                productId: product.id,
+                locationId: accessory.stockLocationId,
+                quantity: accessory.stockQuantity,
+                status: accessory.status || 'FOR_SALE',
+              },
+            });
+          }
         }
 
         imported++;
         results.push({ success: true, productId: product.id });
-        
+
       } catch (error) {
         console.error(`Error importing accessory ${i + 1}:`, error);
         errors.push({

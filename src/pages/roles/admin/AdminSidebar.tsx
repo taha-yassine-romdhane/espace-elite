@@ -26,6 +26,8 @@ import {
     FileSpreadsheet,
     MessageCircle,
     Kanban,
+    KeyRound,
+    Shield,
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
@@ -61,6 +63,8 @@ const Sidebar: React.FC = () => {
         { id: 'appareils', icon: <BriefcaseMedical size={20} />, label: "Gestion des Produits", path: "/roles/admin/appareils" },
         { id: 'reparateur', icon: <Wrench size={20} />, label: "Gestion des Reparateurs", path: "/roles/admin/reparateur" },
         { id: 'stock', icon: <Database size={20} />, label: "Gestion des Stock", path: "/roles/admin/stock" },
+        { id: 'location', icon: <KeyRound size={20} />, label: "Gestion des Locations", path: "/roles/admin/location" },
+        { id: 'cnam-management', icon: <Shield size={20} />, label: "Gestion CNAM", path: "/roles/admin/cnam-management" },
         { id: 'excel-import', icon: <FileSpreadsheet size={20} />, label: "Import/Export Excel", path: "/roles/admin/excel-import" },
         { id: 'help', icon: <HelpCircle size={20} />, label: "aide et support", path: "/roles/admin/help" },
         { id: 'settings', icon: <Settings size={20} />, label: "Paramètres", path: "/roles/admin/settings" },

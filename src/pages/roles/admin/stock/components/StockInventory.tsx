@@ -210,9 +210,9 @@ export default function StockInventory() {
           return <Badge variant="default">En vente</Badge>;
         case 'FOR_RENT':
           return <Badge variant="secondary">En location</Badge>;
-        case 'EN_REPARATION':
+        case 'IN_REPAIR':
           return <Badge variant="destructive">En réparation</Badge>;
-        case 'HORS_SERVICE':
+        case 'OUT_OF_SERVICE':
           return <Badge variant="outline">Hors service</Badge>;
         default:
           return <Badge>{status}</Badge>;

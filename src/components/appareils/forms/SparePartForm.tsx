@@ -20,29 +20,34 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
+import { useState } from "react";
+import { PlusCircle, X } from "lucide-react";
 
-// Status mapping for better user experience
-const statusOptions = [
-  { value: "EN_VENTE", label: "En Vente" },
-  { value: "EN_LOCATION", label: "En Location" },
-  { value: "EN_REPARATION", label: "En Réparation" },
-  { value: "HORS_SERVICE", label: "Hors Service" },
-];
+// Stock location entry schema
+const stockLocationEntrySchema = z.object({
+  locationId: z.string().min(1, "Emplacement requis"),
+  quantity: z.coerce.number().min(1, "La quantité doit être au moins 1"),
+  status: z.enum(['FOR_SALE', 'FOR_RENT', 'IN_REPAIR', 'OUT_OF_SERVICE']).default('FOR_SALE'),
+});
 
 // Form validation schema for spare parts
 const sparePartSchema = z.object({
-  name: z.string().min(1, { message: "Le nom est requis" }),
+  name: z.string().min(2, "Le nom doit contenir au moins 2 caractères"),
+  type: z.literal("SPARE_PART"),
   brand: z.string().optional().nullable(),
   model: z.string().optional().nullable(),
-  stockLocationId: z.string().optional().nullable(),
-  stockQuantity: z.coerce.number().min(0),
-  status: z.string(),
-  type: z.literal("SPARE_PART"),  // Ensure type is always SPARE_PART
-  purchasePrice: z.coerce.number().min(0).nullable(),
-  sellingPrice: z.coerce.number().min(0).nullable(),
+  purchasePrice: z.coerce.number().min(0).optional().nullable(),
+  sellingPrice: z.coerce.number().min(0).optional().nullable(),
+  stockLocations: z.array(stockLocationEntrySchema).min(1, "Au moins un emplacement est requis"),
 });
 
 type SparePartFormValues = z.infer<typeof sparePartSchema>;
+
+interface StockLocationEntry {
+  locationId: string;
+  quantity: number;
+  status: 'FOR_SALE' | 'FOR_RENT' | 'IN_REPAIR' | 'OUT_OF_SERVICE';
+}
 
 interface SparePartFormProps {
   initialData?: any;
@@ -51,74 +56,86 @@ interface SparePartFormProps {
   isEditMode?: boolean;
 }
 
+// Status options
+const statusOptions = [
+  { value: "FOR_SALE", label: "À Vendre" },
+  { value: "FOR_RENT", label: "À Louer" },
+  { value: "IN_REPAIR", label: "En Réparation" },
+  { value: "OUT_OF_SERVICE", label: "Hors Service" },
+];
+
 export function SparePartForm({ initialData, onSubmit, stockLocations, isEditMode = false }: SparePartFormProps) {
-  const defaultValues = {
-    name: initialData?.name || "",
-    brand: initialData?.brand || "",
-    model: initialData?.model || "",
-    purchasePrice: initialData?.purchasePrice || "",
-    sellingPrice: initialData?.sellingPrice || "",
-    stockLocationId: initialData?.stockLocationId || "",
-    stockQuantity: initialData?.stockQuantity || 0,
-    status: initialData?.status || "EN_VENTE",
-    type: "SPARE_PART" as const,  // Type assertion to ensure it's SPARE_PART
-  };
+  // Transform initialData stocks to match our form structure
+  const initialStockLocations: StockLocationEntry[] = initialData?.stocks?.map((stock: any) => ({
+    locationId: stock.locationId || stock.location?.id,
+    quantity: stock.quantity,
+    status: stock.status || 'FOR_SALE',
+  })) || [{ locationId: '', quantity: 1, status: 'FOR_SALE' as const }];
+
+  const [stockLocationEntries, setStockLocationEntries] = useState<StockLocationEntry[]>(initialStockLocations);
 
   const form = useForm<SparePartFormValues>({
     resolver: zodResolver(sparePartSchema),
-    defaultValues,
+    defaultValues: {
+      type: "SPARE_PART",
+      name: initialData?.name || "",
+      brand: initialData?.brand || "",
+      model: initialData?.model || "",
+      purchasePrice: initialData?.purchasePrice || null,
+      sellingPrice: initialData?.sellingPrice || null,
+      stockLocations: initialStockLocations,
+    },
   });
 
-  const handleSubmit = async (values: SparePartFormValues) => {
-    try {
-      const cleanedValues = Object.entries(values).reduce((acc, [key, value]) => {
-        acc[key] = value;
-        // Handle empty strings
-        if (value === "") {
-          acc[key] = null;
-        }
-        // Handle numeric fields
-        else if (["purchasePrice", "sellingPrice"].includes(key)) {
-          acc[key] = value ? parseFloat(value.toString()) : null;
-        }
-        // Handle stock quantity
-        else if (key === "stockQuantity") {
-          acc[key] = value ? parseInt(value.toString()) : 0;
-        }
-        return acc;
-      }, {} as any);
+  const handleSubmit = (data: SparePartFormValues) => {
+    onSubmit(data);
+  };
 
-      // Ensure type is always SPARE_PART
-      cleanedValues.type = "SPARE_PART";
+  const addStockLocation = () => {
+    const newEntry: StockLocationEntry = {
+      locationId: '',
+      quantity: 1,
+      status: 'FOR_SALE',
+    };
+    const updatedEntries = [...stockLocationEntries, newEntry];
+    setStockLocationEntries(updatedEntries);
+    form.setValue('stockLocations', updatedEntries);
+  };
 
-      await onSubmit(cleanedValues);
-    } catch (error) {
-      console.error("Error in spare part form submission:", error);
-      throw error;
-    }
+  const removeStockLocation = (index: number) => {
+    const updatedEntries = stockLocationEntries.filter((_, i) => i !== index);
+    setStockLocationEntries(updatedEntries);
+    form.setValue('stockLocations', updatedEntries);
+  };
+
+  const updateStockLocation = (index: number, field: keyof StockLocationEntry, value: any) => {
+    const updatedEntries = [...stockLocationEntries];
+    updatedEntries[index] = { ...updatedEntries[index], [field]: value };
+    setStockLocationEntries(updatedEntries);
+    form.setValue('stockLocations', updatedEntries);
   };
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6 bg-white rounded-lg overflow-hidden">
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
         <Tabs defaultValue="basic" className="w-full">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="basic">Information de Base</TabsTrigger>
-            <TabsTrigger value="stock">Stock</TabsTrigger>
+            <TabsTrigger value="stock">Stock par Emplacement</TabsTrigger>
             <TabsTrigger value="financial">Finance</TabsTrigger>
           </TabsList>
 
           <TabsContent value="basic">
-            <Card className="border-0 shadow-none">
-              <CardContent className="space-y-4 pt-4 px-5">
+            <Card>
+              <CardContent className="space-y-4 pt-4">
                 <FormField
                   control={form.control}
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Nom*</FormLabel>
+                      <FormLabel>Nom</FormLabel>
                       <FormControl>
-                        <Input {...field} />
+                        <Input {...field} value={field.value ?? ''} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -133,7 +150,7 @@ export function SparePartForm({ initialData, onSubmit, stockLocations, isEditMod
                       <FormItem>
                         <FormLabel>Marque</FormLabel>
                         <FormControl>
-                          <Input {...field} value={field.value || ""} />
+                          <Input {...field} value={field.value ?? ''} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -147,7 +164,7 @@ export function SparePartForm({ initialData, onSubmit, stockLocations, isEditMod
                       <FormItem>
                         <FormLabel>Modèle</FormLabel>
                         <FormControl>
-                          <Input {...field} value={field.value || ""} />
+                          <Input {...field} value={field.value ?? ''} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -159,43 +176,73 @@ export function SparePartForm({ initialData, onSubmit, stockLocations, isEditMod
           </TabsContent>
 
           <TabsContent value="stock">
-            <Card className="border-0 shadow-none">
-              <CardContent className="space-y-4 pt-4 px-5">
-                <FormField
-                  control={form.control}
-                  name="stockLocationId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Emplacement</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value || ""} >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Sélectionner l'emplacement" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {stockLocations.map((location) => (
-                            <SelectItem key={location.id} value={location.id}>
-                              {location.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+            <Card>
+              <CardContent className="space-y-4 pt-4">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold">Emplacements de Stock</h3>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addStockLocation}
+                  >
+                    <PlusCircle className="h-4 w-4 mr-2" />
+                    Ajouter un emplacement
+                  </Button>
+                </div>
 
-                <FormField
-                  control={form.control}
-                  name="status"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Statut</FormLabel>
-                      <FormControl>
-                        <Select onValueChange={field.onChange} defaultValue={field.value ?? ''}>
+                {stockLocationEntries.map((entry, index) => (
+                  <div key={index} className="border rounded-lg p-4 space-y-3 relative">
+                    {stockLocationEntries.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute top-2 right-2"
+                        onClick={() => removeStockLocation(index)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Emplacement</label>
+                        <Select
+                          value={entry.locationId}
+                          onValueChange={(value) => updateStockLocation(index, 'locationId', value)}
+                        >
                           <SelectTrigger>
-                            <SelectValue placeholder="Sélectionner le statut" />
+                            <SelectValue placeholder="Sélectionner" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {stockLocations.map((location) => (
+                              <SelectItem key={location.id} value={location.id}>
+                                {location.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Quantité</label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={entry.quantity}
+                          onChange={(e) => updateStockLocation(index, 'quantity', parseInt(e.target.value) || 1)}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Statut</label>
+                        <Select
+                          value={entry.status}
+                          onValueChange={(value) => updateStockLocation(index, 'status', value)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
                             {statusOptions.map((option) => (
@@ -205,27 +252,16 @@ export function SparePartForm({ initialData, onSubmit, stockLocations, isEditMod
                             ))}
                           </SelectContent>
                         </Select>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                      </div>
+                    </div>
+                  </div>
+                ))}
 
                 <FormField
                   control={form.control}
-                  name="stockQuantity"
-                  render={({ field }) => (
+                  name="stockLocations"
+                  render={() => (
                     <FormItem>
-                      <FormLabel>Quantité en Stock</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min="0"
-                          {...field}
-                          onChange={(e) => field.onChange(e.target.valueAsNumber)}
-                          value={field.value || 0}
-                        />
-                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -235,8 +271,8 @@ export function SparePartForm({ initialData, onSubmit, stockLocations, isEditMod
           </TabsContent>
 
           <TabsContent value="financial">
-            <Card className="border-0 shadow-none">
-              <CardContent className="space-y-4 pt-4 px-5">
+            <Card>
+              <CardContent className="space-y-4 pt-4">
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -245,12 +281,13 @@ export function SparePartForm({ initialData, onSubmit, stockLocations, isEditMod
                       <FormItem>
                         <FormLabel>Prix d&apos;Achat</FormLabel>
                         <FormControl>
-                          <Input type="number" step="0.01" min="0" {...field} value={field.value || ''} />
+                          <Input type="number" min="0" step="0.01" {...field} value={field.value ?? ''} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+
                   <FormField
                     control={form.control}
                     name="sellingPrice"
@@ -258,7 +295,7 @@ export function SparePartForm({ initialData, onSubmit, stockLocations, isEditMod
                       <FormItem>
                         <FormLabel>Prix de Vente</FormLabel>
                         <FormControl>
-                          <Input type="number" step="0.01" min="0" {...field} value={field.value || ''} />
+                          <Input type="number" min="0" step="0.01" {...field} value={field.value ?? ''} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -270,21 +307,11 @@ export function SparePartForm({ initialData, onSubmit, stockLocations, isEditMod
           </TabsContent>
         </Tabs>
 
-        <div className="p-4 bg-gray-50 border-t border-gray-200 flex justify-end space-x-4">
-          <Button
-            type="submit"
-            disabled={form.formState.isSubmitting}
-          >
-            {form.formState.isSubmitting ? (
-              "Chargement..."
-            ) : (
-              isEditMode ? "Mettre à jour" : "Ajouter"
-            )}
-          </Button>
+        <div className="flex justify-end">
+          <Button type="submit">{isEditMode ? "Mettre à jour" : "Ajouter"}</Button>
         </div>
       </form>
     </Form>
   );
 }
-
 export default SparePartForm;

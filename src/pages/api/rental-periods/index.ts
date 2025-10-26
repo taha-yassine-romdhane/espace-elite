@@ -1,231 +1,144 @@
-import { NextApiRequest, NextApiResponse } from 'next';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/pages/api/auth/[...nextauth]';
-import prisma from '@/lib/db';
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { prisma } from '@/lib/prisma';
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  // Check authentication
-  const session = await getServerSession(req, res, authOptions);
-  if (!session) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  // Set CORS headers
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  switch (req.method) {
-    case 'GET':
-      try {
-        const { rentalId } = req.query;
-
-        if (!rentalId || typeof rentalId !== 'string') {
-          return res.status(400).json({ error: 'Rental ID is required' });
-        }
-
-        // Fetch rental periods
-        const periods = await prisma.rentalPeriod.findMany({
-          where: {
-            rentalId: rentalId,
-          },
-          include: {
-            cnamBond: true,
-            payment: true,
-          },
-          orderBy: {
-            startDate: 'asc'
-          }
-        });
-
-        return res.status(200).json({ 
-          periods,
-          success: true 
-        });
-
-      } catch (error) {
-        console.error('Error fetching rental periods:', error);
-        return res.status(500).json({ error: 'Failed to fetch rental periods' });
-      }
-
-    case 'PATCH':
-      try {
-        const { periods, rentalId } = req.body;
-
-        if (!rentalId || !Array.isArray(periods)) {
-          return res.status(400).json({ error: 'Rental ID and periods array are required' });
-        }
-
-        // Verify rental exists
-        const rental = await prisma.rental.findUnique({
-          where: { id: rentalId }
-        });
-
-        if (!rental) {
-          return res.status(404).json({ error: 'Rental not found' });
-        }
-
-        // Use a transaction to update all periods
-        const result = await prisma.$transaction(async (tx) => {
-          // Get existing periods for the rental
-          const existingPeriods = await tx.rentalPeriod.findMany({
-            where: { rentalId }
-          });
-
-          const existingPeriodIds = existingPeriods.map(p => p.id);
-          const incomingPeriodIds = periods.filter(p => p.id && !p.id.startsWith('new-')).map(p => p.id);
-
-          // Delete periods that are no longer in the list
-          const periodsToDelete = existingPeriodIds.filter(id => !incomingPeriodIds.includes(id));
-          if (periodsToDelete.length > 0) {
-            await tx.rentalPeriod.deleteMany({
-              where: {
-                id: { in: periodsToDelete },
-                rentalId
-              }
-            });
-          }
-
-          // Update or create periods
-          const updatedPeriods = [];
-          for (const period of periods) {
-            if (period.id && !period.id.startsWith('new-')) {
-              // Check if the period exists before trying to update it
-              const existingPeriod = existingPeriods.find(p => p.id === period.id);
-              
-              if (existingPeriod) {
-                // Update existing period
-                const updated = await tx.rentalPeriod.update({
-                  where: { id: period.id },
-                  data: {
-                    startDate: new Date(period.startDate),
-                    endDate: new Date(period.endDate),
-                    amount: typeof period.amount === 'number' ? period.amount : parseFloat(period.amount) || 0,
-                    paymentMethod: period.paymentMethod || 'CASH',
-                    isGapPeriod: period.isGapPeriod || false,
-                    gapReason: period.gapReason || null,
-                    notes: period.notes || null,
-                    cnamBondId: period.cnamBondId || null,
-                  },
-                  include: {
-                    cnamBond: true,
-                    payment: true,
-                  }
-                });
-                updatedPeriods.push(updated);
-              } else {
-                // Period doesn't exist, create it as new
-                console.warn(`Period with ID ${period.id} not found, creating as new period`);
-                const created = await tx.rentalPeriod.create({
-                  data: {
-                    rentalId,
-                    startDate: new Date(period.startDate),
-                    endDate: new Date(period.endDate),
-                    amount: typeof period.amount === 'number' ? period.amount : parseFloat(period.amount) || 0,
-                    paymentMethod: period.paymentMethod || 'CASH',
-                    isGapPeriod: period.isGapPeriod || false,
-                    gapReason: period.gapReason || null,
-                    notes: period.notes || null,
-                    cnamBondId: period.cnamBondId || null,
-                  },
-                  include: {
-                    cnamBond: true,
-                    payment: true,
-                  }
-                });
-                updatedPeriods.push(created);
-              }
-            } else {
-              // Create new period
-              const created = await tx.rentalPeriod.create({
-                data: {
-                  rentalId,
-                  startDate: new Date(period.startDate),
-                  endDate: new Date(period.endDate),
-                  amount: typeof period.amount === 'number' ? period.amount : parseFloat(period.amount) || 0,
-                  paymentMethod: period.paymentMethod || 'CASH',
-                  isGapPeriod: period.isGapPeriod || false,
-                  gapReason: period.gapReason || null,
-                  notes: period.notes || null,
-                  cnamBondId: period.cnamBondId || null,
+  try {
+    if (req.method === 'GET') {
+      const periods = await prisma.rentalPeriod.findMany({
+        include: {
+          rental: {
+            include: {
+              patient: {
+                select: {
+                  firstName: true,
+                  lastName: true,
                 },
-                include: {
-                  cnamBond: true,
-                  payment: true,
-                }
-              });
-              updatedPeriods.push(created);
-            }
-          }
-
-          // Update rental configuration with new totals
-          const totalAmount = periods.reduce((sum: number, period: any) => {
-            const amount = typeof period.amount === 'number' ? period.amount : parseFloat(period.amount) || 0;
-            return sum + amount;
-          }, 0);
-          
-          await tx.rentalConfiguration.upsert({
-            where: { rentalId },
-            update: {
-              totalPaymentAmount: totalAmount || 0,
-              cnamEligible: periods.some((p: any) => p.paymentMethod === 'CNAM'),
+              },
+              medicalDevice: {
+                select: {
+                  name: true,
+                  deviceCode: true,
+                },
+              },
             },
-            create: {
-              rentalId,
-              totalPaymentAmount: totalAmount || 0,
-              isGlobalOpenEnded: false,
-              urgentRental: false,
-              cnamEligible: periods.some((p: any) => p.paymentMethod === 'CNAM'),
-            }
-          });
+          },
+          cnamBond: {
+            select: {
+              bondType: true,
+              bondAmount: true,
+              complementAmount: true,
+            },
+          },
+          payments: {
+            select: {
+              id: true,
+              paymentCode: true,
+              amount: true,
+              method: true,
+              status: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
 
-          return updatedPeriods;
-        });
+      // Transform to match frontend expectations
+      const transformedPeriods = periods.map((period) => {
+        // Calculate payment status
+        const totalPaid = period.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+        const cnamPaid = period.payments
+          .filter((p) => p.method === 'CNAM')
+          .reduce((sum, p) => sum + Number(p.amount), 0);
+        const patientPaid = period.payments
+          .filter((p) => p.method !== 'CNAM')
+          .reduce((sum, p) => sum + Number(p.amount), 0);
 
-        return res.status(200).json({
-          success: true,
-          periods: result,
-          message: 'Rental periods updated successfully'
-        });
+        return {
+          id: period.id,
+          rentalId: period.rentalId,
+          startDate: period.startDate.toISOString().split('T')[0],
+          endDate: period.endDate.toISOString().split('T')[0],
+          expectedAmount: Number(period.expectedAmount),
+          cnamExpectedAmount: period.cnamExpectedAmount ? Number(period.cnamExpectedAmount) : null,
+          patientExpectedAmount: period.patientExpectedAmount ? Number(period.patientExpectedAmount) : null,
+          isGapPeriod: period.isGapPeriod,
+          gapReason: period.gapReason,
+          notes: period.notes,
+          cnamBond: period.cnamBond,
+          payments: period.payments,
+          cnamPaid,
+          patientPaid,
+          totalPaid,
+          rental: period.rental ? {
+            rentalCode: period.rental.rentalCode || '',
+            patient: period.rental.patient,
+            medicalDevice: period.rental.medicalDevice,
+          } : undefined,
+        };
+      });
 
-      } catch (error) {
-        console.error('Error updating rental periods:', error);
-        return res.status(500).json({ 
-          error: 'Failed to update rental periods',
-          details: error instanceof Error ? error.message : 'Unknown error'
-        });
+      return res.status(200).json(transformedPeriods);
+    }
+
+    if (req.method === 'POST') {
+      const {
+        rentalId,
+        startDate,
+        endDate,
+        expectedAmount,
+        cnamExpectedAmount,
+        patientExpectedAmount,
+        isGapPeriod,
+        gapReason,
+        notes,
+        cnamBondId,
+      } = req.body;
+
+      if (!rentalId || !startDate || !endDate || expectedAmount === undefined) {
+        return res.status(400).json({ error: 'Missing required fields: rentalId, startDate, endDate, expectedAmount' });
       }
 
-    case 'DELETE':
-      try {
-        const { periodId } = req.query;
+      const period = await prisma.rentalPeriod.create({
+        data: {
+          rental: {
+            connect: { id: rentalId },
+          },
+          startDate: new Date(startDate),
+          endDate: new Date(endDate),
+          expectedAmount: parseFloat(expectedAmount),
+          cnamExpectedAmount: cnamExpectedAmount ? parseFloat(cnamExpectedAmount) : null,
+          patientExpectedAmount: patientExpectedAmount ? parseFloat(patientExpectedAmount) : null,
+          isGapPeriod: isGapPeriod || false,
+          gapReason,
+          notes,
+          ...(cnamBondId && {
+            cnamBond: {
+              connect: { id: cnamBondId },
+            },
+          }),
+        },
+        include: {
+          rental: {
+            include: {
+              patient: true,
+              medicalDevice: true,
+            },
+          },
+          cnamBond: true,
+        },
+      });
 
-        if (!periodId || typeof periodId !== 'string') {
-          return res.status(400).json({ error: 'Period ID is required' });
-        }
+      return res.status(201).json(period);
+    }
 
-        // Delete the period
-        const deletedPeriod = await prisma.rentalPeriod.delete({
-          where: { id: periodId }
-        });
-
-        return res.status(200).json({
-          success: true,
-          message: 'Period deleted successfully',
-          period: deletedPeriod
-        });
-
-      } catch (error) {
-        console.error('Error deleting rental period:', error);
-        return res.status(500).json({ 
-          error: 'Failed to delete rental period',
-          details: error instanceof Error ? error.message : 'Unknown error'
-        });
-      }
-
-    default:
-      return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
+    return res.status(405).json({ error: 'Method not allowed' });
+  } catch (error) {
+    console.error('Error in rental-periods API:', error);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 }
