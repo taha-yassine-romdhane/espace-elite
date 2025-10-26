@@ -58,7 +58,6 @@ const medicalDeviceSchema = z.object({
   status: z.enum(["ACTIVE", "MAINTENANCE", "RETIRED", "RESERVED", "SOLD"]).default("ACTIVE"),
   destination: z.enum(["FOR_SALE", "FOR_RENT"]).default("FOR_SALE"),
   rentalPrice: z.string().transform(val => val ? parseFloat(val) : null).nullable(),
-  requiresMaintenance: z.boolean().default(false),
 }).refine((data) => {
   if (data.name === 'Autre') {
     return !!data.customName && data.customName.length >= 2;
@@ -120,7 +119,6 @@ export function MedicalDeviceForm({ initialData, onSubmit, stockLocations, isEdi
       name: isCustomName ? 'Autre' : initialData?.name,
       customName: isCustomName ? initialData.name : undefined,
       type: "MEDICAL_DEVICE",
-      requiresMaintenance: initialData?.requiresMaintenance || false,
       status: initialData?.status || "ACTIVE",
       destination: initialData?.destination || "FOR_SALE"
     },
@@ -441,26 +439,6 @@ export function MedicalDeviceForm({ initialData, onSubmit, stockLocations, isEdi
                         )}
                       />
                     </div>
-
-                    <FormField
-                      control={form.control}
-                      name="requiresMaintenance"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                          <div className="space-y-0.5">
-                            <FormLabel className="text-base">
-                              Nécessite Maintenance
-                            </FormLabel>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
                   </CardContent>
                 </Card>
               </TabsContent>

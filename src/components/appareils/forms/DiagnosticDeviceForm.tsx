@@ -22,7 +22,7 @@ import * as z from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 // Define Parameter interface for type safety
 interface Parameter {
@@ -43,6 +43,7 @@ interface Parameter {
 // Form validation schema for diagnostic devices
 const diagnosticDeviceSchema = z.object({
   id: z.string().optional(),
+  deviceCode: z.string().optional(),
   name: z.string().min(2, "Le nom doit contenir au moins 2 caractères"),
   type: z.literal("DIAGNOSTIC_DEVICE"),
   brand: z.string().optional().nullable(),
@@ -61,7 +62,6 @@ const diagnosticDeviceSchema = z.object({
   warranty: z.string().optional().nullable(),
   configuration: z.string().optional().nullable(),
   destination: z.enum(["FOR_SALE", "FOR_RENT"]).default("FOR_SALE"),
-  requiresMaintenance: z.boolean().optional().default(false),
   status: z.enum(["ACTIVE", "MAINTENANCE", "RETIRED", "RESERVED", "SOLD"]).default("ACTIVE"),
   parameters: z.record(z.any()).optional(),
 });
@@ -76,11 +76,14 @@ interface DiagnosticDeviceFormProps {
 }
 
 export function DiagnosticDeviceForm({ initialData, onSubmit, stockLocations, isEditMode = false }: DiagnosticDeviceFormProps) {
+  const [nextDeviceCode, setNextDeviceCode] = useState<string>('');
+
   const form = useForm<DiagnosticDeviceFormValues>({
     resolver: zodResolver(diagnosticDeviceSchema),
     defaultValues: {
       id: initialData?.id || undefined,
       ...initialData,
+      deviceCode: initialData?.deviceCode || '',
       type: "DIAGNOSTIC_DEVICE",
       brand: initialData?.brand || '',
       model: initialData?.model || '',
@@ -95,10 +98,28 @@ export function DiagnosticDeviceForm({ initialData, onSubmit, stockLocations, is
       warranty: initialData?.warranty || '',
       configuration: initialData?.configuration || '',
       destination: initialData?.destination || "FOR_SALE",
-      requiresMaintenance: initialData?.requiresMaintenance || false,
       status: initialData?.status || "ACTIVE"
     },
   });
+
+  useEffect(() => {
+    if (!isEditMode && !nextDeviceCode) {
+      fetchNextDeviceCode();
+    }
+  }, [isEditMode, nextDeviceCode]);
+
+  const fetchNextDeviceCode = async () => {
+    try {
+      const response = await fetch('/api/medical-devices/next-code?type=DIAGNOSTIC_DEVICE');
+      if (response.ok) {
+        const { nextCode } = await response.json();
+        setNextDeviceCode(nextCode);
+        form.setValue('deviceCode', nextCode);
+      }
+    } catch (error) {
+      console.error('Error fetching next device code:', error);
+    }
+  };
 
   const handleSubmit = async (values: DiagnosticDeviceFormValues) => {
     try {
@@ -119,10 +140,6 @@ export function DiagnosticDeviceForm({ initialData, onSubmit, stockLocations, is
         }
         else if (["stockQuantity", "minStock", "maxStock", "alertThreshold"].includes(key)) {
           acc[key] = value ? parseInt(value.toString()) : null;
-        }
-        // Handle boolean fields
-        else if (["requiresMaintenance"].includes(key)) {
-          acc[key] = value || false;
         }
         // All other fields
         else {
@@ -173,6 +190,33 @@ export function DiagnosticDeviceForm({ initialData, onSubmit, stockLocations, is
                 <TabsContent value="basic">
                   <Card>
                     <CardContent className="space-y-4 pt-4">
+                      <FormField
+                        control={form.control}
+                        name="deviceCode"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-base">Code de l&apos;appareil</FormLabel>
+                            <FormControl>
+                              <div className="flex items-center space-x-2">
+                                <Input
+                                  {...field}
+                                  value={field.value || (isEditMode ? 'Code existant' : nextDeviceCode || 'Génération...')}
+                                  readOnly
+                                  className="bg-gray-50 font-mono text-lg font-semibold text-blue-600 h-12"
+                                  placeholder="Code automatique..."
+                                />
+                                {!isEditMode && (
+                                  <div className="text-sm text-gray-500 whitespace-nowrap">
+                                    Auto-généré
+                                  </div>
+                                )}
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
                       <FormField
                         control={form.control}
                         name="name"
@@ -350,26 +394,6 @@ export function DiagnosticDeviceForm({ initialData, onSubmit, stockLocations, is
                           )}
                         />
                       </div>
-
-                      <FormField
-                        control={form.control}
-                        name="requiresMaintenance"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                            <div className="space-y-0.5">
-                              <FormLabel className="text-base">
-                                Nécessite maintenance
-                              </FormLabel>
-                            </div>
-                            <FormControl>
-                              <Switch
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
                     </CardContent>
                   </Card>
                 </TabsContent>
@@ -398,8 +422,7 @@ export function DiagnosticDeviceForm({ initialData, onSubmit, stockLocations, is
                         purchasePrice: values.purchasePrice ? parseFloat(values.purchasePrice.toString()) : null,
                         sellingPrice: values.sellingPrice ? parseFloat(values.sellingPrice.toString()) : null,
                         stockQuantity: values.stockQuantity ? parseInt(values.stockQuantity.toString()) : 1,
-                        destination: values.destination || "FOR_SALE",
-                        requiresMaintenance: values.requiresMaintenance || false
+                        destination: values.destination || "FOR_SALE"
                       };
                       
                       console.log('Submitting form data directly:', formData);

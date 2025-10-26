@@ -38,7 +38,6 @@ export default async function handler(
             sellingPrice: device.sellingPrice,
             rentalPrice: device.rentalPrice,
             technicalSpecs: device.technicalSpecs,
-            requiresMaintenance: device.requiresMaintenance,
             stockLocation: device.stockLocation?.name || 'Non assigné',
             stockLocationId: device.stockLocationId,
             stockQuantity: device.stockQuantity,
@@ -159,7 +158,6 @@ export default async function handler(
                   rentalPrice: data.rentalPrice ? parseFloat(data.rentalPrice) : null,
                   technicalSpecs: data.technicalSpecs,
                   warranty: data.warranty,
-                  requiresMaintenance: data.requiresMaintenance || false,
                   configuration: data.configuration,
                   status: data.status || 'ACTIVE',
                   // Handle patient assignment and reservation
@@ -201,7 +199,6 @@ export default async function handler(
                 purchasePrice: updatedDevice.purchasePrice,
                 sellingPrice: updatedDevice.sellingPrice,
                 technicalSpecs: updatedDevice.technicalSpecs,
-                requiresMaintenance: updatedDevice.requiresMaintenance,
                 stockLocation: updatedDevice.stockLocation?.name || 'Non assigné',
                 stockLocationId: updatedDevice.stockLocationId,
                 stockQuantity: updatedDevice.stockQuantity,

@@ -29,37 +29,82 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const sparePart = spareParts[i];
       
       try {
-        // Create the product first
-        const product = await prisma.product.create({
-          data: {
+        // Check if product with same name already exists
+        const existingProduct = await prisma.product.findFirst({
+          where: {
             name: sparePart.name,
             type: 'SPARE_PART',
-            brand: sparePart.brand,
-            model: sparePart.model,
-            stockLocation: sparePart.stockLocationId ? {
-              connect: { id: sparePart.stockLocationId }
-            } : undefined,
-            purchasePrice: sparePart.purchasePrice,
-            sellingPrice: sparePart.sellingPrice,
-            status: 'ACTIVE', // Products use ProductStatus enum
           },
         });
 
-        // Create stock entry if stockLocationId is provided
-        if (sparePart.stockLocationId && sparePart.stockQuantity > 0) {
-          await prisma.stock.create({
+        let product;
+
+        if (existingProduct) {
+          // Product exists, just add or update stock for this location
+          product = existingProduct;
+
+          if (sparePart.stockLocationId && sparePart.stockQuantity > 0) {
+            // Check if stock entry exists for this location
+            const existingStock = await prisma.stock.findUnique({
+              where: {
+                locationId_productId: {
+                  locationId: sparePart.stockLocationId,
+                  productId: product.id,
+                },
+              },
+            });
+
+            if (existingStock) {
+              // Update existing stock quantity (add to existing)
+              await prisma.stock.update({
+                where: { id: existingStock.id },
+                data: {
+                  quantity: existingStock.quantity + sparePart.stockQuantity,
+                  status: sparePart.status || existingStock.status,
+                },
+              });
+            } else {
+              // Create new stock entry for this location
+              await prisma.stock.create({
+                data: {
+                  productId: product.id,
+                  locationId: sparePart.stockLocationId,
+                  quantity: sparePart.stockQuantity,
+                  status: sparePart.status || 'FOR_SALE',
+                },
+              });
+            }
+          }
+        } else {
+          // Create new product
+          product = await prisma.product.create({
             data: {
-              productId: product.id,
-              locationId: sparePart.stockLocationId,
-              quantity: sparePart.stockQuantity,
-              status: sparePart.status || 'FOR_SALE', // Stock uses StockStatus enum
+              name: sparePart.name,
+              type: 'SPARE_PART',
+              brand: sparePart.brand,
+              model: sparePart.model,
+              purchasePrice: sparePart.purchasePrice,
+              sellingPrice: sparePart.sellingPrice,
+              status: 'ACTIVE', // Products use ProductStatus enum
             },
           });
+
+          // Create stock entry if stockLocationId is provided
+          if (sparePart.stockLocationId && sparePart.stockQuantity > 0) {
+            await prisma.stock.create({
+              data: {
+                productId: product.id,
+                locationId: sparePart.stockLocationId,
+                quantity: sparePart.stockQuantity,
+                status: sparePart.status || 'FOR_SALE',
+              },
+            });
+          }
         }
 
         imported++;
         results.push({ success: true, productId: product.id });
-        
+
       } catch (error) {
         console.error(`Error importing spare part ${i + 1}:`, error);
         errors.push({

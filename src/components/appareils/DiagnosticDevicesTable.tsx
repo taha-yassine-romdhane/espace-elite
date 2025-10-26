@@ -291,6 +291,7 @@ export function DiagnosticDevicesTable({
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Code</TableHead>
               <TableHead>Nom</TableHead>
               <TableHead>Marque/Modèle</TableHead>
               <TableHead>Emplacement</TableHead>
@@ -302,6 +303,9 @@ export function DiagnosticDevicesTable({
           <TableBody>
             {paginatedData.map((device) => (
             <TableRow key={device.id}>
+              <TableCell className="font-mono text-sm font-semibold text-blue-600">
+                {(device as any).deviceCode || '-'}
+              </TableCell>
               <TableCell className="font-medium">{device.name}</TableCell>
               <TableCell>
                 <div className="text-sm text-gray-600">

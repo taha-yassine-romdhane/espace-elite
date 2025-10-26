@@ -1,0 +1,409 @@
+import { useState, useEffect, useRef } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Plus, Save, X, Check, Trash2, Edit2 } from 'lucide-react';
+import { useToast } from "@/components/ui/use-toast";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+interface Rental {
+  id?: string;
+  patientId: string;
+  deviceId: string;
+  startDate: string;
+  endDate?: string;
+  monthlyRate: number;
+  status: string;
+  patient?: { firstName: string; lastName: string };
+  device?: { name: string; deviceCode: string };
+}
+
+export default function RentalsTable() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [newRow, setNewRow] = useState<Partial<Rental> | null>(null);
+  const [editData, setEditData] = useState<Partial<Rental>>({});
+  const inputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
+
+  // Fetch rentals
+  const { data: rentalsData, isLoading } = useQuery({
+    queryKey: ['rentals-simple'],
+    queryFn: async () => {
+      const response = await fetch('/api/rentals/simple');
+      if (!response.ok) throw new Error('Failed to fetch rentals');
+      const data = await response.json();
+      // Ensure we always return an array
+      return Array.isArray(data) ? data : [];
+    },
+  });
+
+  const rentals = rentalsData || [];
+
+  // Fetch patients for dropdown - use direct patient API
+  const { data: patientsResponse } = useQuery({
+    queryKey: ['patients-for-rentals'],
+    queryFn: async () => {
+      const response = await fetch('/api/renseignements/patients');
+      if (!response.ok) throw new Error('Failed to fetch patients');
+      const data = await response.json();
+      // API returns { patients: [...] }
+      return data.patients || [];
+    },
+  });
+
+  const patients = patientsResponse || [];
+
+  // Fetch devices for dropdown
+  const { data: devices } = useQuery({
+    queryKey: ['devices'],
+    queryFn: async () => {
+      const response = await fetch('/api/medical-devices');
+      if (!response.ok) throw new Error('Failed to fetch devices');
+      return response.json();
+    },
+  });
+
+  // Create rental mutation
+  const createMutation = useMutation({
+    mutationFn: async (rental: Partial<Rental>) => {
+      const response = await fetch('/api/rentals/simple', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(rental),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create rental');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['rentals-simple'] });
+      setNewRow(null);
+      toast({ title: "Succès", description: "Location créée avec succès" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erreur", description: error.message || "Échec de la création", variant: "destructive" });
+    },
+  });
+
+  // Update rental mutation
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<Rental> }) => {
+      const response = await fetch(`/api/rentals/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) throw new Error('Failed to update rental');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['rentals-simple'] });
+      setEditingId(null);
+      setEditData({});
+      toast({ title: "Succès", description: "Location mise à jour avec succès" });
+    },
+    onError: () => {
+      toast({ title: "Erreur", description: "Échec de la mise à jour", variant: "destructive" });
+    },
+  });
+
+  // Delete rental mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/rentals/${id}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('Failed to delete rental');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['rentals-simple'] });
+      toast({ title: "Succès", description: "Location supprimée avec succès" });
+    },
+    onError: () => {
+      toast({ title: "Erreur", description: "Échec de la suppression", variant: "destructive" });
+    },
+  });
+
+  const handleAddNew = () => {
+    setNewRow({
+      patientId: '',
+      deviceId: '',
+      startDate: new Date().toISOString().split('T')[0],
+      monthlyRate: 0,
+      status: 'ACTIVE',
+    });
+  };
+
+  const handleSaveNew = () => {
+    if (newRow && newRow.patientId && newRow.deviceId && newRow.monthlyRate) {
+      createMutation.mutate(newRow);
+    } else {
+      toast({ title: "Erreur", description: "Veuillez remplir tous les champs requis", variant: "destructive" });
+    }
+  };
+
+  const handleEdit = (rental: Rental) => {
+    setEditingId(rental.id!);
+    setEditData(rental);
+  };
+
+  const handleSaveEdit = () => {
+    if (editingId && editData) {
+      updateMutation.mutate({ id: editingId, data: editData });
+    }
+  };
+
+  const handleDelete = (id: string) => {
+    if (confirm('Êtes-vous sûr de vouloir supprimer cette location ?')) {
+      deleteMutation.mutate(id);
+    }
+  };
+
+  const renderCell = (
+    value: any,
+    field: keyof Rental,
+    isEditing: boolean,
+    onChange: (field: keyof Rental, value: any) => void
+  ) => {
+    if (!isEditing) {
+      if (field === 'patient') return `${value?.firstName} ${value?.lastName}`;
+      if (field === 'device') return `${value?.deviceCode} - ${value?.name}`;
+      if (field === 'monthlyRate') return `${value} DT`;
+      if (field === 'startDate' || field === 'endDate') {
+        return value ? new Date(value).toLocaleDateString('fr-FR') : '-';
+      }
+      return value || '-';
+    }
+
+    switch (field) {
+      case 'patientId':
+        return (
+          <Select value={value || ''} onValueChange={(v) => onChange(field, v)}>
+            <SelectTrigger className="h-8 border-blue-300 focus:ring-blue-500">
+              <SelectValue placeholder="Sélectionner" />
+            </SelectTrigger>
+            <SelectContent>
+              {patients?.map((p: any) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.name || `${p.firstName} ${p.lastName}`.trim()}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        );
+      case 'deviceId':
+        return (
+          <Select value={value || ''} onValueChange={(v) => onChange(field, v)}>
+            <SelectTrigger className="h-8 border-blue-300 focus:ring-blue-500">
+              <SelectValue placeholder="Sélectionner" />
+            </SelectTrigger>
+            <SelectContent>
+              {devices?.map((d: any) => (
+                <SelectItem key={d.id} value={d.id}>
+                  {d.deviceCode} - {d.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        );
+      case 'status':
+        return (
+          <Select value={value || 'ACTIVE'} onValueChange={(v) => onChange(field, v)}>
+            <SelectTrigger className="h-8 border-blue-300 focus:ring-blue-500">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ACTIVE">Actif</SelectItem>
+              <SelectItem value="ENDED">Terminé</SelectItem>
+              <SelectItem value="OVERDUE">En retard</SelectItem>
+            </SelectContent>
+          </Select>
+        );
+      case 'monthlyRate':
+        return (
+          <Input
+            type="number"
+            value={value || 0}
+            onChange={(e) => onChange(field, parseFloat(e.target.value))}
+            className="h-8 border-blue-300 focus:ring-blue-500"
+          />
+        );
+      case 'startDate':
+      case 'endDate':
+        return (
+          <Input
+            type="date"
+            value={value || ''}
+            onChange={(e) => onChange(field, e.target.value)}
+            className="h-8 border-blue-300 focus:ring-blue-500"
+          />
+        );
+      default:
+        return (
+          <Input
+            value={value || ''}
+            onChange={(e) => onChange(field, e.target.value)}
+            className="h-8 border-blue-300 focus:ring-blue-500"
+          />
+        );
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h2 className="text-xl font-semibold">Locations</h2>
+        <Button onClick={handleAddNew} disabled={newRow !== null} className="bg-green-600 hover:bg-green-700">
+          <Plus className="h-4 w-4 mr-2" />
+          Nouvelle Location
+        </Button>
+      </div>
+
+      <div className="border rounded-lg overflow-hidden bg-white shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse">
+            <thead className="bg-gray-50 border-b-2 border-gray-200">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Patient</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Appareil</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Date Début</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Date Fin</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Tarif/Mois</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Statut</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {/* New row */}
+              {newRow && (
+                <tr className="border-b border-green-200 bg-green-50 hover:bg-green-100">
+                  <td className="px-4 py-2">
+                    {renderCell(newRow.patientId, 'patientId', true, (field, value) =>
+                      setNewRow({ ...newRow, [field]: value })
+                    )}
+                  </td>
+                  <td className="px-4 py-2">
+                    {renderCell(newRow.deviceId, 'deviceId', true, (field, value) =>
+                      setNewRow({ ...newRow, [field]: value })
+                    )}
+                  </td>
+                  <td className="px-4 py-2">
+                    {renderCell(newRow.startDate, 'startDate', true, (field, value) =>
+                      setNewRow({ ...newRow, [field]: value })
+                    )}
+                  </td>
+                  <td className="px-4 py-2">
+                    {renderCell(newRow.endDate, 'endDate', true, (field, value) =>
+                      setNewRow({ ...newRow, [field]: value })
+                    )}
+                  </td>
+                  <td className="px-4 py-2">
+                    {renderCell(newRow.monthlyRate, 'monthlyRate', true, (field, value) =>
+                      setNewRow({ ...newRow, [field]: value })
+                    )}
+                  </td>
+                  <td className="px-4 py-2">
+                    {renderCell(newRow.status, 'status', true, (field, value) =>
+                      setNewRow({ ...newRow, [field]: value })
+                    )}
+                  </td>
+                  <td className="px-4 py-2">
+                    <div className="flex gap-2 justify-center">
+                      <Button size="sm" onClick={handleSaveNew} className="bg-green-600 hover:bg-green-700 h-7 px-2">
+                        <Check className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button size="sm" variant="destructive" onClick={() => setNewRow(null)} className="h-7 px-2">
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              )}
+
+              {/* Existing rows */}
+              {rentals?.map((rental: Rental) => {
+                const isEditing = editingId === rental.id;
+                const currentData = isEditing ? editData : rental;
+
+                return (
+                  <tr
+                    key={rental.id}
+                    className={`border-b hover:bg-gray-50 ${isEditing ? 'bg-blue-50' : ''}`}
+                  >
+                    <td className="px-4 py-2">
+                      {renderCell(isEditing ? currentData.patientId : rental.patient, isEditing ? 'patientId' : 'patient', isEditing, (field, value) =>
+                        setEditData({ ...editData, [field]: value })
+                      )}
+                    </td>
+                    <td className="px-4 py-2">
+                      {renderCell(isEditing ? currentData.deviceId : rental.device, isEditing ? 'deviceId' : 'device', isEditing, (field, value) =>
+                        setEditData({ ...editData, [field]: value })
+                      )}
+                    </td>
+                    <td className="px-4 py-2">
+                      {renderCell(currentData.startDate, 'startDate', isEditing, (field, value) =>
+                        setEditData({ ...editData, [field]: value })
+                      )}
+                    </td>
+                    <td className="px-4 py-2">
+                      {renderCell(currentData.endDate, 'endDate', isEditing, (field, value) =>
+                        setEditData({ ...editData, [field]: value })
+                      )}
+                    </td>
+                    <td className="px-4 py-2">
+                      {renderCell(currentData.monthlyRate, 'monthlyRate', isEditing, (field, value) =>
+                        setEditData({ ...editData, [field]: value })
+                      )}
+                    </td>
+                    <td className="px-4 py-2">
+                      {renderCell(currentData.status, 'status', isEditing, (field, value) =>
+                        setEditData({ ...editData, [field]: value })
+                      )}
+                    </td>
+                    <td className="px-4 py-2">
+                      {isEditing ? (
+                        <div className="flex gap-2 justify-center">
+                          <Button size="sm" onClick={handleSaveEdit} className="bg-blue-600 hover:bg-blue-700 h-7 px-2">
+                            <Check className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button size="sm" variant="destructive" onClick={() => {setEditingId(null); setEditData({});}} className="h-7 px-2">
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex gap-2 justify-center">
+                          <Button size="sm" variant="outline" onClick={() => handleEdit(rental)} className="h-7 px-2">
+                            <Edit2 className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button size="sm" variant="destructive" onClick={() => handleDelete(rental.id!)} className="h-7 px-2">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+
+              {!isLoading && rentals?.length === 0 && !newRow && (
+                <tr>
+                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                    Aucune location. Cliquez sur "Nouvelle Location" pour commencer.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}

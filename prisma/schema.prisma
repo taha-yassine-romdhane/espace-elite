@@ -34,6 +34,7 @@ model User {
   patientHistories     PatientHistory[]
   processedSales       Sale[]
   createdRentals       Rental[]               @relation("CreatedRentals")
+  assignedRentals      Rental[]               @relation("AssignedRentals")
   stockLocation        StockLocation?
   receivedTransfers    StockTransfer[]        @relation("ReceivedTransfers")
   sentTransfers        StockTransfer[]        @relation("SentTransfers")
@@ -78,7 +79,6 @@ model StockLocation {
   createdAt         DateTime               @default(now())
   updatedAt         DateTime               @updatedAt
   medicalDevices    MedicalDevice[]
-  products          Product[]
   stocks            Stock[]
   user              User?                  @relation(fields: [userId], references: [id])
   outgoingTransfers StockTransfer[]        @relation("FromLocation")
@@ -162,12 +162,10 @@ model Product {
   model              String?
   notes              String?
   purchaseDate       DateTime?
-  stockLocationId    String?
   warrantyExpiration DateTime?
   purchasePrice      Float?
   sellingPrice       Float?
   status             ProductStatus          @default(ACTIVE)
-  stockLocation      StockLocation?         @relation(fields: [stockLocationId], references: [id])
   rentalAccessories  RentalAccessory[]
   RepairSparePart    RepairSparePart[]
   saleItems          SaleItem[]
@@ -245,7 +243,6 @@ model Company {
   medicalDevices      MedicalDevice[]
   notifications       Notification[]
   payments            Payment[]
-  rentals             Rental[]
   sales               Sale[]
 }
 
@@ -290,24 +287,29 @@ model RepairLocation {
 }
 
 model Payment {
-  id               String          @id @default(cuid())
-  paymentCode      String?         @unique
-  amount           Decimal         @db.Decimal(10, 2)
+  id               String           @id @default(cuid())
+  paymentCode      String?          @unique
+  paymentType      PaymentType      @default(RENTAL)
+  rentalPeriodId   String?
+  cnamBondId       String?          // Link to CNAM bond for CNAM payments
+  amount           Decimal          @db.Decimal(10, 2)
   method           PaymentMethod
-  status           PaymentStatus   @default(PENDING)
+  status           PaymentStatus    @default(PENDING)
   chequeNumber     String?
   bankName         String?
   companyId        String?
   patientId        String?
-  rentalId         String?         @unique
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+  rentalId         String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
   FileId           String?
   cnamCardNumber   String?
   diagnosticId     String?
   dueDate          DateTime?
   notes            String?
-  paymentDate      DateTime        @default(now())
+  paymentDate      DateTime         @default(now())
+  periodStartDate  DateTime?        // Start date of payment period
+  periodEndDate    DateTime?        // End date of payment period
   referenceNumber  String?
   saleId           String?
   cNAMDossierId    String?
@@ -318,18 +320,13 @@ model Payment {
   cnamStartDate    DateTime?
   cnamStatus       CNAMStatus?
   gapReason        String?
-  isDepositPayment Boolean         @default(false)
-  isGapPeriod      Boolean         @default(false)
-  isRentalPayment  Boolean         @default(false)
-  periodEndDate    DateTime?
-  periodId         String?
-  periodStartDate  DateTime?
-  cnamDossier      CNAMDossier?    @relation(fields: [cNAMDossierId], references: [id])
-  company          Company?        @relation(fields: [companyId], references: [id])
-  patient          Patient?        @relation(fields: [patientId], references: [id])
-  rental           Rental?         @relation(fields: [rentalId], references: [id])
+  cnamBond         CNAMBondRental?  @relation(fields: [cnamBondId], references: [id])
+  cnamDossier      CNAMDossier?     @relation(fields: [cNAMDossierId], references: [id])
+  company          Company?         @relation(fields: [companyId], references: [id])
+  patient          Patient?         @relation(fields: [patientId], references: [id])
+  rental           Rental?          @relation(fields: [rentalId], references: [id])
+  rentalPeriod     RentalPeriod?    @relation(fields: [rentalPeriodId], references: [id])
   paymentDetails   PaymentDetail[]
-  rentalPeriods    RentalPeriod[]
   sale             Sale?
 }
 
@@ -382,7 +379,6 @@ model MedicalDevice {
   technicalSpecs      String?
   warranty            String?
   destination         StockStatus              @default(FOR_SALE)
-  requiresMaintenance Boolean                  @default(false)
   model               String?
   description         String?
   maintenanceInterval String?
@@ -480,30 +476,37 @@ model UserActionHistory {
 }
 
 model Rental {
-  id              String               @id @default(cuid())
-  rentalCode      String?              @unique
-  medicalDeviceId String
-  patientId       String
-  startDate       DateTime
-  endDate         DateTime?
-  notes           String?
-  paymentId       String?
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
-  companyId       String?
-  invoiceNumber   String?
-  status          RentalStatus         @default(PENDING)
-  createdById     String?
-  cnamBonds       CNAMBondRental[]
-  payment         Payment?
-  Company         Company?             @relation(fields: [companyId], references: [id])
-  medicalDevice   MedicalDevice        @relation(fields: [medicalDeviceId], references: [id])
-  patient         Patient              @relation(fields: [patientId], references: [id])
-  createdBy       User?                @relation("CreatedRentals", fields: [createdById], references: [id])
-  accessories     RentalAccessory[]
-  configuration   RentalConfiguration?
-  gaps            RentalGap[]
-  rentalPeriods   RentalPeriod[]
+  id                    String               @id @default(cuid())
+  rentalCode            String?              @unique
+  medicalDeviceId       String
+  patientId             String
+  startDate             DateTime
+  endDate               DateTime?
+  status                RentalStatus         @default(PENDING)
+  invoiceNumber         String?
+  createdById           String?
+  assignedToId          String?              // User assigned to manage this rental
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+
+  // Statistics dashboard fields
+  alertDate             DateTime?            // DATE RAPPEL - Alert/reminder date for follow-up
+  titrationReminderDate DateTime?            // DATE RAPPEL TITRATION - Titration reminder date
+  appointmentDate       DateTime?            // RENDEZ-VOUS - Next appointment date
+  notes                 String?              // General notes for the rental
+
+  cnamBonds             CNAMBondRental[]
+  payments              Payment[]
+  medicalDevice         MedicalDevice        @relation(fields: [medicalDeviceId], references: [id])
+  patient               Patient              @relation(fields: [patientId], references: [id])
+  createdBy             User?                @relation("CreatedRentals", fields: [createdById], references: [id])
+  assignedTo            User?                @relation("AssignedRentals", fields: [assignedToId], references: [id])
+  accessories           RentalAccessory[]
+  configuration         RentalConfiguration?
+  gaps                  RentalGap[]
+  rentalPeriods         RentalPeriod[]
+
+  @@index([assignedToId])
 }
 
 model Notification {
@@ -721,6 +724,26 @@ model CNAMStepHistory {
   @@index([dossierId])
 }
 
+// CNAM Nomenclature - Fixed pricing per bond type
+model CNAMNomenclature {
+  id                String            @id @default(cuid())
+  bondType          CNAMBondType      @unique
+  category          CNAMBondCategory  @default(LOCATION) // Location (rental) or Achat (purchase)
+  amount            Decimal           @db.Decimal(10, 2) @default(0) // Monthly rate for Location, or total for Achat
+  description       String?
+  isActive          Boolean           @default(true)
+  effectiveDate     DateTime          @default(now())
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  // Keep monthlyRate for backward compatibility
+  monthlyRate       Decimal           @db.Decimal(10, 2) @default(0)
+
+  @@index([bondType])
+  @@index([isActive])
+  @@index([category])
+}
+
 model CNAMBondRental {
   id                  String         @id @default(cuid())
   bondNumber          String?
@@ -731,9 +754,19 @@ model CNAMBondRental {
   approvalDate        DateTime?
   startDate           DateTime?
   endDate             DateTime?
-  monthlyAmount       Decimal        @db.Decimal(10, 2)
+
+  // CNAM fixed amount (from nomenclature)
+  cnamMonthlyRate     Decimal        @db.Decimal(10, 2) // Fixed rate from nomenclature
+
+  // Actual device pricing
+  deviceMonthlyRate   Decimal        @db.Decimal(10, 2) // Actual rental rate
+
+  // Auto-calculated fields
   coveredMonths       Int
-  totalAmount         Decimal        @db.Decimal(10, 2)
+  bondAmount          Decimal        @db.Decimal(10, 2) // Total CNAM covers (cnamMonthlyRate × months)
+  devicePrice         Decimal        @db.Decimal(10, 2) // Total device cost (deviceMonthlyRate × months)
+  complementAmount    Decimal        @db.Decimal(10, 2) // Patient pays (devicePrice - bondAmount)
+
   renewalReminderDays Int            @default(30)
   notes               String?
   rentalId            String?
@@ -743,30 +776,32 @@ model CNAMBondRental {
   patient             Patient        @relation(fields: [patientId], references: [id])
   rental              Rental?        @relation(fields: [rentalId], references: [id])
   rentalPeriods       RentalPeriod[]
+  payments            Payment[]      // Link CNAM payments to bonds
 
   @@index([patientId])
   @@index([rentalId])
   @@index([status])
   @@index([endDate])
+  @@index([bondType])
 }
 
 model RentalPeriod {
-  id            String          @id @default(cuid())
-  rentalId      String
-  startDate     DateTime
-  endDate       DateTime
-  amount        Decimal         @db.Decimal(10, 2)
-  paymentMethod PaymentMethod
-  isGapPeriod   Boolean         @default(false)
-  gapReason     String?
-  notes         String?
-  paymentId     String?
-  cnamBondId    String?
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-  cnamBond      CNAMBondRental? @relation(fields: [cnamBondId], references: [id])
-  payment       Payment?        @relation(fields: [paymentId], references: [id])
-  rental        Rental          @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+  id                     String          @id @default(cuid())
+  rentalId               String
+  startDate              DateTime
+  endDate                DateTime
+  expectedAmount         Decimal         @db.Decimal(10, 2)
+  cnamExpectedAmount     Decimal?        @db.Decimal(10, 2) // CNAM portion (e.g., 570 DT)
+  patientExpectedAmount  Decimal?        @db.Decimal(10, 2) // Patient portion/complement (e.g., 100 DT)
+  isGapPeriod            Boolean         @default(false)
+  gapReason              String?
+  notes                  String?
+  cnamBondId             String?
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+  cnamBond               CNAMBondRental? @relation(fields: [cnamBondId], references: [id])
+  payments               Payment[]
+  rental                 Rental          @relation(fields: [rentalId], references: [id], onDelete: Cascade)
 
   @@index([rentalId])
   @@index([startDate])
@@ -793,13 +828,13 @@ model RentalAccessory {
 model RentalConfiguration {
   id                 String         @id @default(cuid())
   rentalId           String         @unique
+  rentalRate         Decimal        @default(0) @db.Decimal(10, 2)
+  billingCycle       BillingCycle   @default(DAILY)
   isGlobalOpenEnded  Boolean        @default(false)
-  urgentRental       Boolean        @default(false)
   cnamEligible       Boolean        @default(false)
-  depositAmount      Decimal?       @db.Decimal(10, 2)
-  depositMethod      PaymentMethod?
   totalPaymentAmount Decimal?       @db.Decimal(10, 2)
-  notes              String?
+  deliveryNotes      String?
+  internalNotes      String?
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
   rental             Rental         @relation(fields: [rentalId], references: [id], onDelete: Cascade)
@@ -875,6 +910,20 @@ enum PaymentStatus {
   CANCELLED
 }
 
+enum PaymentType {
+  DEPOSIT
+  RENTAL
+  REFUND
+  PENALTY
+  ADJUSTMENT
+}
+
+enum BillingCycle {
+  DAILY
+  MONTHLY
+  WEEKLY
+}
+
 enum ProductStatus {
   ACTIVE
   RETIRED
@@ -947,6 +996,11 @@ enum CNAMBondType {
   AUTRE
   VNI
   CONCENTRATEUR_OXYGENE
+}
+
+enum CNAMBondCategory {
+  LOCATION  // Bon de Location (rental) - monthly rate
+  ACHAT     // Bon d'Achat (purchase) - one-time amount
 }
 
 enum NotificationStatus {

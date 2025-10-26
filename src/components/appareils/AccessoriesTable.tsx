@@ -179,7 +179,7 @@ export function AccessoriesTable({
       case 'FOR_SALE':
       case 'ACTIVE':
         return 'default';
-      case 'EN_REPARATION':
+      case 'IN_REPAIR':
       case 'MAINTENANCE':
         return 'secondary';
       case 'VENDU':
@@ -195,7 +195,7 @@ export function AccessoriesTable({
       case 'FOR_SALE':
       case 'ACTIVE':
         return 'EN VENTE';
-      case 'EN_REPARATION':
+      case 'IN_REPAIR':
       case 'MAINTENANCE':
         return 'EN RÉPARATION';
       case 'VENDU':
@@ -357,9 +357,8 @@ export function AccessoriesTable({
               <TableHead className="py-1">Nom</TableHead>
               <TableHead className="py-1">Marque</TableHead>
               <TableHead className="py-1">Modèle</TableHead>
-              <TableHead>Lieu de stockage</TableHead>
-              <TableHead>Quantité en Stock</TableHead>
-              <TableHead>Statut</TableHead>
+              <TableHead>Emplacements (Quantités)</TableHead>
+              <TableHead>Quantité Totale</TableHead>
               <TableHead className="py-1">Prix d&apos;achat</TableHead>
               <TableHead className="py-1">Prix de vente</TableHead>
               <TableHead className="py-1 text-right">Actions</TableHead>
@@ -371,12 +370,26 @@ export function AccessoriesTable({
                 <TableCell className="py-1">{device.name}</TableCell>
                 <TableCell className="py-1">{device.brand || '-'}</TableCell>
                 <TableCell className="py-1">{device.model || '-'}</TableCell>
-                <TableCell className="py-1">{getLocationName(device)}</TableCell>
-                <TableCell className="py-1">{device.stocks ? device.stocks.reduce((acc, stock) => acc + stock.quantity, 0) : 0}</TableCell>
-                <TableCell>
-                  <Badge variant={getStatusBadgeVariant(device.status)}>
-                    {getStatusLabel(device.status)}
-                  </Badge>
+                <TableCell className="py-2">
+                  {device.stocks && device.stocks.length > 0 ? (
+                    <div className="flex flex-col gap-1">
+                      {device.stocks.map((stock: any) => (
+                        <div key={stock.id} className="text-xs flex items-center gap-2">
+                          <span className="font-medium text-blue-600">{stock.location?.name || 'N/A'}</span>
+                          <span className="text-gray-500">→</span>
+                          <span className="font-semibold">{stock.quantity}</span>
+                          <Badge variant="outline" className="text-xs py-0 px-1">
+                            {getStatusLabel(stock.status)}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-gray-400 text-xs">Aucun stock</span>
+                  )}
+                </TableCell>
+                <TableCell className="py-1 font-semibold">
+                  {device.stocks ? device.stocks.reduce((acc: number, stock: any) => acc + stock.quantity, 0) : 0}
                 </TableCell>
                 <TableCell className="py-1">{device.purchasePrice ? `${device.purchasePrice} DT` : '-'}</TableCell>
                 <TableCell className="py-1">{device.sellingPrice ? `${device.sellingPrice} DT` : '-'}</TableCell>

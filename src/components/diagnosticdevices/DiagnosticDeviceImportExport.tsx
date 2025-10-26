@@ -107,11 +107,12 @@ export function DiagnosticDeviceImportExport({ onImportSuccess, stockLocations }
       'Modèle',
       'Numéro de Série (obligatoire)',
       `Lieu de Stockage (${locationNames})`,
-      'Prix d\'Achat',
-      'Prix de Vente',
+      'Prix d\'Achat (DT)',
+      'Prix de Vente (DT)',
       'Spécifications Techniques',
       'Configuration',
-      'Statut (ACTIVE, MAINTENANCE, RETIRED, RESERVED)'
+      'Statut (ACTIVE, MAINTENANCE, RETIRED, RESERVED)',
+      'Note: Le code appareil (APP-DIAG-01, APP-DIAG-02...) sera généré automatiquement'
     ];
     
     XLSX.utils.sheet_add_aoa(wb.Sheets['Appareils_Diagnostic'], [headers], { origin: 'A1' });
@@ -360,7 +361,6 @@ export function DiagnosticDeviceImportExport({ onImportSuccess, stockLocations }
         'Réservé Jusqu\'au': device.reservedUntil ? new Date(device.reservedUntil).toLocaleDateString('fr-FR') : '',
         'Date d\'Installation': device.installationDate ? new Date(device.installationDate).toLocaleDateString('fr-FR') : '',
         'Localisation Physique': device.location || '',
-        'Nécessite Maintenance': device.requiresMaintenance ? 'Oui' : 'Non',
       }));
 
       const ws = XLSX.utils.json_to_sheet(exportData);

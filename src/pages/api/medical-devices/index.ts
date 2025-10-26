@@ -70,8 +70,7 @@ export default async function handler(
                 include: {
                   location: true
                 }
-              },
-              stockLocation: true
+              }
             }
           })
         ]);
@@ -128,7 +127,6 @@ export default async function handler(
             sellingPrice: device.sellingPrice,
             technicalSpecs: device.technicalSpecs,
             destination: device.destination,
-            requiresMaintenance: device.requiresMaintenance,
             stockLocation: (device as any).stockLocation,
             stockLocationId: device.stockLocationId,
             stockQuantity: device.stockQuantity || 1, // Default to 1 if not specified
@@ -154,8 +152,6 @@ export default async function handler(
           purchasePrice: product.purchasePrice,
           sellingPrice: product.sellingPrice,
           technicalSpecs: null,
-          stockLocation: product.stockLocation,
-          stockLocationId: product.stockLocationId,
           status: product.status, // Use product's own status
           stocks: product.stocks // Include the full stocks array
         }));
@@ -170,9 +166,59 @@ export default async function handler(
 
           // Handle medical devices
           if (type === 'MEDICAL_DEVICE' || type === 'DIAGNOSTIC_DEVICE') {
+            // Generate device code if not provided
+            let deviceCode = data.deviceCode;
+
+            if (!deviceCode) {
+              if (type === 'DIAGNOSTIC_DEVICE') {
+                // Generate APP-DIAG-01, APP-DIAG-02, etc. for diagnostic devices
+                const lastDiagDevice = await prisma.medicalDevice.findFirst({
+                  where: {
+                    deviceCode: {
+                      startsWith: 'APP-DIAG-'
+                    }
+                  },
+                  orderBy: {
+                    deviceCode: 'desc'
+                  }
+                });
+
+                deviceCode = 'APP-DIAG-01';
+                if (lastDiagDevice && lastDiagDevice.deviceCode) {
+                  const lastNumber = parseInt(lastDiagDevice.deviceCode.replace('APP-DIAG-', ''));
+                  if (!isNaN(lastNumber)) {
+                    deviceCode = `APP-DIAG-${String(lastNumber + 1).padStart(2, '0')}`;
+                  }
+                }
+              } else {
+                // Generate APP0001, APP0002, etc. for regular medical devices
+                const lastDevice = await prisma.medicalDevice.findFirst({
+                  where: {
+                    deviceCode: {
+                      startsWith: 'APP',
+                      not: {
+                        startsWith: 'APP-DIAG-'
+                      }
+                    }
+                  },
+                  orderBy: {
+                    deviceCode: 'desc'
+                  }
+                });
+
+                deviceCode = 'APP0001';
+                if (lastDevice && lastDevice.deviceCode) {
+                  const lastNumber = parseInt(lastDevice.deviceCode.replace('APP', ''));
+                  if (!isNaN(lastNumber)) {
+                    deviceCode = `APP${String(lastNumber + 1).padStart(4, '0')}`;
+                  }
+                }
+              }
+            }
+
             const newMedicalDevice = await prisma.medicalDevice.create({
               data: {
-                deviceCode: data.deviceCode,
+                deviceCode: deviceCode,
                 name: data.name,
                 type: type,
                 brand: data.brand,
@@ -183,7 +229,6 @@ export default async function handler(
                 sellingPrice: data.sellingPrice ? parseFloat(data.sellingPrice) : null,
                 technicalSpecs: data.technicalSpecs,
                 destination: data.destination || 'FOR_SALE',
-                requiresMaintenance: data.requiresMaintenance || false,
                 configuration: data.configuration,
                 status: 'ACTIVE',
                 stockLocationId: data.stockLocationId,
@@ -237,7 +282,6 @@ export default async function handler(
               technicalSpecs: newMedicalDevice.technicalSpecs,
               destination: newMedicalDevice.destination,
               rentalPrice: newMedicalDevice.rentalPrice,
-              requiresMaintenance: newMedicalDevice.requiresMaintenance,
               stockLocation: newMedicalDevice.stockLocation,
               stockLocationId: newMedicalDevice.stockLocationId,
               stockQuantity: newMedicalDevice.stockQuantity,
@@ -260,26 +304,25 @@ export default async function handler(
               },
             });
 
-            // Then, create the stock entry
-            const stock = await prisma.stock.create({
-              data: {
-                product: {
-                  connect: {
-                    id: newProduct.id
+            // Handle multiple stock locations
+            const stockLocations = data.stockLocations || [];
+
+            // Create stock entries for all locations
+            const createdStocks = await Promise.all(
+              stockLocations.map((stockLoc: any) =>
+                prisma.stock.create({
+                  data: {
+                    productId: newProduct.id,
+                    locationId: stockLoc.locationId,
+                    quantity: parseInt(stockLoc.quantity.toString()),
+                    status: stockLoc.status || 'FOR_SALE'
+                  },
+                  include: {
+                    location: true
                   }
-                },
-                location: {
-                  connect: {
-                    id: data.stockLocationId
-                  }
-                },
-                quantity: parseInt(data.stockQuantity.toString()),
-                status: 'FOR_SALE'
-              },
-              include: {
-                location: true
-              }
-            });
+                })
+              )
+            );
 
             return res.status(201).json({
               id: newProduct.id,
@@ -291,10 +334,8 @@ export default async function handler(
               purchasePrice: newProduct.purchasePrice,
               sellingPrice: newProduct.sellingPrice,
               warrantyExpiration: newProduct.warrantyExpiration,
-              stockLocation: stock.location.name,
-              stockLocationId: stock.location.id,
-              stockQuantity: stock.quantity,
-              status: stock.status
+              stocks: createdStocks,
+              status: newProduct.status
             });
           }
         } catch (error) {
@@ -323,7 +364,6 @@ export default async function handler(
               sellingPrice: updateData.sellingPrice ? parseFloat(updateData.sellingPrice.toString()) : null,
               technicalSpecs: updateData.technicalSpecs,
               destination: updateData.destination || 'FOR_SALE',
-              requiresMaintenance: updateData.requiresMaintenance,
               configuration: updateData.configuration || updateData.specifications,
               status: updateData.status || 'ACTIVE',
               stockLocationId: updateData.stockLocationId || updateData.stockLocation,
@@ -376,7 +416,6 @@ export default async function handler(
             sellingPrice: updatedMedicalDevice.sellingPrice,
             technicalSpecs: updatedMedicalDevice.technicalSpecs,
             destination: updatedMedicalDevice.destination,
-            requiresMaintenance: updatedMedicalDevice.requiresMaintenance,
             stockLocation: updatedMedicalDevice.stockLocation,
             stockLocationId: updatedMedicalDevice.stockLocationId,
             stockQuantity: updatedMedicalDevice.stockQuantity,
@@ -386,11 +425,13 @@ export default async function handler(
         
         // Handle regular product update
         else {
+          // Update product metadata
           const updatedProduct = await prisma.product.update({
             where: { id },
             data: {
               name: updateData.name,
               brand: updateData.brand,
+              model: updateData.model,
               serialNumber: updateData.serialNumber,
               purchasePrice: updateData.purchasePrice ? parseFloat(updateData.purchasePrice) : null,
               sellingPrice: updateData.sellingPrice ? parseFloat(updateData.sellingPrice) : null,
@@ -398,31 +439,77 @@ export default async function handler(
             },
           });
 
-    
+          // Handle stock locations update if provided
+          if (updateData.stockLocations && Array.isArray(updateData.stockLocations)) {
+            // Get existing stocks for this product
+            const existingStocks = await prisma.stock.findMany({
+              where: { productId: id }
+            });
 
-          const stock = await prisma.stock.findFirst({
-            where: {
-              productId: id,
-              locationId: updateData.stockLocation
-            },
+            const existingLocationIds = new Set(existingStocks.map(s => s.locationId));
+            const newLocationIds = new Set(updateData.stockLocations.map((sl: any) => sl.locationId));
+
+            // Delete stocks that are no longer in the list
+            const toDelete = existingStocks.filter(s => !newLocationIds.has(s.locationId));
+            await Promise.all(
+              toDelete.map(stock =>
+                prisma.stock.delete({ where: { id: stock.id } })
+              )
+            );
+
+            // Update or create stocks
+            await Promise.all(
+              updateData.stockLocations.map(async (stockLoc: any) => {
+                const existing = existingStocks.find(s => s.locationId === stockLoc.locationId);
+
+                if (existing) {
+                  // Update existing stock
+                  return prisma.stock.update({
+                    where: { id: existing.id },
+                    data: {
+                      quantity: parseInt(stockLoc.quantity.toString()),
+                      status: stockLoc.status || 'FOR_SALE'
+                    }
+                  });
+                } else {
+                  // Create new stock
+                  return prisma.stock.create({
+                    data: {
+                      productId: id,
+                      locationId: stockLoc.locationId,
+                      quantity: parseInt(stockLoc.quantity.toString()),
+                      status: stockLoc.status || 'FOR_SALE'
+                    }
+                  });
+                }
+              })
+            );
+          }
+
+          // Fetch updated product with stocks
+          const productWithStocks = await prisma.product.findUnique({
+            where: { id },
             include: {
-              location: true
+              stocks: {
+                include: {
+                  location: true
+                }
+              }
             }
           });
 
           return res.status(200).json({
-            id: updatedProduct.id,
-            name: updatedProduct.name,
-            type: updatedProduct.type,
-            brand: updatedProduct.brand,
-            serialNumber: updatedProduct.serialNumber,
-            purchasePrice: updatedProduct.purchasePrice,
-            sellingPrice: updatedProduct.sellingPrice,
+            id: productWithStocks!.id,
+            name: productWithStocks!.name,
+            type: productWithStocks!.type,
+            brand: productWithStocks!.brand,
+            model: productWithStocks!.model,
+            serialNumber: productWithStocks!.serialNumber,
+            purchasePrice: productWithStocks!.purchasePrice,
+            sellingPrice: productWithStocks!.sellingPrice,
             technicalSpecs: null,
-            stockLocation: stock?.location.name || 'Non assigné',
-            stockLocationId: stock?.location.id,
-            stockQuantity: stock?.quantity || 0,
-            status: stock?.status || 'FOR_SALE'
+            stocks: productWithStocks!.stocks,
+            status: productWithStocks!.status
           });
         }
 

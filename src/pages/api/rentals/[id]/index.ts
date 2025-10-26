@@ -98,7 +98,7 @@ export default async function handler(
     case 'PATCH':
       try {
         const updateData = req.body;
-        
+
         // Update the rental
         const updatedRental = await prisma.rental.update({
           where: { id },
@@ -108,6 +108,17 @@ export default async function handler(
             ...(updateData.notes !== undefined && { notes: updateData.notes }),
             ...(updateData.status && { status: updateData.status }),
             ...(updateData.metadata && { metadata: updateData.metadata }),
+
+            // Statistics dashboard fields
+            ...(updateData.alertDate !== undefined && {
+              alertDate: updateData.alertDate ? new Date(updateData.alertDate) : null
+            }),
+            ...(updateData.titrationReminderDate !== undefined && {
+              titrationReminderDate: updateData.titrationReminderDate ? new Date(updateData.titrationReminderDate) : null
+            }),
+            ...(updateData.appointmentDate !== undefined && {
+              appointmentDate: updateData.appointmentDate ? new Date(updateData.appointmentDate) : null
+            }),
           },
           include: {
             medicalDevice: true,
