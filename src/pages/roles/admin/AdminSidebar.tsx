@@ -28,6 +28,9 @@ import {
     Kanban,
     KeyRound,
     Shield,
+    Calendar,
+    Stethoscope,
+    ShoppingCart,
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
@@ -52,6 +55,10 @@ const Sidebar: React.FC = () => {
     const defaultMenuItems: MenuItem[] = [
         { id: 'dashboard', icon: <LayoutDashboard size={20} />, label: "Accueil", path: "/roles/admin/dashboard" },
         { id: 'analytics', icon: <BarChart3 size={20} />, label: "Analyses & Rapports", path: "/roles/admin/analytics" },
+        { id: 'appointments', icon: <Calendar size={20} />, label: "Rendez-vous", path: "/roles/admin/appointments" },
+        { id: 'diagnostics', icon: <Stethoscope size={20} />, label: "Polygraphies", path: "/roles/admin/diagnostics" },
+        { id: 'sales', icon: <ShoppingCart size={20} />, label: "Gestion des Ventes", path: "/roles/admin/sales" },
+        { id: 'rentals', icon: <KeyRound size={20} />, label: "Gestion des Locations", path: "/roles/admin/location" },
         { id: 'tasks', icon: <CalendarCheck size={20} />, label: "Gestion des taches", path: "/roles/admin/tasks/modern" },
         { id: 'kanban', icon: <Kanban size={20} />, label: "Vue Kanban", path: "/roles/admin/kanban" },
         { id: 'notifications', icon: <ClipboardCheck size={20} />, label: "Gestion des Notifications", path: "/roles/admin/notifications/modern" },
@@ -63,7 +70,6 @@ const Sidebar: React.FC = () => {
         { id: 'appareils', icon: <BriefcaseMedical size={20} />, label: "Gestion des Produits", path: "/roles/admin/appareils" },
         { id: 'reparateur', icon: <Wrench size={20} />, label: "Gestion des Reparateurs", path: "/roles/admin/reparateur" },
         { id: 'stock', icon: <Database size={20} />, label: "Gestion des Stock", path: "/roles/admin/stock" },
-        { id: 'location', icon: <KeyRound size={20} />, label: "Gestion des Locations", path: "/roles/admin/location" },
         { id: 'cnam-management', icon: <Shield size={20} />, label: "Gestion CNAM", path: "/roles/admin/cnam-management" },
         { id: 'excel-import', icon: <FileSpreadsheet size={20} />, label: "Import/Export Excel", path: "/roles/admin/excel-import" },
         { id: 'help', icon: <HelpCircle size={20} />, label: "aide et support", path: "/roles/admin/help" },
