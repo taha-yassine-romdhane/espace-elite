@@ -365,7 +365,6 @@ export default function RenseignementPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    console.log(`Updating form field: ${name} = ${value}`);
     setFormData(prev => ({
       ...prev,
       [name]: value
@@ -373,7 +372,6 @@ export default function RenseignementPage() {
   };
 
   const handleEdit = (item: Renseignement) => {
-    console.log('Editing item:', item); // Debug log
 
     if (item.type === 'Société') {
       const formData: RenseignementFormData = {
@@ -404,7 +402,6 @@ export default function RenseignementPage() {
         existingFiles: item.files || [],
       };
 
-      console.log('Setting société form data:', formData);
       setFormData(formData);
     } else {
       // Map patient data to form fields
@@ -438,8 +435,6 @@ export default function RenseignementPage() {
         existingFiles: item.files || []
       };
 
-      console.log('Patient data from API:', item);
-      console.log('Transformed form data:', formData);
       setFormData(formData);
     }
     setIsEdit(true);
@@ -562,12 +557,6 @@ export default function RenseignementPage() {
         formDataObj.append('id', formData.id);
       }
 
-      console.log('Submitting form data:', {
-        ...formData,
-        files: formData.files?.length || 0,
-        existingFiles: formData.existingFiles?.length || 0
-      });
-
       const response = await fetch(endpoint, {
         method: isEdit ? 'PUT' : 'POST',
         body: formDataObj,
@@ -579,7 +568,6 @@ export default function RenseignementPage() {
       }
 
       const result = await response.json();
-      console.log('Server response:', result);
 
       toast({
         title: "Succès",

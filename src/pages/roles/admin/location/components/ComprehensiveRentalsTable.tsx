@@ -17,6 +17,8 @@ import {
   Clock,
   Shield,
   User,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { useToast } from "@/components/ui/use-toast";
 import { Badge } from "@/components/ui/badge";
@@ -81,6 +83,10 @@ export default function ComprehensiveRentalsTable() {
   const [dateRangeFilter, setDateRangeFilter] = useState<string>("all");
   const [sortField, setSortField] = useState<string>("startDate");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(50);
 
   // Fetch rentals with complete data
   const { data: rentalsData, isLoading } = useQuery({
@@ -260,6 +266,18 @@ export default function ComprehensiveRentalsTable() {
       return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
     });
 
+  // Pagination calculations
+  const totalItems = filteredRentals.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedRentals = filteredRentals.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, cnamFilter, deviceFilter, createdByFilter, assignedToFilter, dateRangeFilter]);
+
   // Mutations
   const createMutation = useMutation({
     mutationFn: async (data: Partial<Rental>) => {
@@ -404,15 +422,21 @@ export default function ComprehensiveRentalsTable() {
     <div className="space-y-4">
       {/* Toolbar */}
       <div className="flex flex-col gap-4 bg-white p-4 rounded-lg shadow-sm border">
-        {/* Search */}
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <Input
-            placeholder="Rechercher par client, appareil, code..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
+        {/* Search and Action Button */}
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              placeholder="Rechercher par client, appareil, code..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Button onClick={handleAddNew} className="bg-blue-600 hover:bg-blue-700 whitespace-nowrap">
+            <Plus className="h-4 w-4 mr-2" />
+            Nouvelle Location
+          </Button>
         </div>
 
         {/* Filters */}
@@ -514,19 +538,135 @@ export default function ComprehensiveRentalsTable() {
             Réinitialiser
           </Button>
         </div>
-
-        {/* Action Button */}
-        <div className="flex justify-end">
-          <Button onClick={handleAddNew} className="bg-blue-600 hover:bg-blue-700">
-            <Plus className="h-4 w-4 mr-2" />
-            Nouvelle Location
-          </Button>
-        </div>
       </div>
 
-      {/* Results count */}
-      <div className="text-sm text-slate-600">
-        {filteredRentals.length} location(s) trouvée(s)
+      {/* Pagination Controls - Top */}
+      <div className="flex items-center justify-between px-4 py-3 bg-white border border-slate-200 rounded-lg shadow-sm">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-slate-600">
+            Affichage de {startIndex + 1} à {Math.min(endIndex, totalItems)} sur {totalItems} résultats
+          </span>
+        </div>
+
+        <div className="flex items-center gap-4">
+          {/* Items per page selector */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-slate-600">Par page:</span>
+            <Select
+              value={itemsPerPage.toString()}
+              onValueChange={(value) => {
+                setItemsPerPage(Number(value));
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[100px] h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="50">50</SelectItem>
+                <SelectItem value="100">100</SelectItem>
+                <SelectItem value="200">200</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Page navigation */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              className="h-9 w-9 p-0"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+
+            <div className="flex items-center gap-1">
+              {totalPages <= 5 ? (
+                // Show all pages if 5 or less
+                Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <Button
+                    key={page}
+                    variant={currentPage === page ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setCurrentPage(page)}
+                    className="h-9 w-9 p-0"
+                  >
+                    {page}
+                  </Button>
+                ))
+              ) : (
+                // Show smart pagination for many pages
+                <>
+                  <Button
+                    variant={currentPage === 1 ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setCurrentPage(1)}
+                    className="h-9 w-9 p-0"
+                  >
+                    1
+                  </Button>
+
+                  {currentPage > 3 && <span className="px-2">...</span>}
+
+                  {currentPage > 2 && currentPage < totalPages - 1 && (
+                    <>
+                      {currentPage > 3 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(currentPage - 1)}
+                          className="h-9 w-9 p-0"
+                        >
+                          {currentPage - 1}
+                        </Button>
+                      )}
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="h-9 w-9 p-0"
+                      >
+                        {currentPage}
+                      </Button>
+                      {currentPage < totalPages - 2 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(currentPage + 1)}
+                          className="h-9 w-9 p-0"
+                        >
+                          {currentPage + 1}
+                        </Button>
+                      )}
+                    </>
+                  )}
+
+                  {currentPage < totalPages - 2 && <span className="px-2">...</span>}
+
+                  <Button
+                    variant={currentPage === totalPages ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setCurrentPage(totalPages)}
+                    className="h-9 w-9 p-0"
+                  >
+                    {totalPages}
+                  </Button>
+                </>
+              )}
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages}
+              className="h-9 w-9 p-0"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
       </div>
 
       {/* Table */}
@@ -611,7 +751,7 @@ export default function ComprehensiveRentalsTable() {
             )}
 
             {/* Existing Rows */}
-            {filteredRentals.map((rental: Rental) => (
+            {paginatedRentals.map((rental: Rental) => (
               editingId === rental.id ? (
                 <EditRowComponent
                   key={rental.id}

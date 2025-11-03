@@ -35,7 +35,6 @@ const AnalyticsPage: React.FC = () => {
       const data = await response.json();
       setAnalyticsData(data);
     } catch (error) {
-      console.error('Error fetching analytics:', error);
       setError('Failed to load analytics data');
     } finally {
       setLoading(false);

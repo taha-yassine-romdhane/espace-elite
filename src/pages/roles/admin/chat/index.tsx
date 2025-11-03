@@ -387,7 +387,6 @@ const AdminChat: React.FC = () => {
                                             isOwnMessage={isMine}
                                             colorScheme="blue"
                                             onReferenceClick={(type, id) => {
-                                                console.log('Reference clicked:', type, id);
                                                 // TODO: Navigate to referenced item or show details
                                             }}
                                         />

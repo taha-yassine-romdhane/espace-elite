@@ -90,7 +90,7 @@ export default function CNAMBondsTable({ rentalId, patientId, patientCnamId, dev
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 50;
+  const [itemsPerPage, setItemsPerPage] = useState(50);
 
   // Filter states
   const [searchTerm, setSearchTerm] = useState('');
@@ -494,16 +494,10 @@ export default function CNAMBondsTable({ rentalId, patientId, patientCnamId, dev
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5 text-blue-600" />
-            Bons CNAM
-          </CardTitle>
-          <Button onClick={handleAddNew} size="sm" disabled={isAddingNew || (!showGlobalView && showCnamWarning)}>
-            <Plus className="h-4 w-4 mr-1" />
-            Nouveau Bond
-          </Button>
-        </div>
+        <CardTitle className="flex items-center gap-2">
+          <Shield className="h-5 w-5 text-blue-600" />
+          Bons CNAM
+        </CardTitle>
       </CardHeader>
       <CardContent>
         {showCnamWarning && (
@@ -515,26 +509,27 @@ export default function CNAMBondsTable({ rentalId, patientId, patientCnamId, dev
           </Alert>
         )}
 
-        {!showCnamWarning && (
-          <Alert className="mb-4 border-blue-200 bg-blue-50">
-            <Info className="h-4 w-4 text-blue-600" />
-            <AlertDescription className="text-sm">
-              Tarifs CNAM fixes. Complément = Prix appareil - Montant CNAM
-            </AlertDescription>
-          </Alert>
-        )}
-
         {/* Search and Filters */}
         <div className="space-y-3 mb-4">
-          {/* Search Bar */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <Input
-              placeholder="Rechercher par numéro, patient, location..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
+          {/* Search Bar and Action Button */}
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Input
+                placeholder="Rechercher par numéro, patient, location..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Button
+              onClick={handleAddNew}
+              disabled={isAddingNew || (!showGlobalView && showCnamWarning)}
+              className="bg-blue-600 hover:bg-blue-700 whitespace-nowrap"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Nouveau Bond
+            </Button>
           </div>
 
           {/* Filters */}
@@ -607,68 +602,86 @@ export default function CNAMBondsTable({ rentalId, patientId, patientCnamId, dev
           </div>
         </div>
 
-        {/* Pagination Info */}
+        {/* Pagination Controls */}
         {totalPages > 0 && (
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-6 text-sm">
-              <span className="text-slate-600">
-                <strong>{filteredBonds.length}</strong> bond(s) CNAM trouvé(s)
+          <div className="flex items-center justify-between px-4 py-3 bg-white border border-slate-200 rounded-lg shadow-sm mb-4">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-slate-600">
+                Affichage de {startIndex + 1} à {Math.min(endIndex, filteredBonds.length)} sur {filteredBonds.length} résultats
               </span>
-              {totalPages > 1 && (
-                <span className="text-slate-500 text-xs">
-                  Page {currentPage} sur {totalPages} • Affichage {startIndex + 1}-{Math.min(endIndex, filteredBonds.length)} sur {filteredBonds.length}
-                </span>
-              )}
             </div>
 
-            {/* Pagination Controls */}
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                disabled={currentPage === 1}
-                className="h-8"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-
-              <div className="flex items-center gap-1">
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  let pageNum;
-                  if (totalPages <= 5) {
-                    pageNum = i + 1;
-                  } else if (currentPage <= 3) {
-                    pageNum = i + 1;
-                  } else if (currentPage >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i;
-                  } else {
-                    pageNum = currentPage - 2 + i;
-                  }
-
-                  return (
-                    <Button
-                      key={pageNum}
-                      variant={currentPage === pageNum ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setCurrentPage(pageNum)}
-                      className="h-8 w-8 p-0"
-                    >
-                      {pageNum}
-                    </Button>
-                  );
-                })}
+            <div className="flex items-center gap-4">
+              {/* Items per page selector */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-slate-600">Par page:</span>
+                <Select
+                  value={itemsPerPage.toString()}
+                  onValueChange={(value) => {
+                    setItemsPerPage(Number(value));
+                    setCurrentPage(1);
+                  }}
+                >
+                  <SelectTrigger className="w-[100px] h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                    <SelectItem value="200">200</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                disabled={currentPage === totalPages}
-                className="h-8"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+              {/* Page navigation */}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="h-9 w-9 p-0"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+
+                    return (
+                      <Button
+                        key={pageNum}
+                        variant={currentPage === pageNum ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setCurrentPage(pageNum)}
+                        className="h-9 w-9 p-0"
+                      >
+                        {pageNum}
+                      </Button>
+                    );
+                  })}
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="h-9 w-9 p-0"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
         )}

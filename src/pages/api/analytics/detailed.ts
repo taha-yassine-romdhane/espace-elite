@@ -27,9 +27,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       cnamBons,
       appointments
     ] = await Promise.all([
-      // Employees with their statistics
+      // Employees with their statistics (ADMIN and EMPLOYEE roles only)
       prisma.user.findMany({
-        where: { isActive: true },
+        where: {
+          isActive: true,
+          role: { in: ['ADMIN', 'EMPLOYEE'] }
+        },
         include: {
           assignedPatients: { select: { id: true } },
           assignedRentals: {
@@ -435,7 +438,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
   } catch (error) {
-    console.error('Detailed analytics API error:', error);
     res.status(500).json({ message: 'Internal server error', error: String(error) });
   }
 }

@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
-import { useSession, signOut } from 'next-auth/react';
+import { signOut } from 'next-auth/react';
 import {
     LayoutDashboard,
     BriefcaseMedical,
@@ -25,7 +25,6 @@ import {
     BarChart3,
     FileSpreadsheet,
     MessageCircle,
-    Kanban,
     KeyRound,
     Shield,
     Calendar,
@@ -43,7 +42,6 @@ type MenuItem = {
 
 const Sidebar: React.FC = () => {
     const router = useRouter();
-    const { } = useSession();
     const [isExpanded, setIsExpanded] = useState(false);
     const [isNavigating, setIsNavigating] = useState(false);
     const [lastNavigationTime, setLastNavigationTime] = useState(0);
@@ -51,30 +49,29 @@ const Sidebar: React.FC = () => {
     const [draggedItem, setDraggedItem] = useState<string | null>(null);
     const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
-    // Default menu items with unique IDs
-    const defaultMenuItems: MenuItem[] = [
+    // Default menu items with unique IDs - memoized to prevent recreation
+    const defaultMenuItems: MenuItem[] = useMemo(() => [
         { id: 'dashboard', icon: <LayoutDashboard size={20} />, label: "Accueil", path: "/roles/admin/dashboard" },
         { id: 'analytics', icon: <BarChart3 size={20} />, label: "Analyses & Rapports", path: "/roles/admin/analytics" },
         { id: 'appointments', icon: <Calendar size={20} />, label: "Rendez-vous", path: "/roles/admin/appointments" },
         { id: 'diagnostics', icon: <Stethoscope size={20} />, label: "Polygraphies", path: "/roles/admin/diagnostics" },
         { id: 'sales', icon: <ShoppingCart size={20} />, label: "Gestion des Ventes", path: "/roles/admin/sales" },
         { id: 'rentals', icon: <KeyRound size={20} />, label: "Gestion des Locations", path: "/roles/admin/location" },
-        { id: 'tasks', icon: <CalendarCheck size={20} />, label: "Gestion des taches", path: "/roles/admin/tasks/modern" },
-        { id: 'kanban', icon: <Kanban size={20} />, label: "Vue Kanban", path: "/roles/admin/kanban" },
-        { id: 'notifications', icon: <ClipboardCheck size={20} />, label: "Gestion des Notifications", path: "/roles/admin/notifications/modern" },
+        { id: 'calendar', icon: <CalendarCheck size={20} />, label: "Calendrier & Tâches", path: "/roles/admin/calendar" },
+        { id: 'notifications', icon: <ClipboardCheck size={20} />, label: "Gestion des Notifications", path: "/roles/admin/notifications" },
         { id: 'chat', icon: <MessageCircle size={20} />, label: "Messages", path: "/roles/admin/chat" },
         { id: 'users', icon: <ContactRound size={20} />, label: "Utilisateurs", path: "/roles/admin/users" },
         { id: 'espace-technicien', icon: <UserCog size={20} />, label: "Espace Technicien", path: "/roles/admin/espace-technicien" },
         { id: 'renseignement', icon: <Users size={20} />, label: "Renseignement", path: "/roles/admin/renseignement" },
         { id: 'map', icon: <MapPin size={20} />, label: "Carte des Patients", path: "/roles/admin/map" },
         { id: 'appareils', icon: <BriefcaseMedical size={20} />, label: "Gestion des Produits", path: "/roles/admin/appareils" },
-        { id: 'reparateur', icon: <Wrench size={20} />, label: "Gestion des Reparateurs", path: "/roles/admin/reparateur" },
-        { id: 'stock', icon: <Database size={20} />, label: "Gestion des Stock", path: "/roles/admin/stock" },
+        { id: 'reparateur', icon: <Wrench size={20} />, label: "Gestion des Réparateurs", path: "/roles/admin/reparateur" },
+        { id: 'stock', icon: <Database size={20} />, label: "Gestion des Stocks", path: "/roles/admin/stock" },
         { id: 'cnam-management', icon: <Shield size={20} />, label: "Gestion CNAM", path: "/roles/admin/cnam-management" },
         { id: 'excel-import', icon: <FileSpreadsheet size={20} />, label: "Import/Export Excel", path: "/roles/admin/excel-import" },
-        { id: 'help', icon: <HelpCircle size={20} />, label: "aide et support", path: "/roles/admin/help" },
+        { id: 'help', icon: <HelpCircle size={20} />, label: "Aide et Support", path: "/roles/admin/help" },
         { id: 'settings', icon: <Settings size={20} />, label: "Paramètres", path: "/roles/admin/settings" },
-    ];
+    ], []);
 
     const [menuItems, setMenuItems] = useState<MenuItem[]>(defaultMenuItems);
 
@@ -100,11 +97,11 @@ const Sidebar: React.FC = () => {
 
                 setMenuItems([...reorderedItems, ...newItems]);
             } catch (error) {
-                console.error('Error loading menu order:', error);
+                // Failed to load saved menu order, using default
                 setMenuItems(defaultMenuItems);
             }
         }
-    }, []);
+    }, [defaultMenuItems]);
 
     // Handle router events to track navigation state
     useEffect(() => {

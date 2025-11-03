@@ -133,7 +133,6 @@ export function DiagnosticStepperDialog({ isOpen, onClose }: DiagnosticStepperDi
         throw new Error("Client and products are required");
       }
 
-      console.log('Submitting diagnostic data:', diagnosticData);
 
       // Send JSON data instead of FormData for better handling of complex objects
       const response = await fetch("/api/diagnostics", {
@@ -180,7 +179,6 @@ export function DiagnosticStepperDialog({ isOpen, onClose }: DiagnosticStepperDi
       }
     },
     onSuccess: async (data) => {
-      console.log('Diagnostic created successfully:', data);
       
       // Invalidate relevant queries to refresh the diagnostics table
       await queryClient.invalidateQueries({

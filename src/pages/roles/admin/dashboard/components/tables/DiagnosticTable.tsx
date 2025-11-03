@@ -188,7 +188,6 @@ const DiagnosticTable = React.memo(({ onViewDetails, onEnterResults, onAddDocume
           throw new Error("Failed to fetch diagnostic operations");
         }
         const data = await response.json();
-        console.log("Diagnostic data:", data);
 
         return data.diagnostics || [];
       } catch (error) {

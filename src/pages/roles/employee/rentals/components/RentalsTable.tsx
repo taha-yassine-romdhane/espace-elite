@@ -361,8 +361,7 @@ export default function RentalsTable() {
   ) => {
     if (!isEditing) {
       if (field === 'patient') return `${value?.firstName} ${value?.lastName}`;
-      if (field === 'device') return `${value?.deviceCode} - ${value?.name}`;
-      if (field === 'monthlyRate') return `${value} DT`;
+      if (field === 'medicalDevice') return `${value?.deviceCode} - ${value?.name}`;
       if (field === 'startDate' || field === 'endDate') {
         return value ? new Date(value).toLocaleDateString('fr-FR') : '-';
       }
@@ -385,7 +384,7 @@ export default function RentalsTable() {
             </SelectContent>
           </Select>
         );
-      case 'deviceId':
+      case 'medicalDeviceId':
         return (
           <Select value={value || ''} onValueChange={(v) => onChange(field, v)}>
             <SelectTrigger className="h-8 border-blue-300 focus:ring-blue-500">
@@ -412,15 +411,6 @@ export default function RentalsTable() {
               <SelectItem value="OVERDUE">En retard</SelectItem>
             </SelectContent>
           </Select>
-        );
-      case 'monthlyRate':
-        return (
-          <Input
-            type="number"
-            value={value || 0}
-            onChange={(e) => onChange(field, parseFloat(e.target.value))}
-            className="h-8 border-blue-300 focus:ring-blue-500"
-          />
         );
       case 'startDate':
       case 'endDate':
@@ -477,7 +467,7 @@ export default function RentalsTable() {
                     )}
                   </td>
                   <td className="px-4 py-2">
-                    {renderCell(newRow.deviceId, 'deviceId', true, (field, value) =>
+                    {renderCell(newRow.medicalDeviceId, 'medicalDeviceId', true, (field, value) =>
                       setNewRow({ ...newRow, [field]: value })
                     )}
                   </td>
@@ -488,11 +478,6 @@ export default function RentalsTable() {
                   </td>
                   <td className="px-4 py-2">
                     {renderCell(newRow.endDate, 'endDate', true, (field, value) =>
-                      setNewRow({ ...newRow, [field]: value })
-                    )}
-                  </td>
-                  <td className="px-4 py-2">
-                    {renderCell(newRow.monthlyRate, 'monthlyRate', true, (field, value) =>
                       setNewRow({ ...newRow, [field]: value })
                     )}
                   </td>
@@ -530,7 +515,7 @@ export default function RentalsTable() {
                       )}
                     </td>
                     <td className="px-4 py-2">
-                      {renderCell(isEditing ? currentData.deviceId : rental.device, isEditing ? 'deviceId' : 'device', isEditing, (field, value) =>
+                      {renderCell(isEditing ? currentData.medicalDeviceId : rental.medicalDevice, isEditing ? 'medicalDeviceId' : 'medicalDevice', isEditing, (field, value) =>
                         setEditData({ ...editData, [field]: value })
                       )}
                     </td>
@@ -541,11 +526,6 @@ export default function RentalsTable() {
                     </td>
                     <td className="px-4 py-2">
                       {renderCell(currentData.endDate, 'endDate', isEditing, (field, value) =>
-                        setEditData({ ...editData, [field]: value })
-                      )}
-                    </td>
-                    <td className="px-4 py-2">
-                      {renderCell(currentData.monthlyRate, 'monthlyRate', isEditing, (field, value) =>
                         setEditData({ ...editData, [field]: value })
                       )}
                     </td>

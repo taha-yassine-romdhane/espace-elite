@@ -107,7 +107,6 @@ export function ProductDialog({ isOpen, onClose, type, onSelect }: ProductDialog
         
         // We don't need additional filtering here as the API already filters by type
         // Just log what we got to help with debugging
-        console.log(`Fetched ${data.length} accessories from products table:`, data);
       } 
       else if (type === "spare-part") {
         // Fetch spare parts from the products table
@@ -119,13 +118,11 @@ export function ProductDialog({ isOpen, onClose, type, onSelect }: ProductDialog
         
         // We don't need additional filtering here as the API already filters by type
         // Just log what we got to help with debugging
-        console.log(`Fetched ${data.length} spare parts from products table:`, data);
       } 
       else {
         throw new Error(`Unknown product type: ${type}`);
       }
       
-      console.log(`Fetched ${data.length} ${type} products from the correct table:`, data);
       return data;
     },
   });

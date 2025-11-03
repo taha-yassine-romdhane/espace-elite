@@ -161,7 +161,6 @@ export default function PaymentsExcelTable() {
     const allPayments: Payment[] = [];
     const addedPaymentIds = new Set<string>(); // Track to avoid duplicates
 
-    console.log('[COMBINE] salesData:', salesData?.length, 'salePaymentsData:', salePaymentsData?.length);
 
     // PRIORITY 1: Add standalone sale payments first (they have complete data with paymentCode, source, etc.)
     if (salePaymentsData && Array.isArray(salePaymentsData)) {
@@ -182,7 +181,6 @@ export default function PaymentsExcelTable() {
             }
           }
 
-          console.log('[COMBINE] Adding standalone payment:', payment.paymentCode, 'source:', payment.source);
           allPayments.push(payment);
           addedPaymentIds.add(payment.id);
         }
@@ -207,11 +205,9 @@ export default function PaymentsExcelTable() {
               },
               saleId: sale.id,
             };
-            console.log('[COMBINE] Adding sale embedded payment:', paymentWithSale.paymentCode);
             allPayments.push(paymentWithSale);
             addedPaymentIds.add(sale.payment.id);
           } else {
-            console.log('[COMBINE] Skipping incomplete sale embedded payment (no paymentCode):', sale.payment.id);
           }
         }
       });
@@ -219,7 +215,6 @@ export default function PaymentsExcelTable() {
 
     // NOTE: We don't add rental payments here since this is the SALES page
 
-    console.log('[COMBINE] Total combined payments:', allPayments.length);
     setPayments(allPayments);
   }, [salesData, salePaymentsData]);
 
@@ -283,13 +278,10 @@ export default function PaymentsExcelTable() {
   const filteredPayments = useMemo(() => {
     if (!Array.isArray(payments)) return [];
 
-    console.log('[FILTER] Total payments:', payments.length);
-    console.log('[FILTER] Source filter:', sourceFilter);
 
     const filtered = payments.filter((payment) => {
       // Skip payments without basic data (incomplete/loading)
       if (!payment.id || !payment.paymentCode) {
-        console.log('[FILTER] Skipping incomplete payment:', payment);
         return false;
       }
 
@@ -355,12 +347,10 @@ export default function PaymentsExcelTable() {
         return true;
       })();
 
-      console.log('[FILTER] Payment:', payment.paymentCode, 'source:', paymentSource, 'matches:', matchesSource);
 
       return matchesSearch && matchesStatus && matchesMethod && matchesSource && matchesClientType && matchesDateRange && matchesAmountRange;
     });
 
-    console.log('[FILTER] Filtered payments:', filtered.length);
     return filtered;
   }, [payments, searchTerm, statusFilter, methodFilter, sourceFilter, clientTypeFilter, dateRangeFilter, amountRangeFilter]);
 
@@ -380,11 +370,9 @@ export default function PaymentsExcelTable() {
       });
       if (!response.ok) throw new Error('Failed to update payment');
       const data = await response.json();
-      console.log('[UPDATE MUTATION] Response data:', data);
       return data;
     },
     onSuccess: (updatedPayment) => {
-      console.log('[UPDATE MUTATION] Success, updated payment:', updatedPayment);
 
       // Update the local payments array immediately with the updated payment
       setPayments(prevPayments =>
@@ -588,7 +576,6 @@ export default function PaymentsExcelTable() {
         notes: editedData.notes,
       };
 
-      console.log('Sending update payload:', updatePayload);
       updateMutation.mutate(updatePayload);
     }
   };

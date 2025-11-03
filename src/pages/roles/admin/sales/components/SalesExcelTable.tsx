@@ -27,8 +27,8 @@ import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { formatCurrency } from '@/utils/priceUtils';
 import { useRouter } from 'next/router';
-import { SaleItemsDialog } from './SaleItemsDialog';
-import { SalePaymentsDialog } from './SalePaymentsDialog';
+import { SaleItemsDialog } from '@/components/sales/SaleItemsDialog';
+import { SalePaymentsDialog } from '@/components/sales/SalePaymentsDialog';
 import { PatientSelectorDialog } from '@/components/dialogs/PatientSelectorDialog';
 
 interface Sale {
@@ -83,11 +83,13 @@ interface SaleItem {
     id: string;
     name: string;
     type: string;
+    sellingPrice: number;
   };
   medicalDevice?: {
     id: string;
     name: string;
     type: string;
+    sellingPrice: number;
   };
 }
 
@@ -364,13 +366,13 @@ export default function SalesExcelTable() {
     // Prepare the data in the format the API expects
     const salePayload = {
       ...newSaleData,
-      saleDate: new Date(newSaleData.saleDate),
+      saleDate: newSaleData.saleDate || new Date().toISOString().split('T')[0],
       totalAmount: newSaleData.totalAmount || 0,
       discount: newSaleData.discount || 0,
       finalAmount: newSaleData.finalAmount || newSaleData.totalAmount || 0,
-      assignedToId: newSaleData.assignedToId || null,
-      patientId: newSaleData.patientId || null,
-      companyId: newSaleData.companyId || null,
+      assignedToId: newSaleData.assignedToId || undefined,
+      patientId: newSaleData.patientId || undefined,
+      companyId: newSaleData.companyId || undefined,
       payment: newSaleData.payments && newSaleData.payments.length > 0 ? newSaleData.payments : undefined,
       items: newSaleData.items && newSaleData.items.length > 0 ? newSaleData.items : undefined,
     };
@@ -1204,18 +1206,22 @@ export default function SalesExcelTable() {
             <DialogTitle>Paiements - {selectedSale?.saleCode}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            {selectedSale?.payment ? (
-              <div className="border rounded-lg p-4">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="font-medium">Code Paiement:</span>
-                  <Badge>{selectedSale.payment.paymentCode}</Badge>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="font-medium">Montant:</span>
-                  <span className="text-green-700 font-bold">
-                    {formatCurrency(Number(selectedSale.payment.amount))}
-                  </span>
-                </div>
+            {selectedSale?.payment && selectedSale.payment.length > 0 ? (
+              <div className="space-y-2">
+                {selectedSale.payment.map((payment: any, index: number) => (
+                  <div key={index} className="border rounded-lg p-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="font-medium">Code Paiement:</span>
+                      <Badge>{payment.paymentCode || `P-${index + 1}`}</Badge>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">Montant:</span>
+                      <span className="text-green-700 font-bold">
+                        {formatCurrency(Number(payment.amount || 0))}
+                      </span>
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : (
               <div className="text-center text-slate-500 py-8">

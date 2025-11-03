@@ -30,11 +30,6 @@ export default function AdminDashboard() {
     }
   }, [status, router]);
 
-  // Debug session information
-  useEffect(() => {
-    console.log('Admin Dashboard - Auth Status:', status);
-    console.log('Admin Dashboard - Session:', session);
-  }, [status, session]);
 
   // Loading state
   if (status === 'loading') {
@@ -132,14 +127,15 @@ export default function AdminDashboard() {
     return 'Bonsoir';
   };
 
-  const getSystemStats = () => {
-    return [
-      { label: 'Patients Actifs', value: '847', trend: '+12', icon: <Users size={16} /> },
-      { label: 'Équipements', value: '234', trend: '+3', icon: <Package size={16} /> },
-      { label: 'Interventions', value: '45', trend: '+8', icon: <Activity size={16} /> },
-      { label: 'Alertes', value: '3', trend: '-2', icon: <AlertCircle size={16} /> },
-    ];
-  };
+  // TODO: Connect to real API for system stats
+  // const getSystemStats = () => {
+  //   return [
+  //     { label: 'Patients Actifs', value: '847', trend: '+12', icon: <Users size={16} /> },
+  //     { label: 'Équipements', value: '234', trend: '+3', icon: <Package size={16} /> },
+  //     { label: 'Interventions', value: '45', trend: '+8', icon: <Activity size={16} /> },
+  //     { label: 'Alertes', value: '3', trend: '-2', icon: <AlertCircle size={16} /> },
+  //   ];
+  // };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-50 to-blue-100">

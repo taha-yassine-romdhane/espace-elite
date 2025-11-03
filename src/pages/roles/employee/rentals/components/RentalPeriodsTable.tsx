@@ -58,6 +58,7 @@ interface RentalPeriod {
   rental?: {
     rentalCode: string;
     patient?: { firstName: string; lastName: string };
+    company?: { companyName: string };
     medicalDevice?: { name: string };
   };
   cnamBon?: {
@@ -442,26 +443,10 @@ export default function RentalPeriodsTable() {
                   <Input
                     type="number"
                     step="0.01"
-                    value={newRow.amount}
-                    onChange={(e) => setNewRow({ ...newRow, amount: parseFloat(e.target.value) })}
+                    value={newRow.expectedAmount ? Number(newRow.expectedAmount) : ''}
+                    onChange={(e) => setNewRow({ ...newRow, expectedAmount: parseFloat(e.target.value) })}
                     className="w-24"
                   />
-                </td>
-                <td className="px-4 py-3">
-                  <Select
-                    value={newRow.paymentMethod}
-                    onValueChange={(value) => setNewRow({ ...newRow, paymentMethod: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="CASH">Espèces</SelectItem>
-                      <SelectItem value="CHEQUE">Chèque</SelectItem>
-                      <SelectItem value="VIREMENT">Virement</SelectItem>
-                      <SelectItem value="CNAM">CNAM</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
@@ -543,26 +528,10 @@ export default function RentalPeriodsTable() {
                       <Input
                         type="number"
                         step="0.01"
-                        value={editData.amount}
-                        onChange={(e) => setEditData({ ...editData, amount: parseFloat(e.target.value) })}
+                        value={editData.expectedAmount ? Number(editData.expectedAmount) : ''}
+                        onChange={(e) => setEditData({ ...editData, expectedAmount: parseFloat(e.target.value) })}
                         className="w-24"
                       />
-                    </td>
-                    <td className="px-4 py-3">
-                      <Select
-                        value={editData.paymentMethod}
-                        onValueChange={(value) => setEditData({ ...editData, paymentMethod: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="CASH">Espèces</SelectItem>
-                          <SelectItem value="CHEQUE">Chèque</SelectItem>
-                          <SelectItem value="VIREMENT">Virement</SelectItem>
-                          <SelectItem value="CNAM">CNAM</SelectItem>
-                        </SelectContent>
-                      </Select>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">

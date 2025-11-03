@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, Trash2, Package, Stethoscope, Puzzle, Cog } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { formatCurrency } from '@/utils/priceUtils';
-import { ProductDialog } from '../../dashboard/components/dialogs/ProductDialog';
+import { ProductDialog } from '@/pages/roles/admin/dashboard/components/dialogs/ProductDialog';
 
 interface SaleItem {
   id?: string;

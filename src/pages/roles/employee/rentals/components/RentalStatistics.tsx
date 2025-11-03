@@ -41,8 +41,10 @@ interface PatientStatistic {
   doctorName?: string;
   rentalCode?: string;
   deviceName?: string;
+  deviceCode?: string;
   employeeName?: string;
   startDate?: string;
+  endDate?: string;
   alertDate?: string;
   titrationReminderDate?: string;
   appointmentDate?: string;

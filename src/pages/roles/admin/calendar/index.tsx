@@ -1,23 +1,22 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/router';
 import { useQuery } from '@tanstack/react-query';
 import { 
   Calendar, Clock, CreditCard, Stethoscope, Building2,
-  AlertTriangle, CheckCircle2, User, Users, Filter,
-  ChevronLeft, ChevronRight, Plus, BarChart3, Activity,
-  FileText, Bell, MapPin, Phone, Eye, ExternalLink,
-  Mail, Hash, CalendarDays, ArrowRight
+  ChevronLeft, ChevronRight,  Activity,
+  FileText, Phone, Eye, ExternalLink,
+  Hash, CalendarDays, ArrowRight,
+  CheckCircle2,
+  AlertTriangle,
+  Users
 } from 'lucide-react';
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, addDays, addWeeks, subWeeks, addMonths, subMonths } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useToast } from '@/components/ui/use-toast';
-import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import AdminLayout from '../AdminLayout';
 import {
@@ -132,7 +131,6 @@ type ViewMode = 'month' | 'week' | 'day' | 'list';
 
 export default function ModernTasksPage() {
   const router = useRouter();
-  const { toast } = useToast();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>('month');
   const [filter, setFilter] = useState('all');
@@ -186,7 +184,7 @@ export default function ModernTasksPage() {
   });
 
   // Fetch users for filtering
-  const { data: usersData, isLoading: usersLoading } = useQuery({
+  const { data: usersData } = useQuery({
     queryKey: ['users-list'],
     queryFn: async () => {
       const response = await fetch('/api/users/list');
@@ -417,7 +415,7 @@ export default function ModernTasksPage() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-semibold text-blue-900">Vue d'ensemble des affectations</h3>
+                <h3 className="font-semibold text-blue-900">Vue d&apos;ensemble des affectations</h3>
                 <p className="text-sm text-blue-700 mt-1">
                   {assignedTasks.length} tâches assignées • {unassignedTasks.length} non assignées
                   {assignedUserId !== 'all' && ` • Filtrées pour: ${usersData?.users?.find((u: any) => u.id === assignedUserId)?.name}`}
@@ -593,15 +591,10 @@ export default function ModernTasksPage() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto py-6 px-4 max-w-7xl">
-        <div className="space-y-4">
-          <Skeleton className="h-20 w-full" />
-          <div className="grid grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map(i => (
-              <Skeleton key={i} className="h-24 w-full" />
-            ))}
-          </div>
-          <Skeleton className="h-96 w-full" />
+      <div className="flex items-center justify-center h-96">
+        <div className="flex flex-col items-center space-y-4">
+          <Calendar className="h-12 w-12 animate-spin text-blue-600" />
+          <span className="text-slate-600 font-medium">Chargement du calendrier...</span>
         </div>
       </div>
     );
@@ -678,7 +671,7 @@ export default function ModernTasksPage() {
               )}
               {selectedTask.dueDate && (
                 <div>
-                  <h4 className="text-sm font-medium text-gray-500 mb-2">Date d'échéance</h4>
+                  <h4 className="text-sm font-medium text-gray-500 mb-2">Date d&apos;échéance</h4>
                   <div className="flex items-center gap-2">
                     <Clock className="h-4 w-4 text-orange-500" />
                     <span className="text-gray-700 font-medium">
@@ -932,7 +925,7 @@ export default function ModernTasksPage() {
               size="sm"
               onClick={() => setSelectedDate(new Date())}
             >
-              Aujourd'hui
+              Aujourd&apos;hui
             </Button>
             <Button
               variant="outline"

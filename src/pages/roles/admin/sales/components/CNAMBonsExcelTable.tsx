@@ -106,7 +106,6 @@ export default function CNAMBonsExcelTable() {
       const response = await fetch('/api/cnam-bons?category=ACHAT');
       if (!response.ok) throw new Error('Failed to fetch sale CNAM bons');
       const data = await response.json();
-      console.log('[CNAM BONS] Fetched sale bons:', data);
       return data;
     },
   });
@@ -130,10 +129,6 @@ export default function CNAMBonsExcelTable() {
     // Ensure salesData is an array
     const salesArray = Array.isArray(salesData) ? salesData : (salesData?.sales || []);
 
-    console.log('[CNAM BONS] Sales data:', salesData);
-    console.log('[CNAM BONS] Sales array:', salesArray);
-    console.log('[CNAM BONS] Sales array length:', salesArray.length);
-    console.log('[CNAM BONS] Sale bons data:', saleBonsData);
 
     // Extract CNAM dossiers from sales (CNAMDossier model)
     if (salesArray && Array.isArray(salesArray)) {
@@ -211,8 +206,6 @@ export default function CNAMBonsExcelTable() {
       });
     }
 
-    console.log('[CNAM BONS] Combined dossiers:', combined);
-    console.log('[CNAM BONS] Combined dossiers length:', combined.length);
     return combined;
   }, [salesData, saleBonsData]);
 
@@ -266,7 +259,6 @@ export default function CNAMBonsExcelTable() {
       return response.json();
     },
     onSuccess: async (data) => {
-      console.log('[CNAM BONS] Bon created successfully:', data);
       // Refetch both queries to get the latest data
       await queryClient.refetchQueries({ queryKey: ['sales'] });
       await queryClient.refetchQueries({ queryKey: ['sale-cnam-bons'] });
@@ -431,28 +423,21 @@ export default function CNAMBonsExcelTable() {
     const client = { type, id, name };
     setSelectedClient(client);
 
-    console.log('[CNAM BONS] Sales data:', salesData);
-    console.log('[CNAM BONS] Is array?', Array.isArray(salesData));
 
     // Fetch sales for this client - ensure salesData is an array
     // Handle both array format and { sales: [...] } object format
     const salesArray = Array.isArray(salesData) ? salesData : (salesData?.sales || []);
-    console.log('[CNAM BONS] Sales array length:', salesArray.length);
 
     const clientSales = salesArray.filter((sale: any) => {
       if (type === 'patient') {
         const matches = sale.patientId === id;
-        console.log(`[CNAM BONS] Checking sale ${sale.saleCode}: patientId=${sale.patientId}, targetId=${id}, matches=${matches}`);
         return matches;
       } else {
         const matches = sale.companyId === id;
-        console.log(`[CNAM BONS] Checking sale ${sale.saleCode}: companyId=${sale.companyId}, targetId=${id}, matches=${matches}`);
         return matches;
       }
     });
 
-    console.log('[CNAM BONS] Client sales found:', clientSales.length);
-    console.log('[CNAM BONS] Client sales:', clientSales);
     setClientSales(clientSales);
   };
 

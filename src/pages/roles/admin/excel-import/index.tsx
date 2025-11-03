@@ -244,7 +244,6 @@ export default function ExcelImportExportPage() {
   };
 
   const handleImportComplete = () => {
-    console.log('Import completed, refreshing stats...');
     fetchStats(); // Refresh stats after import
   };
 

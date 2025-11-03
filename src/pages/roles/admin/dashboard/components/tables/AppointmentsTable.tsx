@@ -82,7 +82,6 @@ export function AppointmentsTable({ onViewDetails }: AppointmentsTableProps) {
           throw new Error("Failed to fetch appointments");
         }
         const data = await response.json();
-        console.log("Appointments data:", data);
         return data.appointments || [];
       } catch (error) {
         console.error("Error fetching appointments:", error);

@@ -86,7 +86,6 @@ export default function AppareilsPage() {
   // Add device mutation
   const addDeviceMutation = useMutation({
     mutationFn: async (newProduct: Product) => {
-      console.log('Adding device with data:', JSON.stringify(newProduct, null, 2));
       const response = await fetch("/api/medical-devices", {
         method: "POST",
         headers: {
@@ -194,14 +193,7 @@ export default function AppareilsPage() {
         // Use the medical-devices endpoint for all device types
         const apiEndpoint = '/api/medical-devices';
 
-        console.log(`Updating ${currentProduct.type} with ID ${currentProduct.id} using endpoint: ${apiEndpoint}`);
-        console.log('Form data being sent:', JSON.stringify({
-          ...data,
-          type: currentProduct.type,
-        }, null, 2));
-
         // Update existing product
-        console.log(`Sending PUT request to ${apiEndpoint}/${currentProduct.id}`);
         const response = await fetch(`${apiEndpoint}/${currentProduct.id}`, {
           method: "PUT",
           headers: {
@@ -213,10 +205,8 @@ export default function AppareilsPage() {
           }),
         });
 
-        console.log('Response status:', response.status);
 
         const responseData = await response.json();
-        console.log('Response data:', responseData);
 
         if (!response.ok) {
           console.error("Update error:", responseData);

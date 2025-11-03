@@ -148,8 +148,8 @@ export default function ComprehensiveRentalsTable() {
 
       // CNAM filter
       if (cnamFilter !== 'all') {
-        if (cnamFilter === 'eligible' && !rental.cnamEligible) return false;
-        if (cnamFilter === 'not_eligible' && rental.cnamEligible) return false;
+        if (cnamFilter === 'eligible' && !rental.configuration?.cnamEligible) return false;
+        if (cnamFilter === 'not_eligible' && rental.configuration?.cnamEligible) return false;
       }
 
       return true;
