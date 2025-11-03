@@ -356,7 +356,7 @@ export default function AppareilsPage() {
         {activeTab === "medical-devices" && (
           <div className="space-y-6">
             <MedicalDevicesExcelTable
-              devices={products?.filter(p => p.type === 'MEDICAL_DEVICE') || []}
+              devices={products?.filter((p: any) => p.type === 'MEDICAL_DEVICE') || []}
               stockLocations={stockLocations || []}
               onDeviceCreate={async (device) => {
                 await addDeviceMutation.mutateAsync({ ...device, type: 'MEDICAL_DEVICE' } as any);
@@ -391,7 +391,7 @@ export default function AppareilsPage() {
         {activeTab === "diagnostic-devices" && (
           <div className="space-y-6">
             <DiagnosticDevicesExcelTable
-              devices={products?.filter(p => p.type === 'DIAGNOSTIC_DEVICE') || []}
+              devices={products?.filter((p: any) => p.type === 'DIAGNOSTIC_DEVICE') || []}
               stockLocations={stockLocations || []}
               onDeviceCreate={async (device) => {
                 await addDeviceMutation.mutateAsync({ ...device, type: 'DIAGNOSTIC_DEVICE' } as any);
@@ -434,7 +434,7 @@ export default function AppareilsPage() {
               />
             </div>
             <AccessoriesExcelTable
-              accessories={products?.filter(p => p.type === 'ACCESSORY') || []}
+              accessories={products?.filter((p: any) => p.type === 'ACCESSORY') || []}
               stockLocations={stockLocations || []}
               onAccessoryCreate={async (accessory) => {
                 const cleanData = {
@@ -447,7 +447,7 @@ export default function AppareilsPage() {
                   sellingPrice: accessory.sellingPrice,
                   status: accessory.status,
                   stockLocationId: accessory.stockLocationId,
-                  stockQuantity: accessory.quantity || 0,
+                  stockQuantity: accessory.stockQuantity || 0,
                   minQuantity: accessory.minQuantity
                 };
                 await addDeviceMutation.mutateAsync(cleanData as any);
@@ -490,7 +490,7 @@ export default function AppareilsPage() {
               />
             </div>
             <SparePartsExcelTable
-              spareParts={products?.filter(p => p.type === 'SPARE_PART') || []}
+              spareParts={products?.filter((p: any) => p.type === 'SPARE_PART') || []}
               stockLocations={stockLocations || []}
               onSparePartCreate={async (sparePart) => {
                 const cleanData = {
@@ -505,7 +505,7 @@ export default function AppareilsPage() {
                   sellingPrice: sparePart.sellingPrice,
                   status: sparePart.status,
                   stockLocationId: sparePart.stockLocationId,
-                  stockQuantity: sparePart.quantity || 0,
+                  stockQuantity: sparePart.stockQuantity || 0,
                   minQuantity: sparePart.minQuantity
                 };
                 await addDeviceMutation.mutateAsync(cleanData as any);

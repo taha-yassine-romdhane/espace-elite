@@ -115,11 +115,10 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       include: {
         stockLocation: { select: { name: true } },
         deviceParameters: { orderBy: { updatedAt: 'desc' } },
-        Rental: { 
-          orderBy: { startDate: 'desc' }, 
+        Rental: {
+          orderBy: { startDate: 'desc' },
           include: {
-            patient: { select: { firstName: true, lastName: true, patientCode: true } },
-            Company: { select: { companyName: true } }
+            patient: { select: { firstName: true, lastName: true, patientCode: true } }
           }
         },
         Diagnostic: {

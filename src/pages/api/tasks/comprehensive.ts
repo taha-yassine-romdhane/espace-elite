@@ -274,11 +274,6 @@ export default async function handler(
             name: `${rental.patient.firstName} ${rental.patient.lastName}`,
             type: 'patient',
             telephone: rental.patient.telephone
-          } : rental.Company ? {
-            id: rental.Company.id,
-            name: rental.Company.companyName,
-            type: 'company',
-            telephone: rental.Company.telephone
           } : undefined,
           relatedData: {
             deviceName: rental.medicalDevice.name,
@@ -486,7 +481,7 @@ export default async function handler(
           },
           relatedData: {
             bonNumber: bond.bonNumber || undefined,
-            amount: Number(bond.monthlyAmount),
+            amount: Number(bond.bonAmount),
             deviceName: bond.rental?.medicalDevice?.name
           },
           actionUrl: bond.rentalId ? (session.user.role === 'ADMIN' ? `/roles/admin/rentals/${bond.rentalId}` : `/roles/employee/rentals/${bond.rentalId}`) : '#',

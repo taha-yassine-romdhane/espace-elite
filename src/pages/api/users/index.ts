@@ -311,10 +311,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           await tx.sale.deleteMany({ where: { patientId: patient.id } });
           await tx.patientHistory.deleteMany({ where: { patientId: patient.id } });
           await tx.medicalDeviceParametre.deleteMany({ where: { patientId: patient.id } });
-          await tx.medicalDevice.updateMany({ 
-            where: { patientId: patient.id }, 
-            data: { patientId: null } 
-          });
         }
         
         // Delete related records for companies created by this user
@@ -323,13 +319,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           await tx.payment.deleteMany({ where: { companyId: company.id } });
           await tx.diagnostic.deleteMany({ where: { companyId: company.id } });
           await tx.appointment.deleteMany({ where: { companyId: company.id } });
-          await tx.rental.deleteMany({ where: { companyId: company.id } });
           await tx.notification.deleteMany({ where: { companyId: company.id } });
           await tx.sale.deleteMany({ where: { companyId: company.id } });
-          await tx.medicalDevice.updateMany({ 
-            where: { companyId: company.id }, 
-            data: { companyId: null } 
-          });
         }
         
         // Now delete the patients and companies (they have mandatory userId)

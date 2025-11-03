@@ -2,27 +2,16 @@ import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import {
   Plus,
-  Save,
   X,
   Check,
   Trash2,
   Edit2,
-  Search,
-  Filter,
   AlertTriangle,
   CheckCircle,
   Clock,
-  Shield,
-  User,
-  Building2,
-  Package,
-  FileText
 } from 'lucide-react';
 import { useToast } from "@/components/ui/use-toast";
 import {
@@ -32,12 +21,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 
 interface Rental {
   id?: string;
@@ -92,12 +75,6 @@ export default function RentalsTable() {
   const [newRow, setNewRow] = useState<Partial<Rental> | null>(null);
   const [editData, setEditData] = useState<Partial<Rental>>({});
 
-  // Search and Filter State
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [clientTypeFilter, setClientTypeFilter] = useState<string>("all");
-  const [cnamFilter, setCnamFilter] = useState<string>("all");
-
   // Fetch rentals
   const { data: rentalsData, isLoading } = useQuery({
     queryKey: ['rentals-simple'],
@@ -127,7 +104,7 @@ export default function RentalsTable() {
   const patients = patientsResponse || [];
 
   // Fetch companies for dropdown
-  const { data: companiesResponse } = useQuery({
+  const {  } = useQuery({
     queryKey: ['companies-for-rentals'],
     queryFn: async () => {
       const response = await fetch('/api/companies');
@@ -136,9 +113,6 @@ export default function RentalsTable() {
       return Array.isArray(data) ? data : (data.companies || []);
     },
   });
-
-  const companies = companiesResponse || [];
-
   // Fetch devices for dropdown
   const { data: devicesResponse } = useQuery({
     queryKey: ['devices'],
@@ -152,51 +126,7 @@ export default function RentalsTable() {
 
   const devices = devicesResponse || [];
 
-  // Filter rentals based on search and filters
-  const filteredRentals = (rentals || []).filter((rental: Rental) => {
-    // Search filter
-    if (searchTerm) {
-      const search = searchTerm.toLowerCase();
-      const clientName = rental.patient
-        ? `${rental.patient.firstName} ${rental.patient.lastName}`.toLowerCase()
-        : rental.company?.companyName?.toLowerCase() || '';
-      const deviceName = rental.medicalDevice?.name?.toLowerCase() || '';
-      const deviceCode = rental.medicalDevice?.deviceCode?.toLowerCase() || '';
-      const rentalCode = rental.rentalCode?.toLowerCase() || '';
-      const patientCode = rental.patient?.patientCode?.toLowerCase() || '';
-      const companyCode = rental.company?.companyCode?.toLowerCase() || '';
 
-      if (
-        !clientName.includes(search) &&
-        !deviceName.includes(search) &&
-        !deviceCode.includes(search) &&
-        !rentalCode.includes(search) &&
-        !patientCode.includes(search) &&
-        !companyCode.includes(search)
-      ) {
-        return false;
-      }
-    }
-
-    // Status filter
-    if (statusFilter !== 'all' && rental.status !== statusFilter) {
-      return false;
-    }
-
-    // Client type filter
-    if (clientTypeFilter !== 'all') {
-      if (clientTypeFilter === 'patient' && rental.clientType !== 'patient') return false;
-      if (clientTypeFilter === 'company' && rental.clientType !== 'company') return false;
-    }
-
-    // CNAM filter
-    if (cnamFilter !== 'all') {
-      if (cnamFilter === 'eligible' && !rental.cnamEligible) return false;
-      if (cnamFilter === 'not_eligible' && rental.cnamEligible) return false;
-    }
-
-    return true;
-  });
 
   // Create rental mutation
   const createMutation = useMutation({

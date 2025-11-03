@@ -39,6 +39,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               id: true,
               name: true,
               deviceCode: true,
+              rentalPrice: true,
             },
           },
         },
@@ -103,12 +104,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             },
           },
         },
-      });
-
-      // Update device to link to patient
-      await prisma.medicalDevice.update({
-        where: { id: deviceId },
-        data: { patientId },
       });
 
       return res.status(201).json({

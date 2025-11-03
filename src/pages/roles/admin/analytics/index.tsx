@@ -77,7 +77,7 @@ const AnalyticsPage: React.FC = () => {
     { key: 'stockLocation', label: 'Emplacement Stock', width: '150px', align: 'left' as const },
     { key: 'devicesInStock', label: 'Appareils en Stock', width: '150px', align: 'right' as const, format: formatNumber },
     { key: 'activeDevices', label: 'Appareils Actifs', width: '130px', align: 'right' as const, format: formatNumber },
-    { key: 'performanceScore', label: 'Score Performance', width: '150px', align: 'right' as const, format: (v) => v + '%' },
+    { key: 'performanceScore', label: 'Score Performance', width: '150px', align: 'right' as const, format: (v: number) => v + '%' },
     { key: 'createdAt', label: 'Date Création', width: '120px', align: 'center' as const }
   ];
 

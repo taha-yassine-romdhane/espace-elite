@@ -48,9 +48,13 @@ interface CNAMBond {
   approvalDate?: string;
   startDate?: string;
   endDate?: string;
-  monthlyAmount: number;
+  bonAmount?: number;
+  totalAmount?: number;
+  cnamMonthlyRate?: number;
+  deviceMonthlyRate?: number;
+  devicePrice?: number;
+  complementAmount?: number;
   coveredMonths: number;
-  totalAmount: number;
   renewalReminderDays?: number;
   notes?: string;
 }
@@ -441,9 +445,7 @@ export default async function handler(
                     cnamApprovalDate: period.cnamApprovalDate ? new Date(period.cnamApprovalDate) : null,
                     cnamStartDate: period.cnamStartDate ? new Date(period.cnamStartDate) : null,
                     cnamEndDate: period.cnamEndDate ? new Date(period.cnamEndDate) : null,
-                    isGapPeriod: period.isGapPeriod || false,
-                    gapReason: period.gapReason || null,
-                    isRentalPayment: true
+                    gapReason: period.gapReason || null
                   }
                 });
                 paymentRecords.push(paymentRecord);
@@ -462,8 +464,7 @@ export default async function handler(
                   status: 'GUARANTEE', // Deposit is a guarantee payment
                   patient: { connect: { id: clientId } },
                   notes: 'Dépôt de garantie pour location',
-                  isDepositPayment: true,
-                  isRentalPayment: true
+                  paymentType: 'RENTAL'
                 }
               });
             }
@@ -543,7 +544,6 @@ export default async function handler(
                   startDate: new Date(productStartDate),
                   endDate: productEndDate ? new Date(productEndDate) : null,
                   notes: notes || null,
-                  paymentId: legacyPaymentRecord?.id || paymentRecords[0]?.id || null,
                   createdById: session.user?.id || null, // Track who created the rental
                 },
                 include: {
@@ -553,7 +553,7 @@ export default async function handler(
                       assignedTo: true
                     }
                   },
-                  payment: true,
+                  payments: true,
                 }
               });
 
@@ -563,12 +563,9 @@ export default async function handler(
                   data: {
                     rentalId: rental.id,
                     isGlobalOpenEnded: isGlobalOpenEnded || false,
-                    urgentRental: urgentRental || false,
                     cnamEligible: cnamEligible || false,
                     totalPaymentAmount: totalPaymentAmount || null,
-                    depositAmount: depositAmount || null,
-                    depositMethod: depositMethod || null,
-                    notes: notes || null,
+                    internalNotes: notes || null,
                   }
                 });
 
@@ -635,13 +632,7 @@ export default async function handler(
                   }
                 }
               }
-              
-              // Update the medical device to associate it with the patient
-              await tx.medicalDevice.update({
-                where: { id: product.productId },
-                data: { patientId: clientId }
-              });
-              
+
               // Create patient history record for the rental
               if (rental.patientId) {
                 const [patient, device] = await Promise.all([
@@ -762,19 +753,17 @@ export default async function handler(
                     rentalId: rentalRecords[0].id, // Link to first rental for now
                     startDate: new Date(period.startDate),
                     endDate: new Date(period.endDate),
-                    amount: period.amount,
-                    paymentMethod: period.paymentMethod || 'CASH',
+                    expectedAmount: period.amount || 0,
                     isGapPeriod: period.isGapPeriod || false,
                     gapReason: period.gapReason || null,
                     notes: period.notes || null,
-                    paymentId: correspondingPayment?.id || null,
                     cnamBonId: correspondingCnamBond?.id || null,
                   }
                 });
                 rentalPeriodRecords.push(rentalPeriod);
                 
                 // Create payment due notification if payment is pending and not CNAM
-                if (correspondingPayment && correspondingPayment.status === 'PENDING' && period.paymentMethod !== 'CNAM') {
+                if (correspondingPayment && correspondingPayment.status === 'PENDING' && correspondingPayment.method !== 'CNAM') {
                   const rental = rentalRecords[0];
                   if (rental.patientId && rental.patient) {
                     try {

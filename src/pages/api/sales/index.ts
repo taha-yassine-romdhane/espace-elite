@@ -759,7 +759,7 @@ export default async function handler(
                 data: {
                   dossierNumber: dossierNumber,
                   bonType: cnamData.bonType,
-                  bonAmount: cnamData.bonAmount,
+                  bondAmount: cnamData.bonAmount || 0,
                   devicePrice: cnamData.devicePrice,
                   complementAmount: cnamData.complementAmount,
                   currentStep: cnamData.currentStep,
@@ -800,7 +800,7 @@ export default async function handler(
                   category: 'ACHAT', // Sale type CNAM bon
                   bonType: bonData.bonType || 'AUTRE',
                   status: bonData.status || 'EN_ATTENTE_APPROBATION',
-                  bondAmount: Number(bonData.bondAmount) || 0,
+                  bonAmount: Number(bonData.bondAmount || bonData.bonAmount) || 0,
                   devicePrice: Number(bonData.devicePrice) || 0,
                   complementAmount: Number(bonData.complementAmount) || 0,
                   cnamMonthlyRate: 0, // Not applicable for sales (one-time purchase)

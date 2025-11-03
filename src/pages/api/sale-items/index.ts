@@ -152,10 +152,6 @@ export default async function handler(
         if (!device) {
           return res.status(400).json({ error: 'Appareil médical non trouvé' });
         }
-
-        if (device.destination === 'SOLD') {
-          return res.status(400).json({ error: 'Cet appareil a déjà été vendu' });
-        }
       }
 
       // Create the sale item
@@ -267,7 +263,6 @@ export default async function handler(
         await prisma.medicalDevice.update({
           where: { id: itemData.medicalDeviceId },
           data: {
-            destination: 'SOLD',
             stockLocationId: null, // Remove from stock location (now at patient's location)
             // status remains ACTIVE for maintenance tracking
           }

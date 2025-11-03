@@ -31,48 +31,43 @@ export default async function handler(
         return res.status(404).json({ error: 'Technician not found' });
       }
 
-      // Get all medical devices installed by this technician
-      // We'll use the MedicalDevice model which has an installationDate field
-      // and is related to patients that this technician is assigned to
+      // Get all medical devices installed by this technician through rentals
       const installations = await prisma.medicalDevice.findMany({
         where: {
-          installationDate: { not: null },
-          OR: [
-            {
-              Patient: {
-                technicianId: technician.userId
-              }
-            },
-            {
-              Company: {
+          Rental: {
+            some: {
+              patient: {
                 technicianId: technician.userId
               }
             }
-          ]
+          }
         },
         include: {
-          Patient: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              doctorId: true,
-              doctor: {
-                include: {
-                  user: {
-                    select: {
-                      firstName: true,
-                      lastName: true
+          Rental: {
+            where: {
+              patient: {
+                technicianId: technician.userId
+              }
+            },
+            include: {
+              patient: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  doctorId: true,
+                  doctor: {
+                    include: {
+                      user: {
+                        select: {
+                          firstName: true,
+                          lastName: true
+                        }
+                      }
                     }
                   }
                 }
               }
-            }
-          },
-          Company: {
-            select: {
-              id: true,
-              companyName: true
             }
           },
           deviceParameters: {
@@ -89,7 +84,7 @@ export default async function handler(
           }
         },
         orderBy: {
-          installationDate: 'desc'
+          createdAt: 'desc'
         }
       });
 
@@ -116,34 +111,28 @@ export default async function handler(
           brand: device.brand || '',
           model: device.model || ''
         },
-        patientId: device.patientId || device.companyId || '',
-        patient: device.Patient 
-          ? { 
-              id: device.Patient.id, 
-              firstName: device.Patient.firstName, 
-              lastName: device.Patient.lastName 
+        patientId: device.Rental[0]?.patientId || '',
+        patient: device.Rental[0]?.patient
+          ? {
+              id: device.Rental[0].patient.id,
+              firstName: device.Rental[0].patient.firstName,
+              lastName: device.Rental[0].patient.lastName
             }
-          : device.Company 
-            ? { 
-                id: device.Company.id, 
-                firstName: '', 
-                lastName: device.Company.companyName 
-              }
-            : { id: '', firstName: 'N/A', lastName: '' },
-        installationDate: device.installationDate?.toISOString() || new Date().toISOString(),
+          : { id: '', firstName: 'N/A', lastName: '' },
+        installationDate: device.Rental[0]?.startDate?.toISOString() || device.createdAt.toISOString(),
         parameters: (device.deviceParameters || []).map((param: DeviceParameter) => ({
           id: param.id,
           title: param.deviceType || '',
           value: param.pression || param.ipap || param.debit || param.pressionRampe || '',
           unit: param.deviceType === 'Concentrateur O²' || param.deviceType === 'Bouteil O²' ? 'L/min' : 'cmH₂O'
         })),
-        doctorId: device.Patient?.doctorId || '',
-        doctor: device.Patient?.doctor 
+        doctorId: device.Rental[0]?.patient?.doctorId || '',
+        doctor: device.Rental[0]?.patient?.doctor
           ? {
-              id: device.Patient.doctor.id,
+              id: device.Rental[0].patient.doctor.id,
               user: {
-                firstName: device.Patient.doctor.user.firstName,
-                lastName: device.Patient.doctor.user.lastName
+                firstName: device.Rental[0].patient.doctor.user.firstName,
+                lastName: device.Rental[0].patient.doctor.user.lastName
               }
             }
           : undefined
