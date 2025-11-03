@@ -95,7 +95,6 @@ export default function ArticlesExcelTable() {
     code?: string;
     serialNumber?: string;
     unitPrice: number;
-    parameters?: any;
   } | null>(null);
   const [newArticle, setNewArticle] = useState({
     saleId: '',
@@ -106,7 +105,6 @@ export default function ArticlesExcelTable() {
     discount: 0,
     serialNumber: '',
     description: '',
-    parameters: null as any,
     stockLocationId: '', // For admin to select stock location
   });
   const [parameterDialogOpen, setParameterDialogOpen] = useState(false);
@@ -450,7 +448,6 @@ export default function ArticlesExcelTable() {
         code: article.medicalDevice.deviceCode,
         serialNumber: article.medicalDevice.serialNumber,
         unitPrice: article.unitPrice,
-        parameters: article.configuration,
       });
     }
   };
@@ -561,7 +558,7 @@ export default function ArticlesExcelTable() {
       discount: 0,
       serialNumber: '',
       description: '',
-      parameters: null,
+      stockLocationId: '',
     });
   };
 
@@ -585,7 +582,6 @@ export default function ArticlesExcelTable() {
     name: string;
     serialNumber?: string;
     unitPrice: number;
-    parameters?: any;
   }) => {
     setSelectedArticle(article);
 
@@ -597,7 +593,6 @@ export default function ArticlesExcelTable() {
         medicalDeviceId: article.type === 'medical-device' || article.type === 'diagnostic' ? article.id : '',
         serialNumber: article.serialNumber || '',
         unitPrice: article.unitPrice,
-        parameters: article.parameters || null,
       });
     } else {
       // In add mode, update new article
@@ -607,7 +602,6 @@ export default function ArticlesExcelTable() {
         medicalDeviceId: article.type === 'medical-device' || article.type === 'diagnostic' ? article.id : '',
         serialNumber: article.serialNumber || '',
         unitPrice: article.unitPrice,
-        parameters: article.parameters || null,
       });
     }
   };
@@ -626,42 +620,18 @@ export default function ArticlesExcelTable() {
 
   // Get initial parameters for dialog
   const getInitialParameters = () => {
-    if (editingId) {
-      return editedData.parameters || selectedArticle?.parameters || null;
-    }
-    return selectedArticle?.parameters || newArticle.parameters || null;
+    // Parameters functionality disabled - SaleItem doesn't have parameters field
+    return null;
   };
 
   const handleSaveParameters = (deviceId: string, parameters: any) => {
-    if (editingId) {
-      // In edit mode, update edited data
-      setEditedData({
-        ...editedData,
-        parameters: parameters,
-      });
-    } else {
-      // In add mode, update new article
-      setNewArticle({
-        ...newArticle,
-        parameters: parameters,
-      });
-    }
-
-    // Update selectedArticle with parameters
-    if (selectedArticle) {
-      setSelectedArticle({
-        ...selectedArticle,
-        parameters: parameters,
-      });
-    }
-    setParameterDialogOpen(false);
-    setConfiguringDevice(null);
-
-    toast({
-      title: "Paramètres sauvegardés",
-      description: "Les paramètres de l'appareil ont été enregistrés",
-    });
+    // Parameters functionality disabled - SaleItem doesn't have parameters field
+    // Configuration should be handled through SaleConfiguration relation
+    console.warn('Parameters saving is disabled - use SaleConfiguration instead');
   };
+
+  // Note: Parameter configuration has been disabled as SaleItem doesn't have parameters field
+  // Configuration should be handled through SaleConfiguration relation
 
   // Filter clients for search
   const filteredClients = useMemo(() => {
@@ -1016,19 +986,11 @@ export default function ArticlesExcelTable() {
                   <td className="px-3 py-2.5 border-r border-slate-100 min-w-[400px]">
                     {selectedArticle && (selectedArticle.type === 'medical-device' || selectedArticle.type === 'diagnostic') ? (
                       <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-xs shrink-0"
-                          onClick={handleConfigureParameters}
-                        >
-                          <Settings className="h-3 w-3 mr-1" />
-                          {(selectedArticle?.parameters || newArticle.parameters) ? 'Modifier' : 'Config'}
-                        </Button>
-                        {(selectedArticle?.parameters || newArticle.parameters) && (
+                        {/* Parameters functionality disabled - SaleItem doesn't have parameters field */}
+                        {false && (
                           <div className="text-xs text-slate-700 bg-green-50 px-2 py-1 rounded border border-green-200 whitespace-nowrap overflow-x-auto flex-1">
                             {(() => {
-                              const params = selectedArticle?.parameters || newArticle.parameters;
+                              const params: any = null;
                               const paramList = [];
                               // CPAP parameters
                               if (params.pression) paramList.push(`P: ${params.pression}`);
@@ -1256,14 +1218,14 @@ export default function ArticlesExcelTable() {
                             <div className="flex items-center gap-1.5 whitespace-nowrap">
                               <Users className="h-3.5 w-3.5 text-purple-600 shrink-0" />
                               <span className="text-xs font-medium">
-                                {article.sale.patient.patientCode} - {article.sale.patient.lastName.toUpperCase()} {article.sale.patient.firstName}
+                                {article.sale.patient.lastName.toUpperCase()} {article.sale.patient.firstName}
                               </span>
                             </div>
                           ) : article.sale?.company ? (
                             <div className="flex items-center gap-1.5 whitespace-nowrap">
                               <Building2 className="h-3.5 w-3.5 text-orange-600 shrink-0" />
                               <span className="text-xs font-medium">
-                                {article.sale.company.companyCode} - {article.sale.company.companyName}
+                                {article.sale.company.companyName}
                               </span>
                             </div>
                           ) : (
@@ -1374,11 +1336,11 @@ export default function ArticlesExcelTable() {
                                 onClick={handleConfigureParameters}
                               >
                                 <Settings className="h-3 w-3 mr-1" />
-                                {(editedData.parameters || article.configuration) ? 'Modifier' : 'Config'}
+                                {article.configuration ? 'Modifier' : 'Config'}
                               </Button>
-                              {(editedData.parameters || article.configuration) && (
+                              {article.configuration && (
                                 <div className="text-xs text-slate-700 bg-green-50 px-2 py-1 rounded border border-green-200 whitespace-nowrap overflow-x-auto flex-1">
-                                  {formatConfiguration(editedData.parameters || article.configuration) || 'Configuré'}
+                                  {formatConfiguration(article.configuration) || 'Configuré'}
                                 </div>
                               )}
                             </div>
