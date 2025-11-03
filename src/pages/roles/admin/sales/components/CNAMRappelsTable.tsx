@@ -170,13 +170,13 @@ export default function CNAMRappelsTable() {
     const daysUntil7Years = Math.floor((rappel7Years.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
     // Determine status (passed, upcoming within 90 days, distant)
-    const get2YearsStatus = () => {
+    const get2YearsStatus = (): 'passed' | 'upcoming' | 'distant' => {
       if (daysUntil2Years < 0) return 'passed';
       if (daysUntil2Years <= 90) return 'upcoming';
       return 'distant';
     };
 
-    const get7YearsStatus = () => {
+    const get7YearsStatus = (): 'passed' | 'upcoming' | 'distant' => {
       if (daysUntil7Years < 0) return 'passed';
       if (daysUntil7Years <= 90) return 'upcoming';
       return 'distant';

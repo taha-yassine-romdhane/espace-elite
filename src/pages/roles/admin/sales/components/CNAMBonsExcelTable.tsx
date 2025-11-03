@@ -409,9 +409,9 @@ export default function CNAMBonsExcelTable() {
         bonType: editedData.bonType,
         status: editedData.status,
         currentStep: editedData.currentStep,
-        cnamMonthlyRate: editedData.cnamMonthlyRate,
-        deviceMonthlyRate: editedData.deviceMonthlyRate,
-        coveredMonths: editedData.coveredMonths,
+        bondAmount: editedData.bondAmount,
+        devicePrice: editedData.devicePrice,
+        complementAmount: editedData.complementAmount,
         dossierNumber: editedData.dossierNumber,
         notes: editedData.notes,
       });
@@ -664,8 +664,8 @@ export default function CNAMBonsExcelTable() {
                     ) : (
                       <PatientSelectorDialog
                         onSelect={handleSelectClient}
-                        selectedId={selectedClient?.id}
-                        selectedName={selectedClient?.name}
+                        selectedId={undefined}
+                        selectedName={undefined}
                         trigger={
                           <Button
                             variant="outline"
