@@ -452,7 +452,6 @@ export default function RentalStatistics() {
                       <td className="px-4 py-3 whitespace-nowrap">
                         <div className="text-sm">
                           <div className="font-medium text-slate-900">{stat.deviceName}</div>
-                          <div className="text-xs text-slate-500">{stat.deviceCode}</div>
                         </div>
                       </td>
 
@@ -467,11 +466,6 @@ export default function RentalStatistics() {
                           <div className="text-slate-600">
                             Début: {stat.startDate ? format(new Date(stat.startDate), 'dd/MM/yy', { locale: fr }) : '-'}
                           </div>
-                          {stat.endDate && (
-                            <div className="text-slate-600">
-                              Fin: {format(new Date(stat.endDate), 'dd/MM/yy', { locale: fr })}
-                            </div>
-                          )}
                         </div>
                       </td>
 

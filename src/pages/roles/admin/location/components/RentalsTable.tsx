@@ -285,9 +285,9 @@ export default function RentalsTable() {
 
   const renderCell = (
     value: any,
-    field: keyof Rental,
+    field: string,
     isEditing: boolean,
-    onChange: (field: keyof Rental, value: any) => void
+    onChange: (field: string, value: any) => void
   ) => {
     if (!isEditing) {
       if (field === 'patient') return `${value?.firstName} ${value?.lastName}`;
@@ -315,7 +315,7 @@ export default function RentalsTable() {
             </SelectContent>
           </Select>
         );
-      case 'deviceId':
+      case 'medicalDeviceId':
         return (
           <Select value={value || ''} onValueChange={(v) => onChange(field, v)}>
             <SelectTrigger className="h-8 border-blue-300 focus:ring-blue-500">
@@ -407,7 +407,7 @@ export default function RentalsTable() {
                     )}
                   </td>
                   <td className="px-4 py-2">
-                    {renderCell(newRow.deviceId, 'deviceId', true, (field, value) =>
+                    {renderCell(newRow.medicalDeviceId, 'medicalDeviceId', true, (field, value) =>
                       setNewRow({ ...newRow, [field]: value })
                     )}
                   </td>
@@ -422,9 +422,7 @@ export default function RentalsTable() {
                     )}
                   </td>
                   <td className="px-4 py-2">
-                    {renderCell(newRow.monthlyRate, 'monthlyRate', true, (field, value) =>
-                      setNewRow({ ...newRow, [field]: value })
-                    )}
+                    <span className="text-xs text-muted-foreground">N/A</span>
                   </td>
                   <td className="px-4 py-2">
                     {renderCell(newRow.status, 'status', true, (field, value) =>
@@ -460,7 +458,7 @@ export default function RentalsTable() {
                       )}
                     </td>
                     <td className="px-4 py-2">
-                      {renderCell(isEditing ? currentData.deviceId : rental.device, isEditing ? 'deviceId' : 'device', isEditing, (field, value) =>
+                      {renderCell(isEditing ? currentData.medicalDeviceId : rental.medicalDevice, isEditing ? 'medicalDeviceId' : 'device', isEditing, (field, value) =>
                         setEditData({ ...editData, [field]: value })
                       )}
                     </td>
@@ -475,8 +473,10 @@ export default function RentalsTable() {
                       )}
                     </td>
                     <td className="px-4 py-2">
-                      {renderCell(currentData.monthlyRate, 'monthlyRate', isEditing, (field, value) =>
-                        setEditData({ ...editData, [field]: value })
+                      {isEditing ? (
+                        <span className="text-xs text-muted-foreground">N/A</span>
+                      ) : (
+                        renderCell((rental as any).configuration?.rentalRate, 'monthlyRate', false, () => {})
                       )}
                     </td>
                     <td className="px-4 py-2">

@@ -379,8 +379,8 @@ export default function DiagnosticsExcelTable() {
     return true;
   });
 
-  const renderCell = (diagnostic: Diagnostic, field: keyof Diagnostic, isEditing: boolean) => {
-    const value = isEditing && editedDiagnostic ? editedDiagnostic[field] : diagnostic[field];
+  const renderCell = (diagnostic: Diagnostic, field: string, isEditing: boolean) => {
+    const value = isEditing && editedDiagnostic ? (editedDiagnostic as any)[field] : (diagnostic as any)[field];
 
     if (isEditing && editedDiagnostic) {
       switch (field) {

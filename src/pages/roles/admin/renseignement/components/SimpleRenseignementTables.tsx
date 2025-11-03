@@ -663,7 +663,8 @@ export default function SimpleRenseignementTables({
           setShowPatientDeletionDialog(false);
           setPatientToDelete(null);
         }}
-        onConfirm={handleConfirmDelete}
+        patientId={patientToDelete?.id || ''}
+        onDeleteComplete={handleConfirmDelete}
         patientName={patientToDelete?.name || ''}
       />
 

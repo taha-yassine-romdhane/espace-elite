@@ -344,7 +344,7 @@ export default function ArticlesExcelTable() {
         discount: 0,
         serialNumber: '',
         description: '',
-        parameters: null,
+        stockLocationId: '',
       });
     },
     onError: () => {
@@ -417,7 +417,6 @@ export default function ArticlesExcelTable() {
       productId: article.productId || '',
       medicalDeviceId: article.medicalDeviceId || '',
       serialNumber: article.serialNumber || '',
-      parameters: article.configuration || null,
     });
 
     // Set selected client and article for editing
@@ -501,11 +500,6 @@ export default function ArticlesExcelTable() {
     // Include serial number
     if (editedData.serialNumber !== undefined) {
       updatePayload.serialNumber = editedData.serialNumber;
-    }
-
-    // Include parameters for medical devices
-    if (editedData.parameters !== undefined) {
-      updatePayload.parameters = editedData.parameters;
     }
 
     updateMutation.mutate({

@@ -340,8 +340,8 @@ export default function PaymentsTable() {
     // Include calculated period data in the payment
     const paymentData = {
       ...newRow,
-      periodNumber: calculatedPeriodNumber,
-      gapDays: calculatedGapDays,
+      periodNumber: calculatedPeriodNumber ?? undefined,
+      gapDays: calculatedGapDays ?? undefined,
     };
     createMutation.mutate(paymentData);
   };

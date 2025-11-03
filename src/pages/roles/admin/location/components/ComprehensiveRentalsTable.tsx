@@ -448,9 +448,9 @@ export default function ComprehensiveRentalsTable() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tous les appareils</SelectItem>
-              {uniqueDevices.map((deviceName: string) => (
-                <SelectItem key={deviceName} value={deviceName}>
-                  {deviceName}
+              {uniqueDevices.map((deviceName) => (
+                <SelectItem key={deviceName as string} value={deviceName as string}>
+                  {deviceName as string}
                 </SelectItem>
               ))}
             </SelectContent>
