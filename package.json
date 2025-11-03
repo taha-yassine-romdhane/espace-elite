@@ -53,6 +53,7 @@
     "@uploadthing/react": "^7.3.0",
     "axios": "^1.11.0",
     "bcryptjs": "^2.4.3",
+    "caniuse-lite": "^1.0.30001751",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.4",

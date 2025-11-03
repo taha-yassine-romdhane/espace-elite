@@ -39,6 +39,18 @@ export interface Renseignement {
   phoneDescription?: string;
   addressDescription?: string;
   createdAt: string;
+
+  // New relations
+  rentals?: any[];
+  sales?: any[];
+  diagnostics?: any[];
+  appointments?: any[];
+  payments?: any[];
+  cnamBonRentals?: any[];
+  cnamDossiers?: any[];
+  deviceParameters?: any[];
+  notifications?: any[];
+  PatientHistory?: any[];
 }
 
 export interface UploadedFile {

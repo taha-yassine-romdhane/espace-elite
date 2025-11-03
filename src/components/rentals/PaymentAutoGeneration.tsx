@@ -30,7 +30,7 @@ import { fr } from 'date-fns/locale';
 
 interface PaymentAutoGenerationProps {
   rental: any;
-  cnamBonds: any[];
+  cnamBons: any[];
   existingPeriods: any[];
   onPeriodsGenerated?: (periods: any[]) => void;
 }
@@ -43,14 +43,14 @@ interface GeneratedPeriod {
   paymentMethod: 'CNAM' | 'CASH';
   isGapPeriod: boolean;
   gapReason?: string;
-  cnamBondId?: string;
+  cnamBonId?: string;
   source: 'CNAM_BOND' | 'GAP_AUTO' | 'EXISTING';
   notes?: string;
 }
 
 export default function PaymentAutoGeneration({ 
   rental, 
-  cnamBonds, 
+  cnamBons, 
   existingPeriods,
   onPeriodsGenerated 
 }: PaymentAutoGenerationProps) {
@@ -110,7 +110,7 @@ export default function PaymentAutoGeneration({
     return total;
   }, [rental]);
 
-  // Auto-generate periods based on CNAM bonds and rental dates
+  // Auto-generate periods based on CNAM bons and rental dates
   const generatePeriodsFromCNAMBonds = () => {
     setIsGenerating(true);
     
@@ -119,13 +119,13 @@ export default function PaymentAutoGeneration({
       const rentalStart = new Date(rental.startDate);
       const rentalEnd = rental.endDate ? new Date(rental.endDate) : null;
       
-      // Sort CNAM bonds by start date
-      const sortedBonds = [...cnamBonds]
+      // Sort CNAM bons by start date
+      const sortedBonds = [...cnamBons]
         .filter(bond => bond.startDate && bond.endDate)
         .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
 
       if (sortedBonds.length === 0) {
-        // No CNAM bonds - create cash periods
+        // No CNAM bons - create cash periods
         if (rentalEnd) {
           periods.push({
             id: `cash-${Date.now()}`,
@@ -177,7 +177,7 @@ export default function PaymentAutoGeneration({
         currentDate = firstBondStart;
       }
 
-      // Process CNAM bonds and gaps between them
+      // Process CNAM bons and gaps between them
       for (let i = 0; i < sortedBonds.length; i++) {
         const bond = sortedBonds[i];
         const bondStart = new Date(bond.startDate);
@@ -197,9 +197,9 @@ export default function PaymentAutoGeneration({
           amount: bond.totalAmount,
           paymentMethod: 'CNAM',
           isGapPeriod: false,
-          cnamBondId: bond.id,
+          cnamBonId: bond.id,
           source: 'CNAM_BOND',
-          notes: `Bon CNAM - ${bond.bondType}`,
+          notes: `Bon CNAM - ${bond.bonType}`,
         });
         
         currentDate = addDays(periodEnd, 1);
@@ -354,7 +354,7 @@ export default function PaymentAutoGeneration({
               </p>
               <div className="text-sm text-gray-500 mt-1">
                 Tarif journalier: <strong>{(typeof dailyRate === 'number' ? dailyRate : parseFloat(dailyRate) || 0).toFixed(2)} TND</strong> • 
-                Bons CNAM: <strong>{cnamBonds.length}</strong> • 
+                Bons CNAM: <strong>{cnamBons.length}</strong> • 
                 Périodes existantes: <strong>{existingPeriods.length}</strong>
               </div>
             </div>
@@ -372,7 +372,7 @@ export default function PaymentAutoGeneration({
             </Button>
           </div>
 
-          {cnamBonds.length === 0 && (
+          {cnamBons.length === 0 && (
             <Alert>
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription>

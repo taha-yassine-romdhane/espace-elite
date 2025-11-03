@@ -22,7 +22,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Fetch all products with their related data
     const products = await prisma.product.findMany({
       include: {
-        stockLocation: true,
         stocks: {
           include: {
             location: true
@@ -48,7 +47,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       'Expiration garantie': product.warrantyExpiration ? new Date(product.warrantyExpiration).toLocaleDateString('fr-FR') : '',
       'Statut': product.status || '',
       'Notes': product.notes || '',
-      'Emplacement de stock': product.stockLocation?.name || '',
       'Quantité totale en stock': product.stocks?.reduce((sum, stock) => sum + stock.quantity, 0) || 0,
       'Date création': product.createdAt ? new Date(product.createdAt).toLocaleDateString('fr-FR') : '',
       'Date modification': product.updatedAt ? new Date(product.updatedAt).toLocaleDateString('fr-FR') : ''

@@ -13,7 +13,7 @@ export const gapReasons: GapReason[] = [
 // Helper function to generate timeline events
 export const generateTimeline = (
   rentalDetails: any,
-  cnamBonds: CNAMBondLocation[],
+  cnamBons: CNAMBondLocation[],
   paymentPeriods: RentalPaymentPeriod[]
 ): RentalTimeline[] => {
   const events: RentalTimeline[] = [];
@@ -29,12 +29,12 @@ export const generateTimeline = (
   }
   
   // Add CNAM submissions and approvals
-  cnamBonds.forEach(bond => {
+  cnamBons.forEach(bond => {
     if (bond.submissionDate) {
       events.push({
         type: 'cnam_submission',
         date: bond.submissionDate,
-        description: `Soumission du bond CNAM ${bond.bondNumber || 'en cours'}`,
+        description: `Soumission du bond CNAM ${bond.bonNumber || 'en cours'}`,
         severity: 'info',
         relatedId: bond.id
       });
@@ -44,7 +44,7 @@ export const generateTimeline = (
       events.push({
         type: 'cnam_approval',
         date: bond.approvalDate,
-        description: `Approbation du bond CNAM ${bond.bondNumber}`,
+        description: `Approbation du bond CNAM ${bond.bonNumber}`,
         severity: 'info',
         relatedId: bond.id
       });
@@ -56,7 +56,7 @@ export const generateTimeline = (
         events.push({
           type: 'cnam_expiry',
           date: bond.endDate,
-          description: `Expiration du bond CNAM ${bond.bondNumber}`,
+          description: `Expiration du bond CNAM ${bond.bonNumber}`,
           severity: daysUntilExpiry <= 0 ? 'error' : 'warning',
           relatedId: bond.id
         });
@@ -90,7 +90,7 @@ export const generateTimeline = (
 // Comprehensive gap analysis
 export const analyzeComprehensiveGaps = (
   rentalDetails: any,
-  cnamBonds: CNAMBondLocation[],
+  cnamBons: CNAMBondLocation[],
   paymentPeriods: RentalPaymentPeriod[],
   calculateTotal: () => number
 ): RentalGap[] => {
@@ -98,8 +98,8 @@ export const analyzeComprehensiveGaps = (
   const today = new Date();
   
   // Check for rental start before CNAM approval
-  if (rentalDetails?.urgentRental && cnamBonds.length > 0) {
-    const firstBond = cnamBonds[0];
+  if (rentalDetails?.urgentRental && cnamBons.length > 0) {
+    const firstBond = cnamBons[0];
     if (firstBond.submissionDate && rentalDetails.globalStartDate) {
       const gapDays = differenceInDays(firstBond.approvalDate || addDays(firstBond.submissionDate, 7), new Date(rentalDetails.globalStartDate));
       if (gapDays > 0) {
@@ -118,14 +118,14 @@ export const analyzeComprehensiveGaps = (
   }
   
   // Check for CNAM expiration gaps
-  cnamBonds.forEach(bond => {
+  cnamBons.forEach(bond => {
     if (bond.endDate && bond.status === 'EN_COURS') {
       const daysUntilExpiry = differenceInDays(bond.endDate, today);
       if (daysUntilExpiry <= bond.renewalReminderDays && daysUntilExpiry > 0) {
         gaps.push({
           type: 'cnam_expiring',
           title: `Bond CNAM expire bientôt`,
-          description: `Le bond ${bond.bondNumber} expire dans ${daysUntilExpiry} jours`,
+          description: `Le bond ${bond.bonNumber} expire dans ${daysUntilExpiry} jours`,
           date: bond.endDate,
           duration: daysUntilExpiry,
           severity: daysUntilExpiry <= 7 ? 'high' : 'medium',
@@ -162,20 +162,20 @@ export const analyzeComprehensiveGaps = (
 // Get upcoming alerts
 export const getUpcomingAlerts = (
   rentalDetails: any,
-  cnamBonds: CNAMBondLocation[],
+  cnamBons: CNAMBondLocation[],
   patientStatus: 'ACTIVE' | 'HOSPITALIZED' | 'DECEASED' | 'PAUSED'
 ): RentalAlert[] => {
   const alerts: RentalAlert[] = [];
   const today = new Date();
   
   // CNAM renewal alerts
-  cnamBonds.forEach(bond => {
+  cnamBons.forEach(bond => {
     if (bond.endDate) {
       const daysUntil = differenceInDays(bond.endDate, today);
       if (daysUntil > 0 && daysUntil <= bond.renewalReminderDays) {
         alerts.push({
           daysUntil,
-          message: `Renouveler le bond CNAM ${bond.bondNumber}`,
+          message: `Renouveler le bond CNAM ${bond.bonNumber}`,
           priority: daysUntil <= 7 ? 'high' : 'medium',
           action: 'renew_cnam',
           bondId: bond.id
@@ -263,19 +263,19 @@ export const createPaymentPeriodForGap = (
 // Initiate CNAM renewal
 export const initiateCnamRenewal = (
   bondId: string,
-  cnamBonds: CNAMBondLocation[],
+  cnamBons: CNAMBondLocation[],
   setCnamBonds: (bonds: CNAMBondLocation[]) => void,
   setActiveTab: (tab: string) => void,
   setActiveCnamBond: (bondId: string) => void,
   toast: any
 ) => {
-  const bondToRenew = cnamBonds.find(b => b.id === bondId);
+  const bondToRenew = cnamBons.find(b => b.id === bondId);
   if (!bondToRenew) return;
   
   const renewalBond: CNAMBondLocation = {
     id: `bond-renewal-${Date.now()}`,
-    bondNumber: '',
-    bondType: bondToRenew.bondType,
+    bonNumber: '',
+    bonType: bondToRenew.bonType,
     productIds: bondToRenew.productIds,
     status: 'EN_ATTENTE_APPROBATION',
     monthlyAmount: bondToRenew.monthlyAmount,
@@ -283,10 +283,10 @@ export const initiateCnamRenewal = (
     totalAmount: bondToRenew.totalAmount,
     renewalReminderDays: bondToRenew.renewalReminderDays,
     submissionDate: new Date(),
-    notes: `Renouvellement du bond ${bondToRenew.bondNumber}`
+    notes: `Renouvellement du bond ${bondToRenew.bonNumber}`
   };
   
-  setCnamBonds([...cnamBonds, renewalBond]);
+  setCnamBonds([...cnamBons, renewalBond]);
   setActiveTab('cnam');
   setActiveCnamBond(renewalBond.id);
   
@@ -296,9 +296,9 @@ export const initiateCnamRenewal = (
   });
 };
 
-// Auto-generate payment periods from CNAM bonds
+// Auto-generate payment periods from CNAM bons
 export const autoGeneratePaymentPeriods = (
-  cnamBonds: CNAMBondLocation[],
+  cnamBons: CNAMBondLocation[],
   rentalDetails: any,
   selectedProducts: any[],
   calculateTotal: () => number,
@@ -306,12 +306,12 @@ export const autoGeneratePaymentPeriods = (
   setPaymentPeriods: (periods: RentalPaymentPeriod[]) => void,
   toast: any
 ) => {
-  if (cnamBonds.length === 0) return;
+  if (cnamBons.length === 0) return;
   
   const autoPayments: RentalPaymentPeriod[] = [];
   const rentalStart = new Date(rentalDetails?.globalStartDate || new Date());
   
-  cnamBonds.forEach((bond) => {
+  cnamBons.forEach((bond) => {
     // Pre-CNAM gap period
     if (bond.startDate && new Date(bond.startDate) > rentalStart) {
       const gapDays = differenceInDays(new Date(bond.startDate), rentalStart);
@@ -324,7 +324,7 @@ export const autoGeneratePaymentPeriods = (
         paymentMethod: 'CASH',
         isGapPeriod: true,
         gapReason: 'CNAM_PENDING',
-        notes: `Gap auto-calculé avant ${bond.bondType}`
+        notes: `Gap auto-calculé avant ${bond.bonType}`
       });
     }
     
@@ -344,7 +344,7 @@ export const autoGeneratePaymentPeriods = (
           paymentMethod: 'CASH',
           isGapPeriod: true,
           gapReason: 'CNAM_EXPIRED',
-          notes: `Gap auto-calculé après ${bond.bondType}`
+          notes: `Gap auto-calculé après ${bond.bonType}`
         });
       }
     }
@@ -486,7 +486,7 @@ const deduplicatePaymentPeriods = (periods: RentalPaymentPeriod[]): RentalPaymen
 
 // Generate payment periods with proper CNAM validation and deduplication
 export const generatePaymentPeriodsWithCnamValidation = (
-  cnamBonds: CNAMBondLocation[],
+  cnamBons: CNAMBondLocation[],
   rentalDetails: any,
   selectedProducts: any[],
   calculateTotal: () => number,
@@ -528,7 +528,7 @@ export const generatePaymentPeriodsWithCnamValidation = (
   }
 
   // Process each CNAM bond
-  cnamBonds.forEach((bond) => {
+  cnamBons.forEach((bond) => {
     const validation = validateCnamBondCoverage(bond, today);
     
     if (!validation.isValid && validation.shouldCreateGap) {
@@ -561,8 +561,8 @@ export const generatePaymentPeriodsWithCnamValidation = (
     }
   });
 
-  // If no valid CNAM bonds, create standard rental payment period
-  if (cnamBonds.length === 0 || !cnamBonds.some(bond => validateCnamBondCoverage(bond, today).isValid)) {
+  // If no valid CNAM bons, create standard rental payment period
+  if (cnamBons.length === 0 || !cnamBons.some(bond => validateCnamBondCoverage(bond, today).isValid)) {
     const rentalDays = differenceInDays(rentalEndDate, effectiveStartDate);
     const standardPeriod = {
       startDate: effectiveStartDate,

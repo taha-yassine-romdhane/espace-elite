@@ -75,6 +75,10 @@ export default function ComprehensiveRentalsTable() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [cnamFilter, setCnamFilter] = useState<string>("all");
+  const [deviceFilter, setDeviceFilter] = useState<string>("all");
+  const [createdByFilter, setCreatedByFilter] = useState<string>("all");
+  const [assignedToFilter, setAssignedToFilter] = useState<string>("all");
+  const [dateRangeFilter, setDateRangeFilter] = useState<string>("all");
   const [sortField, setSortField] = useState<string>("startDate");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
@@ -99,23 +103,25 @@ export default function ComprehensiveRentalsTable() {
     },
   });
 
-  // Fetch devices
+  // Fetch medical devices
   const { data: devicesData } = useQuery({
-    queryKey: ['devices-for-rentals'],
+    queryKey: ['medical-devices-for-rentals'],
     queryFn: async () => {
       const response = await fetch('/api/medical-devices');
+      if (!response.ok) throw new Error('Failed to fetch devices');
       const data = await response.json();
-      return Array.isArray(data) ? data : (data.devices || []);
+      return data.devices || data || [];
     },
   });
 
-  // Fetch users
+  // Fetch users (employees)
   const { data: usersData } = useQuery({
     queryKey: ['users-for-rentals'],
     queryFn: async () => {
       const response = await fetch('/api/users');
       if (!response.ok) throw new Error('Failed to fetch users');
-      return response.json();
+      const data = await response.json();
+      return data.users || data || [];
     },
   });
 
@@ -123,6 +129,32 @@ export default function ComprehensiveRentalsTable() {
   const patients = patientsData || [];
   const devices = devicesData || [];
   const users = usersData || [];
+
+  // Extract unique devices from rental data (by device name)
+  const uniqueDevices = Array.from(
+    new Map(
+      rentals
+        .filter((r: Rental) => r.medicalDevice?.name)
+        .map((r: Rental) => [r.medicalDevice!.name, r.medicalDevice!.name])
+    ).values()
+  ).sort();
+
+  // Extract unique users from rental data (createdBy and assignedTo)
+  const uniqueCreatedByUsers = Array.from(
+    new Map(
+      rentals
+        .filter((r: Rental) => r.createdBy)
+        .map((r: Rental) => [r.createdBy!.id, r.createdBy])
+    ).values()
+  );
+
+  const uniqueAssignedToUsers = Array.from(
+    new Map(
+      rentals
+        .filter((r: Rental) => r.assignedTo)
+        .map((r: Rental) => [r.assignedTo!.id, r.assignedTo])
+    ).values()
+  );
 
   // Filter and sort rentals
   const filteredRentals = rentals
@@ -148,8 +180,45 @@ export default function ComprehensiveRentalsTable() {
 
       // CNAM filter
       if (cnamFilter !== 'all') {
-        if (cnamFilter === 'eligible' && !rental.cnamEligible) return false;
-        if (cnamFilter === 'not_eligible' && rental.cnamEligible) return false;
+        if (cnamFilter === 'eligible' && !rental.configuration?.cnamEligible) return false;
+        if (cnamFilter === 'not_eligible' && rental.configuration?.cnamEligible) return false;
+      }
+
+      // Device filter (by device name)
+      if (deviceFilter !== 'all' && rental.medicalDevice?.name !== deviceFilter) {
+        return false;
+      }
+
+      // Created by filter
+      if (createdByFilter !== 'all' && rental.createdById !== createdByFilter) {
+        return false;
+      }
+
+      // Assigned to filter
+      if (assignedToFilter !== 'all' && rental.assignedToId !== assignedToFilter) {
+        return false;
+      }
+
+      // Date range filter
+      if (dateRangeFilter !== 'all') {
+        const now = new Date();
+        const startDate = new Date(rental.startDate);
+
+        switch (dateRangeFilter) {
+          case 'today':
+            if (startDate.toDateString() !== now.toDateString()) return false;
+            break;
+          case 'this_week':
+            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            if (startDate < weekAgo) return false;
+            break;
+          case 'this_month':
+            if (startDate.getMonth() !== now.getMonth() || startDate.getFullYear() !== now.getFullYear()) return false;
+            break;
+          case 'this_year':
+            if (startDate.getFullYear() !== now.getFullYear()) return false;
+            break;
+        }
       }
 
       return true;
@@ -158,6 +227,10 @@ export default function ComprehensiveRentalsTable() {
       let aValue: any, bValue: any;
 
       switch (sortField) {
+        case 'rentalCode':
+          aValue = a.rentalCode || '';
+          bValue = b.rentalCode || '';
+          break;
         case 'client':
           aValue = a.patient ? `${a.patient.firstName} ${a.patient.lastName}` : '';
           bValue = b.patient ? `${b.patient.firstName} ${b.patient.lastName}` : '';
@@ -169,6 +242,10 @@ export default function ComprehensiveRentalsTable() {
         case 'status':
           aValue = a.status;
           bValue = b.status;
+          break;
+        case 'device':
+          aValue = a.medicalDevice?.name || '';
+          bValue = b.medicalDevice?.name || '';
           break;
         default:
           aValue = a.id;
@@ -326,7 +403,7 @@ export default function ComprehensiveRentalsTable() {
   return (
     <div className="space-y-4">
       {/* Toolbar */}
-      <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between bg-white p-4 rounded-lg shadow-sm border">
+      <div className="flex flex-col gap-4 bg-white p-4 rounded-lg shadow-sm border">
         {/* Search */}
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -339,9 +416,9 @@ export default function ComprehensiveRentalsTable() {
         </div>
 
         {/* Filters */}
-        <div className="flex gap-2 flex-wrap">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[150px]">
+            <SelectTrigger className="w-full">
               <SelectValue placeholder="Statut" />
             </SelectTrigger>
             <SelectContent>
@@ -355,7 +432,7 @@ export default function ComprehensiveRentalsTable() {
           </Select>
 
           <Select value={cnamFilter} onValueChange={setCnamFilter}>
-            <SelectTrigger className="w-[150px]">
+            <SelectTrigger className="w-full">
               <SelectValue placeholder="CNAM" />
             </SelectTrigger>
             <SelectContent>
@@ -365,6 +442,81 @@ export default function ComprehensiveRentalsTable() {
             </SelectContent>
           </Select>
 
+          <Select value={deviceFilter} onValueChange={setDeviceFilter}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Appareil" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous les appareils</SelectItem>
+              {uniqueDevices.map((deviceName: string) => (
+                <SelectItem key={deviceName} value={deviceName}>
+                  {deviceName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={createdByFilter} onValueChange={setCreatedByFilter}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Créé par" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous</SelectItem>
+              {uniqueCreatedByUsers.map((user: any) => (
+                <SelectItem key={user.id} value={user.id}>
+                  {user.firstName} {user.lastName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={assignedToFilter} onValueChange={setAssignedToFilter}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Assigné à" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous</SelectItem>
+              {uniqueAssignedToUsers.map((user: any) => (
+                <SelectItem key={user.id} value={user.id}>
+                  {user.firstName} {user.lastName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={dateRangeFilter} onValueChange={setDateRangeFilter}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Période" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Toutes les périodes</SelectItem>
+              <SelectItem value="today">Aujourd'hui</SelectItem>
+              <SelectItem value="this_week">Cette semaine</SelectItem>
+              <SelectItem value="this_month">Ce mois</SelectItem>
+              <SelectItem value="this_year">Cette année</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Button
+            onClick={() => {
+              setStatusFilter("all");
+              setCnamFilter("all");
+              setDeviceFilter("all");
+              setCreatedByFilter("all");
+              setAssignedToFilter("all");
+              setDateRangeFilter("all");
+              setSearchTerm("");
+            }}
+            variant="outline"
+            className="w-full"
+          >
+            <Filter className="h-4 w-4 mr-2" />
+            Réinitialiser
+          </Button>
+        </div>
+
+        {/* Action Button */}
+        <div className="flex justify-end">
           <Button onClick={handleAddNew} className="bg-blue-600 hover:bg-blue-700">
             <Plus className="h-4 w-4 mr-2" />
             Nouvelle Location
@@ -404,7 +556,17 @@ export default function ComprehensiveRentalsTable() {
                   )}
                 </button>
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700">Appareil</th>
+              <th className="px-4 py-3 text-left">
+                <button
+                  onClick={() => handleSort('device')}
+                  className="flex items-center gap-1 text-xs font-semibold text-slate-700 hover:text-blue-600"
+                >
+                  Appareil
+                  {sortField === 'device' && (
+                    sortOrder === 'asc' ? <SortAsc className="h-3 w-3" /> : <SortDesc className="h-3 w-3" />
+                  )}
+                </button>
+              </th>
               <th className="px-4 py-3 text-left">
                 <button
                   onClick={() => handleSort('startDate')}
@@ -498,7 +660,9 @@ function ViewRowComponent({ rental, onEdit, onDelete, getStatusBadge }: any) {
   return (
     <tr className="border-b hover:bg-slate-50 transition-colors">
       <td className="px-4 py-3">
-        <div className="text-sm font-medium text-slate-900">{rental.rentalCode || 'N/A'}</div>
+        <Badge variant="outline" className="text-xs font-mono bg-indigo-50 text-indigo-700 border-indigo-200">
+          {rental.rentalCode || 'N/A'}
+        </Badge>
       </td>
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
@@ -747,7 +911,9 @@ function EditRowComponent({ data, onChange, onSave, onCancel, patients, devices,
   return (
     <tr className="bg-blue-50 border-b-2 border-blue-200">
       <td className="px-4 py-3">
-        <span className="text-xs text-slate-500">{data.rentalCode || 'N/A'}</span>
+        <Badge variant="outline" className="text-xs font-mono bg-indigo-50 text-indigo-700 border-indigo-200">
+          {data.rentalCode || 'N/A'}
+        </Badge>
       </td>
       <td className="px-4 py-3">
         <Select

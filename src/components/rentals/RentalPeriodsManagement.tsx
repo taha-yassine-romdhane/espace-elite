@@ -59,7 +59,7 @@ interface RentalPeriod {
   gapReason?: string;
   notes?: string;
   paymentId?: string;
-  cnamBondId?: string;
+  cnamBonId?: string;
 }
 
 interface RentalPeriodsManagementProps {
@@ -78,7 +78,7 @@ interface GeneratedPeriod {
   gapReason?: string;
   source: 'CNAM_BOND' | 'GAP_AUTO';
   notes?: string;
-  cnamBondId?: string;
+  cnamBonId?: string;
 }
 
 export default function RentalPeriodsManagement({ rental, rentalPeriods, onUpdate }: RentalPeriodsManagementProps) {
@@ -281,7 +281,7 @@ export default function RentalPeriodsManagement({ rental, rentalPeriods, onUpdat
   const generatePeriods = () => {
     setIsGenerating(true);
     
-    const cnamBonds = rental.cnamBonds || [];
+    const cnamBons = rental.cnamBons || [];
     const rentalStart = new Date(rental.startDate);
     const rentalEnd = rental.endDate ? new Date(rental.endDate) : null;
     
@@ -294,9 +294,9 @@ export default function RentalPeriodsManagement({ rental, rentalPeriods, onUpdat
     // CNAM typically covers 70-80%, so patient pays 20-30%
     // Or we can use the CNAM bond daily rate as reference
     const getGapDailyRate = () => {
-      // If we have CNAM bonds, calculate the patient's daily contribution based on CNAM coverage
-      if (cnamBonds.length > 0) {
-        const firstBond = cnamBonds[0];
+      // If we have CNAM bons, calculate the patient's daily contribution based on CNAM coverage
+      if (cnamBons.length > 0) {
+        const firstBond = cnamBons[0];
         // Ensure we get a valid monthly amount
         let cnamMonthlyAmount = 0;
         if (firstBond.monthlyAmount) {
@@ -335,8 +335,8 @@ export default function RentalPeriodsManagement({ rental, rentalPeriods, onUpdat
     
     const periods: GeneratedPeriod[] = [];
 
-    if (cnamBonds.length === 0) {
-      // No CNAM bonds - create simple cash period
+    if (cnamBons.length === 0) {
+      // No CNAM bons - create simple cash period
       const endDate = rentalEnd || addDays(rentalStart, 30);
       const days = differenceInDays(endDate, rentalStart) + 1;
       
@@ -351,8 +351,8 @@ export default function RentalPeriodsManagement({ rental, rentalPeriods, onUpdat
         notes: 'Période sans couverture CNAM',
       });
     } else {
-      // Process CNAM bonds and create periods
-      const sortedBonds = cnamBonds
+      // Process CNAM bons and create periods
+      const sortedBonds = cnamBons
         .filter((bond: any) => bond.startDate && bond.endDate)
         .sort((a: any, b: any) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
 
@@ -389,9 +389,9 @@ export default function RentalPeriodsManagement({ rental, rentalPeriods, onUpdat
           amount: parseFloat(bond.totalAmount) || 0,
           paymentMethod: 'CNAM',
           isGapPeriod: false,
-          cnamBondId: bond.id,
+          cnamBonId: bond.id,
           source: 'CNAM_BOND',
-          notes: `Bon CNAM - ${bond.bondType}`,
+          notes: `Bon CNAM - ${bond.bonType}`,
         });
 
         currentDate = addDays(bondEnd, 1);
@@ -446,7 +446,7 @@ export default function RentalPeriodsManagement({ rental, rentalPeriods, onUpdat
       isGapPeriod: gp.isGapPeriod,
       gapReason: gp.gapReason,
       notes: gp.notes,
-      cnamBondId: gp.cnamBondId,
+      cnamBonId: gp.cnamBonId,
     }));
 
     // Replace all existing periods with the generated ones to avoid duplicates
@@ -512,8 +512,8 @@ export default function RentalPeriodsManagement({ rental, rentalPeriods, onUpdat
             )}
             <span>Durée: {totalDuration} jours</span>
             <span>Périodes: {periods.length}</span>
-            {rental.cnamBonds?.length > 0 && (
-              <span className="text-blue-600">Bons CNAM: {rental.cnamBonds.length}</span>
+            {rental.cnamBons?.length > 0 && (
+              <span className="text-blue-600">Bons CNAM: {rental.cnamBons.length}</span>
             )}
           </div>
         </div>

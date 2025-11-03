@@ -158,7 +158,7 @@ function getPaymentMetadata(payment: PaymentFormData): any {
       return {
         ...baseMetadata,
         dossierStatus: payment.etatDossier,
-        bondType: payment.cnamBondType,
+        bonType: payment.cnamBonType,
         dossierReference: payment.dossierReference,
         statusHistory: payment.statusHistory,
         isPending: payment.isPending,

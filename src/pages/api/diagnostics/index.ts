@@ -50,7 +50,17 @@ export default async function handler(
 
   try {
     if (req.method === 'GET') {
+      // Role-based filtering
+      const whereClause: any = {};
+
+      // If user is EMPLOYEE, only show diagnostics performed by them
+      if (session.user.role === 'EMPLOYEE') {
+        whereClause.performedById = session.user.id;
+      }
+      // ADMIN and DOCTOR can see all diagnostics (no filter)
+
       const diagnostics = await prisma.diagnostic.findMany({
+        where: whereClause,
         include: {
           medicalDevice: {
             select: {
@@ -207,6 +217,9 @@ export default async function handler(
           followUpRequired: diagnostic.followUpRequired,
           notes: diagnostic.notes,
           performedBy,
+          performedById: diagnostic.performedById, // Include the ID for editing
+          patientId: diagnostic.patientId, // Include patient ID for editing
+          medicalDeviceId: diagnostic.medicalDeviceId, // Include device ID for editing
           result: diagnostic.result,
           status: diagnostic.result?.status || 'PENDING',
           patient: diagnostic.patient,
@@ -419,15 +432,34 @@ export default async function handler(
 
     if (req.method === 'PUT') {
       try {
-        const { id, ...data } = req.body;
+        const { id, result, ...data } = req.body;
 
+        // Update diagnostic
         const diagnostic = await prisma.diagnostic.update({
           where: { id },
           data: {
             ...data,
-            diagnosticDate: new Date(data.diagnosticDate),
+            diagnosticDate: data.diagnosticDate ? new Date(data.diagnosticDate) : undefined,
+            followUpDate: data.followUpDate ? new Date(data.followUpDate) : undefined,
           }
         });
+
+        // Update or create diagnostic result if provided
+        if (result) {
+          await prisma.diagnosticResult.upsert({
+            where: { diagnosticId: id },
+            update: {
+              iah: result.iah !== null && result.iah !== undefined ? result.iah : null,
+              idValue: result.idValue !== null && result.idValue !== undefined ? result.idValue : null,
+            },
+            create: {
+              diagnosticId: id,
+              iah: result.iah !== null && result.iah !== undefined ? result.iah : null,
+              idValue: result.idValue !== null && result.idValue !== undefined ? result.idValue : null,
+              status: 'PENDING',
+            }
+          });
+        }
 
         return res.status(200).json(diagnostic);
       } catch (error) {
@@ -470,13 +502,12 @@ export default async function handler(
             });
           }
           
-          // 3. Reset the device status to ACTIVE and clear the reservedUntil date
+          // 3. Reset the device status to ACTIVE
           if (diagnostic.medicalDeviceId) {
             await tx.medicalDevice.update({
               where: { id: diagnostic.medicalDeviceId },
-              data: { 
-                status: 'ACTIVE',
-                reservedUntil: null // Clear the reservation date
+              data: {
+                status: 'ACTIVE'
               }
             });
           }

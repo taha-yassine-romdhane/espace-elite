@@ -32,10 +32,10 @@ export default async function handler(
               },
             },
           },
-          cnamBond: {
+          cnamBon: {
             select: {
-              bondType: true,
-              bondAmount: true,
+              bonType: true,
+              bonAmount: true,
               complementAmount: true,
             },
           },
@@ -68,7 +68,7 @@ export default async function handler(
         isGapPeriod,
         gapReason,
         notes,
-        cnamBondId,
+        cnamBonId,
       } = req.body;
 
       const period = await prisma.rentalPeriod.update({
@@ -86,8 +86,8 @@ export default async function handler(
           ...(isGapPeriod !== undefined && { isGapPeriod }),
           ...(gapReason !== undefined && { gapReason }),
           ...(notes !== undefined && { notes }),
-          ...(cnamBondId !== undefined && {
-            cnamBond: cnamBondId ? { connect: { id: cnamBondId } } : { disconnect: true },
+          ...(cnamBonId !== undefined && {
+            cnamBon: cnamBonId ? { connect: { id: cnamBonId } } : { disconnect: true },
           }),
         },
         include: {
@@ -97,7 +97,7 @@ export default async function handler(
               medicalDevice: true,
             },
           },
-          cnamBond: true,
+          cnamBon: true,
           payments: true,
         },
       });

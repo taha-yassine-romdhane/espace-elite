@@ -274,20 +274,35 @@ export async function generateRentalCode(prisma: PrismaClient): Promise<string> 
 }
 
 /**
- * Generate a sequential payment code in format PAY-XXXX
+ * Generate a sequential payment code in format PAY-{SOURCE}-XXXX
  * @param prisma - Prisma client instance
+ * @param source - Payment source: 'SALE' | 'RENTAL' | 'DIAGNOSTIC' | 'AUTRE'
  * @returns Promise<string> - The generated payment code
  */
-export async function generatePaymentCode(prisma: PrismaClient): Promise<string> {
+export async function generatePaymentCode(
+  prisma: PrismaClient,
+  source: 'SALE' | 'RENTAL' | 'DIAGNOSTIC' | 'AUTRE' = 'AUTRE'
+): Promise<string> {
   const maxRetries = 5;
   let retryCount = 0;
+
+  // Map source to code prefix
+  const sourcePrefix: Record<string, string> = {
+    SALE: 'VEN',      // Vente
+    RENTAL: 'LOC',    // Location
+    DIAGNOSTIC: 'DIAG', // Diagnostic
+    AUTRE: 'AUT'      // Autre
+  };
+
+  const prefix = sourcePrefix[source] || 'AUT';
 
   while (retryCount < maxRetries) {
     try {
       const lastPayment = await prisma.payment.findFirst({
         where: {
           paymentCode: {
-            not: null
+            not: null,
+            startsWith: `PAY-${prefix}-`
           }
         },
         orderBy: {
@@ -299,16 +314,16 @@ export async function generatePaymentCode(prisma: PrismaClient): Promise<string>
       });
 
       let nextNumber = 1;
-      
+
       if (lastPayment?.paymentCode) {
-        const match = lastPayment.paymentCode.match(/PAY-(\d+)/);
+        const match = lastPayment.paymentCode.match(/PAY-[A-Z]+-(\d+)/);
         if (match) {
           nextNumber = parseInt(match[1], 10) + 1;
         }
       }
 
       const paddedNumber = nextNumber.toString().padStart(4, '0');
-      const newCode = `PAY-${paddedNumber}`;
+      const newCode = `PAY-${prefix}-${paddedNumber}`;
 
       const exists = await prisma.payment.findUnique({
         where: { paymentCode: newCode }

@@ -49,14 +49,14 @@ interface Gap {
 
 interface GapAnalysisProps {
   rental: any;
-  cnamBonds: any[];
+  cnamBons: any[];
   rentalPeriods: any[];
   onGapAction?: (gap: Gap, action: string) => void;
 }
 
 export default function ComprehensiveGapAnalysis({ 
   rental, 
-  cnamBonds, 
+  cnamBons, 
   rentalPeriods,
   onGapAction 
 }: GapAnalysisProps) {
@@ -223,7 +223,7 @@ export default function ComprehensiveGapAnalysis({
 
     // 3. CNAM Expiry Warnings
     const today = new Date();
-    cnamBonds.forEach(bond => {
+    cnamBons.forEach(bond => {
       if (bond.endDate) {
         const bondEnd = new Date(bond.endDate);
         const daysUntilExpiry = differenceInDays(bondEnd, today);
@@ -238,7 +238,7 @@ export default function ComprehensiveGapAnalysis({
             duration: 0,
             amount: 0,
             reason: 'CNAM_EXPIRING',
-            description: `Le bon CNAM ${bond.bondType} expire dans ${daysUntilExpiry} jour${daysUntilExpiry > 1 ? 's' : ''}`,
+            description: `Le bon CNAM ${bond.bonType} expire dans ${daysUntilExpiry} jour${daysUntilExpiry > 1 ? 's' : ''}`,
             impactScore: (31 - daysUntilExpiry) * 2,
             suggestions: [
               'Préparer le renouvellement CNAM',
@@ -253,7 +253,7 @@ export default function ComprehensiveGapAnalysis({
     });
 
     return gaps.sort((a, b) => b.impactScore - a.impactScore);
-  }, [rental, cnamBonds, rentalPeriods, dailyRate]);
+  }, [rental, cnamBons, rentalPeriods, dailyRate]);
 
   // Filter gaps by severity
   const filteredGaps = useMemo(() => {

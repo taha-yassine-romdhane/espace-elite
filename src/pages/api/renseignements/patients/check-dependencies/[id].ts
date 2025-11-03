@@ -73,7 +73,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Cascadable - These can be deleted with patient
       prisma.file.count({ where: { patientId: id } }),
       prisma.notification.count({ where: { patientId: id } }),
-      prisma.medicalDevice.count({ where: { patientId: id } }),
+      // Medical devices are now related through rentals, not directly
+      prisma.rental.count({ where: { patientId: id } }),
       prisma.medicalDeviceParametre.count({ where: { patientId: id } }),
       prisma.patientHistory.count({ where: { patientId: id } })
     ]);

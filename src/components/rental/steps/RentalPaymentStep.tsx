@@ -44,8 +44,8 @@ export function RentalPaymentStep({
   const [paymentPeriods, setPaymentPeriods] = useState<RentalPaymentPeriod[]>(
     existingPaymentData?.paymentPeriods || []
   );
-  const [cnamBonds, setCnamBonds] = useState<CNAMBondLocation[]>(
-    existingPaymentData?.cnamBonds || []
+  const [cnamBons, setCnamBonds] = useState<CNAMBondLocation[]>(
+    existingPaymentData?.cnamBons || []
   );
   const [activeCnamBond, setActiveCnamBond] = useState<string>(
     existingPaymentData?.activeCnamBond || ''
@@ -79,7 +79,7 @@ export function RentalPaymentStep({
   const paymentGaps = analyzePaymentGaps(paymentPeriods);
   
   // CNAM bond validation
-  const cnamValidations = cnamBonds.map(bond => ({
+  const cnamValidations = cnamBons.map(bond => ({
     bond,
     validation: validateCnamBondCoverage(bond)
   }));
@@ -102,7 +102,7 @@ export function RentalPaymentStep({
   const handleAutoGeneratePaymentPeriods = () => {
     // Use the new CNAM validation function with existing periods check
     const generatedPeriods = generatePaymentPeriodsWithCnamValidation(
-      cnamBonds,
+      cnamBons,
       rentalDetails,
       selectedProducts,
       calculateTotal,
@@ -290,7 +290,7 @@ export function RentalPaymentStep({
     if (!allTabsVisited) {
       const unvisitedTabs = requiredTabs.filter(tab => !visitedTabs.has(tab));
       const tabNames = {
-        'cnam': 'Bonds CNAM',
+        'cnam': 'Bons CNAM',
         'periods': 'Paiements',
         'deposit': 'Caution',
         'summary': 'Récapitulatif'
@@ -327,7 +327,7 @@ export function RentalPaymentStep({
     
     const paymentData: PaymentData = {
       paymentPeriods,
-      cnamBonds,
+      cnamBons,
       depositAmount,
       depositMethod,
       totalAmount: calculateTotalPaymentAmount(paymentPeriods, depositAmount),
@@ -377,7 +377,7 @@ export function RentalPaymentStep({
               {invalidCnamBonds.map((cv, index) => (
                 <div key={index} className="flex items-start gap-2 text-sm">
                   <Badge variant="destructive">
-                    {cv.bond.bondType}
+                    {cv.bond.bonType}
                   </Badge>
                   <span className="text-red-700">{cv.validation.reason}</span>
                 </div>
@@ -445,7 +445,7 @@ export function RentalPaymentStep({
       <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="cnam" className="relative">
-            Bonds CNAM
+            Bons CNAM
             {visitedTabs.has('cnam') && (
               <div className="absolute -top-1 -right-1 h-2 w-2 bg-green-500 rounded-full"></div>
             )}
@@ -470,10 +470,10 @@ export function RentalPaymentStep({
           </TabsTrigger>
         </TabsList>
 
-        {/* CNAM Bonds de Location Tab */}
+        {/* CNAM Bons de Location Tab */}
         <TabsContent value="cnam" className="space-y-4">
           <CNAMBondsTab
-            cnamBonds={cnamBonds}
+            cnamBons={cnamBons}
             setCnamBonds={setCnamBonds}
             activeCnamBond={activeCnamBond}
             setActiveCnamBond={setActiveCnamBond}
@@ -509,7 +509,7 @@ export function RentalPaymentStep({
 
         <TabsContent value="summary" className="space-y-4">
           <SummaryTab
-            cnamBonds={cnamBonds}
+            cnamBons={cnamBons}
             paymentPeriods={paymentPeriods}
             comprehensiveGaps={[]} // Empty array since gaps analysis was removed
             depositAmount={depositAmount}

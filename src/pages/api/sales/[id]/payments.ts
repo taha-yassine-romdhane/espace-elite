@@ -3,6 +3,7 @@ import prisma from '@/lib/db';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../auth/[...nextauth]';
 import { PaymentMethod, PaymentStatus } from '@prisma/client';
+import { generatePaymentCode } from '@/utils/idGenerator';
 
 // Define types based on the Prisma schema
 interface PaymentDetail {
@@ -104,9 +105,9 @@ function createPaymentReference(payment: any): string {
       return `Traite N°${payment.traiteNumber || ''} Échéance:${payment.dueDate ? new Date(payment.dueDate).toLocaleDateString() : ''}: ${payment.amount} DT`;
     case 'cnam':
       const cnamRef = payment.dossierNumber || '';
-      const bondType = payment.metadata?.cnamInfo?.bondType || '';
+      const bonType = payment.metadata?.cnamInfo?.bonType || '';
       const step = payment.metadata?.cnamInfo?.currentStep || '';
-      return `CNAM ${bondType} Dossier:${cnamRef} Étape:${step}: ${payment.amount} DT`;
+      return `CNAM ${bonType} Dossier:${cnamRef} Étape:${step}: ${payment.amount} DT`;
     default:
       return `${payment.type}: ${payment.amount} DT`;
   }
@@ -153,35 +154,53 @@ async function handleUpdatePayments(req: NextApiRequest, res: NextApiResponse, s
       // Update or create the payment record
       let payment;
       if (sale.paymentId && sale.payment) {
+        // Generate payment code if it doesn't exist
+        const paymentCode = sale.payment.paymentCode || await generatePaymentCode(tx as any, 'SALE');
+
         // Update existing payment
         payment = await tx.payment.update({
           where: { id: sale.paymentId },
           data: {
+            paymentCode, // Ensure payment code exists
+            source: 'SALE', // Ensure source is SALE
+            saleId: saleId, // Ensure link to sale
+            patientId: sale.patientId || null, // Link to patient if exists
+            companyId: sale.companyId || null, // Link to company if exists
             amount: totalPaymentAmount,
             method: mapPaymentMethod(primaryPayment?.type || 'cash'),
             status: totalPaymentAmount >= Number(sale.finalAmount) ? PaymentStatus.PAID : PaymentStatus.PARTIAL,
             chequeNumber: primaryPayment?.type === 'cheque' ? primaryPayment.chequeNumber || null : null,
-            bankName: primaryPayment?.type === 'cheque' ? primaryPayment.bank || null : null,
-            referenceNumber: ['virement', 'mandat', 'traite'].includes(primaryPayment?.type) ? 
-              (primaryPayment.reference || primaryPayment.mandatNumber || primaryPayment.traiteNumber || null) : null,
+            bankName: primaryPayment?.type === 'cheque' || primaryPayment?.type === 'virement' || primaryPayment?.type === 'traite' ?
+              (primaryPayment.bank || null) : null,
+            referenceNumber: primaryPayment?.reference || primaryPayment?.mandatNumber || primaryPayment?.traiteNumber || null,
             cnamCardNumber: primaryPayment?.type === 'cnam' ? primaryPayment.dossierNumber || null : null,
+            cnamBonId: primaryPayment?.type === 'cnam' ? primaryPayment.cnamBonId || null : null,
             notes: primaryPayment?.notes || null,
             paymentDate: primaryPayment?.paymentDate ? new Date(primaryPayment.paymentDate) : new Date(),
             dueDate: primaryPayment?.dueDate ? new Date(primaryPayment.dueDate) : null,
           }
         });
       } else {
+        // Generate a payment code with SALE source
+        const paymentCode = await generatePaymentCode(tx as any, 'SALE');
+
         // Create new payment
         payment = await tx.payment.create({
           data: {
+            paymentCode, // Add generated payment code
+            source: 'SALE', // Mark this as a SALE payment
+            saleId: saleId, // Link to the sale
+            patientId: sale.patientId || null, // Link to patient if exists
+            companyId: sale.companyId || null, // Link to company if exists
             amount: totalPaymentAmount,
             method: mapPaymentMethod(primaryPayment?.type || 'cash'),
             status: totalPaymentAmount >= Number(sale.finalAmount) ? PaymentStatus.PAID : PaymentStatus.PARTIAL,
             chequeNumber: primaryPayment?.type === 'cheque' ? primaryPayment.chequeNumber || null : null,
-            bankName: primaryPayment?.type === 'cheque' ? primaryPayment.bank || null : null,
-            referenceNumber: ['virement', 'mandat', 'traite'].includes(primaryPayment?.type) ? 
-              (primaryPayment.reference || primaryPayment.mandatNumber || primaryPayment.traiteNumber || null) : null,
+            bankName: primaryPayment?.type === 'cheque' || primaryPayment?.type === 'virement' || primaryPayment?.type === 'traite' ?
+              (primaryPayment.bank || null) : null,
+            referenceNumber: primaryPayment?.reference || primaryPayment?.mandatNumber || primaryPayment?.traiteNumber || null,
             cnamCardNumber: primaryPayment?.type === 'cnam' ? primaryPayment.dossierNumber || null : null,
+            cnamBonId: primaryPayment?.type === 'cnam' ? primaryPayment.cnamBonId || null : null,
             notes: primaryPayment?.notes || null,
             paymentDate: primaryPayment?.paymentDate ? new Date(primaryPayment.paymentDate) : new Date(),
             dueDate: primaryPayment?.dueDate ? new Date(primaryPayment.dueDate) : null,

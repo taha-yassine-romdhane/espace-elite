@@ -17,13 +17,12 @@ export default async function handler(
     switch (req.method) {
       case 'GET':
         // Get query parameters first
-        const { type = 'all', showReserved = 'true', assignedToMe = 'false' } = req.query;
-        
+        const { type = 'all', showReserved = 'true', assignedToMe = 'false', excludeRented = 'false' } = req.query;
+
         // Build the medical device query based on employee restrictions
         const medicalDeviceQuery: any = {
           include: {
             stockLocation: true,
-            Patient: true,
           },
         };
 
@@ -54,6 +53,22 @@ export default async function handler(
             };
             console.log('User has no stock location, returning empty results');
           }
+        }
+
+        // Get all active rentals to exclude rented devices
+        let rentedDeviceIds: string[] = [];
+        if (excludeRented === 'true') {
+          const activeRentals = await prisma.rental.findMany({
+            where: {
+              status: {
+                in: ['ACTIVE', 'PENDING']
+              }
+            },
+            select: {
+              medicalDeviceId: true
+            }
+          });
+          rentedDeviceIds = activeRentals.map(r => r.medicalDeviceId);
         }
 
         // Fetch both medical devices and regular products
@@ -90,30 +105,21 @@ export default async function handler(
         
         // Filter medical devices based on type and reservation status
         let filteredMedicalDevices = medicalDevices;
-        
+
+        // Exclude rented devices if requested
+        if (excludeRented === 'true' && rentedDeviceIds.length > 0) {
+          filteredMedicalDevices = filteredMedicalDevices.filter(
+            device => !rentedDeviceIds.includes(device.id)
+          );
+        }
+
         // Filter by device type if specified
         if (type !== 'all' && type !== '') {
           filteredMedicalDevices = filteredMedicalDevices.filter(device => device.type === type);
         }
         
-        // Filter out reserved devices if showReserved is false
-        if (showReserved === 'false') {
-          const now = new Date();
-          filteredMedicalDevices = filteredMedicalDevices.filter(device => 
-            !device.patientId || 
-            !device.reservedUntil || 
-            new Date(device.reservedUntil) < now
-          );
-        }
-        
         // Transform medical devices
         const transformedMedicalDevices = filteredMedicalDevices.map(device => {
-          // Check if device is currently reserved
-          const now = new Date();
-          const isReserved = device.patientId && 
-                            device.reservedUntil && 
-                            new Date(device.reservedUntil) >= now;
-          
           return {
             id: device.id,
             deviceCode: device.deviceCode,
@@ -126,34 +132,34 @@ export default async function handler(
             purchasePrice: device.purchasePrice,
             sellingPrice: device.sellingPrice,
             technicalSpecs: device.technicalSpecs,
+            description: device.description,
             destination: device.destination,
             stockLocation: (device as any).stockLocation,
             stockLocationId: device.stockLocationId,
             stockQuantity: device.stockQuantity || 1, // Default to 1 if not specified
             status: device.status,
             configuration: device.configuration,
-            installationDate: device.installationDate,
-            patientId: device.patientId,
-            reservedUntil: device.reservedUntil,
-            location: device.location,
-            isReserved: isReserved,
-            patient: (device as any).Patient
+            location: device.location
           };
         });
 
         // Transform products
         const transformedProducts = products.map(product => ({
           id: product.id,
+          productCode: product.productCode,
           name: product.name,
           type: product.type,
           brand: product.brand,
           model: product.model,
+          description: product.description,
           serialNumber: product.serialNumber,
           purchasePrice: product.purchasePrice,
           sellingPrice: product.sellingPrice,
-          technicalSpecs: null,
-          status: product.status, // Use product's own status
-          stocks: product.stocks // Include the full stocks array
+          minQuantity: product.minQuantity,
+          partNumber: product.partNumber,
+          compatibleWith: product.compatibleWith,
+          status: product.status,
+          stocks: product.stocks
         }));
 
         // Combine both types of products
@@ -228,6 +234,7 @@ export default async function handler(
                 purchasePrice: data.purchasePrice ? parseFloat(data.purchasePrice) : null,
                 sellingPrice: data.sellingPrice ? parseFloat(data.sellingPrice) : null,
                 technicalSpecs: data.technicalSpecs,
+                description: data.description,
                 destination: data.destination || 'FOR_SALE',
                 configuration: data.configuration,
                 status: 'ACTIVE',
@@ -291,48 +298,104 @@ export default async function handler(
           }
           // Handle accessories and spare parts
           else {
+            // Generate productCode if not provided
+            let productCode = data.productCode;
+
+            if (!productCode) {
+              const prefix = type === 'ACCESSORY' ? 'ACC-' : type === 'SPARE_PART' ? 'PIEC-' : 'PRD-';
+
+              const lastProduct = await prisma.product.findFirst({
+                where: {
+                  type: type,
+                  productCode: {
+                    startsWith: prefix
+                  }
+                },
+                orderBy: {
+                  productCode: 'desc'
+                }
+              });
+
+              productCode = `${prefix}001`;
+              if (lastProduct && lastProduct.productCode) {
+                const lastNumber = parseInt(lastProduct.productCode.replace(prefix, ''));
+                if (!isNaN(lastNumber)) {
+                  productCode = `${prefix}${String(lastNumber + 1).padStart(3, '0')}`;
+                }
+              }
+            }
+
             // First, create the product
             const newProduct = await prisma.product.create({
               data: {
                 name: data.name,
                 type: type,
+                productCode: productCode,
                 brand: data.brand || null,
                 model: data.model || null,
+                description: data.description || null,
                 serialNumber: data.serialNumber || null,
+                minQuantity: data.minQuantity ? parseInt(data.minQuantity.toString()) : null,
+                partNumber: data.partNumber || null,
+                compatibleWith: data.compatibleWith || null,
                 purchasePrice: data.purchasePrice ? parseFloat(data.purchasePrice.toString()) : null,
                 sellingPrice: data.sellingPrice ? parseFloat(data.sellingPrice.toString()) : null,
+                status: data.status || 'ACTIVE',
               },
             });
 
+            // Handle stock location (single location via stockLocationId)
+            let createdStocks: any[] = [];
+            if (data.stockLocationId) {
+              const stock = await prisma.stock.create({
+                data: {
+                  productId: newProduct.id,
+                  locationId: data.stockLocationId,
+                  quantity: data.stockQuantity ? parseInt(data.stockQuantity.toString()) : 0,
+                  status: 'FOR_SALE' // Use StockStatus enum value, not product status
+                },
+                include: {
+                  location: true
+                }
+              });
+              createdStocks = [stock];
+            }
+
             // Handle multiple stock locations
             const stockLocations = data.stockLocations || [];
-
-            // Create stock entries for all locations
-            const createdStocks = await Promise.all(
-              stockLocations.map((stockLoc: any) =>
-                prisma.stock.create({
-                  data: {
-                    productId: newProduct.id,
-                    locationId: stockLoc.locationId,
-                    quantity: parseInt(stockLoc.quantity.toString()),
-                    status: stockLoc.status || 'FOR_SALE'
-                  },
-                  include: {
-                    location: true
-                  }
-                })
-              )
-            );
+            if (stockLocations.length > 0) {
+              const multiStocks = await Promise.all(
+                stockLocations.map((stockLoc: any) =>
+                  prisma.stock.create({
+                    data: {
+                      productId: newProduct.id,
+                      locationId: stockLoc.locationId,
+                      quantity: parseInt(stockLoc.quantity.toString()),
+                      status: stockLoc.status || 'FOR_SALE'
+                    },
+                    include: {
+                      location: true
+                    }
+                  })
+                )
+              );
+              createdStocks = [...createdStocks, ...multiStocks];
+            }
 
             return res.status(201).json({
               id: newProduct.id,
+              productCode: newProduct.productCode,
               name: newProduct.name,
               type: newProduct.type,
               brand: newProduct.brand,
               model: newProduct.model,
+              description: newProduct.description,
               serialNumber: newProduct.serialNumber,
               purchasePrice: newProduct.purchasePrice,
               sellingPrice: newProduct.sellingPrice,
+              minQuantity: newProduct.minQuantity,
+              partNumber: newProduct.partNumber,
+              compatibleWith: newProduct.compatibleWith,
               warrantyExpiration: newProduct.warrantyExpiration,
               stocks: createdStocks,
               status: newProduct.status

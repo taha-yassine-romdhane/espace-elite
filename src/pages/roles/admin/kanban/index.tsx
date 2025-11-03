@@ -53,7 +53,7 @@ interface KanbanItem {
   requestedQuantity?: number;
   urgency?: string;
   dossierNumber?: string;
-  bondAmount?: number;
+  bonAmount?: number;
   type?: string;
   message?: string;
   isRead?: boolean;
@@ -352,7 +352,7 @@ function KanbanPage() {
       case 'stockRequests':
         return `Quantité: ${item.requestedQuantity || 0}`;
       case 'cnamDossiers':
-        return `Montant: ${item.bondAmount ? `${item.bondAmount}€` : 'N/A'}`;
+        return `Montant: ${item.bonAmount ? `${item.bonAmount}€` : 'N/A'}`;
       case 'notifications':
         return item.message || item.description || '';
       default:

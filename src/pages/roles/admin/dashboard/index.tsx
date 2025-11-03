@@ -1,21 +1,18 @@
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
-import { SaleStepperDialog } from "./components/SaleStepperDialog";
-import { DiagnosticStepperDialog } from "./components/DiagnosticStepperDialog";
-import { RdvStepperDialog } from "./components/RdvStepperDialog";
 import { Building2, ShoppingCart, Stethoscope, Calendar } from "lucide-react";
 import { useRouter } from "next/router";
 import AdminLayout from "../AdminLayout";
 
-// Import table components
-import { AppointmentsTable } from "./components/tables/AppointmentsTable";
-import { DiagnosticTable } from "./components/tables/DiagnosticTable";
-import { SalesTable } from "./components/tables/SalesTable";
+// Import new table components
+import AppointmentsExcelTable from "../appointments/AppointmentsExcelTable";
+import DiagnosticsExcelTable from "../diagnostics/DiagnosticsExcelTable";
+import CNAMRappelsTable from "../sales/components/CNAMRappelsTable";
 import RentalStatistics from "../location/components/RentalStatistics";
 import { TabSwitcher } from "./components/TabSwitcher";
+import { Card, CardContent } from "@/components/ui/card";
 
 function DashboardPage() {
-  const [selectedAction, setSelectedAction] = useState<"rdv" | "diagnostique" | "vente" | null>(null);
   const [activeTab, setActiveTab] = useState<"appointments" | "diagnostics" | "sales" | "rentals">("appointments");
   const router = useRouter();
 
@@ -28,25 +25,25 @@ function DashboardPage() {
         <div className="space-y-4 mb-8">
           {/* Primary Actions */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Button 
+            <Button
               className="w-full bg-blue-900 hover:bg-blue-700 text-white flex items-center justify-start gap-2"
-              onClick={() => setSelectedAction("rdv")}
+              onClick={() => router.push("/roles/admin/appointments")}
             >
               <Calendar className="h-5 w-5" />
               <span>Nouveau Rendez-vous</span>
             </Button>
             
-            <Button 
+            <Button
               className="w-full bg-blue-900 hover:bg-blue-700 text-white flex items-center justify-start gap-2"
-              onClick={() => setSelectedAction("diagnostique")}
+              onClick={() => router.push("/roles/admin/diagnostics")}
             >
               <Stethoscope className="h-5 w-5" />
               <span>Commencer un Diagnostic</span>
             </Button>
             
-            <Button 
+            <Button
               className="w-full bg-blue-900 hover:bg-blue-700 text-white flex items-center justify-start gap-2"
-              onClick={() => setSelectedAction("vente")}
+              onClick={() => router.push("/roles/admin/sales")}
             >
               <ShoppingCart className="h-5 w-5" />
               <span>Commencer une Vente</span>
@@ -64,53 +61,34 @@ function DashboardPage() {
 
         {/* Tab Switcher */}
         <TabSwitcher activeTab={activeTab} onTabChange={(tab) => setActiveTab(tab as any)} />
-        
+
         {/* Tables */}
         {activeTab === "appointments" && (
-          <AppointmentsTable 
-            onViewDetails={(id) => router.push(`/roles/admin/appointments/${id}`)}
-          />
+          <Card>
+            <CardContent className="pt-6">
+              <AppointmentsExcelTable />
+            </CardContent>
+          </Card>
         )}
-        
+
         {activeTab === "diagnostics" && (
-          <DiagnosticTable 
-            onViewDetails={(id) => router.push(`/roles/admin/diagnostics/${id}`)} 
-            onEnterResults={(id) => router.push(`/roles/admin/diagnostics/${id}/results`)}
-          />
+          <Card>
+            <CardContent className="pt-6">
+              <DiagnosticsExcelTable />
+            </CardContent>
+          </Card>
         )}
-        
+
         {activeTab === "sales" && (
-          <SalesTable 
-            onViewDetails={(id) => router.push(`/roles/admin/sales/${id}`)}
-            onEdit={(id) => router.push(`/roles/admin/sales/${id}/edit`)}
-          />
+          <Card>
+            <CardContent className="pt-6">
+              <CNAMRappelsTable />
+            </CardContent>
+          </Card>
         )}
-        
+
         {activeTab === "rentals" && (
           <RentalStatistics />
-        )}
-
-        {/* Stepper Dialogs */}
-        {selectedAction === "rdv" && (
-          <RdvStepperDialog
-            isOpen={true}
-            onClose={() => setSelectedAction(null)}
-          />
-        )}
-
-        {selectedAction === "diagnostique" && (
-          <DiagnosticStepperDialog
-            isOpen={true}
-            onClose={() => setSelectedAction(null)}
-          />
-        )}
-
-        {selectedAction === "vente" && (
-          <SaleStepperDialog
-            isOpen={true}
-            onClose={() => setSelectedAction(null)}
-            action={selectedAction}
-          />
         )}
     </div>
   );

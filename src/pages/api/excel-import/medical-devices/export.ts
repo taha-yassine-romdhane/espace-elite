@@ -22,9 +22,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Fetch all medical devices with their related data
     const medicalDevices = await prisma.medicalDevice.findMany({
       include: {
-        stockLocation: true,
-        Patient: true,
-        Company: true
+        stockLocation: true
       },
       orderBy: {
         createdAt: 'desc'
@@ -42,7 +40,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       'Prix d\'achat': device.purchasePrice || '',
       'Prix de vente': device.sellingPrice || '',
       'Prix de location': device.rentalPrice || '',
-      'Date d\'installation': device.installationDate ? new Date(device.installationDate).toLocaleDateString('fr-FR') : '',
       'Garantie': device.warranty || '',
       'Spécifications techniques': device.technicalSpecs || '',
       'Configuration': device.configuration || '',
@@ -51,12 +48,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       'Localisation': device.location || '',
       'Statut': device.status || '',
       'Destination': device.destination || '',
-      'Nécessite maintenance': device.requiresMaintenance ? 'Oui' : 'Non',
       'Quantité en stock': device.stockQuantity || 0,
       'Emplacement de stock': device.stockLocation?.name || '',
-      'Patient assigné': device.Patient ? `${device.Patient.firstName} ${device.Patient.lastName}` : '',
-      'Société assignée': device.Company ? device.Company.companyName : '',
-      'Date jusqu\'à réservé': device.reservedUntil ? new Date(device.reservedUntil).toLocaleDateString('fr-FR') : '',
       'Date création': device.createdAt ? new Date(device.createdAt).toLocaleDateString('fr-FR') : '',
       'Date modification': device.updatedAt ? new Date(device.updatedAt).toLocaleDateString('fr-FR') : ''
     }));

@@ -1,24 +1,9 @@
 import { useState } from 'react';
-import { Shield, Plus, Pencil, Trash2 } from 'lucide-react';
+import { Shield, Plus, Pencil, Trash2, Download, Check, X, Save } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
+import { Card, CardContent } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,19 +22,19 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/components/ui/use-toast';
-import { Badge } from '@/components/ui/badge';
 
 interface CNAMNomenclature {
   id: string;
-  bondType: string;
+  bonType: string;
   category: 'LOCATION' | 'ACHAT';
   amount: number;
   monthlyRate: number;
   description: string | null;
   isActive: boolean;
+  effectiveDate: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 const BOND_TYPES = [
@@ -61,25 +46,19 @@ const BOND_TYPES = [
 ];
 
 const BOND_CATEGORIES = [
-  { value: 'LOCATION', label: 'Bon de Location (Mensuel)' },
-  { value: 'ACHAT', label: 'Bon d\'Achat (Unique)' },
+  { value: 'LOCATION', label: 'Location' },
+  { value: 'ACHAT', label: 'Achat' },
 ];
 
 export default function CNAMManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<CNAMNomenclature | null>(null);
   const [deletingItem, setDeletingItem] = useState<CNAMNomenclature | null>(null);
-  const [formData, setFormData] = useState({
-    bondType: '',
-    category: 'LOCATION' as 'LOCATION' | 'ACHAT',
-    amount: '',
-    monthlyRate: '',
-    description: '',
-    isActive: true,
-  });
+  const [activeTab, setActiveTab] = useState('all');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [addingNew, setAddingNew] = useState(false);
+  const [editForm, setEditForm] = useState<Partial<CNAMNomenclature>>({});
 
   // Fetch nomenclature data
   const { data: nomenclature = [], isLoading } = useQuery({
@@ -93,23 +72,16 @@ export default function CNAMManagement() {
 
   // Create/Update mutation
   const saveMutation = useMutation({
-    mutationFn: async (data: typeof formData) => {
-      const url = editingItem
-        ? `/api/cnam-nomenclature/${editingItem.id}`
+    mutationFn: async (data: { id?: string; payload: any }) => {
+      const url = data.id
+        ? `/api/cnam-nomenclature/${data.id}`
         : '/api/cnam-nomenclature';
-      const method = editingItem ? 'PUT' : 'POST';
+      const method = data.id ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          bondType: data.bondType,
-          category: data.category,
-          amount: parseFloat(data.amount),
-          monthlyRate: data.category === 'LOCATION' ? parseFloat(data.monthlyRate || data.amount) : 0,
-          description: data.description || null,
-          isActive: data.isActive,
-        }),
+        body: JSON.stringify(data.payload),
       });
 
       if (!response.ok) {
@@ -123,11 +95,11 @@ export default function CNAMManagement() {
       queryClient.invalidateQueries({ queryKey: ['cnam-nomenclature'] });
       toast({
         title: 'Succès',
-        description: editingItem
-          ? 'Tarif CNAM modifié avec succès'
-          : 'Tarif CNAM ajouté avec succès',
+        description: editingId ? 'Tarif modifié avec succès' : 'Tarif ajouté avec succès',
       });
-      handleCloseDialog();
+      setEditingId(null);
+      setAddingNew(false);
+      setEditForm({});
     },
     onError: (error: Error) => {
       toast({
@@ -156,7 +128,7 @@ export default function CNAMManagement() {
       queryClient.invalidateQueries({ queryKey: ['cnam-nomenclature'] });
       toast({
         title: 'Succès',
-        description: 'Tarif CNAM supprimé avec succès',
+        description: 'Tarif supprimé avec succès',
       });
       setIsDeleteDialogOpen(false);
       setDeletingItem(null);
@@ -170,54 +142,31 @@ export default function CNAMManagement() {
     },
   });
 
-  const handleAdd = () => {
-    setEditingItem(null);
-    setFormData({
-      bondType: '',
+  const handleAddNew = () => {
+    setAddingNew(true);
+    setEditForm({
+      bonType: 'CPAP',
       category: 'LOCATION',
-      amount: '',
-      monthlyRate: '',
+      amount: 0,
+      monthlyRate: 0,
       description: '',
       isActive: true,
     });
-    setIsDialogOpen(true);
   };
 
   const handleEdit = (item: CNAMNomenclature) => {
-    setEditingItem(item);
-    setFormData({
-      bondType: item.bondType,
-      category: item.category,
-      amount: item.amount.toString(),
-      monthlyRate: item.monthlyRate.toString(),
-      description: item.description || '',
-      isActive: item.isActive,
-    });
-    setIsDialogOpen(true);
+    setEditingId(item.id);
+    setEditForm(item);
   };
 
-  const handleDelete = (item: CNAMNomenclature) => {
-    setDeletingItem(item);
-    setIsDeleteDialogOpen(true);
+  const handleCancel = () => {
+    setEditingId(null);
+    setAddingNew(false);
+    setEditForm({});
   };
 
-  const handleCloseDialog = () => {
-    setIsDialogOpen(false);
-    setEditingItem(null);
-    setFormData({
-      bondType: '',
-      category: 'LOCATION',
-      amount: '',
-      monthlyRate: '',
-      description: '',
-      isActive: true,
-    });
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!formData.bondType || !formData.amount) {
+  const handleSave = () => {
+    if (!editForm.bonType || (editForm.amount === undefined && editForm.monthlyRate === undefined)) {
       toast({
         title: 'Erreur',
         description: 'Veuillez remplir tous les champs requis',
@@ -226,243 +175,75 @@ export default function CNAMManagement() {
       return;
     }
 
-    saveMutation.mutate(formData);
+    const payload = {
+      bonType: editForm.bonType,
+      category: editForm.category || 'LOCATION',
+      amount: Number(editForm.amount) || 0,
+      monthlyRate: editForm.category === 'LOCATION'
+        ? Number(editForm.monthlyRate || editForm.amount)
+        : 0,
+      description: editForm.description || null,
+      isActive: editForm.isActive !== false,
+    };
+
+    saveMutation.mutate({
+      id: editingId || undefined,
+      payload,
+    });
   };
 
-  const getBondTypeLabel = (bondType: string) => {
-    return BOND_TYPES.find((t) => t.value === bondType)?.label || bondType;
+  const handleDelete = (item: CNAMNomenclature) => {
+    setDeletingItem(item);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const getBondTypeLabel = (bonType: string) => {
+    return BOND_TYPES.find((t) => t.value === bonType)?.label || bonType;
+  };
+
+  const formatCurrency = (value: any) => {
+    if (value === null || value === undefined) return '0.00';
+    return Number(value).toFixed(2);
+  };
+
+  const formatDate = (date: any) => {
+    if (!date) return 'N/A';
+    return new Date(date).toLocaleDateString('fr-FR');
   };
 
   const locationItems = nomenclature.filter((item: CNAMNomenclature) => item.category === 'LOCATION');
   const achatItems = nomenclature.filter((item: CNAMNomenclature) => item.category === 'ACHAT');
 
-  return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Shield className="h-8 w-8 text-blue-600" />
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Gestion CNAM</h1>
-            <p className="text-gray-500 mt-1">
-              Tarifs fixes CNAM pour les bons de location et d&apos;achat
-            </p>
-          </div>
-        </div>
-        <Button onClick={handleAdd}>
-          <Plus className="h-4 w-4 mr-2" />
-          Ajouter un tarif
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Bon de Location */}
-        <Card className="p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-xl font-semibold text-blue-700">
-              Bon de Location (Mensuel)
-            </h2>
-            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-              {locationItems.length}
-            </Badge>
-          </div>
-
-          {isLoading ? (
-            <div className="text-center py-8 text-gray-500">Chargement...</div>
-          ) : locationItems.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              Aucun tarif de location
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Type</TableHead>
-                  <TableHead className="text-right">Tarif/Mois</TableHead>
-                  <TableHead className="text-center">Statut</TableHead>
-                  <TableHead className="text-center">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {locationItems.map((item: CNAMNomenclature) => (
-                  <TableRow key={item.id}>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{getBondTypeLabel(item.bondType)}</div>
-                        {item.description && (
-                          <div className="text-xs text-gray-500 mt-1">{item.description}</div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right font-semibold text-blue-600">
-                      {Number(item.monthlyRate).toFixed(2)} TND
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {item.isActive ? (
-                        <Badge className="bg-green-100 text-green-700">Actif</Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-gray-500">
-                          Inactif
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center justify-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEdit(item)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(item)}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-600" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
+  const renderTableRow = (item: CNAMNomenclature, isEditing: boolean, showCategory: boolean = true) => {
+    if (isEditing) {
+      return (
+        <tr key={item.id} className="bg-yellow-50 border-b border-gray-200">
+          <td className="px-4 py-3 border-r border-gray-200 sticky left-0 z-10 bg-yellow-50">
+            <Select
+              value={editForm.bonType}
+              onValueChange={(value) => setEditForm({ ...editForm, bonType: value })}
+            >
+              <SelectTrigger className="h-8 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {BOND_TYPES.map((type) => (
+                  <SelectItem key={type.value} value={type.value}>
+                    {type.label}
+                  </SelectItem>
                 ))}
-              </TableBody>
-            </Table>
-          )}
-        </Card>
-
-        {/* Bon d'Achat */}
-        <Card className="p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-xl font-semibold text-green-700">
-              Bon d&apos;Achat (Paiement Unique)
-            </h2>
-            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-              {achatItems.length}
-            </Badge>
-          </div>
-
-          {isLoading ? (
-            <div className="text-center py-8 text-gray-500">Chargement...</div>
-          ) : achatItems.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              Aucun tarif d&apos;achat
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Type</TableHead>
-                  <TableHead className="text-right">Montant</TableHead>
-                  <TableHead className="text-center">Statut</TableHead>
-                  <TableHead className="text-center">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {achatItems.map((item: CNAMNomenclature) => (
-                  <TableRow key={item.id}>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{getBondTypeLabel(item.bondType)}</div>
-                        {item.description && (
-                          <div className="text-xs text-gray-500 mt-1">{item.description}</div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right font-semibold text-green-600">
-                      {Number(item.amount).toFixed(2)} TND
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {item.isActive ? (
-                        <Badge className="bg-green-100 text-green-700">Actif</Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-gray-500">
-                          Inactif
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center justify-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEdit(item)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(item)}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-600" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </Card>
-      </div>
-
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <p className="text-sm text-blue-800">
-          <strong>Note:</strong> Ces tarifs sont basés sur la nomenclature officielle CNAM Tunisie.
-          Les modifications doivent être conformes aux réglementations gouvernementales en vigueur.
-        </p>
-      </div>
-
-      {/* Add/Edit Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={handleCloseDialog}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
-              {editingItem ? 'Modifier le tarif CNAM' : 'Ajouter un tarif CNAM'}
-            </DialogTitle>
-            <DialogDescription>
-              {editingItem
-                ? 'Modifiez les informations du tarif CNAM'
-                : 'Ajoutez un nouveau tarif CNAM à la nomenclature'}
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="bondType">
-                Type de bon <span className="text-red-500">*</span>
-              </Label>
+              </SelectContent>
+            </Select>
+          </td>
+          {showCategory && (
+            <td className="px-4 py-3 border-r border-gray-200">
               <Select
-                value={formData.bondType}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, bondType: value })
-                }
-                disabled={!!editingItem}
-              >
-                <SelectTrigger id="bondType">
-                  <SelectValue placeholder="Sélectionner le type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {BOND_TYPES.map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
-                      {type.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="category">
-                Catégorie <span className="text-red-500">*</span>
-              </Label>
-              <Select
-                value={formData.category}
+                value={editForm.category}
                 onValueChange={(value: 'LOCATION' | 'ACHAT') =>
-                  setFormData({ ...formData, category: value })
+                  setEditForm({ ...editForm, category: value })
                 }
               >
-                <SelectTrigger id="category">
+                <SelectTrigger className="h-8 text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -473,83 +254,369 @@ export default function CNAMManagement() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="amount">
-                Montant (TND) <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="amount"
-                type="number"
-                step="0.01"
-                value={formData.amount}
-                onChange={(e) =>
-                  setFormData({ ...formData, amount: e.target.value })
-                }
-                placeholder="Ex: 190.00"
-              />
-            </div>
-
-            {formData.category === 'LOCATION' && (
-              <div className="space-y-2">
-                <Label htmlFor="monthlyRate">Tarif mensuel (TND)</Label>
-                <Input
-                  id="monthlyRate"
-                  type="number"
-                  step="0.01"
-                  value={formData.monthlyRate}
-                  onChange={(e) =>
-                    setFormData({ ...formData, monthlyRate: e.target.value })
-                  }
-                  placeholder="Si différent du montant"
-                />
-                <p className="text-xs text-gray-500">
-                  Laissez vide pour utiliser le montant comme tarif mensuel
-                </p>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Input
-                id="description"
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
-                placeholder="Description optionnelle"
-              />
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="isActive"
-                checked={formData.isActive}
-                onCheckedChange={(checked) =>
-                  setFormData({ ...formData, isActive: checked })
-                }
-              />
-              <Label htmlFor="isActive" className="cursor-pointer">
-                Tarif actif
-              </Label>
-            </div>
-
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={handleCloseDialog}>
-                Annuler
+            </td>
+          )}
+          <td className="px-4 py-3 border-r border-gray-200">
+            <Input
+              type="number"
+              step="0.01"
+              value={editForm.category === 'LOCATION' ? editForm.monthlyRate : editForm.amount}
+              onChange={(e) =>
+                setEditForm({
+                  ...editForm,
+                  [editForm.category === 'LOCATION' ? 'monthlyRate' : 'amount']: e.target.value,
+                })
+              }
+              className="h-8 text-sm"
+              placeholder="0.00"
+            />
+          </td>
+          <td className="px-4 py-3 border-r border-gray-200">
+            <Input
+              value={editForm.description || ''}
+              onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+              className="h-8 text-sm"
+              placeholder="Description"
+            />
+          </td>
+          <td className="px-4 py-3 border-r border-gray-200 text-center">
+            <Select
+              value={editForm.isActive ? 'true' : 'false'}
+              onValueChange={(value) =>
+                setEditForm({ ...editForm, isActive: value === 'true' })
+              }
+            >
+              <SelectTrigger className="h-8 text-sm w-24 mx-auto">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="true">Actif</SelectItem>
+                <SelectItem value="false">Inactif</SelectItem>
+              </SelectContent>
+            </Select>
+          </td>
+          <td className="px-4 py-3 border-r border-gray-200 text-center">
+            {formatDate(item.effectiveDate)}
+          </td>
+          <td className="px-4 py-3 border-r border-gray-200 text-center">
+            {formatDate(item.updatedAt)}
+          </td>
+          <td className="px-4 py-3 text-center">
+            <div className="flex items-center justify-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleSave}
+                disabled={saveMutation.isPending}
+                className="h-8 w-8 p-0"
+              >
+                <Check className="h-4 w-4 text-green-600" />
               </Button>
-              <Button type="submit" disabled={saveMutation.isPending}>
-                {saveMutation.isPending
-                  ? 'Enregistrement...'
-                  : editingItem
-                  ? 'Modifier'
-                  : 'Ajouter'}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCancel}
+                className="h-8 w-8 p-0"
+              >
+                <X className="h-4 w-4 text-red-600" />
               </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+            </div>
+          </td>
+        </tr>
+      );
+    }
+
+    return (
+      <tr
+        key={item.id}
+        className="border-b border-gray-200 hover:bg-blue-50 transition-colors"
+      >
+        <td className="px-4 py-3 text-sm border-r border-gray-200 sticky left-0 z-10 bg-white font-medium">
+          {getBondTypeLabel(item.bonType)}
+        </td>
+        {showCategory && (
+          <td className="px-4 py-3 text-sm text-center border-r border-gray-200">
+            {item.category === 'LOCATION' ? 'Location' : 'Achat'}
+          </td>
+        )}
+        <td className="px-4 py-3 text-sm text-right border-r border-gray-200 font-bold text-blue-700">
+          {formatCurrency(item.category === 'LOCATION' ? item.monthlyRate : item.amount)} TND
+        </td>
+        <td className="px-4 py-3 text-sm border-r border-gray-200">
+          {item.description || 'N/A'}
+        </td>
+        <td className="px-4 py-3 text-sm text-center border-r border-gray-200">
+          {item.isActive ? (
+            <span className="text-green-700 font-medium">Actif</span>
+          ) : (
+            <span className="text-gray-500">Inactif</span>
+          )}
+        </td>
+        <td className="px-4 py-3 text-sm text-center border-r border-gray-200">
+          {formatDate(item.effectiveDate)}
+        </td>
+        <td className="px-4 py-3 text-sm text-center border-r border-gray-200">
+          {formatDate(item.updatedAt)}
+        </td>
+        <td className="px-4 py-3 text-center">
+          <div className="flex items-center justify-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleEdit(item)}
+              className="h-8 w-8 p-0"
+            >
+              <Pencil className="h-3 w-3" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleDelete(item)}
+              className="h-8 w-8 p-0"
+            >
+              <Trash2 className="h-3 w-3 text-red-600" />
+            </Button>
+          </div>
+        </td>
+      </tr>
+    );
+  };
+
+  const renderNewRow = (showCategory: boolean = true) => {
+    if (!addingNew) return null;
+
+    return (
+      <tr className="bg-green-50 border-b-2 border-green-300">
+        <td className="px-4 py-3 border-r border-gray-200 sticky left-0 z-10 bg-green-50">
+          <Select
+            value={editForm.bonType}
+            onValueChange={(value) => setEditForm({ ...editForm, bonType: value })}
+          >
+            <SelectTrigger className="h-8 text-sm">
+              <SelectValue placeholder="Type de bon" />
+            </SelectTrigger>
+            <SelectContent>
+              {BOND_TYPES.map((type) => (
+                <SelectItem key={type.value} value={type.value}>
+                  {type.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </td>
+        {showCategory && (
+          <td className="px-4 py-3 border-r border-gray-200">
+            <Select
+              value={editForm.category}
+              onValueChange={(value: 'LOCATION' | 'ACHAT') =>
+                setEditForm({ ...editForm, category: value })
+              }
+            >
+              <SelectTrigger className="h-8 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {BOND_CATEGORIES.map((cat) => (
+                  <SelectItem key={cat.value} value={cat.value}>
+                    {cat.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </td>
+        )}
+        <td className="px-4 py-3 border-r border-gray-200">
+          <Input
+            type="number"
+            step="0.01"
+            value={editForm.category === 'LOCATION' ? editForm.monthlyRate : editForm.amount}
+            onChange={(e) =>
+              setEditForm({
+                ...editForm,
+                [editForm.category === 'LOCATION' ? 'monthlyRate' : 'amount']: e.target.value,
+              })
+            }
+            className="h-8 text-sm"
+            placeholder="0.00"
+          />
+        </td>
+        <td className="px-4 py-3 border-r border-gray-200">
+          <Input
+            value={editForm.description || ''}
+            onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+            className="h-8 text-sm"
+            placeholder="Description"
+          />
+        </td>
+        <td className="px-4 py-3 border-r border-gray-200 text-center">
+          <Select
+            value={editForm.isActive ? 'true' : 'false'}
+            onValueChange={(value) =>
+              setEditForm({ ...editForm, isActive: value === 'true' })
+            }
+          >
+            <SelectTrigger className="h-8 text-sm w-24 mx-auto">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="true">Actif</SelectItem>
+              <SelectItem value="false">Inactif</SelectItem>
+            </SelectContent>
+          </Select>
+        </td>
+        <td className="px-4 py-3 border-r border-gray-200 text-center text-sm text-gray-500">
+          Nouveau
+        </td>
+        <td className="px-4 py-3 border-r border-gray-200 text-center text-sm text-gray-500">
+          --
+        </td>
+        <td className="px-4 py-3 text-center">
+          <div className="flex items-center justify-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleSave}
+              disabled={saveMutation.isPending}
+              className="h-8 w-8 p-0"
+            >
+              <Save className="h-4 w-4 text-green-600" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCancel}
+              className="h-8 w-8 p-0"
+            >
+              <X className="h-4 w-4 text-red-600" />
+            </Button>
+          </div>
+        </td>
+      </tr>
+    );
+  };
+
+  const renderTable = (data: CNAMNomenclature[], showCategory: boolean = true) => {
+    const colSpan = showCategory ? 8 : 7;
+    return (
+      <div className="border border-gray-300 rounded-lg overflow-hidden bg-white">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse" style={{ minWidth: '100%' }}>
+            <thead>
+              <tr className="bg-gray-100 border-b-2 border-gray-300">
+                <th className="px-4 py-3 text-sm font-semibold text-gray-700 border-r border-gray-300 text-left sticky left-0 z-20 bg-gray-100" style={{ width: '220px' }}>
+                  Type de Bon
+                </th>
+                {showCategory && (
+                  <th className="px-4 py-3 text-sm font-semibold text-gray-700 border-r border-gray-300 text-center" style={{ width: '120px' }}>
+                    Catégorie
+                  </th>
+                )}
+                <th className="px-4 py-3 text-sm font-semibold text-gray-700 border-r border-gray-300 text-right" style={{ width: '150px' }}>
+                  Montant
+                </th>
+                <th className="px-4 py-3 text-sm font-semibold text-gray-700 border-r border-gray-300 text-left" style={{ width: '250px' }}>
+                  Description
+                </th>
+                <th className="px-4 py-3 text-sm font-semibold text-gray-700 border-r border-gray-300 text-center" style={{ width: '100px' }}>
+                  Statut
+                </th>
+                <th className="px-4 py-3 text-sm font-semibold text-gray-700 border-r border-gray-300 text-center" style={{ width: '120px' }}>
+                  Date Effective
+                </th>
+                <th className="px-4 py-3 text-sm font-semibold text-gray-700 border-r border-gray-300 text-center" style={{ width: '120px' }}>
+                  Dernière MAJ
+                </th>
+                <th className="px-4 py-3 text-sm font-semibold text-gray-700 text-center" style={{ width: '120px' }}>
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {renderNewRow(showCategory)}
+              {data.map((item) => renderTableRow(item, editingId === item.id, showCategory))}
+              {data.length === 0 && !addingNew && (
+                <tr>
+                  <td colSpan={colSpan} className="px-4 py-8 text-center text-gray-500">
+                    Aucun tarif trouvé
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className="mt-2 px-4 pb-2 text-xs text-gray-500 flex items-center justify-between">
+          <span>Faites défiler horizontalement pour voir toutes les colonnes</span>
+          <span>{data.length} ligne{data.length !== 1 ? 's' : ''}</span>
+        </div>
+      </div>
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">Chargement...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Shield className="h-8 w-8 text-blue-600" />
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Gestion CNAM - Nomenclature</h1>
+            <p className="text-gray-500 mt-1">
+              Tarifs fixes CNAM - Édition inline comme Excel
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="sm">
+            <Download className="h-4 w-4 mr-2" />
+            Exporter Excel
+          </Button>
+          <Button onClick={handleAddNew} disabled={addingNew || editingId !== null}>
+            <Plus className="h-4 w-4 mr-2" />
+            Ajouter une ligne
+          </Button>
+        </div>
+      </div>
+
+
+      {/* Excel Tables with Tabs */}
+      <Card>
+        <CardContent className="p-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="all">
+                Tous les Tarifs ({nomenclature.length})
+              </TabsTrigger>
+              <TabsTrigger value="location" className="text-blue-700">
+                Bons de Location ({locationItems.length})
+              </TabsTrigger>
+              <TabsTrigger value="achat" className="text-green-700">
+                Bons d&acirc;Achat ({achatItems.length})
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="all" className="mt-6">
+              {renderTable(nomenclature, true)}
+            </TabsContent>
+
+            <TabsContent value="location" className="mt-6">
+              {renderTable(locationItems, false)}
+            </TabsContent>
+
+            <TabsContent value="achat" className="mt-6">
+              {renderTable(achatItems, false)}
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
@@ -561,12 +628,12 @@ export default function CNAMManagement() {
               {deletingItem && (
                 <div className="mt-2 p-3 bg-gray-50 rounded border">
                   <div className="font-medium">
-                    {getBondTypeLabel(deletingItem.bondType)}
+                    {getBondTypeLabel(deletingItem.bonType)}
                   </div>
                   <div className="text-sm text-gray-600">
                     {deletingItem.category === 'LOCATION'
-                      ? `${Number(deletingItem.monthlyRate).toFixed(2)} TND/mois`
-                      : `${Number(deletingItem.amount).toFixed(2)} TND`}
+                      ? `${formatCurrency(deletingItem.monthlyRate)} TND/mois`
+                      : `${formatCurrency(deletingItem.amount)} TND`}
                   </div>
                 </div>
               )}

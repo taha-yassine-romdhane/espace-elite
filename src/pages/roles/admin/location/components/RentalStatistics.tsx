@@ -28,6 +28,8 @@ import {
   Minimize2,
   Filter,
   XCircle,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { format } from 'date-fns';
@@ -76,6 +78,10 @@ export default function RentalStatistics() {
   const [employeeFilter, setEmployeeFilter] = useState<string>('ALL');
   const [doctorFilter, setDoctorFilter] = useState<string>('ALL');
   const [monthFilter, setMonthFilter] = useState<string>('ALL');
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 50;
 
   // Prevent losing focus when editing - use callback to update editData
   const handleEditDataChange = React.useCallback((field: keyof PatientStatistic, value: any) => {
@@ -248,6 +254,17 @@ export default function RentalStatistics() {
     return true;
   });
 
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredStats.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedStats = filteredStats.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, paymentStatusFilter, dateFromFilter, dateToFilter, daysFilter, employeeFilter, doctorFilter, monthFilter]);
+
   // Get unique employees, doctors, and months for filter dropdowns
   const uniqueEmployees = useMemo(() => {
     const employees = new Set<string>();
@@ -389,14 +406,14 @@ export default function RentalStatistics() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-slate-200">
-              {filteredStats.length === 0 ? (
+              {paginatedStats.length === 0 ? (
                 <tr>
                   <td colSpan={17} className="px-4 py-12 text-center text-slate-500">
                     Aucune location trouvée
                   </td>
                 </tr>
               ) : (
-                filteredStats.map((stat: PatientStatistic) => {
+                paginatedStats.map((stat: PatientStatistic) => {
                   const isEditing = editingId === stat.id;
 
                   return (
@@ -688,7 +705,7 @@ export default function RentalStatistics() {
       </div>
     </>
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [filteredStats, editingId, editData, handleEditDataChange, getStatusBadge, getPaymentMethodLabel]);
+  ), [paginatedStats, editingId, editData, handleEditDataChange, getStatusBadge, getPaymentMethodLabel]);
 
   if (isLoading) {
     return (
@@ -885,14 +902,73 @@ export default function RentalStatistics() {
           </div>
         </Card>
 
-        {/* Statistics Count */}
-        <div className="flex items-center gap-6 text-sm">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-            <span className="text-slate-600">
-              <strong>{filteredStats.length}</strong> location(s) trouvée(s)
-            </span>
+        {/* Statistics Count and Pagination Info */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-6 text-sm">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+              <span className="text-slate-600">
+                <strong>{filteredStats.length}</strong> location(s) trouvée(s)
+              </span>
+            </div>
+            {totalPages > 1 && (
+              <span className="text-slate-500 text-xs">
+                Page {currentPage} sur {totalPages} • Affichage {startIndex + 1}-{Math.min(endIndex, filteredStats.length)} sur {filteredStats.length}
+              </span>
+            )}
           </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="h-8"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+
+              <div className="flex items-center gap-1">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+
+                  return (
+                    <Button
+                      key={pageNum}
+                      variant={currentPage === pageNum ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCurrentPage(pageNum)}
+                      className="h-8 w-8 p-0"
+                    >
+                      {pageNum}
+                    </Button>
+                  );
+                })}
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="h-8"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </div>
 
         {tableContent}
@@ -925,14 +1001,73 @@ export default function RentalStatistics() {
               </Button>
             </div>
 
-            {/* Statistics Count */}
-            <div className="flex items-center gap-6 text-sm mb-4">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                <span className="text-slate-600">
-                  <strong>{filteredStats.length}</strong> location(s) trouvée(s)
-                </span>
+            {/* Statistics Count and Pagination Info */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-6 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                  <span className="text-slate-600">
+                    <strong>{filteredStats.length}</strong> location(s) trouvée(s)
+                  </span>
+                </div>
+                {totalPages > 1 && (
+                  <span className="text-slate-500 text-xs">
+                    Page {currentPage} sur {totalPages} • Affichage {startIndex + 1}-{Math.min(endIndex, filteredStats.length)} sur {filteredStats.length}
+                  </span>
+                )}
               </div>
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="h-8"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
+
+                      return (
+                        <Button
+                          key={pageNum}
+                          variant={currentPage === pageNum ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setCurrentPage(pageNum)}
+                          className="h-8 w-8 p-0"
+                        >
+                          {pageNum}
+                        </Button>
+                      );
+                    })}
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    className="h-8"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
             </div>
 
             {tableContent}

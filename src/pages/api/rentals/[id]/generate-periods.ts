@@ -40,7 +40,7 @@ export default async function handler(
       include: {
         medicalDevice: true,
         patient: true,
-        cnamBonds: true,
+        cnamBons: true,
       }
     });
 
@@ -64,15 +64,14 @@ export default async function handler(
             rentalId: id,
             startDate: new Date(period.startDate),
             endDate: new Date(period.endDate),
-            amount: typeof period.amount === 'number' ? period.amount : parseFloat(period.amount) || 0,
-            paymentMethod: period.paymentMethod || 'CASH',
+            expectedAmount: typeof period.amount === 'number' ? period.amount : parseFloat(period.amount) || 0,
             isGapPeriod: period.isGapPeriod || false,
             gapReason: period.gapReason || null,
             notes: period.notes || null,
-            cnamBondId: period.cnamBondId || null,
+            cnamBonId: period.cnamBonId || null,
           },
           include: {
-            cnamBond: true,
+            cnamBon: true,
           }
         });
 
@@ -103,8 +102,7 @@ export default async function handler(
           rentalId: id,
           totalPaymentAmount: totalAmount,
           isGlobalOpenEnded: false,
-          urgentRental: false,
-          cnamEligible: periods.some((p: any) => p.paymentMethod === 'CNAM'),
+          cnamEligible: false, // TODO: Determine CNAM eligibility properly
         }
       });
 

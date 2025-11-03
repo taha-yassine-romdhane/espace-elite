@@ -109,14 +109,14 @@ const RentalDetailsCNAMSteps: React.FC<RentalDetailsCNAMStepsProps> = ({ payment
               </div>
             )}
 
-            {/* Bond de location information */}
+            {/* Bon de location information */}
             <div className="mt-4 p-3 bg-blue-50 rounded-md">
               <h4 className="font-medium mb-2 text-blue-800 flex items-center">
                 <CheckCircle className="h-4 w-4 mr-1" />
-                Bond de Location CNAM
+                Bon de Location CNAM
               </h4>
               <p className="text-sm text-blue-700">
-                <span className="block">Type: {cnamDetails.bondType || 'Bond de location standard'}</span>
+                <span className="block">Type: {cnamDetails.bonType || 'Bon de location standard'}</span>
                 <span className="block">Montant: {typeof cnamDetails.amount === 'number' ? cnamDetails.amount.toFixed(3) : parseFloat(String(cnamDetails.amount || 0)).toFixed(3)} DT</span>
                 {cnamDetails.dossierReference && <span className="block">Référence: {cnamDetails.dossierReference}</span>}
               </p>

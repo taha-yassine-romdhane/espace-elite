@@ -25,7 +25,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/components/ui/use-toast';
 
@@ -36,9 +35,8 @@ import { ProductPaymentMatrixEnhanced } from '@/components/payment/components/Pr
 import ProductParameterDialog from '@/pages/roles/admin/dashboard/components/steps/product/ProductParameterDialog';
 
 // Additional icons
-import { Stethoscope, Phone } from 'lucide-react';
+import { Stethoscope} from 'lucide-react';
 
-interface SaleDetailsPageProps {}
 
 export default function EnhancedSaleDetailsPage() {
   const router = useRouter();
@@ -48,7 +46,6 @@ export default function EnhancedSaleDetailsPage() {
 
   // State for editing modes
   const [isEditingGeneral, setIsEditingGeneral] = useState(false);
-  const [isEditingProducts, setIsEditingProducts] = useState(false);
   const [isEditingPayments, setIsEditingPayments] = useState(false);
   const [editedSale, setEditedSale] = useState<any>(null);
   
@@ -469,7 +466,7 @@ export default function EnhancedSaleDetailsPage() {
             </CardHeader>
             <CardContent className="p-6">
               <div className="space-y-6">
-                {sale.items?.map((item: any, index: number) => {
+                {sale.items?.map((item: any,) => {
                   const product = item.medicalDevice || item.product;
                   const hasParameters = item.deviceConfiguration && Object.keys(item.deviceConfiguration).length > 0;
                   
@@ -704,7 +701,7 @@ export default function EnhancedSaleDetailsPage() {
                         <div className="mt-3 p-3 bg-blue-50 rounded">
                           <p className="text-sm font-medium text-blue-900">Dossier CNAM</p>
                           <p className="text-sm text-blue-700">
-                            Type: {detail.metadata.cnamInfo.bondType} | 
+                            Type: {detail.metadata.cnamInfo.bonType} | 
                             Étape: {detail.metadata.cnamInfo.currentStep}/{detail.metadata.cnamInfo.totalSteps}
                           </p>
                         </div>

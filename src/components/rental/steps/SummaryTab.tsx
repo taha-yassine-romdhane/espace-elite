@@ -17,7 +17,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CNAMBondLocation, RentalPaymentPeriod, CNAMStatus, GapReason } from "./types";
 
 interface SummaryTabProps {
-  cnamBonds: CNAMBondLocation[];
+  cnamBons: CNAMBondLocation[];
   paymentPeriods: RentalPaymentPeriod[];
   comprehensiveGaps: any[];
   depositAmount: number;
@@ -48,7 +48,7 @@ const gapReasons: GapReason[] = [
 ];
 
 export function SummaryTab({
-  cnamBonds,
+  cnamBons,
   paymentPeriods,
   comprehensiveGaps,
   depositAmount,
@@ -66,7 +66,7 @@ export function SummaryTab({
     if (!calculateTotal) return null;
     
     const dailyRate = calculateTotal();
-    const totalCnamAmount = cnamBonds.reduce((sum, bond) => sum + bond.totalAmount, 0);
+    const totalCnamAmount = cnamBons.reduce((sum, bond) => sum + bond.totalAmount, 0);
     const totalGapAmount = paymentPeriods.filter(p => p.isGapPeriod).reduce((sum, p) => sum + p.amount, 0);
     const gapDays = totalGapAmount / dailyRate;
     
@@ -77,12 +77,12 @@ export function SummaryTab({
     
     // CNAM renewal alerts
     const renewalAlerts: any[] = [];
-    cnamBonds.forEach(bond => {
+    cnamBons.forEach(bond => {
       if (bond.endDate) {
         const daysUntilExpiry = differenceInDays(new Date(bond.endDate), new Date());
         if (daysUntilExpiry > 0 && daysUntilExpiry <= (bond.renewalReminderDays || 30)) {
           renewalAlerts.push({
-            bondNumber: bond.bondNumber,
+            bonNumber: bond.bonNumber,
             daysUntil: daysUntilExpiry,
             expiryDate: bond.endDate,
             reminderDate: addDays(bond.endDate, -(bond.renewalReminderDays || 30))
@@ -110,21 +110,21 @@ export function SummaryTab({
           <CardTitle>Récapitulatif Complet de la Location</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* CNAM Bonds Summary */}
-          {cnamBonds.length > 0 && (
+          {/* CNAM bons Summary */}
+          {cnamBons.length > 0 && (
             <div className="space-y-2">
               <h4 className="font-semibold flex items-center gap-2">
                 <Shield className="h-4 w-4 text-blue-600" />
-                Bonds CNAM ({cnamBonds.length})
+                Bons CNAM ({cnamBons.length})
               </h4>
-              {cnamBonds.map((bond, index) => (
+              {cnamBons.map((bond, index) => (
                 <div key={bond.id} className="flex justify-between items-center p-3 bg-blue-50 rounded-lg border border-blue-200">
                   <div>
                     <div className="font-medium">
-                      Bond {index + 1}: {bond.bondNumber || 'En cours'}
+                      Bond {index + 1}: {bond.bonNumber || 'En cours'}
                     </div>
                     <div className="text-sm text-gray-600">
-                      {bond.coveredMonths} mois - {bond.bondType}
+                      {bond.coveredMonths} mois - {bond.bonType}
                     </div>
                     <div className="text-xs">
                       <Badge className={cnamStatuses.find(s => s.value === bond.status)?.color}>
@@ -202,7 +202,7 @@ export function SummaryTab({
                 <div className="font-medium mb-2">Alertes de Renouvellement CNAM</div>
                 {coverageAnalysis.renewalAlerts.map((alert: any, index: number) => (
                   <div key={index} className="text-sm mb-1">
-                    • Bond {alert.bondNumber}: expire dans <strong>{alert.daysUntil} jours</strong> 
+                    • Bond {alert.bonNumber}: expire dans <strong>{alert.daysUntil} jours</strong> 
                     (le {format(new Date(alert.expiryDate), "dd/MM/yyyy", { locale: fr })})
                     - Rappel prévu le {format(new Date(alert.reminderDate), "dd/MM/yyyy", { locale: fr })}
                   </div>
@@ -278,7 +278,7 @@ export function SummaryTab({
             <div className="flex justify-between items-center">
               <span>Total CNAM</span>
               <span className="font-semibold">
-                {cnamBonds.reduce((sum, bond) => sum + bond.totalAmount, 0).toFixed(2)} TND
+                {cnamBons.reduce((sum, bond) => sum + bond.totalAmount, 0).toFixed(2)} TND
               </span>
             </div>
             <div className="flex justify-between items-center">
@@ -298,7 +298,7 @@ export function SummaryTab({
               <span className="text-blue-600">{depositAmount.toFixed(2)} TND</span>
             </div>
             <div className="text-sm text-gray-600 mt-1">
-              + CNAM: {cnamBonds.reduce((sum, bond) => sum + bond.totalAmount, 0).toFixed(2)} TND (payé directement par CNAM)
+              + CNAM: {cnamBons.reduce((sum, bond) => sum + bond.totalAmount, 0).toFixed(2)} TND (payé directement par CNAM)
             </div>
           </div>
 

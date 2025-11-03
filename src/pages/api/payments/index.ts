@@ -13,13 +13,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === 'GET') {
     try {
+      // Build where clause based on user role
+      const where: any = {
+        rentalId: {
+          not: null,
+        },
+      };
+
+      // If user is EMPLOYEE, only show payments for rentals they created or are assigned to
+      if (session.user.role === 'EMPLOYEE') {
+        where.rental = {
+          OR: [
+            { createdById: session.user.id },
+            { assignedToId: session.user.id }
+          ]
+        };
+      }
+
       // Get all rental payments
       const payments = await prisma.payment.findMany({
-        where: {
-          rentalId: {
-            not: null,
-          },
-        },
+        where,
         include: {
           rental: {
             include: {
@@ -39,6 +52,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               },
             },
           },
+          rentalPeriod: {
+            select: {
+              periodNumber: true,
+              gapDays: true,
+            },
+          },
         },
         orderBy: {
           createdAt: 'desc',
@@ -50,12 +69,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         id: payment.id,
         paymentCode: payment.paymentCode,
         paymentType: payment.paymentType,
+        source: payment.source, // Include source field
         rentalId: payment.rentalId,
         amount: Number(payment.amount),
+        method: payment.method, // Include method field
         paymentDate: payment.paymentDate.toISOString().split('T')[0],
         periodStartDate: payment.periodStartDate ? payment.periodStartDate.toISOString().split('T')[0] : null,
         periodEndDate: payment.periodEndDate ? payment.periodEndDate.toISOString().split('T')[0] : null,
-        paymentMethod: payment.method,
+        periodNumber: payment.rentalPeriod?.periodNumber ?? null,
+        gapDays: payment.rentalPeriod?.gapDays ?? null,
+        paymentMethod: payment.method, // Keep for backward compatibility
         status: payment.status,
         rental: payment.rental ? {
           rentalCode: payment.rental.rentalCode,
@@ -73,7 +96,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === 'POST') {
     try {
-      const { rentalId, rentalPeriodId, amount, paymentDate, periodStartDate, periodEndDate, paymentMethod, paymentType, status, notes } = req.body;
+      const { rentalId, rentalPeriodId, amount, paymentDate, periodStartDate, periodEndDate, paymentMethod, paymentType, status, notes, periodNumber, gapDays } = req.body;
 
       if (!rentalId || !amount || !paymentDate) {
         return res.status(400).json({ error: 'Missing required fields: rentalId, amount, paymentDate' });
@@ -104,12 +127,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(404).json({ error: 'Rental not found' });
       }
 
-      const paymentCode = await generatePaymentCode(prisma as any);
+      const paymentCode = await generatePaymentCode(prisma as any, 'RENTAL');
+
+      // Create or use existing rental period
+      let rentalPeriodIdToUse = rentalPeriodId;
+
+      // If we have period dates and no existing period ID, create a new rental period
+      if (!rentalPeriodIdToUse && periodStartDate && periodEndDate) {
+        const rentalPeriod = await prisma.rentalPeriod.create({
+          data: {
+            rentalId,
+            periodNumber: periodNumber !== undefined ? periodNumber : null,
+            gapDays: gapDays !== undefined ? gapDays : null,
+            startDate: new Date(periodStartDate),
+            endDate: new Date(periodEndDate),
+            expectedAmount: amount,
+            isGapPeriod: false,
+          },
+        });
+        rentalPeriodIdToUse = rentalPeriod.id;
+      }
 
       const payment = await prisma.payment.create({
         data: {
           paymentCode,
           paymentType: paymentType || 'RENTAL',
+          source: 'RENTAL', // Mark this as a RENTAL payment
           amount,
           method: paymentMethod || 'CASH',
           status: status || 'PAID',
@@ -123,9 +166,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           patient: {
             connect: { id: rental.patientId }
           },
-          ...(rentalPeriodId && {
+          ...(rentalPeriodIdToUse && {
             rentalPeriod: {
-              connect: { id: rentalPeriodId }
+              connect: { id: rentalPeriodIdToUse }
             }
           }),
         },

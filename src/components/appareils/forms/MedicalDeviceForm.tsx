@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -55,6 +56,7 @@ const medicalDeviceSchema = z.object({
   sellingPrice: z.string().transform(val => val ? parseFloat(val) : null).nullable(),
   technicalSpecs: z.string().optional().nullable(),
   configuration: z.string().optional().nullable(),
+  description: z.string().optional().nullable(),
   status: z.enum(["ACTIVE", "MAINTENANCE", "RETIRED", "RESERVED", "SOLD"]).default("ACTIVE"),
   destination: z.enum(["FOR_SALE", "FOR_RENT"]).default("FOR_SALE"),
   rentalPrice: z.string().transform(val => val ? parseFloat(val) : null).nullable(),
@@ -439,6 +441,26 @@ export function MedicalDeviceForm({ initialData, onSubmit, stockLocations, isEdi
                         )}
                       />
                     </div>
+
+                    <FormField
+                      control={form.control}
+                      name="description"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Description / Notes</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Ajouter des notes ou une description de l'appareil..."
+                              className="resize-none"
+                              rows={4}
+                              {...field}
+                              value={field.value || ''}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </CardContent>
                 </Card>
               </TabsContent>

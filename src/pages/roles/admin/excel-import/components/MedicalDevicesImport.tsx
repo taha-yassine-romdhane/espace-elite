@@ -167,15 +167,7 @@ const medicalDeviceFields: MedicalDeviceField[] = [
     example: 'FOR_RENT',
     options: ['FOR_RENT', 'FOR_SALE', 'IN_REPAIR', 'OUT_OF_SERVICE']
   },
-  { 
-    key: 'requiresMaintenance', 
-    label: 'Nécessite maintenance', 
-    required: false, 
-    type: 'boolean',
-    description: 'Indique si l\'appareil nécessite une maintenance',
-    example: 'false'
-  },
-  { 
+  {
     key: 'stockQuantity', 
     label: 'Quantité en stock', 
     required: false, 
@@ -312,10 +304,6 @@ export default function MedicalDevicesImport() {
           // Handle number fields
           else if (['purchasePrice', 'sellingPrice', 'rentalPrice', 'stockQuantity'].includes(fieldKey) && value) {
             device[fieldKey] = parseFloat(value) || 0;
-          }
-          // Handle boolean fields
-          else if (['requiresMaintenance'].includes(fieldKey) && value) {
-            device[fieldKey] = value === 'true' || value === '1' || value === 1 || value === 'oui' || value === 'yes';
           }
           // Handle other fields
           else {

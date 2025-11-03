@@ -25,12 +25,12 @@ export default async function handler(
     }
 
     if (req.method === 'PUT') {
-      const { bondType, category, amount, monthlyRate, description, isActive } = req.body;
+      const { bonType, category, amount, monthlyRate, description, isActive } = req.body;
 
       const item = await prisma.cNAMNomenclature.update({
         where: { id },
         data: {
-          ...(bondType && { bondType }),
+          ...(bonType && { bonType }),
           ...(category && { category }),
           ...(amount !== undefined && { amount: parseFloat(amount) }),
           ...(monthlyRate !== undefined && { monthlyRate: parseFloat(monthlyRate) }),

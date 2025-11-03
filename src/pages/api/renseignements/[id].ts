@@ -66,9 +66,12 @@ export default async function handler(
           files: true,
           // Include related data
           diagnostics: true,
-          medicalDevices: true,
           payments: true,
-          rentals: true,
+          rentals: {
+            include: {
+              medicalDevice: true
+            }
+          },
           PatientHistory: true, // Correct casing to match schema
           appointments: true
         },
@@ -154,7 +157,7 @@ export default async function handler(
             files: patient.files || [],
             // Include related data in the response - using UI-friendly names but with data from correct schema fields
             diagnostics: patient.diagnostics || [],
-            devices: patient.medicalDevices || [], // Map medicalDevices to devices for UI
+            devices: patient.rentals?.map(r => r.medicalDevice) || [], // Get devices from rentals
             payments: patient.payments || [],
             rentals: patient.rentals || [],
             history: patient.PatientHistory || [], // Map PatientHistory to history for UI

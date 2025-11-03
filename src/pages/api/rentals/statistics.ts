@@ -28,10 +28,10 @@ export default async function handler(
       },
     });
 
-    // Get CNAM rentals (rentals with CNAM bonds)
+    // Get CNAM rentals (rentals with CNAM bons)
     const cnamRentals = await prisma.rental.count({
       where: {
-        cnamBonds: {
+        cnamBons: {
           some: {},
         },
       },

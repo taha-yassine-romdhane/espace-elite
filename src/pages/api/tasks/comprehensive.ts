@@ -40,7 +40,7 @@ interface ComprehensiveTask {
     rentalId?: string;
     appointmentId?: string;
     paymentId?: string;
-    bondNumber?: string;
+    bonNumber?: string;
     lastMaintenance?: Date;
   };
   
@@ -228,33 +228,16 @@ export default async function handler(
           endDate: { gte: start, lte: end },
           status: 'ACTIVE',
           ...(currentUserId && {
-            OR: [
-              { 
-                patient: {
-                  OR: [
-                    { technicianId: currentUserId }, // Patient assigned to user as technician
-                    { userId: currentUserId }        // Patient assigned to user
-                  ]
-                }
-              },
-              { 
-                Company: {
-                  OR: [
-                    { technicianId: currentUserId }, // Company assigned to user as technician
-                    { userId: currentUserId }        // Company assigned to user
-                  ]
-                }
-              }
-            ]
+            patient: {
+              OR: [
+                { technicianId: currentUserId }, // Patient assigned to user as technician
+                { userId: currentUserId }        // Patient assigned to user
+              ]
+            }
           })
         },
         include: {
           patient: {
-            include: {
-              technician: true
-            }
-          },
-          Company: {
             include: {
               technician: true
             }
@@ -266,8 +249,8 @@ export default async function handler(
       expiringRentals.forEach(rental => {
         const daysUntil = Math.ceil((rental.endDate!.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
         
-        // Determine responsible user (technician assigned to patient/company)
-        const responsibleUser = rental.patient?.technician || rental.Company?.technician;
+        // Determine responsible user (technician assigned to patient)
+        const responsibleUser = rental.patient?.technician;
         
         tasks.push({
           id: `rental-${rental.id}`,
@@ -462,7 +445,7 @@ export default async function handler(
 
     // 6. Fetch CNAM renewals
     if (filter === 'all' || filter === 'CNAM_RENEWAL' || type === 'CNAM_RENEWAL') {
-      const expiringBonds = await prisma.cNAMBondRental.findMany({
+      const expiringBonds = await prisma.cNAMBonRental.findMany({
         where: {
           endDate: { gte: start, lte: end },
           status: 'APPROUVE',
@@ -487,8 +470,8 @@ export default async function handler(
         const daysUntil = Math.ceil((bond.endDate!.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
         tasks.push({
           id: `cnam-${bond.id}`,
-          title: `Renouvellement CNAM - ${bond.bondType}`,
-          description: `Bon ${bond.bondNumber || 'N/A'} expire dans ${daysUntil} jours`,
+          title: `Renouvellement CNAM - ${bond.bonType}`,
+          description: `Bon ${bond.bonNumber || 'N/A'} expire dans ${daysUntil} jours`,
           type: 'CNAM_RENEWAL',
           status: daysUntil <= 0 ? 'OVERDUE' : daysUntil <= 30 ? 'IN_PROGRESS' : 'TODO',
           priority: daysUntil <= 30 ? 'HIGH' : 'MEDIUM',
@@ -502,7 +485,7 @@ export default async function handler(
             telephone: bond.patient.telephone
           },
           relatedData: {
-            bondNumber: bond.bondNumber || undefined,
+            bonNumber: bond.bonNumber || undefined,
             amount: Number(bond.monthlyAmount),
             deviceName: bond.rental?.medicalDevice?.name
           },

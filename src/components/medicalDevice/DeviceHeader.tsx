@@ -83,10 +83,6 @@ export const DeviceHeader: React.FC<DeviceHeaderProps> = ({ device }) => {
             <p>{device.rentalPrice ? `${device.rentalPrice} DT` : 'Non défini'}</p>
           </div>
           <div>
-            <h3 className="text-sm font-medium text-gray-500">Disponible pour location</h3>
-            <p>{(device as any).availableForRent ? 'Oui' : 'Non'}</p>
-          </div>
-          <div>
             <h3 className="text-sm font-medium text-gray-500">Emplacement</h3>
             <p>{device.stockLocation?.name || 'Non défini'}</p>
           </div>

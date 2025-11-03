@@ -234,9 +234,9 @@ export default function ModernNotificationsPage() {
                       {notification.metadata.deviceName}
                     </Badge>
                   )}
-                  {notification.metadata.bondType && (
+                  {notification.metadata.bonType && (
                     <Badge variant="outline" className="text-xs">
-                      {notification.metadata.bondType}
+                      {notification.metadata.bonType}
                     </Badge>
                   )}
                   {notification.metadata.assignedTo && (

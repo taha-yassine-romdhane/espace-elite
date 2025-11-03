@@ -13,7 +13,6 @@ import {
 import {
   AlertDialog,
   AlertDialogAction,
-  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -97,7 +96,7 @@ export function AccessoryImportExport({ onImportSuccess, stockLocations }: Acces
     const headers = [
       'Nom (obligatoire)',
       'Marque',
-      'Modèle', 
+      'Modèle',
       `Lieu de Stockage (${locationNames})`,
       'Quantité en Stock',
       'Prix d\'Achat',

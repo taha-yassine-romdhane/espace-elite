@@ -68,7 +68,7 @@ export default async function handler(
     }
 
     // Check for CNAM bond renewals
-    const cnamBonds = await prisma.cNAMBondRental.findMany({
+    const cnamBons = await prisma.cNAMBonRental.findMany({
       where: {
         endDate: {
           gte: new Date(),
@@ -81,11 +81,11 @@ export default async function handler(
       }
     });
 
-    for (const bond of cnamBonds) {
+    for (const bond of cnamBons) {
       const existingNotification = await prisma.notification.findFirst({
         where: {
           metadata: {
-            path: ['cnamBondId'],
+            path: ['cnamBonId'],
             equals: bond.id
           },
           type: 'FOLLOW_UP'
@@ -103,75 +103,12 @@ export default async function handler(
             patientId: bond.patientId,
             dueDate: bond.endDate,
             metadata: {
-              cnamBondId: bond.id,
-              bondNumber: bond.bondNumber,
-              bondType: bond.bondType
+              cnamBonId: bond.id,
+              bonNumber: bond.bonNumber,
+              bonType: bond.bonType
             }
           }
         });
-      }
-    }
-
-    // Check for maintenance due
-    const maintenanceDueDevices = await prisma.medicalDevice.findMany({
-      where: {
-        requiresMaintenance: true,
-        status: 'ACTIVE'
-      },
-      include: {
-        Patient: true,
-        Company: true
-      }
-    });
-
-    for (const device of maintenanceDueDevices) {
-      // Check last maintenance date from repair logs
-      const lastMaintenance = await prisma.repairLog.findFirst({
-        where: {
-          medicalDeviceId: device.id
-        },
-        orderBy: {
-          repairDate: 'desc'
-        }
-      });
-
-      // If last maintenance was more than 6 months ago or no maintenance record
-      const sixMonthsAgo = new Date();
-      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-
-      if (!lastMaintenance || lastMaintenance.repairDate < sixMonthsAgo) {
-        const existingNotification = await prisma.notification.findFirst({
-          where: {
-            metadata: {
-              path: ['deviceId'],
-              equals: device.id
-            },
-            type: 'MAINTENANCE'
-          }
-        });
-
-        if (!existingNotification) {
-          const userId = device.Patient?.userId || device.Company?.userId;
-          if (userId) {
-            await prisma.notification.create({
-              data: {
-                title: 'Maintenance requise',
-                message: `Le dispositif ${device.name} nécessite une maintenance`,
-                type: 'MAINTENANCE',
-                status: 'PENDING',
-                userId,
-                patientId: device.patientId,
-                companyId: device.companyId,
-                dueDate: new Date(),
-                metadata: {
-                  deviceId: device.id,
-                  deviceName: device.name,
-                  lastMaintenance: lastMaintenance?.repairDate || null
-                }
-              }
-            });
-          }
-        }
       }
     }
 
@@ -180,8 +117,7 @@ export default async function handler(
       message: 'Notification check completed',
       stats: {
         expiringRentals: expiringRentals.length,
-        cnamBondsToRenew: cnamBonds.length,
-        maintenanceDue: maintenanceDueDevices.length
+        cnamBondsToRenew: cnamBons.length
       }
     });
 

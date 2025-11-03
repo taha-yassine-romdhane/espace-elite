@@ -147,8 +147,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             purchaseDate: purchaseDate || null,
             warrantyExpiration: warrantyExpiration || null,
             status: productData.status || 'ACTIVE',
-            notes: productData.notes || null,
-            stockLocationId: stockLocationId || null
+            notes: productData.notes || null
           }
         });
 

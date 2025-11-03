@@ -22,7 +22,6 @@ interface MedicalDeviceImportData {
   location?: string;
   status?: DeviceStatus;
   destination?: StockStatus;
-  requiresMaintenance?: boolean;
   stockQuantity?: number;
   stockLocationName?: string;
   _rowIndex: number;
@@ -152,7 +151,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             purchasePrice: purchasePrice,
             sellingPrice: sellingPrice,
             rentalPrice: rentalPrice,
-            installationDate: installationDate || null,
             warranty: deviceData.warranty || null,
             technicalSpecs: deviceData.technicalSpecs || null,
             configuration: deviceData.configuration || null,
@@ -161,7 +159,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             location: deviceData.location || null,
             status: deviceData.status || 'ACTIVE',
             destination: deviceData.destination || 'FOR_SALE',
-            requiresMaintenance: deviceData.requiresMaintenance || false,
             stockQuantity: deviceData.stockQuantity || 1,
             stockLocationId: stockLocationId || null
           }

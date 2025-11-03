@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,8 @@ import {
   Clock,
   AlertCircle,
   CreditCard,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { useToast } from "@/components/ui/use-toast";
 import {
@@ -36,6 +38,8 @@ interface Payment {
   paymentDate: string;
   periodStartDate?: string;
   periodEndDate?: string;
+  periodNumber?: number;
+  gapDays?: number;
   paymentMethod: string;
   status: string;
   paymentType?: string;
@@ -94,6 +98,13 @@ export default function PaymentsTable() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [methodFilter, setMethodFilter] = useState<string>("all");
+  const [monthFilter, setMonthFilter] = useState<string>("all");
+  const [calculatedPeriodNumber, setCalculatedPeriodNumber] = useState<number | null>(null);
+  const [calculatedGapDays, setCalculatedGapDays] = useState<number | null>(null);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 50;
 
   // Fetch payments
   const { data: paymentsData, isLoading } = useQuery({
@@ -120,6 +131,25 @@ export default function PaymentsTable() {
   const payments = paymentsData || [];
   const rentals = rentalsData || [];
 
+  // Get unique months from payments
+  const uniqueMonths = React.useMemo(() => {
+    const months = new Set<string>();
+    payments.forEach((payment: Payment) => {
+      if (payment.paymentDate) {
+        const date = new Date(payment.paymentDate);
+        const month = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        months.add(month);
+      }
+    });
+    return Array.from(months).sort().reverse(); // Most recent first
+  }, [payments]);
+
+  const getMonthLabel = (monthString: string) => {
+    const [year, month] = monthString.split('-');
+    const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+    return `${monthNames[parseInt(month) - 1]} ${year}`;
+  };
+
   // Filter payments
   const filteredPayments = payments.filter((payment: Payment) => {
     if (searchTerm) {
@@ -136,8 +166,27 @@ export default function PaymentsTable() {
     if (methodFilter !== 'all' && payment.paymentMethod !== methodFilter) {
       return false;
     }
+    // Month filter
+    if (monthFilter !== 'all' && payment.paymentDate) {
+      const paymentDate = new Date(payment.paymentDate);
+      const month = `${paymentDate.getFullYear()}-${String(paymentDate.getMonth() + 1).padStart(2, '0')}`;
+      if (month !== monthFilter) {
+        return false;
+      }
+    }
     return true;
   });
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredPayments.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedPayments = filteredPayments.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, methodFilter, monthFilter]);
 
   // Calculate statistics
   const stats = {
@@ -212,7 +261,66 @@ export default function PaymentsTable() {
     },
   });
 
+  // Helper function to calculate period number and gap days
+  const calculatePeriodData = (rentalId: string, periodStartDate: string, excludePaymentId?: string) => {
+    if (!rentalId || !periodStartDate) {
+      setCalculatedPeriodNumber(null);
+      setCalculatedGapDays(null);
+      return;
+    }
+
+    // Find the selected rental
+    const selectedRental = rentals.find((r: any) => r.id === rentalId);
+    if (!selectedRental) {
+      setCalculatedPeriodNumber(null);
+      setCalculatedGapDays(null);
+      return;
+    }
+
+    // Get all existing payments for this rental, excluding the one being edited (if any)
+    let rentalPayments = selectedRental.payments || [];
+    if (excludePaymentId) {
+      rentalPayments = rentalPayments.filter((p: any) => p.id !== excludePaymentId);
+    }
+
+    // Sort by period start date
+    rentalPayments.sort((a: any, b: any) => {
+      const dateA = new Date(a.periodStartDate || a.paymentDate);
+      const dateB = new Date(b.periodStartDate || b.paymentDate);
+      return dateA.getTime() - dateB.getTime();
+    });
+
+    // Calculate period number (next available period or current position)
+    const periodNumber = rentalPayments.length + 1;
+    setCalculatedPeriodNumber(periodNumber);
+
+    // Calculate gap days
+    let gapDays = 0;
+    const currentPeriodStart = new Date(periodStartDate);
+
+    if (periodNumber === 1) {
+      // For P1: calculate gap between installation date (rental.startDate) and payment start date
+      const installationDate = new Date(selectedRental.startDate);
+      const msPerDay = 24 * 60 * 60 * 1000;
+      const diffMs = currentPeriodStart.getTime() - installationDate.getTime();
+      gapDays = Math.floor(diffMs / msPerDay);
+    } else {
+      // For P2, P3, etc.: calculate gap from previous period end date
+      const lastPayment = rentalPayments[rentalPayments.length - 1];
+      if (lastPayment && lastPayment.periodEndDate) {
+        const previousEndDate = new Date(lastPayment.periodEndDate);
+        const msPerDay = 24 * 60 * 60 * 1000;
+        const diffMs = currentPeriodStart.getTime() - previousEndDate.getTime();
+        gapDays = Math.floor(diffMs / msPerDay);
+      }
+    }
+
+    setCalculatedGapDays(gapDays > 0 ? gapDays : 0);
+  };
+
   const handleAddNew = () => {
+    setCalculatedPeriodNumber(null);
+    setCalculatedGapDays(null);
     setNewRow({
       rentalId: '',
       amount: 0,
@@ -229,17 +337,43 @@ export default function PaymentsTable() {
       toast({ title: "Erreur", description: "Remplissez tous les champs requis", variant: "destructive" });
       return;
     }
-    createMutation.mutate(newRow);
+    // Include calculated period data in the payment
+    const paymentData = {
+      ...newRow,
+      periodNumber: calculatedPeriodNumber,
+      gapDays: calculatedGapDays,
+    };
+    createMutation.mutate(paymentData);
   };
 
   const handleEdit = (payment: Payment) => {
     setEditingId(payment.id!);
     setEditData(payment);
+    // Initialize calculation with current payment data, excluding this payment from the count
+    if (payment.rentalId && payment.periodStartDate) {
+      calculatePeriodData(payment.rentalId, payment.periodStartDate, payment.id);
+    } else {
+      setCalculatedPeriodNumber(null);
+      setCalculatedGapDays(null);
+    }
   };
 
   const handleSaveEdit = () => {
     if (!editingId) return;
-    updateMutation.mutate({ id: editingId, data: editData });
+
+    // Recalculate to ensure we have the latest values
+    if (editData.rentalId && editData.periodStartDate && calculatedPeriodNumber === null) {
+      calculatePeriodData(editData.rentalId, editData.periodStartDate, editingId);
+    }
+
+    // Include calculated period data in the update
+    const updatedData = {
+      ...editData,
+      periodNumber: calculatedPeriodNumber !== null ? calculatedPeriodNumber : editData.periodNumber,
+      gapDays: calculatedGapDays !== null ? calculatedGapDays : editData.gapDays,
+    };
+
+    updateMutation.mutate({ id: editingId, data: updatedData });
   };
 
   const handleDelete = (id: string) => {
@@ -359,6 +493,30 @@ export default function PaymentsTable() {
               <SelectItem value="CNAM">CNAM</SelectItem>
             </SelectContent>
           </Select>
+          <Select value={monthFilter} onValueChange={setMonthFilter}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="Mois" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous les mois</SelectItem>
+              {uniqueMonths.map((month) => (
+                <SelectItem key={month} value={month}>
+                  {getMonthLabel(month)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            onClick={() => {
+              setSearchTerm("");
+              setStatusFilter("all");
+              setMethodFilter("all");
+              setMonthFilter("all");
+            }}
+            variant="outline"
+          >
+            Réinitialiser
+          </Button>
           <Button onClick={handleAddNew} disabled={newRow !== null} className="bg-blue-600 hover:bg-blue-700">
             <Plus className="h-4 w-4 mr-2" />
             Nouveau Paiement
@@ -366,9 +524,70 @@ export default function PaymentsTable() {
         </div>
       </div>
 
-      {/* Results count */}
-      <div className="text-sm text-slate-600">
-        {filteredPayments.length} paiement(s) trouvé(s)
+      {/* Results count and Pagination Info */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-6 text-sm">
+          <span className="text-slate-600">
+            <strong>{filteredPayments.length}</strong> paiement(s) trouvé(s)
+          </span>
+          {totalPages > 1 && (
+            <span className="text-slate-500 text-xs">
+              Page {currentPage} sur {totalPages} • Affichage {startIndex + 1}-{Math.min(endIndex, filteredPayments.length)} sur {filteredPayments.length}
+            </span>
+          )}
+        </div>
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              className="h-8"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+
+            <div className="flex items-center gap-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum;
+                if (totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = currentPage - 2 + i;
+                }
+
+                return (
+                  <Button
+                    key={pageNum}
+                    variant={currentPage === pageNum ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setCurrentPage(pageNum)}
+                    className="h-8 w-8 p-0"
+                  >
+                    {pageNum}
+                  </Button>
+                );
+              })}
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages}
+              className="h-8"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Table */}
@@ -384,6 +603,8 @@ export default function PaymentsTable() {
               <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700">Date Paiement</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700">Début Période</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700">Fin Période</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700">Période</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700">Jours d'écart</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700">Méthode</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700">Type</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700">Statut</th>
@@ -400,7 +621,10 @@ export default function PaymentsTable() {
                 <td className="px-4 py-3">
                   <Select
                     value={newRow.rentalId}
-                    onValueChange={(value) => setNewRow({ ...newRow, rentalId: value })}
+                    onValueChange={(value) => {
+                      setNewRow({ ...newRow, rentalId: value });
+                      calculatePeriodData(value, newRow.periodStartDate || '');
+                    }}
                   >
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Sélectionner" />
@@ -442,7 +666,10 @@ export default function PaymentsTable() {
                   <Input
                     type="date"
                     value={newRow.periodStartDate}
-                    onChange={(e) => setNewRow({ ...newRow, periodStartDate: e.target.value })}
+                    onChange={(e) => {
+                      setNewRow({ ...newRow, periodStartDate: e.target.value });
+                      calculatePeriodData(newRow.rentalId || '', e.target.value);
+                    }}
                     className="text-xs"
                     placeholder="Début"
                   />
@@ -455,6 +682,16 @@ export default function PaymentsTable() {
                     className="text-xs"
                     placeholder="Fin"
                   />
+                </td>
+                <td className="px-4 py-3">
+                  <div className="text-xs text-center font-semibold text-green-700">
+                    {calculatedPeriodNumber ? `P${calculatedPeriodNumber}` : '-'}
+                  </div>
+                </td>
+                <td className="px-4 py-3">
+                  <div className="text-xs text-center font-semibold text-green-700">
+                    {calculatedGapDays !== null ? `${calculatedGapDays} jour${calculatedGapDays > 1 ? 's' : ''}` : '-'}
+                  </div>
                 </td>
                 <td className="px-4 py-3">
                   <Select
@@ -519,7 +756,7 @@ export default function PaymentsTable() {
             )}
 
             {/* Existing Rows */}
-            {filteredPayments.map((payment: Payment) => {
+            {paginatedPayments.map((payment: Payment) => {
               const isEditing = editingId === payment.id;
               const clientName = payment.rental?.patient
                 ? `${payment.rental.patient.firstName} ${payment.rental.patient.lastName}`
@@ -534,7 +771,10 @@ export default function PaymentsTable() {
                     <td className="px-4 py-3">
                       <Select
                         value={editData.rentalId}
-                        onValueChange={(value) => setEditData({ ...editData, rentalId: value })}
+                        onValueChange={(value) => {
+                          setEditData({ ...editData, rentalId: value });
+                          calculatePeriodData(value, editData.periodStartDate || '', editingId || undefined);
+                        }}
                       >
                         <SelectTrigger>
                           <SelectValue />
@@ -575,7 +815,10 @@ export default function PaymentsTable() {
                       <Input
                         type="date"
                         value={editData.periodStartDate || ''}
-                        onChange={(e) => setEditData({ ...editData, periodStartDate: e.target.value })}
+                        onChange={(e) => {
+                          setEditData({ ...editData, periodStartDate: e.target.value });
+                          calculatePeriodData(editData.rentalId || '', e.target.value, editingId || undefined);
+                        }}
                         className="text-xs"
                       />
                     </td>
@@ -586,6 +829,16 @@ export default function PaymentsTable() {
                         onChange={(e) => setEditData({ ...editData, periodEndDate: e.target.value })}
                         className="text-xs"
                       />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="text-xs text-center font-semibold text-blue-700">
+                        {calculatedPeriodNumber ? `P${calculatedPeriodNumber}` : (payment.periodNumber ? `P${payment.periodNumber}` : '-')}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="text-xs text-center font-semibold text-blue-700">
+                        {calculatedGapDays !== null ? `${calculatedGapDays} jour${calculatedGapDays > 1 ? 's' : ''}` : (payment.gapDays ? `${payment.gapDays} jour${payment.gapDays > 1 ? 's' : ''}` : '-')}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <Select
@@ -695,6 +948,16 @@ export default function PaymentsTable() {
                     </div>
                   </td>
                   <td className="px-4 py-3">
+                    <div className="text-xs text-slate-700 text-center">
+                      {payment.periodNumber ? `P${payment.periodNumber}` : '-'}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="text-xs text-slate-700 text-center">
+                      {payment.gapDays !== null && payment.gapDays !== undefined ? `${payment.gapDays} jour${payment.gapDays > 1 ? 's' : ''}` : '-'}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
                     <Badge variant="outline" className="text-xs">
                       <CreditCard className="h-3 w-3 mr-1" />
                       {getMethodLabel(payment.paymentMethod)}
@@ -727,7 +990,7 @@ export default function PaymentsTable() {
 
             {filteredPayments.length === 0 && !newRow && (
               <tr>
-                <td colSpan={12} className="px-4 py-12 text-center text-slate-500">
+                <td colSpan={14} className="px-4 py-12 text-center text-slate-500">
                   Aucun paiement trouvé. Cliquez sur "Nouveau Paiement" pour commencer.
                 </td>
               </tr>

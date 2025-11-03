@@ -38,12 +38,12 @@ export default async function handler(
             sellingPrice: device.sellingPrice,
             rentalPrice: device.rentalPrice,
             technicalSpecs: device.technicalSpecs,
+            description: device.description,
             stockLocation: device.stockLocation?.name || 'Non assigné',
             stockLocationId: device.stockLocationId,
             stockQuantity: device.stockQuantity,
             status: device.status,
-            configuration: device.configuration,
-            installationDate: device.installationDate
+            configuration: device.configuration
           });
         }
 
@@ -92,39 +92,6 @@ export default async function handler(
             return res.status(400).json({ error: 'ID is required' });
           }
 
-          // Check if this is a simple update without type (e.g., just updating reservation status)
-          // If so, update the medical device directly
-          if (!type && (data.patientId || data.location || data.reservedUntil)) {
-            try {
-              const updatedDevice = await prisma.medicalDevice.update({
-                where: { id: id as string },
-                data: {
-                  ...(data.patientId ? { patientId: data.patientId } : {}),
-                  ...(data.location ? { location: data.location } : {}),
-                  ...(data.status ? { status: data.status } : {}),
-                  ...(data.reservedUntil ? { reservedUntil: new Date(data.reservedUntil) } : {})
-                },
-                include: {
-                  stockLocation: true,
-                }
-              });
-
-              console.log('Device reservation updated successfully:', updatedDevice.id);
-
-              return res.status(200).json({
-                id: updatedDevice.id,
-                name: updatedDevice.name,
-                patientId: updatedDevice.patientId,
-                location: updatedDevice.location,
-                reservedUntil: updatedDevice.reservedUntil,
-                status: updatedDevice.status
-              });
-            } catch (error) {
-              console.error("Error updating device reservation:", error);
-              return res.status(500).json({ error: "Failed to update device reservation" });
-            }
-          }
-
           if (type === 'MEDICAL_DEVICE' || type === 'DIAGNOSTIC_DEVICE') {
             // With the schema refactoring, we no longer use DiagnosticParameter and ParameterValue models
             // diagnostic results are now tracked directly in the DiagnosticResult model
@@ -157,18 +124,10 @@ export default async function handler(
                   sellingPrice: data.sellingPrice ? parseFloat(data.sellingPrice) : null,
                   rentalPrice: data.rentalPrice ? parseFloat(data.rentalPrice) : null,
                   technicalSpecs: data.technicalSpecs,
+                  description: data.description,
                   warranty: data.warranty,
                   configuration: data.configuration,
                   status: data.status || 'ACTIVE',
-                  // Handle patient assignment and reservation
-                  ...(data.patientId ? {
-                    patientId: data.patientId,
-                    location: data.location || 'PATIENT_HOME'
-                  } : {}),
-                  // Handle reservation date if provided
-                  ...(data.reservedUntil ? {
-                    reservedUntil: new Date(data.reservedUntil)
-                  } : {}),
                   ...(data.stockLocationId ? {
                     stockLocation: {
                       connect: {
@@ -199,6 +158,7 @@ export default async function handler(
                 purchasePrice: updatedDevice.purchasePrice,
                 sellingPrice: updatedDevice.sellingPrice,
                 technicalSpecs: updatedDevice.technicalSpecs,
+                description: updatedDevice.description,
                 stockLocation: updatedDevice.stockLocation?.name || 'Non assigné',
                 stockLocationId: updatedDevice.stockLocationId,
                 stockQuantity: updatedDevice.stockQuantity,
@@ -212,25 +172,52 @@ export default async function handler(
           } else {
             // Update product
             try {
-              const { warrantyExpiration, purchasePrice, sellingPrice, status, stockLocationId, stockQuantity, ...productData } = data;
+              // Extract only valid Product model fields
+              const {
+                name,
+                brand,
+                model,
+                serialNumber,
+                description,
+                purchasePrice,
+                sellingPrice,
+                status,
+                minQuantity,
+                warrantyExpiration,
+                purchaseDate,
+                notes,
+                stockLocationId,
+                stockQuantity
+              } = data;
 
-              const updatePayload: any = {
-                ...productData,
-              };
+              const updatePayload: any = {};
 
-              if (purchasePrice) {
+              // Only add fields that are provided
+              if (name !== undefined) updatePayload.name = name;
+              if (brand !== undefined) updatePayload.brand = brand;
+              if (model !== undefined) updatePayload.model = model;
+              if (serialNumber !== undefined) updatePayload.serialNumber = serialNumber;
+              if (description !== undefined) updatePayload.description = description;
+              if (notes !== undefined) updatePayload.notes = notes;
+              if (minQuantity !== undefined) updatePayload.minQuantity = minQuantity;
+
+              if (purchasePrice !== undefined) {
                 updatePayload.purchasePrice = parseFloat(purchasePrice);
               }
-              if (sellingPrice) {
+              if (sellingPrice !== undefined) {
                 updatePayload.sellingPrice = parseFloat(sellingPrice);
               }
               if (warrantyExpiration) {
                 updatePayload.warrantyExpiration = new Date(warrantyExpiration);
               }
+              if (purchaseDate) {
+                updatePayload.purchaseDate = new Date(purchaseDate);
+              }
               if (status) {
                 updatePayload.status = status === 'FOR_SALE' ? 'ACTIVE' :
                                      status === 'VENDU' ? 'SOLD' :
-                                     status === 'HORS_SERVICE' ? 'RETIRED' : 'ACTIVE';
+                                     status === 'HORS_SERVICE' ? 'RETIRED' :
+                                     status; // Keep the original status if it doesn't match
               }
 
               const updatedProduct = await prisma.product.update({

@@ -179,8 +179,7 @@ export default async function handler(
                 rentalId: rental.id,
                 startDate: startDate,
                 endDate: endDate,
-                amount: periodPrice,
-                paymentMethod: depositMethod as any,
+                expectedAmount: periodPrice,
                 notes: `Période importée depuis Excel - ${notes}`,
                 createdAt: startDate
               }

@@ -240,20 +240,20 @@ export function PaymentPeriodsTab({
                         <SelectItem value="VIREMENT">Virement</SelectItem>
                         <SelectItem value="TRAITE">Traite</SelectItem>
                         {selectedClient?.cnamId && (
-                          <SelectItem value="CNAM">CNAM (Bond de Location)</SelectItem>
+                          <SelectItem value="CNAM">CNAM (Bon de Location)</SelectItem>
                         )}
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
 
-                {/* CNAM Configuration moved to dedicated CNAM Bonds tab */}
+                {/* CNAM Configuration moved to dedicated CNAM bons tab */}
                 {activePeriod.paymentMethod === 'CNAM' && (
                   <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
                     <div className="flex items-center gap-2">
                       <Info className="h-4 w-4 text-blue-600" />
                       <span className="text-sm text-blue-800">
-                        Pour configurer les détails CNAM, utilisez l'onglet "Bonds CNAM" ci-dessus.
+                        Pour configurer les détails CNAM, utilisez l'onglet "Bons CNAM" ci-dessus.
                       </span>
                     </div>
                   </div>

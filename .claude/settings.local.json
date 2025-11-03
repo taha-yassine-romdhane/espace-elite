@@ -9,7 +9,9 @@
       "mcp__ide__getDiagnostics",
       "Bash(yarn build)",
       "mcp__postgres__execute_sql",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(npx tsx:*)",
+      "Bash(find:*)"
     ],
     "deny": []
   }

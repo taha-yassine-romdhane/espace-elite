@@ -139,18 +139,6 @@ function getPatientSelectFields() {
         saleDate: 'desc' as any
       }
     },
-    medicalDevices: {
-      select: {
-        id: true,
-        name: true,
-        serialNumber: true,
-        model: true,
-        brand: true,
-        type: true,
-        installationDate: true,
-        configuration: true
-      }
-    },
     diagnostics: {
       where: {
         followUpRequired: true,
@@ -287,26 +275,6 @@ function transformPatientsData(patients: any[]) {
           });
         }
       });
-    });
-
-    // Add directly assigned devices
-    patient.medicalDevices.forEach((device: any) => {
-      // Avoid duplicates from rentals/sales
-      if (!devices.find(d => d.id === device.id)) {
-        devices.push({
-          id: device.id,
-          name: device.name,
-          serialNumber: device.serialNumber,
-          model: device.model,
-          brand: device.brand,
-          type: device.type,
-          status: 'ASSIGNED',
-          installationDate: device.installationDate 
-            ? new Date(device.installationDate).toLocaleDateString('fr-FR') 
-            : null,
-          configuration: device.configuration
-        });
-      }
     });
 
     // Process diagnostic devices

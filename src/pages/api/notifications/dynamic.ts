@@ -53,7 +53,6 @@ export default async function handler(
         },
         include: {
           patient: true,
-          Company: true,
           medicalDevice: true
         }
       });
@@ -66,9 +65,9 @@ export default async function handler(
           priority: daysUntilExpiry <= 7 ? 'HIGH' : daysUntilExpiry <= 15 ? 'MEDIUM' : 'LOW',
           title: `Location expirante - ${rental.medicalDevice.name}`,
           message: `Expire dans ${daysUntilExpiry} jours`,
-          clientName: rental.patient ? `${rental.patient.firstName} ${rental.patient.lastName}` : rental.Company?.companyName || '',
-          clientType: rental.patient ? 'patient' : 'company',
-          clientId: rental.patientId || rental.companyId || '',
+          clientName: `${rental.patient.firstName} ${rental.patient.lastName}`,
+          clientType: 'patient',
+          clientId: rental.patientId,
           actionUrl: `/roles/admin/rentals/${rental.id}`,
           actionLabel: 'Voir la location',
           dueDate: rental.endDate!,
@@ -208,7 +207,7 @@ export default async function handler(
 
     // 5. Check for CNAM renewals
     if (filter === 'all' || filter === 'cnam') {
-      const expiringCnamBonds = await prisma.cNAMBondRental.findMany({
+      const expiringCnamBonds = await prisma.cNAMBonRental.findMany({
         where: {
           endDate: {
             gte: now,
@@ -233,17 +232,17 @@ export default async function handler(
           type: 'CNAM_RENEWAL',
           priority: daysUntilExpiry <= 30 ? 'HIGH' : 'MEDIUM',
           title: `Renouvellement CNAM requis`,
-          message: `Bon ${bond.bondNumber || 'N/A'} expire dans ${daysUntilExpiry} jours`,
+          message: `Bon ${bond.bonNumber || 'N/A'} expire dans ${daysUntilExpiry} jours`,
           clientName: `${bond.patient.firstName} ${bond.patient.lastName}`,
           clientType: 'patient',
           clientId: bond.patientId,
           actionUrl: bond.rentalId ? `/roles/admin/rentals/${bond.rentalId}` : '#',
           actionLabel: 'Voir le dossier',
           dueDate: bond.endDate!,
-          metadata: { 
-            bondType: bond.bondType,
+          metadata: {
+            bonType: bond.bonType,
             deviceName: bond.rental?.medicalDevice?.name,
-            monthlyAmount: Number(bond.monthlyAmount)
+            monthlyAmount: Number(bond.cnamMonthlyRate)
           },
           createdAt: bond.createdAt
         });

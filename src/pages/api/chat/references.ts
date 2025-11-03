@@ -72,13 +72,7 @@ export default async function handler(
             ]
           } : {},
           include: {
-            stockLocation: true,
-            Patient: {
-              select: {
-                firstName: true,
-                lastName: true
-              }
-            }
+            stockLocation: true
           },
           take: 10,
           orderBy: { name: 'asc' }
@@ -88,13 +82,12 @@ export default async function handler(
           id: device.id,
           type: 'device',
           title: device.name,
-          subtitle: `S/N: ${device.serialNumber || 'N/A'} • ${device.Patient ? `Assigné à ${device.Patient.firstName} ${device.Patient.lastName}` : 'Disponible'}`,
+          subtitle: `S/N: ${device.serialNumber || 'N/A'} • ${device.status}`,
           metadata: {
             serialNumber: device.serialNumber,
             brand: device.brand,
             model: device.model,
             status: device.status,
-            assignedTo: device.Patient ? `${device.Patient.firstName} ${device.Patient.lastName}` : null,
             location: device.stockLocation?.name
           }
         }));
@@ -106,7 +99,6 @@ export default async function handler(
             AND: [
               searchTerm ? {
                 OR: [
-                  { appointmentType: { contains: searchTerm, mode: 'insensitive' } },
                   { notes: { contains: searchTerm, mode: 'insensitive' } },
                   { location: { contains: searchTerm, mode: 'insensitive' } },
                   { patient: { firstName: { contains: searchTerm, mode: 'insensitive' } } },

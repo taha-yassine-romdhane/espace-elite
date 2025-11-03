@@ -5,7 +5,7 @@ import { useToast } from "@/components/ui/use-toast";
 import PatientForm from '@/components/forms/PatientForm';
 import SocieteForm from '@/components/forms/SocieteForm';
 // Lazy load heavy components
-const RenseignementTable = lazy(() => import('./components/RenseignementTable'));
+const SimpleRenseignementTables = lazy(() => import('./components/SimpleRenseignementTables'));
 const FileViewer = lazy(() => import('./components/FileViewer'));
 
 // Loading fallback component
@@ -599,35 +599,9 @@ export default function RenseignementPage() {
   };
      return (
      <div className="container mx-auto py-6 space-y-6">
-       {/* Header with Statistics */}
+       {/* Header */}
        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg p-6 text-white">
-         <div className="flex justify-between items-center mb-4">
-           <h1 className="text-3xl font-bold">Renseignements</h1>
-           <div className="text-sm opacity-90">
-             {filteredRenseignements.length} résultat{filteredRenseignements.length > 1 ? 's' : ''}
-             {filteredRenseignements.length !== renseignements.length && (
-               <span> sur {renseignements.length}</span>
-             )}
-           </div>
-         </div>
-         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-           <div className="bg-white/20 rounded-lg p-3">
-             <div className="text-2xl font-bold">{renseignements.filter(r => r.type === 'Patient').length}</div>
-             <div className="text-sm opacity-90">Patients</div>
-           </div>
-           <div className="bg-white/20 rounded-lg p-3">
-             <div className="text-2xl font-bold">{renseignements.filter(r => r.type === 'Société').length}</div>
-             <div className="text-sm opacity-90">Sociétés</div>
-           </div>
-           <div className="bg-white/20 rounded-lg p-3">
-             <div className="text-2xl font-bold">{renseignements.filter(r => r.identifiantCNAM && r.identifiantCNAM.trim().length > 0).length}</div>
-             <div className="text-sm opacity-90">Avec CNAM</div>
-           </div>
-           <div className="bg-white/20 rounded-lg p-3">
-             <div className="text-2xl font-bold">{renseignements.filter(r => r.files && r.files.length > 0).length}</div>
-             <div className="text-sm opacity-90">Avec Documents</div>
-           </div>
-         </div>
+         <h1 className="text-3xl font-bold">Renseignements</h1>
        </div>
        
        <div className="bg-white rounded-lg shadow-sm border p-4">
@@ -900,12 +874,13 @@ export default function RenseignementPage() {
            </div>
          ) : (
            <Suspense fallback={<div className="p-8"><LoadingFallback /></div>}>
-             <RenseignementTable
+             <SimpleRenseignementTables
                data={filteredRenseignements}
                onEdit={handleEdit}
                onDelete={handleDelete}
-               onViewFiles={(files) => handleViewFiles(files)}
                onViewDetails={handleViewDetails}
+               isLoading={isLoading}
+               initialItemsPerPage={100}
              />
            </Suspense>
          )}

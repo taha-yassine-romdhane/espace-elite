@@ -1,4 +1,4 @@
-import { PrismaClient, CNAMBondType, CNAMBondCategory } from '@prisma/client';
+import { PrismaClient, CNAMBonType, CNAMBonCategory } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -24,16 +24,16 @@ const prisma = new PrismaClient();
 const cnamNomenclature = [
   // BON DE LOCATION (Monthly Rentals)
   {
-    bondType: CNAMBondType.CONCENTRATEUR_OXYGENE,
-    category: CNAMBondCategory.LOCATION,
+    bonType: CNAMBonType.CONCENTRATEUR_OXYGENE,
+    category: CNAMBonCategory.LOCATION,
     amount: 190.00,
     monthlyRate: 190.00,
     description: 'Concentrateur d\'Oxygène - Bon de Location CNAM (mensuel)',
     isActive: true,
   },
   {
-    bondType: CNAMBondType.VNI,
-    category: CNAMBondCategory.LOCATION,
+    bonType: CNAMBonType.VNI,
+    category: CNAMBonCategory.LOCATION,
     amount: 570.00,
     monthlyRate: 570.00,
     description: 'Ventilation Non Invasive (VNI) - Bon de Location CNAM (mensuel)',
@@ -42,16 +42,16 @@ const cnamNomenclature = [
 
   // BON D'ACHAT (One-time Purchases)
   {
-    bondType: CNAMBondType.CPAP,
-    category: CNAMBondCategory.ACHAT,
+    bonType: CNAMBonType.CPAP,
+    category: CNAMBonCategory.ACHAT,
     amount: 1475.00,
     monthlyRate: 0.00, // Not applicable for purchase
     description: 'CPAP - Bon d\'Achat CNAM (paiement unique)',
     isActive: true,
   },
   {
-    bondType: CNAMBondType.MASQUE,
-    category: CNAMBondCategory.ACHAT,
+    bonType: CNAMBonType.MASQUE,
+    category: CNAMBonCategory.ACHAT,
     amount: 200.00,
     monthlyRate: 0.00, // Not applicable for purchase
     description: 'Masque - Bon d\'Achat CNAM (paiement unique)',
@@ -60,8 +60,8 @@ const cnamNomenclature = [
 
   // AUTRE (Variable)
   {
-    bondType: CNAMBondType.AUTRE,
-    category: CNAMBondCategory.LOCATION,
+    bonType: CNAMBonType.AUTRE,
+    category: CNAMBonCategory.LOCATION,
     amount: 0.00,
     monthlyRate: 0.00,
     description: 'Autre - Tarif variable selon le type d\'équipement (à définir)',
@@ -74,7 +74,7 @@ async function seedCNAMNomenclature() {
 
   for (const item of cnamNomenclature) {
     const result = await prisma.cNAMNomenclature.upsert({
-      where: { bondType: item.bondType },
+      where: { bonType: item.bonType },
       update: {
         category: item.category,
         amount: item.amount,
@@ -89,7 +89,7 @@ async function seedCNAMNomenclature() {
       ? `${item.amount} TND/month`
       : `${item.amount} TND (achat)`;
 
-    console.log(`✅ ${item.bondType} (${item.category}): ${rateDisplay}`);
+    console.log(`✅ ${item.bonType} (${item.category}): ${rateDisplay}`);
   }
 
   console.log('✨ CNAM Nomenclature seeded successfully!');

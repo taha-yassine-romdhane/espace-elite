@@ -2,7 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import prisma from '@/lib/db';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]';
-import { PaymentMethod, CNAMBondType, CNAMStatus } from '@prisma/client';
+import { PaymentMethod, CNAMBonType, CNAMStatus } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import { createRentalExpirationNotification, createPaymentDueNotification } from '@/lib/notifications';
 import { generateRentalCode, generatePaymentCode } from '@/utils/idGenerator';
@@ -28,8 +28,8 @@ interface PaymentPeriod {
   startDate: string;
   endDate: string;
   productIds: string[];
-  cnamBondNumber?: string;
-  cnamBondType?: CNAMBondType;
+  cnamBonNumber?: string;
+  cnamBonType?: CNAMBonType;
   cnamStatus?: CNAMStatus;
   cnamApprovalDate?: string;
   cnamStartDate?: string;
@@ -40,8 +40,8 @@ interface PaymentPeriod {
 }
 
 interface CNAMBond {
-  bondNumber?: string;
-  bondType: CNAMBondType;
+  bonNumber?: string;
+  bonType: CNAMBonType;
   status?: CNAMStatus;
   dossierNumber?: string;
   submissionDate?: string;
@@ -107,14 +107,7 @@ export default async function handler(
                 cnamId: true,
               }
             },
-            Company: {
-              select: {
-                id: true,
-                companyName: true,
-                telephone: true,
-              }
-            },
-            payment: true,
+            payments: true,
             // New relational data instead of JSON metadata
             accessories: {
               include: {
@@ -135,13 +128,13 @@ export default async function handler(
                 startDate: 'asc'
               }
             },
-            cnamBonds: {
+            cnamBons: {
               select: {
                 id: true,
-                bondNumber: true,
-                bondType: true,
+                bonNumber: true,
+                bonType: true,
                 status: true,
-                totalAmount: true,
+                bonAmount: true,
                 coveredMonths: true,
                 startDate: true,
                 endDate: true,
@@ -152,8 +145,7 @@ export default async function handler(
                 id: true,
                 startDate: true,
                 endDate: true,
-                amount: true,
-                paymentMethod: true,
+                expectedAmount: true,
                 isGapPeriod: true,
                 gapReason: true,
               }
@@ -177,13 +169,12 @@ export default async function handler(
           include: {
             medicalDevice: { select: { id: true, name: true, type: true, brand: true, model: true, serialNumber: true, rentalPrice: true } },
             patient: { select: { id: true, firstName: true, lastName: true, telephone: true, cnamId: true } },
-            Company: { select: { id: true, companyName: true, telephone: true } },
-            payment: true,
+            payments: true,
             accessories: { include: { product: { select: { id: true, name: true, type: true, brand: true, model: true } } } },
             configuration: true,
             gaps: { orderBy: { startDate: 'asc' } },
-            cnamBonds: { select: { id: true, bondNumber: true, bondType: true, status: true, totalAmount: true, coveredMonths: true, startDate: true, endDate: true } },
-            rentalPeriods: { select: { id: true, startDate: true, endDate: true, amount: true, paymentMethod: true, isGapPeriod: true, gapReason: true } }
+            cnamBons: { select: { id: true, bonNumber: true, bonType: true, status: true, bonAmount: true, coveredMonths: true, startDate: true, endDate: true } },
+            rentalPeriods: { select: { id: true, startDate: true, endDate: true, expectedAmount: true, isGapPeriod: true, gapReason: true } }
           }
         }>) => {
           // Calculate rental status based on dates and payment
@@ -201,9 +192,9 @@ export default async function handler(
           }
           
           // Calculate total amount from rental periods or payment
-          const totalAmount = rental.rentalPeriods?.length > 0 
-            ? rental.rentalPeriods.reduce((sum, period) => sum + Number(period.amount), 0)
-            : rental.payment?.amount || 0;
+          const totalAmount = rental.rentalPeriods?.length > 0
+            ? rental.rentalPeriods.reduce((sum, period) => sum + Number(period.expectedAmount), 0)
+            : 0;
           
           // Extract relational data instead of metadata
           const accessories = rental.accessories?.map(acc =>  ({
@@ -236,35 +227,17 @@ export default async function handler(
               telephone: rental.patient.telephone,
               cnamId: rental.patient.cnamId,
             } : null,
-            companyId: rental.companyId || null,
-            company: rental.Company ? {
-              id: rental.Company.id,
-              companyName: rental.Company.companyName,
-              telephone: rental.Company.telephone,
-            } : null,
             startDate: rental.startDate,
             endDate: rental.endDate,
             status: status,
             notes: rental.notes || null,
-            paymentId: rental.paymentId || null,
-            payment: rental.payment ? {
-              id: rental.payment.id,
-              amount: rental.payment.amount,
-              status: rental.payment.status,
-              method: rental.payment.method,
-              chequeNumber: rental.payment.chequeNumber,
-              bankName: rental.payment.bankName,
-              referenceNumber: rental.payment.referenceNumber,
-              cnamCardNumber: rental.payment.cnamCardNumber,
-              notes: rental.payment.notes,
-            } : null,
-            // Include CNAM bonds with enhanced data
-            cnamBonds: rental.cnamBonds?.map(bond => ({
+            // Include CNAM bons with enhanced data
+            cnamBons: rental.cnamBons?.map(bond => ({
               id: bond.id,
-              bondNumber: bond.bondNumber,
-              bondType: bond.bondType,
+              bonNumber: bond.bonNumber,
+              bonType: bond.bonType,
               status: bond.status,
-              totalAmount: bond.totalAmount,
+              bonAmount: bond.bonAmount,
               coveredMonths: bond.coveredMonths,
               startDate: bond.startDate,
               endDate: bond.endDate,
@@ -276,8 +249,7 @@ export default async function handler(
               id: period.id,
               startDate: period.startDate,
               endDate: period.endDate,
-              amount: period.amount,
-              paymentMethod: period.paymentMethod,
+              expectedAmount: period.expectedAmount,
               isGapPeriod: period.isGapPeriod,
               gapReason: period.gapReason,
               // Calculate period status
@@ -287,12 +259,12 @@ export default async function handler(
             // Enhanced relational data (no more metadata JSON)
             configuration: rental.configuration ? {
               isGlobalOpenEnded: rental.configuration.isGlobalOpenEnded,
-              urgentRental: rental.configuration.urgentRental,
               cnamEligible: rental.configuration.cnamEligible,
               totalPaymentAmount: rental.configuration.totalPaymentAmount,
-              depositAmount: rental.configuration.depositAmount,
-              depositMethod: rental.configuration.depositMethod,
-              notes: rental.configuration.notes,
+              billingCycle: rental.configuration.billingCycle,
+              rentalRate: rental.configuration.rentalRate,
+              deliveryNotes: rental.configuration.deliveryNotes,
+              internalNotes: rental.configuration.internalNotes,
             } : null,
             accessories: accessories,
             gaps: rental.gaps?.map(gap => ({
@@ -308,10 +280,9 @@ export default async function handler(
             // Financial summary
             financialSummary: {
               totalAmount: totalAmount,
-              paidAmount: rental.payment?.status === 'PAID' ? rental.payment.amount : 0,
-              pendingAmount: rental.payment?.status === 'PENDING' ? rental.payment.amount : 0,
-              cnamAmount: rental.cnamBonds?.reduce((sum, bond) => sum + Number(bond.totalAmount || 0), 0) || 0,
-              depositAmount: rental.configuration?.depositAmount || 0,
+              paidAmount: rental.payments?.filter(p => p.status === 'PAID').reduce((sum, p) => sum + Number(p.amount), 0) || 0,
+              pendingAmount: rental.payments?.filter(p => p.status === 'PENDING').reduce((sum, p) => sum + Number(p.amount), 0) || 0,
+              cnamAmount: rental.cnamBons?.reduce((sum, bond) => sum + Number(bond.bonAmount || 0), 0) || 0,
             },
             createdAt: rental.createdAt,
             updatedAt: rental.updatedAt,
@@ -342,7 +313,7 @@ export default async function handler(
           notes,
           // Enhanced payment data
           paymentPeriods,
-          cnamBonds,
+          cnamBons,
           depositAmount,
           depositMethod,
           paymentGaps,
@@ -366,7 +337,7 @@ export default async function handler(
           identifiedGaps?: any[];
           notes?: string | null;
           paymentPeriods?: PaymentPeriod[];
-          cnamBonds?: CNAMBond[];
+          cnamBons?: CNAMBond[];
           depositAmount?: number;
           depositMethod?: PaymentMethod;
           paymentGaps?: any[];
@@ -419,23 +390,26 @@ export default async function handler(
         try {
           // Start a transaction to ensure all operations succeed or fail together
           const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-            // Create CNAM bonds first if provided (only for patients)
+            // Create CNAM bons first if provided (only for patients)
             const cnamBondRecords = [];
-            if (cnamBonds && Array.isArray(cnamBonds) && cnamBonds.length > 0 && clientId) {
-              for (const bond of cnamBonds) {
-                const cnamBondRecord = await tx.cNAMBondRental.create({
+            if (cnamBons && Array.isArray(cnamBons) && cnamBons.length > 0 && clientId) {
+              for (const bond of cnamBons) {
+                const cnamBondRecord = await tx.cNAMBonRental.create({
                   data: {
-                    bondNumber: bond.bondNumber || null,
-                    bondType: bond.bondType,
+                    bonNumber: bond.bonNumber || null,
+                    bonType: bond.bonType,
                     status: bond.status || 'EN_ATTENTE_APPROBATION',
                     dossierNumber: bond.dossierNumber || null,
                     submissionDate: bond.submissionDate ? new Date(bond.submissionDate) : null,
                     approvalDate: bond.approvalDate ? new Date(bond.approvalDate) : null,
                     startDate: bond.startDate ? new Date(bond.startDate) : null,
                     endDate: bond.endDate ? new Date(bond.endDate) : null,
-                    monthlyAmount: bond.monthlyAmount,
+                    bonAmount: bond.bonAmount || bond.totalAmount || 0,
                     coveredMonths: bond.coveredMonths,
-                    totalAmount: bond.totalAmount,
+                    cnamMonthlyRate: bond.cnamMonthlyRate || 0,
+                    deviceMonthlyRate: bond.deviceMonthlyRate || 0,
+                    devicePrice: bond.devicePrice || 0,
+                    complementAmount: bond.complementAmount || 0,
                     renewalReminderDays: bond.renewalReminderDays || 30,
                     notes: bond.notes || null,
                     patient: { connect: { id: clientId } }
@@ -461,8 +435,8 @@ export default async function handler(
                     patient: { connect: { id: clientId } },
                     notes: period.notes || null,
                     // Enhanced payment period data as proper fields
-                    cnamBondNumber: period.cnamBondNumber || null,
-                    cnamBondType: period.cnamBondType || null,
+                    cnamBonNumber: period.cnamBonNumber || null,
+                    cnamBonType: period.cnamBonType || null,
                     cnamStatus: period.cnamStatus || null,
                     cnamApprovalDate: period.cnamApprovalDate ? new Date(period.cnamApprovalDate) : null,
                     cnamStartDate: period.cnamStartDate ? new Date(period.cnamStartDate) : null,
@@ -780,7 +754,7 @@ export default async function handler(
                   p.periodId === period.id
                 );
                 const correspondingCnamBond = cnamBondRecords.find((b) => 
-                  b.bondNumber === period.cnamBondNumber
+                  b.bonNumber === period.cnamBonNumber
                 );
                 
                 const rentalPeriod = await tx.rentalPeriod.create({
@@ -794,7 +768,7 @@ export default async function handler(
                     gapReason: period.gapReason || null,
                     notes: period.notes || null,
                     paymentId: correspondingPayment?.id || null,
-                    cnamBondId: correspondingCnamBond?.id || null,
+                    cnamBonId: correspondingCnamBond?.id || null,
                   }
                 });
                 rentalPeriodRecords.push(rentalPeriod);
@@ -820,10 +794,10 @@ export default async function handler(
               }
             }
 
-            // Update CNAM bonds with rental references
+            // Update CNAM bons with rental references
             for (const bond of cnamBondRecords) {
               if (rentalRecords.length > 0) {
-                await tx.cNAMBondRental.update({
+                await tx.cNAMBonRental.update({
                   where: { id: bond.id },
                   data: { rentalId: rentalRecords[0].id }
                 });
@@ -840,7 +814,7 @@ export default async function handler(
               rentalPeriodRecords: rentalPeriodRecords,
               enhancedData: {
                 paymentPeriods,
-                cnamBonds,
+                cnamBons,
                 identifiedGaps,
                 paymentGaps,
                 totalPaymentAmount,

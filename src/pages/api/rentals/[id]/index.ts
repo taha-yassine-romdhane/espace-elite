@@ -39,8 +39,7 @@ export default async function handler(
               doctor: true,
             }
           },
-          Company: true,
-          payment: {
+          payments: {
             include: {
               paymentDetails: true,
             },
@@ -65,8 +64,8 @@ export default async function handler(
               startDate: 'asc'
             }
           },
-          // Include CNAM bonds
-          cnamBonds: {
+          // Include CNAM bons
+          cnamBons: {
             orderBy: {
               createdAt: 'desc'
             }
@@ -74,8 +73,8 @@ export default async function handler(
           // Include rental periods
           rentalPeriods: {
             include: {
-              payment: true,
-              cnamBond: true,
+              payments: true,
+              cnamBon: true,
             },
             orderBy: {
               startDate: 'asc'
@@ -127,8 +126,7 @@ export default async function handler(
                 doctor: true,
               }
             },
-            Company: true,
-            payment: {
+            payments: {
               include: {
                 paymentDetails: true,
               },
@@ -153,15 +151,15 @@ export default async function handler(
                 startDate: 'asc'
               }
             },
-            cnamBonds: {
+            cnamBons: {
               orderBy: {
                 createdAt: 'desc'
               }
             },
             rentalPeriods: {
               include: {
-                payment: true,
-                cnamBond: true,
+                payments: true,
+                cnamBon: true,
               },
               orderBy: {
                 startDate: 'asc'
@@ -193,7 +191,6 @@ export default async function handler(
             include: {
               medicalDevice: true,
               patient: true,
-              Company: true,
             }
           });
           
@@ -201,15 +198,9 @@ export default async function handler(
             throw new Error('Rental not found');
           }
           
-          // Update the medical device to remove patient/company association
-          await tx.medicalDevice.update({
-            where: { id: rental.medicalDeviceId },
-            data: {
-              patientId: null,
-              companyId: null,
-            }
-          });
-          
+          // Note: Device assignment is now tracked through rentals, not direct fields
+          // No need to update device separately
+
           // Delete related accessories and restore stock
           const accessories = await tx.rentalAccessory.findMany({
             where: { rentalId: id }
@@ -255,8 +246,8 @@ export default async function handler(
             where: { rentalId: id }
           });
           
-          // Update CNAM bonds to remove rental association
-          await tx.cNAMBondRental.updateMany({
+          // Update CNAM bons to remove rental association
+          await tx.cNAMBonRental.updateMany({
             where: { rentalId: id },
             data: { rentalId: null }
           });

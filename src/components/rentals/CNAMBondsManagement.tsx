@@ -48,8 +48,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface CNAMBond {
   id: string;
-  bondNumber: string;
-  bondType: string;
+  bonNumber: string;
+  bonType: string;
   status: string;
   dossierNumber?: string;
   submissionDate?: Date;
@@ -65,27 +65,27 @@ interface CNAMBond {
 
 interface CNAMBondsManagementProps {
   rental: any;
-  cnamBonds: CNAMBond[];
+  cnamBons: CNAMBond[];
   onUpdate?: (bonds: CNAMBond[]) => void;
 }
 
 const predefinedBonds = [
-  { id: 'concentrateur-1m', bondType: 'CONCENTRATEUR_OXYGENE', label: 'Concentrateur Oxygène - 1 mois', coveredMonths: 1, totalAmount: 190 },
-  { id: 'concentrateur-2m', bondType: 'CONCENTRATEUR_OXYGENE', label: 'Concentrateur Oxygène - 2 mois', coveredMonths: 2, totalAmount: 380 },
-  { id: 'concentrateur-3m', bondType: 'CONCENTRATEUR_OXYGENE', label: 'Concentrateur Oxygène - 3 mois', coveredMonths: 3, totalAmount: 570 },
-  { id: 'vni-3m', bondType: 'VNI', label: 'VNI - 3 mois', coveredMonths: 3, totalAmount: 1290 },
-  { id: 'vni-6m', bondType: 'VNI', label: 'VNI - 6 mois', coveredMonths: 6, totalAmount: 2580 },
+  { id: 'concentrateur-1m', bonType: 'CONCENTRATEUR_OXYGENE', label: 'Concentrateur Oxygène - 1 mois', coveredMonths: 1, totalAmount: 190 },
+  { id: 'concentrateur-2m', bonType: 'CONCENTRATEUR_OXYGENE', label: 'Concentrateur Oxygène - 2 mois', coveredMonths: 2, totalAmount: 380 },
+  { id: 'concentrateur-3m', bonType: 'CONCENTRATEUR_OXYGENE', label: 'Concentrateur Oxygène - 3 mois', coveredMonths: 3, totalAmount: 570 },
+  { id: 'vni-3m', bonType: 'VNI', label: 'VNI - 3 mois', coveredMonths: 3, totalAmount: 1290 },
+  { id: 'vni-6m', bonType: 'VNI', label: 'VNI - 6 mois', coveredMonths: 6, totalAmount: 2580 },
 ];
 
-export default function CNAMBondsManagement({ rental, cnamBonds, onUpdate }: CNAMBondsManagementProps) {
+export default function CNAMBondsManagement({ rental, cnamBons, onUpdate }: CNAMBondsManagementProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  const [bonds, setBonds] = useState<CNAMBond[]>(cnamBonds || []);
+  const [bonds, setBonds] = useState<CNAMBond[]>(cnamBons || []);
   const [editingBond, setEditingBond] = useState<CNAMBond | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [newBond, setNewBond] = useState<Partial<CNAMBond>>({
-    bondType: 'CONCENTRATEUR_OXYGENE',
+    bonType: 'CONCENTRATEUR_OXYGENE',
     status: 'EN_ATTENTE_APPROBATION',
     monthlyAmount: 0,
     coveredMonths: 1,
@@ -96,7 +96,7 @@ export default function CNAMBondsManagement({ rental, cnamBonds, onUpdate }: CNA
   // Mutation for saving bonds to the database
   const saveBondsMutation = useMutation({
     mutationFn: async (bondsData: CNAMBond[]) => {
-      const response = await fetch('/api/cnam-bonds', {
+      const response = await fetch('/api/cnam-bons', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -108,7 +108,7 @@ export default function CNAMBondsManagement({ rental, cnamBonds, onUpdate }: CNA
       });
 
       if (!response.ok) {
-        throw new Error('Failed to save CNAM bonds');
+        throw new Error('Failed to save CNAM bons');
       }
 
       return response.json();
@@ -128,7 +128,7 @@ export default function CNAMBondsManagement({ rental, cnamBonds, onUpdate }: CNA
         title: "Erreur",
         description: "Impossible de sauvegarder les bons CNAM.",
       });
-      console.error('Error saving CNAM bonds:', error);
+      console.error('Error saving CNAM bons:', error);
     },
   });
 
@@ -194,8 +194,8 @@ export default function CNAMBondsManagement({ rental, cnamBonds, onUpdate }: CNA
   const handleAddPredefinedBond = (predefined: any) => {
     const bond: Partial<CNAMBond> = {
       id: `new-${Date.now()}`,
-      bondNumber: '',
-      bondType: predefined.bondType,
+      bonNumber: '',
+      bonType: predefined.bonType,
       status: 'EN_ATTENTE_APPROBATION',
       monthlyAmount: predefined.totalAmount / predefined.coveredMonths,
       coveredMonths: predefined.coveredMonths,
@@ -207,7 +207,7 @@ export default function CNAMBondsManagement({ rental, cnamBonds, onUpdate }: CNA
   };
 
   const handleSaveNewBond = () => {
-    if (!newBond.bondType || !newBond.totalAmount) {
+    if (!newBond.bonType || !newBond.totalAmount) {
       toast({
         variant: "destructive",
         title: "Erreur",
@@ -218,8 +218,8 @@ export default function CNAMBondsManagement({ rental, cnamBonds, onUpdate }: CNA
 
     const bond: CNAMBond = {
       id: newBond.id || `new-${Date.now()}`,
-      bondNumber: newBond.bondNumber || '',
-      bondType: newBond.bondType,
+      bonNumber: newBond.bonNumber || '',
+      bonType: newBond.bonType,
       status: newBond.status || 'EN_ATTENTE_APPROBATION',
       dossierNumber: newBond.dossierNumber,
       submissionDate: newBond.submissionDate,
@@ -237,7 +237,7 @@ export default function CNAMBondsManagement({ rental, cnamBonds, onUpdate }: CNA
     saveBondsMutation.mutate(updatedBonds);
     setShowAddDialog(false);
     setNewBond({
-      bondType: 'CONCENTRATEUR_OXYGENE',
+      bonType: 'CONCENTRATEUR_OXYGENE',
       status: 'EN_ATTENTE_APPROBATION',
       monthlyAmount: 0,
       coveredMonths: 1,
@@ -316,18 +316,18 @@ export default function CNAMBondsManagement({ rental, cnamBonds, onUpdate }: CNA
                 <Label className="text-base font-medium">Ou créer manuellement</Label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                   <div>
-                    <Label htmlFor="bondNumber">Numéro de Bon</Label>
+                    <Label htmlFor="bonNumber">Numéro de Bon</Label>
                     <Input
-                      id="bondNumber"
-                      value={newBond.bondNumber || ''}
-                      onChange={(e) => setNewBond({ ...newBond, bondNumber: e.target.value })}
+                      id="bonNumber"
+                      value={newBond.bonNumber || ''}
+                      onChange={(e) => setNewBond({ ...newBond, bonNumber: e.target.value })}
                       placeholder="Numéro du bond..."
                     />
                   </div>
                   
                   <div>
-                    <Label htmlFor="bondType">Type de Bon</Label>
-                    <Select value={newBond.bondType} onValueChange={(value) => setNewBond({ ...newBond, bondType: value })}>
+                    <Label htmlFor="bonType">Type de Bon</Label>
+                    <Select value={newBond.bonType} onValueChange={(value) => setNewBond({ ...newBond, bonType: value })}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -436,7 +436,7 @@ export default function CNAMBondsManagement({ rental, cnamBonds, onUpdate }: CNA
         </Dialog>
       </div>
 
-      {/* CNAM Bonds Table */}
+      {/* CNAM bons Table */}
       {bonds.length > 0 ? (
         <Card>
           <CardContent className="p-0">
@@ -455,8 +455,8 @@ export default function CNAMBondsManagement({ rental, cnamBonds, onUpdate }: CNA
                   <TableRow key={bond.id}>
                     <TableCell>
                       <div>
-                        <div className="font-medium">{bond.bondNumber || 'Non défini'}</div>
-                        <div className="text-sm text-gray-600">{getBondTypeLabel(bond.bondType)}</div>
+                        <div className="font-medium">{bond.bonNumber || 'Non défini'}</div>
+                        <div className="text-sm text-gray-600">{getBondTypeLabel(bond.bonType)}</div>
                         {bond.dossierNumber && (
                           <div className="text-xs text-blue-600">Dossier: {bond.dossierNumber}</div>
                         )}
@@ -540,8 +540,8 @@ export default function CNAMBondsManagement({ rental, cnamBonds, onUpdate }: CNA
                   <Label htmlFor="editBondNumber">Numéro de Bon</Label>
                   <Input
                     id="editBondNumber"
-                    value={editingBond.bondNumber}
-                    onChange={(e) => setEditingBond({ ...editingBond, bondNumber: e.target.value })}
+                    value={editingBond.bonNumber}
+                    onChange={(e) => setEditingBond({ ...editingBond, bonNumber: e.target.value })}
                   />
                 </div>
                 

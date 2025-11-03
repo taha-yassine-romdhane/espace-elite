@@ -108,3 +108,27 @@ export enum NotificationStatus {
   COMPLETED = "COMPLETED",
   DISMISSED = "DISMISSED",
 }
+
+export enum AppointmentType {
+  POLYGRAPHIE = "POLYGRAPHIE",
+  CONSULTATION = "CONSULTATION",
+  LOCATION = "LOCATION",
+  VENTE = "VENTE",
+  MAINTENANCE = "MAINTENANCE",
+  RECUPERATION = "RECUPERATION",
+}
+
+export enum AppointmentStatus {
+  SCHEDULED = "SCHEDULED",
+  CONFIRMED = "CONFIRMED",
+  COMPLETED = "COMPLETED",
+  CANCELLED = "CANCELLED",
+  RESCHEDULED = "RESCHEDULED",
+}
+
+export enum AppointmentPriority {
+  LOW = "LOW",
+  NORMAL = "NORMAL",
+  HIGH = "HIGH",
+  URGENT = "URGENT",
+}

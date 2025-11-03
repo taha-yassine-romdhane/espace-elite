@@ -38,7 +38,19 @@ export default async function handler(
     }
 
     if (req.method === 'GET') {
+      // Build where clause based on user role
+      const where: any = {};
+
+      // If user is EMPLOYEE, only show rentals they created or are assigned to
+      if (session.user.role === 'EMPLOYEE') {
+        where.OR = [
+          { createdById: session.user.id },
+          { assignedToId: session.user.id }
+        ];
+      }
+
       const rentals = await prisma.rental.findMany({
+        where,
         include: {
           patient: {
             select: {
@@ -110,11 +122,16 @@ export default async function handler(
               method: true,
               paymentType: true,
               status: true,
+              rentalPeriod: {
+                select: {
+                  periodNumber: true,
+                  gapDays: true,
+                },
+              },
             },
             orderBy: {
-              paymentDate: 'desc',
+              periodStartDate: 'asc', // Order by period start date ascending to get all payments in chronological order
             },
-            take: 1, // Get only the most recent RENTAL payment
           },
         },
         orderBy: {
@@ -124,7 +141,7 @@ export default async function handler(
 
       // Transform data to match frontend expectations
       const transformedRentals = rentals.map((rental) => {
-        const lastPayment = rental.payments && rental.payments.length > 0 ? rental.payments[0] : null;
+        const lastPayment = rental.payments && rental.payments.length > 0 ? rental.payments[rental.payments.length - 1] : null;
 
         return {
           id: rental.id,
@@ -152,6 +169,20 @@ export default async function handler(
           lastPaymentMethod: lastPayment ? lastPayment.method : null,
           lastPaymentType: lastPayment ? lastPayment.paymentType : null,
           lastPaymentStatus: lastPayment ? lastPayment.status : null,
+
+          // All payments with period data
+          payments: rental.payments.map(p => ({
+            id: p.id,
+            paymentDate: p.paymentDate.toISOString().split('T')[0],
+            periodStartDate: p.periodStartDate ? p.periodStartDate.toISOString().split('T')[0] : null,
+            periodEndDate: p.periodEndDate ? p.periodEndDate.toISOString().split('T')[0] : null,
+            amount: p.amount,
+            method: p.method,
+            paymentType: p.paymentType,
+            status: p.status,
+            periodNumber: p.rentalPeriod?.periodNumber || null,
+            gapDays: p.rentalPeriod?.gapDays || null,
+          })),
 
           patient: rental.patient,
           medicalDevice: rental.medicalDevice,

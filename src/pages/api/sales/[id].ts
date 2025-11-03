@@ -60,10 +60,10 @@ function getAggregatedPaymentData(sale: any, additionalPayments: any[]) {
         referenceNumber: p.referenceNumber,
         classification: p.method, // Use method as classification for simplicity
         metadata: {
-          dossierNumber: p.cnamBondNumber,
-          cnamInfo: p.cnamBondNumber ? {
-            dossierNumber: p.cnamBondNumber,
-            bondType: p.cnamBondType,
+          dossierNumber: p.cnamBonNumber,
+          cnamInfo: p.cnamBonNumber ? {
+            dossierNumber: p.cnamBonNumber,
+            bonType: p.cnamBonType,
             status: p.cnamStatus
           } : null
         }

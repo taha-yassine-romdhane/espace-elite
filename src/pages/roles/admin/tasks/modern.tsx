@@ -63,7 +63,7 @@ interface ComprehensiveTask {
     rentalId?: string;
     appointmentId?: string;
     paymentId?: string;
-    bondNumber?: string;
+    bonNumber?: string;
   };
   
   actionUrl?: string;
@@ -774,12 +774,12 @@ export default function ModernTasksPage() {
                         </div>
                       </div>
                     )}
-                    {selectedTask.relatedData.bondNumber && (
+                    {selectedTask.relatedData.bonNumber && (
                       <div className="flex items-center gap-2">
                         <Hash className="h-4 w-4 text-gray-400" />
                         <div>
                           <p className="text-xs text-gray-500">N° Bon</p>
-                          <p className="text-sm font-medium">{selectedTask.relatedData.bondNumber}</p>
+                          <p className="text-sm font-medium">{selectedTask.relatedData.bonNumber}</p>
                         </div>
                       </div>
                     )}

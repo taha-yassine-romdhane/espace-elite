@@ -308,13 +308,10 @@ async function getRentals(userId?: string, search?: string) {
       patient: {
         select: { firstName: true, lastName: true, telephone: true }
       },
-      Company: {
-        select: { companyName: true, telephone: true }
-      },
       medicalDevice: {
         select: { name: true, type: true, serialNumber: true }
       },
-      payment: true,
+      payments: true,
       accessories: {
         include: {
           product: { select: { name: true, type: true } }

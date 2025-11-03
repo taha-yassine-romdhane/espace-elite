@@ -150,8 +150,8 @@ export default function ComprehensiveRentalOverview({
       return sum;
     }, 0) || 0;
     
-    // Total CNAM bonds amount (for reference)
-    const cnamBondsAmount = rental.cnamBonds?.reduce((sum: number, bond: any) => 
+    // Total CNAM bons amount (for reference)
+    const cnamBondsAmount = rental.cnamBons?.reduce((sum: number, bond: any) => 
       sum + (parseFloat(bond.totalAmount) || 0), 0) || 0;
     
     // Get deposit amount from payment or configuration
@@ -305,7 +305,7 @@ export default function ComprehensiveRentalOverview({
     const today = new Date();
     
     // CNAM expiration warnings
-    rental.cnamBonds?.forEach((bond: any) => {
+    rental.cnamBons?.forEach((bond: any) => {
       if (bond.endDate) {
         const endDate = new Date(bond.endDate);
         const daysUntil = differenceInDays(endDate, today);
@@ -313,7 +313,7 @@ export default function ComprehensiveRentalOverview({
           dates.push({
             date: endDate,
             type: 'cnam_expiry',
-            description: `Expiration bon CNAM ${bond.bondType}`,
+            description: `Expiration bon CNAM ${bond.bonType}`,
             priority: daysUntil <= 7 ? 'critical' : daysUntil <= 15 ? 'high' : 'medium',
             daysUntil,
           });
@@ -783,8 +783,8 @@ export default function ComprehensiveRentalOverview({
             <div className="bg-green-50 p-3 rounded-lg">
               <div className="text-sm text-green-600">Couverture CNAM</div>
               <div className="font-bold text-green-800">{financialSummary.cnamAmount.toFixed(2)} TND</div>
-              {rental.cnamBonds?.length > 0 && (
-                <div className="text-xs text-green-700">{rental.cnamBonds.length} bon{rental.cnamBonds.length > 1 ? 's' : ''}</div>
+              {rental.cnamBons?.length > 0 && (
+                <div className="text-xs text-green-700">{rental.cnamBons.length} bon{rental.cnamBons.length > 1 ? 's' : ''}</div>
               )}
             </div>
             <div className="bg-blue-50 p-3 rounded-lg">

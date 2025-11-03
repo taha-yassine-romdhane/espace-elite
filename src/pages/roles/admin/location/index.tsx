@@ -49,7 +49,7 @@ export default function LocationPage() {
                 className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
               >
                 <Shield className="h-4 w-4" />
-                <span className="hidden sm:inline">Bonds CNAM</span>
+                <span className="hidden sm:inline">Bons CNAM</span>
               </TabsTrigger>
               <TabsTrigger
                 value="payments"

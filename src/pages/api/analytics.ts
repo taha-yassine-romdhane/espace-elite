@@ -73,7 +73,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const patiensByAffiliation = await getPatientsByAffiliation().catch(() => []);
       const activeRentals = await getActiveRentalsCount().catch(() => 0);
       
-      const cnamBonds = await getCNAMBonds(startDate).catch(() => ({ total: 0, approved: 0, totalAmount: 0 }));
+      const cnamBons = await getCNAMBonds(startDate).catch(() => ({ total: 0, approved: 0, totalAmount: 0 }));
       const cnamByType = await getCNAMByType(startDate).catch(() => []);
       
       const recentSales = await getRecentSales().catch(() => []);
@@ -135,10 +135,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           activeRentals
         },
         cnam: {
-          totalBonds: cnamBonds.total,
-          approvedBonds: cnamBonds.approved,
-          approvalRate: cnamBonds.total > 0 ? (cnamBonds.approved / cnamBonds.total) * 100 : 0,
-          totalAmount: cnamBonds.totalAmount,
+          totalBonds: cnamBons.total,
+          approvedBonds: cnamBons.approved,
+          approvalRate: cnamBons.total > 0 ? (cnamBons.approved / cnamBons.total) * 100 : 0,
+          totalAmount: cnamBons.totalAmount,
           byBondType: cnamByType
         },
         recentActivity
@@ -199,7 +199,7 @@ async function getMonthlyRevenue(startDate: Date) {
 
   const rentals = await prisma.rental.findMany({
     where: { startDate: { gte: startDate } },
-    include: { payment: true }
+    include: { payments: true }
   });
 
   const monthlyData = new Map();
@@ -218,15 +218,17 @@ async function getMonthlyRevenue(startDate: Date) {
 
   // Process rentals
   rentals.forEach(rental => {
-    if (rental.payment) {
-      const month = rental.startDate.toLocaleDateString('en-US', { month: 'short' });
-      const monthKey = `${rental.startDate.getFullYear()}-${month}`;
-      if (!monthlyData.has(monthKey)) {
-        monthlyData.set(monthKey, { month, amount: 0, sales: 0, rentals: 0 });
-      }
-      const data = monthlyData.get(monthKey);
-      data.amount += Number(rental.payment.amount);
-      data.rentals += 1;
+    if (rental.payments && rental.payments.length > 0) {
+      rental.payments.forEach(payment => {
+        const month = rental.startDate.toLocaleDateString('en-US', { month: 'short' });
+        const monthKey = `${rental.startDate.getFullYear()}-${month}`;
+        if (!monthlyData.has(monthKey)) {
+          monthlyData.set(monthKey, { month, amount: 0, sales: 0, rentals: 0 });
+        }
+        const data = monthlyData.get(monthKey);
+        data.amount += Number(payment.amount);
+        data.rentals += 1;
+      });
     }
   });
 
@@ -366,14 +368,14 @@ async function getCNAMBonds(startDate: Date) {
 
 async function getCNAMByType(startDate: Date) {
   const bonds = await prisma.cNAMDossier.groupBy({
-    by: ['bondType'],
+    by: ['bonType'],
     where: { createdAt: { gte: startDate } },
     _count: { _all: true },
     _sum: { bondAmount: true }
   });
 
   return bonds.map(bond => ({
-    type: bond.bondType,
+    type: bond.bonType,
     count: bond._count._all,
     amount: Number(bond._sum.bondAmount) || 0
   }));
@@ -397,8 +399,7 @@ async function getRecentRentals() {
     include: {
       medicalDevice: { select: { name: true } },
       patient: { select: { firstName: true, lastName: true } },
-      Company: { select: { companyName: true } },
-      payment: { select: { amount: true } }
+      payments: { select: { amount: true } }
     }
   });
 }

@@ -8,16 +8,16 @@ import { prisma } from '@/lib/prisma';
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
     try {
-      const { bondType, isActive } = req.query;
+      const { bonType, isActive } = req.query;
 
       const where: any = {};
-      if (bondType) where.bondType = bondType as string;
+      if (bonType) where.bonType = bonType as string;
       if (isActive !== undefined) where.isActive = isActive === 'true';
 
       const nomenclature = await prisma.cNAMNomenclature.findMany({
         where,
         orderBy: {
-          bondType: 'asc',
+          bonType: 'asc',
         },
       });
 
@@ -30,11 +30,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === 'POST') {
     try {
-      const { bondType, category, amount, monthlyRate, description, isActive } = req.body;
+      const { bonType, category, amount, monthlyRate, description, isActive } = req.body;
 
-      if (!bondType || amount === undefined) {
+      if (!bonType || amount === undefined) {
         return res.status(400).json({
-          error: 'Missing required fields: bondType, amount',
+          error: 'Missing required fields: bonType, amount',
         });
       }
 
@@ -42,7 +42,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const parsedMonthlyRate = monthlyRate !== undefined ? parseFloat(monthlyRate) : parsedAmount;
 
       const nomenclature = await prisma.cNAMNomenclature.upsert({
-        where: { bondType },
+        where: { bonType },
         update: {
           category: category || 'LOCATION',
           amount: parsedAmount,
@@ -51,7 +51,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           isActive: isActive !== undefined ? isActive : true,
         },
         create: {
-          bondType,
+          bonType,
           category: category || 'LOCATION',
           amount: parsedAmount,
           monthlyRate: parsedMonthlyRate,

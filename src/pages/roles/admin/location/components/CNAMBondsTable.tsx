@@ -6,15 +6,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Shield, Plus, Save, X, Edit2, Trash2, CheckCircle, Clock, FileX, Info } from 'lucide-react';
+import { Shield, Plus, Save, X, Edit2, Trash2, CheckCircle, Clock, FileX, Info, ChevronLeft, ChevronRight, Search, Filter } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface CNAMBond {
   id?: string;
-  bondNumber?: string;
-  bondType: string;
+  bonNumber?: string;
+  bonType: string;
   status: string;
+  category?: string; // LOCATION or ACHAT
   dossierNumber?: string;
   submissionDate?: string | null;
   approvalDate?: string | null;
@@ -23,12 +24,15 @@ interface CNAMBond {
   cnamMonthlyRate: number;
   deviceMonthlyRate: number;
   coveredMonths: number;
-  bondAmount: number;
+  bonAmount: number;
   devicePrice: number;
   complementAmount: number;
+  currentStep?: number; // Progress step (1-7)
+  totalSteps?: number; // Total steps (default 7)
   renewalReminderDays?: number;
   notes?: string;
   rentalId?: string;
+  saleId?: string; // For bons linked to sales
   patientId: string;
   patient?: {
     id: string;
@@ -48,7 +52,7 @@ interface CNAMBond {
 }
 
 interface CNAMNomenclature {
-  bondType: string;
+  bonType: string;
   monthlyRate: number;
   description?: string;
 }
@@ -84,6 +88,16 @@ export default function CNAMBondsTable({ rentalId, patientId, patientCnamId, dev
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [editData, setEditData] = useState<CNAMBond | null>(null);
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 50;
+
+  // Filter states
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [patientFilter, setPatientFilter] = useState<string>('all');
+
   // Fetch CNAM nomenclature
   const { data: nomenclature = [] } = useQuery<CNAMNomenclature[]>({
     queryKey: ['cnam-nomenclature'],
@@ -118,24 +132,78 @@ export default function CNAMBondsTable({ rentalId, patientId, patientCnamId, dev
     enabled: showGlobalView,
   });
 
-  // Fetch CNAM bonds
+  // Fetch CNAM bons (only RENTAL bons - category=LOCATION)
   const { data: bonds = [] } = useQuery<CNAMBond[]>({
     queryKey: ['cnam-bonds', rentalId, patientId],
     queryFn: async () => {
       const params = new URLSearchParams();
+      // Filter to only show RENTAL bons (category=LOCATION), not SALE bons (category=ACHAT)
+      params.append('category', 'LOCATION');
       if (rentalId) params.append('rentalId', rentalId);
       if (patientId) params.append('patientId', patientId);
 
-      const response = await fetch(`/api/cnam-bonds?${params}`);
+      const response = await fetch(`/api/cnam-bons?${params}`);
       if (!response.ok) throw new Error('Failed to fetch bonds');
-      return response.json();
+      const data = await response.json();
+
+      // Ensure all bons have currentStep and totalSteps
+      return data.map((bon: any) => ({
+        ...bon,
+        currentStep: bon.currentStep || (bon.status === 'TERMINE' ? 7 : bon.status === 'APPROUVE' ? 5 : 3),
+        totalSteps: bon.totalSteps || 7,
+      }));
     },
   });
+
+  // Filter bonds
+  const filteredBonds = bonds.filter((bond) => {
+    // Search filter
+    if (searchTerm) {
+      const search = searchTerm.toLowerCase();
+      const bonNumber = (bond.bonNumber || bond.dossierNumber || '').toLowerCase();
+      const patientName = bond.patient
+        ? `${bond.patient.firstName} ${bond.patient.lastName}`.toLowerCase()
+        : '';
+      const rentalCode = bond.rental?.rentalCode?.toLowerCase() || '';
+
+      if (!bonNumber.includes(search) && !patientName.includes(search) && !rentalCode.includes(search)) {
+        return false;
+      }
+    }
+
+    // Status filter
+    if (statusFilter !== 'all' && bond.status !== statusFilter) {
+      return false;
+    }
+
+    // Type filter
+    if (typeFilter !== 'all' && bond.bonType !== typeFilter) {
+      return false;
+    }
+
+    // Patient filter (only in global view)
+    if (showGlobalView && patientFilter !== 'all' && bond.patientId !== patientFilter) {
+      return false;
+    }
+
+    return true;
+  });
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredBonds.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedBonds = filteredBonds.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, typeFilter, patientFilter]);
 
   // Create/Update mutation
   const saveMutation = useMutation({
     mutationFn: async (bond: CNAMBond) => {
-      const url = bond.id ? `/api/cnam-bonds/${bond.id}` : '/api/cnam-bonds';
+      const url = bond.id ? `/api/cnam-bons/${bond.id}` : '/api/cnam-bons';
       const method = bond.id ? 'PATCH' : 'POST';
 
       const response = await fetch(url, {
@@ -163,7 +231,7 @@ export default function CNAMBondsTable({ rentalId, patientId, patientCnamId, dev
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (bondId: string) => {
-      const response = await fetch(`/api/cnam-bonds/${bondId}`, { method: 'DELETE' });
+      const response = await fetch(`/api/cnam-bons/${bondId}`, { method: 'DELETE' });
       if (!response.ok) throw new Error('Failed to delete bond');
       return response.json();
     },
@@ -177,13 +245,13 @@ export default function CNAMBondsTable({ rentalId, patientId, patientCnamId, dev
   });
 
   const handleAddNew = async () => {
-    // Fetch next bond number
+    // Fetch next bond number for LOCATION category (rentals)
     let nextBondNumber = '';
     try {
-      const response = await fetch('/api/cnam-bonds/next-number');
+      const response = await fetch('/api/cnam-bons/next-number?category=LOCATION');
       if (response.ok) {
         const data = await response.json();
-        nextBondNumber = data.bondNumber;
+        nextBondNumber = data.bonNumber;
       } else {
         // Fallback: generate a temporary number
         const year = new Date().getFullYear();
@@ -209,17 +277,17 @@ export default function CNAMBondsTable({ rentalId, patientId, patientCnamId, dev
     }
 
     const defaultBondType = 'CONCENTRATEUR_OXYGENE';
-    const cnamRate = nomenclature.find(n => n.bondType === defaultBondType)?.monthlyRate || 190;
+    const cnamRate = nomenclature.find(n => n.bonType === defaultBondType)?.monthlyRate || 190;
     const deviceRate = deviceMonthlyRate || 0;
 
     setEditData({
-      bondNumber: nextBondNumber,
-      bondType: defaultBondType,
+      bonNumber: nextBondNumber,
+      bonType: defaultBondType,
       status: 'EN_ATTENTE_APPROBATION',
       cnamMonthlyRate: Number(cnamRate),
       deviceMonthlyRate: Number(deviceRate),
       coveredMonths: 1,
-      bondAmount: Number(cnamRate) * 1,
+      bonAmount: Number(cnamRate) * 1,
       devicePrice: Number(deviceRate) * 1,
       complementAmount: (Number(deviceRate) - Number(cnamRate)) * 1,
       renewalReminderDays: 30,
@@ -249,7 +317,7 @@ export default function CNAMBondsTable({ rentalId, patientId, patientCnamId, dev
       return;
     }
 
-    if (!editData.bondType) {
+    if (!editData.bonType) {
       toast({ variant: 'destructive', title: 'Erreur', description: 'Veuillez sélectionner un type de bond' });
       return;
     }
@@ -259,13 +327,13 @@ export default function CNAMBondsTable({ rentalId, patientId, patientCnamId, dev
       return;
     }
 
-    const bondAmount = editData.cnamMonthlyRate * editData.coveredMonths;
+    const bonAmount = editData.cnamMonthlyRate * editData.coveredMonths;
     const devicePrice = editData.deviceMonthlyRate * editData.coveredMonths;
-    const complementAmount = devicePrice - bondAmount;
+    const complementAmount = devicePrice - bonAmount;
 
     saveMutation.mutate({
       ...editData,
-      bondAmount,
+      bonAmount,
       devicePrice,
       complementAmount,
     });
@@ -277,34 +345,34 @@ export default function CNAMBondsTable({ rentalId, patientId, patientCnamId, dev
     }
   };
 
-  const handleBondTypeChange = (bondType: string) => {
+  const handleBondTypeChange = (bonType: string) => {
     if (!editData) return;
 
-    const cnamRate = nomenclature.find(n => n.bondType === bondType)?.monthlyRate || 0;
-    const bondAmount = cnamRate * editData.coveredMonths;
+    const cnamRate = nomenclature.find(n => n.bonType === bonType)?.monthlyRate || 0;
+    const bonAmount = cnamRate * editData.coveredMonths;
     const devicePrice = editData.deviceMonthlyRate * editData.coveredMonths;
 
     setEditData({
       ...editData,
-      bondType,
+      bonType,
       cnamMonthlyRate: cnamRate,
-      bondAmount,
-      complementAmount: devicePrice - bondAmount,
+      bonAmount,
+      complementAmount: devicePrice - bonAmount,
     });
   };
 
   const handleMonthsChange = (months: number) => {
     if (!editData) return;
 
-    const bondAmount = editData.cnamMonthlyRate * months;
+    const bonAmount = editData.cnamMonthlyRate * months;
     const devicePrice = editData.deviceMonthlyRate * months;
 
     setEditData({
       ...editData,
       coveredMonths: months,
-      bondAmount,
+      bonAmount,
       devicePrice,
-      complementAmount: devicePrice - bondAmount,
+      complementAmount: devicePrice - bonAmount,
     });
   };
 
@@ -348,19 +416,19 @@ export default function CNAMBondsTable({ rentalId, patientId, patientCnamId, dev
       }
 
       // Get CNAM rate for the detected type
-      const cnamRate = nomenclature.find(n => n.bondType === detectedBondType)?.monthlyRate || 0;
-      const bondAmount = cnamRate * editData.coveredMonths;
+      const cnamRate = nomenclature.find(n => n.bonType === detectedBondType)?.monthlyRate || 0;
+      const bonAmount = cnamRate * editData.coveredMonths;
       const devicePrice = deviceRate * editData.coveredMonths;
 
       setEditData({
         ...editData,
         rentalId: selectedRentalId,
-        bondType: detectedBondType,
+        bonType: detectedBondType,
         cnamMonthlyRate: cnamRate,
         deviceMonthlyRate: deviceRate,
-        bondAmount,
+        bonAmount,
         devicePrice,
-        complementAmount: devicePrice - bondAmount,
+        complementAmount: devicePrice - bonAmount,
       });
     } else {
       setEditData({ ...editData, rentalId: selectedRentalId });
@@ -384,6 +452,42 @@ export default function CNAMBondsTable({ rentalId, patientId, patientCnamId, dev
     );
   };
 
+  // Progress bar function
+  const getProgressBar = (currentStep: number, totalSteps: number = 7) => {
+    const percentage = (currentStep / totalSteps) * 100;
+
+    // CNAM step names for rentals
+    const stepNames: { [key: number]: string } = {
+      1: 'En attente approbation CNAM',
+      2: 'Accord avec patient',
+      3: 'Documents reçus de CNAM',
+      4: 'Préparation appareil',
+      5: 'Livraison au Technicien',
+      6: 'Signature Médecin',
+      7: 'Livraison finale Admin',
+    };
+
+    const stepName = stepNames[currentStep] || `Étape ${currentStep}`;
+
+    return (
+      <div className="w-full">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-xs text-slate-600 truncate" title={stepName}>
+            Étape {currentStep}/{totalSteps}
+          </span>
+          <span className="text-xs font-semibold text-blue-700 ml-2">{Math.round(percentage)}%</span>
+        </div>
+        <div className="w-full bg-slate-200 rounded-full h-2">
+          <div
+            className="h-2 rounded-full transition-all duration-300 bg-gradient-to-r from-blue-500 to-blue-600"
+            style={{ width: `${percentage}%` }}
+          />
+        </div>
+        <div className="text-xs text-slate-500 mt-0.5 truncate">{stepName}</div>
+      </div>
+    );
+  };
+
   // In global view or when patient is not CNAM eligible, show alert but still allow viewing
   const showCnamWarning = !showGlobalView && !patientCnamId;
 
@@ -393,7 +497,7 @@ export default function CNAMBondsTable({ rentalId, patientId, patientCnamId, dev
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
             <Shield className="h-5 w-5 text-blue-600" />
-            Bonds CNAM
+            Bons CNAM
           </CardTitle>
           <Button onClick={handleAddNew} size="sm" disabled={isAddingNew || (!showGlobalView && showCnamWarning)}>
             <Plus className="h-4 w-4 mr-1" />
@@ -420,25 +524,180 @@ export default function CNAMBondsTable({ rentalId, patientId, patientCnamId, dev
           </Alert>
         )}
 
+        {/* Search and Filters */}
+        <div className="space-y-3 mb-4">
+          {/* Search Bar */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              placeholder="Rechercher par numéro, patient, location..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+
+          {/* Filters */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 bg-slate-50 p-3 rounded-lg border">
+            <div>
+              <label className="text-[10px] font-medium text-slate-700 mb-0.5 block">Statut</label>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="h-8 text-xs bg-white">
+                  <SelectValue placeholder="Tous" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous les statuts</SelectItem>
+                  {Object.entries(STATUS_LABELS).map(([value, info]) => (
+                    <SelectItem key={value} value={value}>{info.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-[10px] font-medium text-slate-700 mb-0.5 block">Type</label>
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger className="h-8 text-xs bg-white">
+                  <SelectValue placeholder="Tous" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous les types</SelectItem>
+                  {Object.entries(BOND_TYPE_LABELS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {showGlobalView && (
+              <div>
+                <label className="text-[10px] font-medium text-slate-700 mb-0.5 block">Patient</label>
+                <Select value={patientFilter} onValueChange={setPatientFilter}>
+                  <SelectTrigger className="h-8 text-xs bg-white">
+                    <SelectValue placeholder="Tous" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tous les patients</SelectItem>
+                    {patients.map((patient: any) => (
+                      <SelectItem key={patient.id} value={patient.id}>
+                        {patient.firstName} {patient.lastName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div className="flex items-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSearchTerm('');
+                  setStatusFilter('all');
+                  setTypeFilter('all');
+                  setPatientFilter('all');
+                }}
+                className="h-8 w-full text-xs"
+              >
+                <Filter className="h-3 w-3 mr-1" />
+                Réinitialiser
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Pagination Info */}
+        {totalPages > 0 && (
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-6 text-sm">
+              <span className="text-slate-600">
+                <strong>{filteredBonds.length}</strong> bond(s) CNAM trouvé(s)
+              </span>
+              {totalPages > 1 && (
+                <span className="text-slate-500 text-xs">
+                  Page {currentPage} sur {totalPages} • Affichage {startIndex + 1}-{Math.min(endIndex, filteredBonds.length)} sur {filteredBonds.length}
+                </span>
+              )}
+            </div>
+
+            {/* Pagination Controls */}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="h-8"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+
+              <div className="flex items-center gap-1">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+
+                  return (
+                    <Button
+                      key={pageNum}
+                      variant={currentPage === pageNum ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCurrentPage(pageNum)}
+                      className="h-8 w-8 p-0"
+                    >
+                      {pageNum}
+                    </Button>
+                  );
+                })}
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="h-8"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+
         <div className="rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Numéro BL</TableHead>
                 {showGlobalView && <TableHead>Patient</TableHead>}
                 {showGlobalView && <TableHead>Location</TableHead>}
                 <TableHead>Type</TableHead>
-                <TableHead>Numéro</TableHead>
+                <TableHead>Source</TableHead>
+                <TableHead className="min-w-[200px]">Progression</TableHead>
                 <TableHead>Statut</TableHead>
                 <TableHead>Mois</TableHead>
                 <TableHead>CNAM</TableHead>
                 <TableHead>Appareil</TableHead>
-                <TableHead>Complément</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isAddingNew && editData && (
                 <TableRow className="bg-green-50">
+                  <TableCell>
+                    <Badge variant="outline" className="text-xs font-mono bg-blue-50 text-blue-700 border-blue-200">
+                      {editData.bonNumber || 'Auto-généré'}
+                    </Badge>
+                  </TableCell>
                   {showGlobalView && (
                     <TableCell>
                       <Select
@@ -486,7 +745,7 @@ export default function CNAMBondsTable({ rentalId, patientId, patientCnamId, dev
                     </TableCell>
                   )}
                   <TableCell>
-                    <Select value={editData.bondType} onValueChange={handleBondTypeChange}>
+                    <Select value={editData.bonType} onValueChange={handleBondTypeChange}>
                       <SelectTrigger className="text-xs">
                         <SelectValue />
                       </SelectTrigger>
@@ -497,14 +756,31 @@ export default function CNAMBondsTable({ rentalId, patientId, patientCnamId, dev
                       </SelectContent>
                     </Select>
                   </TableCell>
+                  {/* Source Column */}
                   <TableCell>
-                    <Input
-                      placeholder="Auto-généré"
-                      value={editData.bondNumber || ''}
-                      readOnly
-                      className="text-xs bg-gray-50 cursor-not-allowed"
-                      title="Numéro généré automatiquement"
-                    />
+                    <Badge variant="outline" className="text-xs bg-indigo-50 text-indigo-700 border-indigo-200">
+                      LOCATION
+                    </Badge>
+                  </TableCell>
+                  {/* Progression Column */}
+                  <TableCell>
+                    <Select
+                      value={editData.currentStep?.toString() || '1'}
+                      onValueChange={(value) => setEditData({ ...editData, currentStep: parseInt(value) })}
+                    >
+                      <SelectTrigger className="text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">Étape 1 - En attente approbation</SelectItem>
+                        <SelectItem value="2">Étape 2 - Accord patient</SelectItem>
+                        <SelectItem value="3">Étape 3 - Documents CNAM</SelectItem>
+                        <SelectItem value="4">Étape 4 - Préparation appareil</SelectItem>
+                        <SelectItem value="5">Étape 5 - Livraison technicien</SelectItem>
+                        <SelectItem value="6">Étape 6 - Signature médecin</SelectItem>
+                        <SelectItem value="7">Étape 7 - Livraison finale</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </TableCell>
                   <TableCell>
                     <Select value={editData.status} onValueChange={(v) => setEditData({ ...editData, status: v })}>
@@ -530,7 +806,7 @@ export default function CNAMBondsTable({ rentalId, patientId, patientCnamId, dev
                   </TableCell>
                   <TableCell>
                     <div className="text-xs">
-                      <div className="font-medium">{Number(editData.bondAmount || 0).toFixed(2)} TND</div>
+                      <div className="font-medium">{Number(editData.bonAmount || 0).toFixed(2)} TND</div>
                       <div className="text-gray-500">{Number(editData.cnamMonthlyRate || 0).toFixed(2)}/m</div>
                     </div>
                   </TableCell>
@@ -544,23 +820,18 @@ export default function CNAMBondsTable({ rentalId, patientId, patientCnamId, dev
                       onChange={(e) => {
                         const rate = parseFloat(e.target.value) || 0;
                         const devicePrice = rate * editData.coveredMonths;
-                        const bondAmount = editData.cnamMonthlyRate * editData.coveredMonths;
+                        const bonAmount = editData.cnamMonthlyRate * editData.coveredMonths;
                         setEditData({
                           ...editData,
                           deviceMonthlyRate: rate,
                           devicePrice,
-                          complementAmount: devicePrice - bondAmount,
+                          complementAmount: devicePrice - bonAmount,
                         });
                       }}
                       className="text-xs w-20"
                     />
                     <div className="text-[10px] text-gray-500 mt-0.5">
                       Total: {Number(editData.devicePrice || 0).toFixed(2)} TND
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-xs font-medium text-orange-600">
-                      {Number(editData.complementAmount || 0).toFixed(2)} TND
                     </div>
                   </TableCell>
                   <TableCell>
@@ -578,18 +849,23 @@ export default function CNAMBondsTable({ rentalId, patientId, patientCnamId, dev
 
               {bonds.length === 0 && !isAddingNew && (
                 <TableRow>
-                  <TableCell colSpan={showGlobalView ? 10 : 8} className="text-center text-gray-500 py-8">
+                  <TableCell colSpan={showGlobalView ? 9 : 7} className="text-center text-gray-500 py-8">
                     Aucun bond CNAM. Cliquez sur "Nouveau Bond" pour commencer.
                   </TableCell>
                 </TableRow>
               )}
 
-              {bonds.map((bond) => {
+              {paginatedBonds.map((bond) => {
                 const isEditing = editingId === bond.id;
                 const data = isEditing ? editData! : bond;
 
                 return (
                   <TableRow key={bond.id} className={isEditing ? 'bg-blue-50' : ''}>
+                    <TableCell>
+                      <Badge variant="outline" className="text-xs font-mono bg-blue-50 text-blue-700 border-blue-200">
+                        {bond.bonNumber || bond.dossierNumber || 'N/A'}
+                      </Badge>
+                    </TableCell>
                     {showGlobalView && (
                       <TableCell>
                         <div className="text-xs">
@@ -614,7 +890,7 @@ export default function CNAMBondsTable({ rentalId, patientId, patientCnamId, dev
                     )}
                     <TableCell>
                       {isEditing ? (
-                        <Select value={data.bondType} onValueChange={handleBondTypeChange}>
+                        <Select value={data.bonType} onValueChange={handleBondTypeChange}>
                           <SelectTrigger className="text-xs">
                             <SelectValue />
                           </SelectTrigger>
@@ -625,18 +901,37 @@ export default function CNAMBondsTable({ rentalId, patientId, patientCnamId, dev
                           </SelectContent>
                         </Select>
                       ) : (
-                        <div className="text-xs font-medium">{BOND_TYPE_LABELS[bond.bondType]}</div>
+                        <div className="text-xs font-medium">{BOND_TYPE_LABELS[bond.bonType]}</div>
                       )}
                     </TableCell>
+                    {/* Source Column */}
+                    <TableCell>
+                      <Badge variant="outline" className="text-xs bg-indigo-50 text-indigo-700 border-indigo-200">
+                        {bond.rentalId ? 'LOCATION' : bond.saleId ? 'ACHAT' : 'LOCATION'}
+                      </Badge>
+                    </TableCell>
+                    {/* Progression Column */}
                     <TableCell>
                       {isEditing ? (
-                        <Input
-                          value={data.bondNumber || ''}
-                          onChange={(e) => setEditData({ ...data, bondNumber: e.target.value })}
-                          className="text-xs"
-                        />
+                        <Select
+                          value={data.currentStep?.toString() || '3'}
+                          onValueChange={(value) => setEditData({ ...data, currentStep: parseInt(value) })}
+                        >
+                          <SelectTrigger className="text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="1">Étape 1 - En attente approbation</SelectItem>
+                            <SelectItem value="2">Étape 2 - Accord patient</SelectItem>
+                            <SelectItem value="3">Étape 3 - Documents CNAM</SelectItem>
+                            <SelectItem value="4">Étape 4 - Préparation appareil</SelectItem>
+                            <SelectItem value="5">Étape 5 - Livraison technicien</SelectItem>
+                            <SelectItem value="6">Étape 6 - Signature médecin</SelectItem>
+                            <SelectItem value="7">Étape 7 - Livraison finale</SelectItem>
+                          </SelectContent>
+                        </Select>
                       ) : (
-                        <div className="text-xs">{bond.bondNumber || '-'}</div>
+                        getProgressBar(bond.currentStep || 3, bond.totalSteps || 7)
                       )}
                     </TableCell>
                     <TableCell>{getStatusBadge(bond.status)}</TableCell>
@@ -656,7 +951,7 @@ export default function CNAMBondsTable({ rentalId, patientId, patientCnamId, dev
                     </TableCell>
                     <TableCell>
                       <div className="text-xs">
-                        <div className="font-medium">{Number(bond.bondAmount).toFixed(2)} TND</div>
+                        <div className="font-medium">{Number(bond.bonAmount).toFixed(2)} TND</div>
                         <div className="text-gray-500">{Number(bond.cnamMonthlyRate).toFixed(2)}/m</div>
                       </div>
                     </TableCell>
@@ -664,11 +959,6 @@ export default function CNAMBondsTable({ rentalId, patientId, patientCnamId, dev
                       <div className="text-xs">
                         <div className="font-medium">{Number(bond.devicePrice).toFixed(2)} TND</div>
                         <div className="text-gray-500">{Number(bond.deviceMonthlyRate).toFixed(2)}/m</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-xs font-medium text-orange-600">
-                        {Number(bond.complementAmount).toFixed(2)} TND
                       </div>
                     </TableCell>
                     <TableCell>

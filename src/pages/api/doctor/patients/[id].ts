@@ -40,8 +40,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         doctorId: doctor.id // Ensure the patient belongs to this doctor
       },
       include: {
-        medicalDevices: {
+        rentals: {
           where: { status: 'ACTIVE' },
+          include: {
+            medicalDevice: true
+          },
           orderBy: { createdAt: 'desc' }
         },
         diagnostics: {
@@ -58,18 +61,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         },
         appointments: {
           orderBy: { scheduledDate: 'desc' },
-          take: 10
-        },
-        rentals: {
-          orderBy: { createdAt: 'desc' },
-          include: {
-            medicalDevice: {
-              select: {
-                name: true,
-                type: true
-              }
-            }
-          },
           take: 10
         }
       }
@@ -101,13 +92,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       imc: patient.imc,
       createdAt: patient.createdAt.toISOString(),
       updatedAt: patient.updatedAt.toISOString(),
-      medicalDevices: patient.medicalDevices.map(device => ({
-        id: device.id,
-        name: device.name,
-        type: device.type,
-        status: device.status,
-        installationDate: device.installationDate?.toISOString(),
-        configuration: device.configuration
+      medicalDevices: patient.rentals.map(rental => ({
+        id: rental.medicalDevice.id,
+        name: rental.medicalDevice.name,
+        type: rental.medicalDevice.type,
+        status: rental.medicalDevice.status,
+        installationDate: null,
+        configuration: rental.medicalDevice.configuration
       })),
       diagnostics: patient.diagnostics.map(diagnostic => ({
         id: diagnostic.id,

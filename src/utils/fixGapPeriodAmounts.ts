@@ -8,7 +8,7 @@ interface RentalPeriod {
   amount: number | string;
   isGapPeriod: boolean;
   paymentMethod: string;
-  cnamBondId?: string | null;
+  cnamBonId?: string | null;
 }
 
 interface CNAMBond {
@@ -22,7 +22,7 @@ export function calculateProperGapAmount(
   startDate: Date | string,
   endDate: Date | string,
   medicalDeviceMonthlyPrice: number,
-  cnamBonds: CNAMBond[] = []
+  cnamBons: CNAMBond[] = []
 ): { amount: number; dailyRate: number; days: number; calculation: string } {
   const start = new Date(startDate);
   const end = new Date(endDate);
@@ -35,9 +35,9 @@ export function calculateProperGapAmount(
   let gapDailyRate: number;
   let calculation: string;
   
-  if (cnamBonds.length > 0) {
-    // If CNAM bonds exist, use CNAM pricing as reference
-    const firstBond = cnamBonds[0];
+  if (cnamBons.length > 0) {
+    // If CNAM bons exist, use CNAM pricing as reference
+    const firstBond = cnamBons[0];
     const bondMonthlyAmount = typeof firstBond.monthlyAmount === 'string' 
       ? parseFloat(firstBond.monthlyAmount) 
       : firstBond.monthlyAmount;
@@ -67,7 +67,7 @@ export function calculateProperGapAmount(
 export function fixInflatedGapPeriods(
   periods: RentalPeriod[],
   medicalDeviceMonthlyPrice: number,
-  cnamBonds: CNAMBond[] = []
+  cnamBons: CNAMBond[] = []
 ): { fixedPeriods: RentalPeriod[]; corrections: any[] } {
   const corrections: any[] = [];
   
@@ -84,7 +84,7 @@ export function fixInflatedGapPeriods(
       period.startDate,
       period.endDate,
       medicalDeviceMonthlyPrice,
-      cnamBonds
+      cnamBons
     );
     
     // Check if the amount needs correction (more than 10% difference)

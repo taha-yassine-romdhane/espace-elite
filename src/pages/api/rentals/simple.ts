@@ -13,7 +13,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === 'GET') {
     try {
+      // Build where clause based on user role
+      const where: any = {};
+
+      // If user is EMPLOYEE, only show rentals they created or are assigned to
+      if (session.user.role === 'EMPLOYEE') {
+        where.OR = [
+          { createdById: session.user.id },
+          { assignedToId: session.user.id }
+        ];
+      }
+
       const rentals = await prisma.rental.findMany({
+        where,
         include: {
           patient: {
             select: {
