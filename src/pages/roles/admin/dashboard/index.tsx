@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
-import { Building2, ShoppingCart, Stethoscope, Calendar } from "lucide-react";
+import { Building2, ShoppingCart, Stethoscope, Calendar, ClipboardCheck } from "lucide-react";
 import { useRouter } from "next/router";
 import AdminLayout from "../AdminLayout";
 
@@ -9,11 +9,12 @@ import AppointmentsExcelTable from "../appointments/AppointmentsExcelTable";
 import DiagnosticsExcelTable from "../diagnostics/DiagnosticsExcelTable";
 import CNAMRappelsTable from "../sales/components/CNAMRappelsTable";
 import RentalStatistics from "../location/components/RentalStatistics";
+import AdminManualTasksTable from "../manual-tasks/index";
 import { TabSwitcher } from "./components/TabSwitcher";
 import { Card, CardContent } from "@/components/ui/card";
 
 function DashboardPage() {
-  const [activeTab, setActiveTab] = useState<"appointments" | "diagnostics" | "sales" | "rentals">("appointments");
+  const [activeTab, setActiveTab] = useState<"appointments" | "diagnostics" | "sales" | "rentals" | "manual-tasks">("manual-tasks");
   const router = useRouter();
 
 
@@ -21,10 +22,17 @@ function DashboardPage() {
     <div className="container mx-auto py-6 px-4">
         <h1 className="text-3xl font-bold mb-8 text-blue-900">Tableau de Bord</h1>
         
-        {/* Action Buttons Row */}
-        <div className="space-y-4 mb-8">
-          {/* Primary Actions */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Action Buttons Row - 5 per line, same color */}
+        <div className="mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            <Button
+              className="w-full bg-blue-900 hover:bg-blue-700 text-white flex items-center justify-start gap-2"
+              onClick={() => router.push("/roles/admin/manual-tasks")}
+            >
+              <ClipboardCheck className="h-5 w-5" />
+              <span>Tâches Manuelles</span>
+            </Button>
+
             <Button
               className="w-full bg-blue-900 hover:bg-blue-700 text-white flex items-center justify-start gap-2"
               onClick={() => router.push("/roles/admin/appointments")}
@@ -32,7 +40,7 @@ function DashboardPage() {
               <Calendar className="h-5 w-5" />
               <span>Nouveau Rendez-vous</span>
             </Button>
-            
+
             <Button
               className="w-full bg-blue-900 hover:bg-blue-700 text-white flex items-center justify-start gap-2"
               onClick={() => router.push("/roles/admin/diagnostics")}
@@ -40,7 +48,7 @@ function DashboardPage() {
               <Stethoscope className="h-5 w-5" />
               <span>Commencer un Diagnostic</span>
             </Button>
-            
+
             <Button
               className="w-full bg-blue-900 hover:bg-blue-700 text-white flex items-center justify-start gap-2"
               onClick={() => router.push("/roles/admin/sales")}
@@ -48,7 +56,7 @@ function DashboardPage() {
               <ShoppingCart className="h-5 w-5" />
               <span>Commencer une Vente</span>
             </Button>
-            
+
             <Button
               className="w-full bg-blue-900 hover:bg-blue-700 text-white flex items-center justify-start gap-2"
               onClick={() => router.push("/roles/admin/location")}
@@ -89,6 +97,14 @@ function DashboardPage() {
 
         {activeTab === "rentals" && (
           <RentalStatistics />
+        )}
+
+        {activeTab === "manual-tasks" && (
+          <Card>
+            <CardContent className="pt-6">
+              <AdminManualTasksTable />
+            </CardContent>
+          </Card>
         )}
     </div>
   );

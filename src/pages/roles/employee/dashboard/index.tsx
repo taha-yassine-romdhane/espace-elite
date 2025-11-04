@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
-import { Building2, ShoppingCart, Stethoscope, Calendar } from "lucide-react";
+import { Building2, ShoppingCart, Stethoscope, Calendar, ListTodo } from "lucide-react";
 import { useRouter } from "next/router";
 import EmployeeLayout from '../EmployeeLayout';
 import { TabSwitcher } from "./components/TabSwitcher";
@@ -11,19 +11,27 @@ import RentalStatistics from '../rentals/components/RentalStatistics';
 import AppointmentsExcelTable from "./components/tables/AppointmentsExcelTable";
 import DiagnosticsExcelTable from "./components/tables/DiagnosticsExcelTable";
 import SalesExcelTable from "./components/tables/SalesExcelTable";
+import EmployeeManualTasksTable from "../manual-tasks/index";
 
 function DashboardPage() {
-  const [activeTab, setActiveTab] = useState<"appointments" | "diagnostics" | "sales" | "rentals">("appointments");
+  const [activeTab, setActiveTab] = useState<"appointments" | "diagnostics" | "sales" | "rentals" | "manual-tasks">("manual-tasks");
   const router = useRouter();
 
   return (
     <div className="container mx-auto py-6 px-4">
       <h1 className="text-3xl font-bold mb-8 text-green-900">Tableau de Bord</h1>
 
-      {/* Action Buttons Row */}
-      <div className="space-y-4 mb-8">
-        {/* Primary Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Action Buttons Row - 5 per line, same color */}
+      <div className="mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          <Button
+            className="w-full bg-green-700 hover:bg-green-600 text-white flex items-center justify-start gap-2"
+            onClick={() => router.push("/roles/employee/manual-tasks")}
+          >
+            <ListTodo className="h-5 w-5" />
+            <span>Mes Tâches</span>
+          </Button>
+
           <Button
             className="w-full bg-green-700 hover:bg-green-600 text-white flex items-center justify-start gap-2"
             onClick={() => router.push("/roles/employee/appointments")}
@@ -88,6 +96,14 @@ function DashboardPage() {
 
       {activeTab === "rentals" && (
         <RentalStatistics />
+      )}
+
+      {activeTab === "manual-tasks" && (
+        <Card>
+          <CardContent className="pt-6">
+            <EmployeeManualTasksTable />
+          </CardContent>
+        </Card>
       )}
     </div>
   );

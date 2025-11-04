@@ -1,0 +1,8 @@
+#!/bin/sh
+set -e
+
+echo "Running database migrations..."
+npx prisma migrate deploy || echo "Migrations failed or no pending migrations"
+
+echo "Starting Next.js server..."
+exec node server.js

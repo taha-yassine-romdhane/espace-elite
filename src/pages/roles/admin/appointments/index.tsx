@@ -7,10 +7,17 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Check, X, Edit2, Plus, Trash2, Search, ChevronLeft, ChevronRight, Calendar as CalendarIcon, User, MapPin, Clock, AlertCircle } from "lucide-react";
-import { DatePicker } from "@/components/ui/date-picker";
-import { TimePicker } from "@/components/ui/time-picker";
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Patient {
   id: string;
@@ -109,6 +116,99 @@ const getAppointmentTypeColor = (type: string): string => {
   };
   return colors[type] || 'bg-gray-100 text-gray-800 border-gray-200';
 };
+
+// Patient Selection Dialog Component
+interface PatientSelectionDialogProps {
+  patients: Patient[];
+  selectedPatientId: string | undefined;
+  onSelect: (patientId: string) => void;
+  trigger?: React.ReactNode;
+}
+
+function PatientSelectionDialog({ patients, selectedPatientId, onSelect, trigger }: PatientSelectionDialogProps) {
+  const [open, setOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const selectedPatient = patients.find(p => p.id === selectedPatientId);
+
+  const filteredPatients = patients.filter(patient => {
+    const searchLower = searchQuery.toLowerCase();
+    const fullName = `${patient.firstName || ''} ${patient.lastName || ''}`.toLowerCase();
+    const telephone = patient.telephone?.toLowerCase() || '';
+    return fullName.includes(searchLower) || telephone.includes(searchLower);
+  });
+
+  const handleSelect = (patientId: string) => {
+    onSelect(patientId);
+    setOpen(false);
+    setSearchQuery('');
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        {trigger || (
+          <Button variant="outline" className="h-8 text-xs justify-start w-full">
+            <User className="h-3 w-3 mr-2" />
+            {selectedPatient ? selectedPatient.name : "Sélectionner un patient"}
+          </Button>
+        )}
+      </DialogTrigger>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Sélectionner un patient</DialogTitle>
+          <DialogDescription>
+            Recherchez et sélectionnez un patient pour le rendez-vous
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="relative">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Rechercher par nom ou téléphone..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8"
+            />
+          </div>
+          <ScrollArea className="h-[400px] rounded-md border">
+            <div className="p-2 space-y-1">
+              {filteredPatients.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground text-sm">
+                  Aucun patient trouvé
+                </div>
+              ) : (
+                filteredPatients.map((patient) => (
+                  <Button
+                    key={patient.id}
+                    variant={patient.id === selectedPatientId ? "secondary" : "ghost"}
+                    className="w-full justify-start h-auto py-3 px-3"
+                    onClick={() => handleSelect(patient.id)}
+                  >
+                    <div className="flex flex-col items-start w-full">
+                      <div className="flex items-center gap-2 w-full">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium">{patient.name}</span>
+                        {patient.id === selectedPatientId && (
+                          <Check className="h-4 w-4 ml-auto text-green-600" />
+                        )}
+                      </div>
+                      {patient.telephone && (
+                        <span className="text-xs text-muted-foreground ml-6">
+                          {patient.telephone}
+                        </span>
+                      )}
+                    </div>
+                  </Button>
+                ))
+              )}
+            </div>
+          </ScrollArea>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default function AppointmentsPage() {
   const router = useRouter();
@@ -328,21 +428,11 @@ export default function AppointmentsPage() {
 
         case 'patientId':
           return (
-            <Select
-              value={editedAppointment.patientId || ''}
-              onValueChange={(val) => updateEditedField('patientId', val)}
-            >
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="Patient" />
-              </SelectTrigger>
-              <SelectContent>
-                {patients.map((patient: any) => (
-                  <SelectItem key={patient.id} value={patient.id}>
-                    {patient.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <PatientSelectionDialog
+              patients={patients}
+              selectedPatientId={editedAppointment.patientId}
+              onSelect={(val) => updateEditedField('patientId', val)}
+            />
           );
 
         case 'appointmentType':
@@ -363,11 +453,14 @@ export default function AppointmentsPage() {
           );
 
         case 'scheduledDate':
-          const dateValue = editedAppointment.scheduledDate ? new Date(editedAppointment.scheduledDate) : undefined;
+          const editScheduledDateValue = editedAppointment.scheduledDate
+            ? new Date(editedAppointment.scheduledDate).toISOString().slice(0, 16)
+            : '';
           return (
-            <DatePicker
-              value={dateValue}
-              onChange={(date) => updateEditedField('scheduledDate', date)}
+            <Input
+              type="datetime-local"
+              value={editScheduledDateValue}
+              onChange={(e) => updateEditedField('scheduledDate', e.target.value ? new Date(e.target.value) : null)}
               className="h-8 text-xs"
             />
           );
@@ -506,21 +599,11 @@ export default function AppointmentsPage() {
         <span className="text-xs text-gray-500 italic">Auto-généré</span>
       </td>
       <td className="px-2 py-2">
-        <Select
-          value={newAppointment.patientId || ''}
-          onValueChange={(val) => updateNewField('patientId', val)}
-        >
-          <SelectTrigger className="h-8 text-xs">
-            <SelectValue placeholder="Sélectionner" />
-          </SelectTrigger>
-          <SelectContent>
-            {patients.map((patient: any) => (
-              <SelectItem key={patient.id} value={patient.id}>
-                {patient.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <PatientSelectionDialog
+          patients={patients}
+          selectedPatientId={newAppointment.patientId}
+          onSelect={(val) => updateNewField('patientId', val)}
+        />
       </td>
       <td className="px-2 py-2">
         <Select
@@ -538,9 +621,10 @@ export default function AppointmentsPage() {
         </Select>
       </td>
       <td className="px-2 py-2">
-        <DatePicker
-          value={newAppointment.scheduledDate ? new Date(newAppointment.scheduledDate) : undefined}
-          onChange={(date) => updateNewField('scheduledDate', date)}
+        <Input
+          type="datetime-local"
+          value={newAppointment.scheduledDate ? new Date(newAppointment.scheduledDate).toISOString().slice(0, 16) : ''}
+          onChange={(e) => updateNewField('scheduledDate', e.target.value ? new Date(e.target.value) : null)}
           className="h-8 text-xs"
         />
       </td>

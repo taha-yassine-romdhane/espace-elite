@@ -24,6 +24,7 @@ import {
     Calendar,
     FileText,
     MapPin,
+    ListTodo,
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
@@ -48,6 +49,7 @@ const Sidebar: React.FC = () => {
     const defaultMenuItems: MenuItem[] = [
         { id: 'dashboard', icon: <LayoutDashboard size={20} />, label: "Tableau de Bord", path: "/roles/employee/dashboard" },
         { id: 'rdv', icon: <Calendar size={20} />, label: "Rendez-vous", path: "/roles/employee/appointments" },
+        { id: 'manual-tasks', icon: <ListTodo size={20} />, label: "Mes Tâches", path: "/roles/employee/manual-tasks" },
         { id: 'renseignement', icon: <Users size={20} />, label: "Renseignement", path: "/roles/employee/renseignement" },
         { id: 'diagnostics', icon: <SquareActivity size={20} />, label: "Diagnostique", path: "/roles/employee/diagnostics" },
         { id: 'sales', icon: <ShoppingCart size={20} />, label: "Vente", path: "/roles/employee/sales" },

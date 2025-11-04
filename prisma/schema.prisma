@@ -49,6 +49,8 @@ model User {
   userActions          UserActionHistory[]
   sentMessages         Message[]              @relation("SentMessages")
   receivedMessages     Message[]              @relation("ReceivedMessages")
+  createdManualTasks   ManualTask[]           @relation("CreatedManualTasks")
+  assignedManualTasks  ManualTask[]           @relation("AssignedManualTasks")
 }
 
 model Task {
@@ -223,6 +225,7 @@ model Patient {
   payments           Payment[]
   rentals            Rental[]
   sales              Sale[]
+  manualTasks        ManualTask[]         @relation("PatientManualTasks")
 }
 
 model Company {
@@ -1125,4 +1128,34 @@ enum MessageType {
   BROADCAST
   GROUP
   SYSTEM
+}
+
+model ManualTask {
+  id               String               @id @default(cuid())
+  taskCode         String?              @unique
+  taskType         AppointmentType      // Using same enum as appointments
+  patientId        String
+  assignedToId     String
+  createdById      String
+  adminNotes       String?              // Notes added by admin
+  employeeNotes    String?              // Notes added by employee when completing
+  status           ManualTaskStatus     @default(PENDING)
+  completedAt      DateTime?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  patient          Patient              @relation("PatientManualTasks", fields: [patientId], references: [id])
+  assignedTo       User                 @relation("AssignedManualTasks", fields: [assignedToId], references: [id])
+  createdBy        User                 @relation("CreatedManualTasks", fields: [createdById], references: [id])
+
+  @@index([patientId])
+  @@index([assignedToId])
+  @@index([createdById])
+  @@index([status])
+}
+
+enum ManualTaskStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
 }

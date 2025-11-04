@@ -3,20 +3,21 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { useEffect } from 'react';
 import AdminLayout from './AdminLayout';
-import { 
-  Users, 
-  Package, 
-  Bell, 
-  ShoppingCart, 
-  Settings, 
-  ClipboardList, 
-  Activity, 
-  Home, 
+import {
+  Users,
+  Package,
+  Bell,
+  ShoppingCart,
+  Settings,
+  ClipboardList,
+  Activity,
+  Home,
   Stethoscope,
   FileText,
   AlertCircle,
   Shield,
-  Clock
+  Clock,
+  ClipboardCheck
 } from 'lucide-react';
 
 export default function AdminDashboard() {
@@ -108,15 +109,23 @@ export default function AdminDashboard() {
       path: '/roles/admin/reparateur',
       category: 'Personnel'
     },
-    { 
-      icon: <FileText size={24} />, 
-      title: 'Patients et Entreprises', 
-      description: 'Gestion des comptes patients et entreprises', 
-      bgColor: 'bg-gradient-to-br from-cyan-500 to-cyan-600', 
+    {
+      icon: <FileText size={24} />,
+      title: 'Patients et Entreprises',
+      description: 'Gestion des comptes patients et entreprises',
+      bgColor: 'bg-gradient-to-br from-cyan-500 to-cyan-600',
       path: '/roles/admin/renseignement',
       category: 'Gestion'
     },
- 
+    {
+      icon: <ClipboardCheck size={24} />,
+      title: 'Tâches Manuelles',
+      description: 'Créer et assigner des tâches aux employés',
+      bgColor: 'bg-gradient-to-br from-pink-500 to-pink-600',
+      path: '/roles/admin/manual-tasks',
+      category: 'Gestion des Tâches'
+    },
+
   ];
 
   // Get current time for professional greeting
