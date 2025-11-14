@@ -172,12 +172,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const telephone = row['Téléphone Principal'] ? normalizeTunisianPhone(row['Téléphone Principal'].toString()) : null;
         const telephoneTwo = row['Téléphone Secondaire'] ? normalizeTunisianPhone(row['Téléphone Secondaire'].toString()) : null;
 
+        // Check if patient code is provided and if it already exists
+        const patientCode = row['Code Patient'] ? String(row['Code Patient']).trim() : null;
+        if (patientCode) {
+          const existingPatientByCode = await prisma.patient.findUnique({
+            where: { patientCode }
+          });
+
+          if (existingPatientByCode) {
+            results.failed++;
+            results.errors.push(`Ligne ${i + 2}: Un patient avec ce code existe déjà (${patientCode})`);
+            continue;
+          }
+        }
+
         // Check if patient already exists by phone number
         if (telephone) {
           const existingPatient = await prisma.patient.findFirst({
             where: { telephone }
           });
-          
+
           if (existingPatient) {
             results.failed++;
             results.errors.push(`Ligne ${i + 2}: Un patient avec ce numéro de téléphone existe déjà (${fullName})`);
@@ -187,6 +201,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         // Create patient data
         const patientData: Prisma.PatientCreateInput = {
+          patientCode: row['Code Patient'] || null,
           firstName,
           lastName,
           telephone: telephone || '',

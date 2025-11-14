@@ -18,6 +18,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Create sample data for the template
     const templateData = [
       {
+        'Code Patient': 'PAT-0001',
         'Nom Complet': 'Mohamed Ben Salah',
         'Téléphone Principal': '+21698765432',
         'Téléphone Secondaire': '+21695123456',
@@ -41,6 +42,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         'Date Modification': '' // Sera automatiquement remplie
       },
       {
+        'Code Patient': 'PAT-0002',
         'Nom Complet': 'Fatma Khlifi',
         'Téléphone Principal': '25789456',
         'Téléphone Secondaire': '',
@@ -64,6 +66,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         'Date Modification': ''
       },
       {
+        'Code Patient': 'PAT-0003',
         'Nom Complet': 'Ali Trabelsi',
         'Téléphone Principal': '98765432',
         'Téléphone Secondaire': '71456789',
@@ -87,6 +90,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         'Date Modification': ''
       },
       {
+        'Code Patient': 'PAT-0004',
         'Nom Complet': 'Leila Bouazzi',
         'Téléphone Principal': '+21622334455',
         'Téléphone Secondaire': '',
@@ -110,6 +114,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         'Date Modification': ''
       },
       {
+        'Code Patient': 'PAT-0005',
         'Nom Complet': 'Youssef Mejri',
         'Téléphone Principal': '29876543',
         'Téléphone Secondaire': '+21697112233',
@@ -142,6 +147,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     
     // Set column widths
     const columnWidths = [
+      { wch: 15 }, // Code Patient
       { wch: 25 }, // Nom Complet
       { wch: 15 }, // Téléphone Principal
       { wch: 15 }, // Téléphone Secondaire
@@ -160,8 +166,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       { wch: 25 }, // Médecin Responsable
       { wch: 25 }, // Technicien Responsable
       { wch: 25 }, // Assigné à
-      { wch: 25 }, // Description Nom
-      { wch: 25 }, // Description Téléphone
+      { wch: 25 }, // Note Générale
       { wch: 15 }, // Date Création
       { wch: 15 }  // Date Modification
     ];
@@ -173,6 +178,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       { 'Instructions pour l\'import des patients': 'CHAMPS OBLIGATOIRES:' },
       { 'Instructions pour l\'import des patients': '• Nom Complet: Nom et prénom du patient' },
       { 'Instructions pour l\'import des patients': '• Téléphone Principal: Format +216XXXXXXXX ou 8 chiffres' },
+      { 'Instructions pour l\'import des patients': '' },
+      { 'Instructions pour l\'import des patients': 'CODE PATIENT:' },
+      { 'Instructions pour l\'import des patients': '• Optionnel mais recommandé pour identifier le patient' },
+      { 'Instructions pour l\'import des patients': '• Doit être unique (exemple: PAT-0001, PAT-0002, etc.)' },
+      { 'Instructions pour l\'import des patients': '• Si vide, sera généré automatiquement par le système' },
       { 'Instructions pour l\'import des patients': '' },
       { 'Instructions pour l\'import des patients': 'FORMATS SPÉCIAUX:' },
       { 'Instructions pour l\'import des patients': '• Date de Naissance: JJ/MM/AAAA ou AAAA-MM-JJ' },

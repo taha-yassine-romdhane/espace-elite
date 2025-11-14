@@ -94,17 +94,27 @@ export default async function handler(
             medicalDevice: {
               select: {
                 id: true,
+                deviceCode: true,
                 name: true,
                 type: true,
                 brand: true,
                 model: true,
                 serialNumber: true,
                 rentalPrice: true,
+                location: true,
+                stockLocationId: true,
+                stockLocation: {
+                  select: {
+                    id: true,
+                    name: true,
+                  }
+                }
               }
             },
             patient: {
               select: {
                 id: true,
+                patientCode: true,
                 firstName: true,
                 lastName: true,
                 telephone: true,
@@ -144,16 +154,6 @@ export default async function handler(
                 endDate: true,
               }
             },
-            rentalPeriods: {
-              select: {
-                id: true,
-                startDate: true,
-                endDate: true,
-                expectedAmount: true,
-                isGapPeriod: true,
-                gapReason: true,
-              }
-            },
             createdBy: {
               select: {
                 id: true,
@@ -169,18 +169,7 @@ export default async function handler(
         });
 
         // Transform the data to match the expected format in the frontend
-        const transformedRentals = rentals.map((rental: Prisma.RentalGetPayload<{
-          include: {
-            medicalDevice: { select: { id: true, name: true, type: true, brand: true, model: true, serialNumber: true, rentalPrice: true } },
-            patient: { select: { id: true, firstName: true, lastName: true, telephone: true, cnamId: true } },
-            payments: true,
-            accessories: { include: { product: { select: { id: true, name: true, type: true, brand: true, model: true } } } },
-            configuration: true,
-            gaps: { orderBy: { startDate: 'asc' } },
-            cnamBons: { select: { id: true, bonNumber: true, bonType: true, status: true, bonAmount: true, coveredMonths: true, startDate: true, endDate: true } },
-            rentalPeriods: { select: { id: true, startDate: true, endDate: true, expectedAmount: true, isGapPeriod: true, gapReason: true } }
-          }
-        }>) => {
+        const transformedRentals = rentals.map((rental: any) => {
           // Calculate rental status based on dates and payment
           const now = new Date();
           const startDate = new Date(rental.startDate);
@@ -195,9 +184,9 @@ export default async function handler(
             status = 'EXPIRING_SOON';
           }
           
-          // Calculate total amount from rental periods or payment
-          const totalAmount = rental.rentalPeriods?.length > 0
-            ? rental.rentalPeriods.reduce((sum, period) => sum + Number(period.expectedAmount), 0)
+          // Calculate total amount from payments
+          const totalAmount = rental.payments?.length > 0
+            ? rental.payments.reduce((sum, payment) => sum + Number(payment.amount), 0)
             : 0;
           
           // Extract relational data instead of metadata
@@ -215,17 +204,22 @@ export default async function handler(
             medicalDeviceId: rental.medicalDeviceId,
             medicalDevice: {
               id: rental.medicalDevice.id,
+              deviceCode: rental.medicalDevice.deviceCode || null,
               name: rental.medicalDevice.name,
               type: rental.medicalDevice.type,
               brand: rental.medicalDevice.brand || null,
               model: rental.medicalDevice.model || null,
               serialNumber: rental.medicalDevice.serialNumber || null,
               rentalPrice: rental.medicalDevice.rentalPrice,
+              location: rental.medicalDevice.location || null,
+              stockLocationId: rental.medicalDevice.stockLocationId || null,
+              stockLocation: rental.medicalDevice.stockLocation || null,
               parameters: null, // Device parameters should be handled separately
             },
             patientId: rental.patientId,
             patient: rental.patient ? {
               id: rental.patient.id,
+              patientCode: rental.patient.patientCode || null,
               firstName: rental.patient.firstName,
               lastName: rental.patient.lastName,
               telephone: rental.patient.telephone,
@@ -247,18 +241,6 @@ export default async function handler(
               endDate: bond.endDate,
               // Calculate remaining coverage
               remainingMonths: bond.endDate ? Math.max(0, Math.ceil((new Date(bond.endDate).getTime() - now.getTime()) / (30 * 24 * 60 * 60 * 1000))) : 0,
-            })) || [],
-            // Include rental periods
-            rentalPeriods: rental.rentalPeriods?.map(period => ({
-              id: period.id,
-              startDate: period.startDate,
-              endDate: period.endDate,
-              expectedAmount: period.expectedAmount,
-              isGapPeriod: period.isGapPeriod,
-              gapReason: period.gapReason,
-              // Calculate period status
-              status: now < new Date(period.startDate) ? 'UPCOMING' : 
-                     now > new Date(period.endDate) ? 'COMPLETED' : 'ACTIVE',
             })) || [],
             // Enhanced relational data (no more metadata JSON)
             configuration: rental.configuration ? {
@@ -736,32 +718,14 @@ export default async function handler(
               }
             }
             
-            // Create rental periods for enhanced tracking
-            const rentalPeriodRecords = [];
+            // Create payment due notifications if needed
             if (paymentPeriods && Array.isArray(paymentPeriods) && paymentPeriods.length > 0 && rentalRecords.length > 0) {
               for (const period of paymentPeriods) {
-                // Find corresponding payment and CNAM bond
-                const correspondingPayment = paymentRecords.find((p: any) => 
+                // Find corresponding payment
+                const correspondingPayment = paymentRecords.find((p: any) =>
                   p.periodId === period.id
                 );
-                const correspondingCnamBond = cnamBondRecords.find((b) => 
-                  b.bonNumber === period.cnamBonNumber
-                );
-                
-                const rentalPeriod = await tx.rentalPeriod.create({
-                  data: {
-                    rentalId: rentalRecords[0].id, // Link to first rental for now
-                    startDate: new Date(period.startDate),
-                    endDate: new Date(period.endDate),
-                    expectedAmount: period.amount || 0,
-                    isGapPeriod: period.isGapPeriod || false,
-                    gapReason: period.gapReason || null,
-                    notes: period.notes || null,
-                    cnamBonId: correspondingCnamBond?.id || null,
-                  }
-                });
-                rentalPeriodRecords.push(rentalPeriod);
-                
+
                 // Create payment due notification if payment is pending and not CNAM
                 if (correspondingPayment && correspondingPayment.status === 'PENDING' && correspondingPayment.method !== 'CNAM') {
                   const rental = rentalRecords[0];
@@ -800,7 +764,6 @@ export default async function handler(
               depositRecord: depositRecord,
               legacyPayment: legacyPaymentRecord,
               cnamBondRecords: cnamBondRecords,
-              rentalPeriodRecords: rentalPeriodRecords,
               enhancedData: {
                 paymentPeriods,
                 cnamBons,
@@ -824,7 +787,6 @@ export default async function handler(
               totalProducts: products.length,
               totalPaymentPeriods: result.paymentRecords.length,
               totalCnamBonds: result.cnamBondRecords.length,
-              totalRentalPeriods: result.rentalPeriodRecords.length,
               hasDeposit: !!result.depositRecord,
               hasStockReduction: result.enhancedData.hasStockReduction,
               totalAmount: totalPaymentAmount || totalPrice,

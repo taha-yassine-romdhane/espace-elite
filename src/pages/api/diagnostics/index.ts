@@ -221,7 +221,7 @@ export default async function handler(
           patientId: diagnostic.patientId, // Include patient ID for editing
           medicalDeviceId: diagnostic.medicalDeviceId, // Include device ID for editing
           result: diagnostic.result,
-          status: diagnostic.result?.status || 'PENDING',
+          status: diagnostic.status, // Use the actual diagnostic status (PENDING, COMPLETED, CANCELLED)
           patient: diagnostic.patient,
           medicalDevice: diagnostic.medicalDevice,
           // Add business outcome data

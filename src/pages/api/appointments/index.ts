@@ -54,6 +54,7 @@ async function handleGetAppointments(req: NextApiRequest, res: NextApiResponse, 
             firstName: true,
             lastName: true,
             telephone: true,
+            patientCode: true,
           },
         },
         company: {
@@ -105,8 +106,9 @@ async function handleGetAppointments(req: NextApiRequest, res: NextApiResponse, 
         id: appointment.patient.id,
         firstName: appointment.patient.firstName,
         lastName: appointment.patient.lastName,
-        nom: `${appointment.patient.firstName || ''} ${appointment.patient.lastName || ''}`.trim() || 'Patient sans nom',
+        name: `${appointment.patient.firstName || ''} ${appointment.patient.lastName || ''}`.trim() || 'Patient sans nom',
         telephone: appointment.patient.telephone,
+        patientCode: appointment.patient.patientCode,
       } : null,
 
       company: appointment.company ? {
@@ -230,6 +232,7 @@ async function handleCreateAppointment(
             firstName: true,
             lastName: true,
             telephone: true,
+            patientCode: true,
           },
         },
         company: {

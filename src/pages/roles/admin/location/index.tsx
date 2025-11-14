@@ -7,12 +7,16 @@ import {
   Package,
   Shield,
   BarChart3,
+  Stethoscope,
+  Calendar,
 } from "lucide-react";
 import ComprehensiveRentalsTable from './components/ComprehensiveRentalsTable';
 import PaymentsTable from './components/PaymentsTable';
 import RentalAccessoriesTable from './components/RentalAccessoriesTable';
 import CNAMBondsTable from './components/CNAMBondsTable';
 import RentalStatistics from './components/RentalStatistics';
+import RentalDevicesTable from './components/RentalDevicesTable';
+import { RentalWorkflowGuideDialog } from '@/components/dialogs/RentalWorkflowGuideDialog';
 
 export default function LocationPage() {
   const [activeTab, setActiveTab] = useState("rentals");
@@ -31,18 +35,26 @@ export default function LocationPage() {
               Système de gestion complet des locations et paiements
             </p>
           </div>
+          <RentalWorkflowGuideDialog />
         </div>
 
         {/* Main Tabs */}
         <Card className="shadow-lg">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-5 bg-slate-100 p-1 rounded-t-lg">
+            <TabsList className="grid w-full grid-cols-6 bg-slate-100 p-1 rounded-t-lg">
               <TabsTrigger
                 value="rentals"
                 className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
               >
                 <KeyRound className="h-4 w-4" />
                 <span className="hidden sm:inline">Locations</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="devices"
+                className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+              >
+                <Stethoscope className="h-4 w-4" />
+                <span className="hidden sm:inline">Articles</span>
               </TabsTrigger>
               <TabsTrigger
                 value="cnam"
@@ -76,6 +88,10 @@ export default function LocationPage() {
 
             <TabsContent value="rentals" className="p-6">
               <ComprehensiveRentalsTable />
+            </TabsContent>
+
+            <TabsContent value="devices" className="p-6">
+              <RentalDevicesTable />
             </TabsContent>
 
             <TabsContent value="cnam" className="p-6">

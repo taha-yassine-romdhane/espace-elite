@@ -11,7 +11,10 @@
       "mcp__postgres__execute_sql",
       "Bash(grep:*)",
       "Bash(npx tsx:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(node scripts/investigate-sales-vs-rentals.js:*)",
+      "Bash(node scripts/deep-verify-sales.js:*)",
+      "Bash(node scripts/fix-all-import-issues.js:*)"
     ],
     "deny": []
   }

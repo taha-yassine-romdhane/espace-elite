@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
-import { UserPlus, Loader2, Upload, Download, FileSpreadsheet, Shield, Users as UsersIcon, Stethoscope, Briefcase, Lock } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { UserPlus, Loader2, Upload, Download, Shield, Users as UsersIcon, Stethoscope, Briefcase, Lock } from "lucide-react";
+import { Card, CardContent } from '@/components/ui/card';
 import { Role as PrismaRole } from '@prisma/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import * as XLSX from 'xlsx';
@@ -38,7 +38,7 @@ const UsersPage = () => {
         throw new Error(errorData.error || 'Failed to fetch users');
       }
       const data = await response.json();
-      setUsers(data || []);
+      setUsers(data.users || []);
     } catch (error) {
       console.error('Error fetching users:', error);
       toast({
@@ -56,12 +56,20 @@ const UsersPage = () => {
     fetchUsers();
   }, [fetchUsers]);
 
-  const handleExport = useCallback(() => {
+  const handleExport = useCallback(async () => {
     try {
+      // Fetch default password from API
+      const passwordResponse = await fetch('/api/users/default-password');
+      if (!passwordResponse.ok) {
+        throw new Error('Failed to fetch default password');
+      }
+      const { defaultPassword } = await passwordResponse.json();
+
       const exportData = users.map(user => ({
         'Prénom': user.name.split(' ')[0],
         'Nom': user.name.split(' ').slice(1).join(' '),
         'Email': user.email,
+        'Mot de passe': defaultPassword,
         'Rôle': user.role,
         'Téléphone': user.telephone || '',
         'Adresse': user.address || '',
@@ -242,7 +250,7 @@ const UsersPage = () => {
 
         {/* Stats Cards - Compact */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          <Card className="bg-white/90 backdrop-blur border-blue-200 bg-blue-50/50">
+          <Card className="bg-white/90 backdrop-blur border-blue-200">
             <CardContent className="p-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -257,7 +265,7 @@ const UsersPage = () => {
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-white/90 backdrop-blur border-red-200 bg-red-50/50">
+          <Card className="bg-white/90 backdrop-blur border-red-20">
             <CardContent className="p-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -272,7 +280,7 @@ const UsersPage = () => {
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-white/90 backdrop-blur border-green-200 bg-green-50/50">
+          <Card className="bg-white/90 backdrop-blur border-green-200 ">
             <CardContent className="p-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -287,7 +295,7 @@ const UsersPage = () => {
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-white/90 backdrop-blur border-purple-200 bg-purple-50/50">
+          <Card className="bg-white/90 backdrop-blur border-purple-200 ">
             <CardContent className="p-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">

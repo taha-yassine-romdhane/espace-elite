@@ -43,7 +43,9 @@ export default async function handler(
             stockLocationId: device.stockLocationId,
             stockQuantity: device.stockQuantity,
             status: device.status,
-            configuration: device.configuration
+            configuration: device.configuration,
+            warranty: device.warranty,
+            maintenanceInterval: device.maintenanceInterval
           });
         }
 
@@ -79,6 +81,7 @@ export default async function handler(
           status: product.stocks[0]?.status || 'FOR_SALE'
         });
 
+      case 'PATCH':
       case 'PUT':
         try {
           console.log("Received PUT request for ID:", id);
@@ -126,6 +129,7 @@ export default async function handler(
                   technicalSpecs: data.technicalSpecs,
                   description: data.description,
                   warranty: data.warranty,
+                  maintenanceInterval: data.maintenanceInterval,
                   configuration: data.configuration,
                   status: data.status || 'ACTIVE',
                   ...(data.stockLocationId ? {
@@ -358,7 +362,7 @@ export default async function handler(
         }
 
       default:
-        res.setHeader('Allow', ['GET', 'PUT', 'DELETE']);
+        res.setHeader('Allow', ['GET', 'PUT', 'PATCH', 'DELETE']);
         return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
     }
   } catch (error) {

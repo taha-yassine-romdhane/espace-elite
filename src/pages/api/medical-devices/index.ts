@@ -139,7 +139,9 @@ export default async function handler(
             stockQuantity: device.stockQuantity || 1, // Default to 1 if not specified
             status: device.status,
             configuration: device.configuration,
-            location: device.location
+            location: device.location,
+            warranty: device.warranty,
+            maintenanceInterval: device.maintenanceInterval
           };
         });
 
@@ -178,7 +180,7 @@ export default async function handler(
             if (!deviceCode) {
               if (type === 'DIAGNOSTIC_DEVICE') {
                 // Generate APP-DIAG-01, APP-DIAG-02, etc. for diagnostic devices
-                const lastDiagDevice = await prisma.medicalDevice.findFirst({
+                const allDiagDevices = await prisma.medicalDevice.findMany({
                   where: {
                     deviceCode: {
                       startsWith: 'APP-DIAG-'
@@ -186,37 +188,43 @@ export default async function handler(
                   },
                   orderBy: {
                     deviceCode: 'desc'
-                  }
+                  },
+                  take: 1
                 });
 
                 deviceCode = 'APP-DIAG-01';
-                if (lastDiagDevice && lastDiagDevice.deviceCode) {
-                  const lastNumber = parseInt(lastDiagDevice.deviceCode.replace('APP-DIAG-', ''));
+                if (allDiagDevices.length > 0 && allDiagDevices[0].deviceCode) {
+                  const lastNumber = parseInt(allDiagDevices[0].deviceCode.replace('APP-DIAG-', ''));
                   if (!isNaN(lastNumber)) {
                     deviceCode = `APP-DIAG-${String(lastNumber + 1).padStart(2, '0')}`;
                   }
                 }
               } else {
-                // Generate APP0001, APP0002, etc. for regular medical devices
-                const lastDevice = await prisma.medicalDevice.findFirst({
+                // Generate APP-0001, APP-0002, etc. for regular medical devices
+                const allMedicalDevices = await prisma.medicalDevice.findMany({
                   where: {
-                    deviceCode: {
-                      startsWith: 'APP',
-                      not: {
-                        startsWith: 'APP-DIAG-'
-                      }
-                    }
+                    type: 'MEDICAL_DEVICE'
                   },
-                  orderBy: {
-                    deviceCode: 'desc'
+                  select: {
+                    deviceCode: true
                   }
                 });
 
-                deviceCode = 'APP0001';
-                if (lastDevice && lastDevice.deviceCode) {
-                  const lastNumber = parseInt(lastDevice.deviceCode.replace('APP', ''));
-                  if (!isNaN(lastNumber)) {
-                    deviceCode = `APP${String(lastNumber + 1).padStart(4, '0')}`;
+                // Filter devices with APP-XXXX pattern (excluding APP-DIAG-)
+                const medicalDeviceCodes = allMedicalDevices
+                  .map(d => d.deviceCode)
+                  .filter(code => code && code.match(/^APP-\d{4}$/));
+
+                deviceCode = 'APP-0001';
+                if (medicalDeviceCodes.length > 0) {
+                  // Sort and get the highest number
+                  const numbers = medicalDeviceCodes
+                    .map(code => parseInt(code!.replace('APP-', '')))
+                    .filter(num => !isNaN(num))
+                    .sort((a, b) => b - a);
+
+                  if (numbers.length > 0) {
+                    deviceCode = `APP-${String(numbers[0] + 1).padStart(4, '0')}`;
                   }
                 }
               }
@@ -240,6 +248,8 @@ export default async function handler(
                 status: 'ACTIVE',
                 stockLocationId: data.stockLocationId,
                 stockQuantity: data.stockQuantity ? parseInt(data.stockQuantity) : 1,
+                warranty: data.warranty,
+                maintenanceInterval: data.maintenanceInterval,
               },
               include: {
                 stockLocation: true
@@ -431,6 +441,8 @@ export default async function handler(
               status: updateData.status || 'ACTIVE',
               stockLocationId: updateData.stockLocationId || updateData.stockLocation,
               stockQuantity: updateData.stockQuantity ? parseInt(updateData.stockQuantity.toString()) : 1,
+              warranty: updateData.warranty,
+              maintenanceInterval: updateData.maintenanceInterval,
             },
             include: {
               stockLocation: true

@@ -6,7 +6,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     // CREATE product
     if (req.method === 'POST') {
-      const { name, model, brand, serialNumber, type, purchasePrice, sellingPrice, stockLocationId, quantity = 1 } = req.body;
+      const { name, model, brand, serialNumber, type, purchasePrice, sellingPrice, stockLocationId, quantity = 1, status, minQuantity, description } = req.body;
 
       if (!name || !model || !brand || !type) {
         return res.status(400).json({ error: 'Missing required fields' });
@@ -21,6 +21,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           type,
           purchasePrice: purchasePrice ? Number(purchasePrice) : null,
           sellingPrice: sellingPrice ? Number(sellingPrice) : null,
+          status: status || 'ACTIVE',
+          minQuantity: minQuantity ? Number(minQuantity) : undefined,
+          description: description || undefined,
           // Create the initial stock entry if stockLocationId is provided
           stocks: stockLocationId ? {
             create: {
@@ -55,9 +58,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         } : {},
         include: {
           stocks: {
-            where: {
-              status: 'FOR_SALE'
-            },
             include: {
               location: true
             }
@@ -70,7 +70,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const transformedProducts = products.map(product => {
         const primaryStock = product.stocks?.[0];
-        
+
         return {
           id: product.id,
           name: product.name,
@@ -86,7 +86,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           stockLocationId: primaryStock?.locationId || null,
           stockQuantity: product.stocks?.reduce((total, stock) => total + stock.quantity, 0) || 0,
           stocks: product.stocks, // Include full stocks array for export
-          status: product.status || 'ACTIVE' // Use the product's status field directly
+          status: product.status || 'ACTIVE', // Use the product's status field directly
+          minQuantity: product.minQuantity,
+          description: product.description
         };
       });
 
@@ -95,13 +97,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // UPDATE product
     if (req.method === 'PUT') {
-      const { id, name, model, brand, serialNumber, purchasePrice, sellingPrice, stockLocationId, quantity = 1 } = req.body;
+      const { id, name, model, brand, serialNumber, purchasePrice, sellingPrice, stockLocationId, quantity = 1, status, minQuantity, description } = req.body;
 
       if (!id || !name || !model || !brand) {
         return res.status(400).json({ error: 'Missing required fields' });
       }
 
       // First update the product
+      await prisma.product.update({
+        where: { id },
+        data: {
+          name,
+          model,
+          brand,
+          serialNumber,
+          purchasePrice: purchasePrice ? Number(purchasePrice) : null,
+          sellingPrice: sellingPrice ? Number(sellingPrice) : null,
+          status: status || undefined,
+          minQuantity: minQuantity ? Number(minQuantity) : undefined,
+          description: description || undefined
+        }
+      });
 
       // Then handle stock location update if provided
       if (stockLocationId) {

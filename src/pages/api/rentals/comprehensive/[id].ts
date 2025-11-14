@@ -61,60 +61,65 @@ export default async function handler(
         return res.status(400).json({ error: 'Missing required fields: patientId, medicalDeviceId' });
       }
 
-      // Build update data
-      const updateData: any = {
-        patient: {
-          connect: { id: patientId },
-        },
-        medicalDevice: {
-          connect: { id: medicalDeviceId },
-        },
-        startDate: startDate ? new Date(startDate) : undefined,
-        endDate: endDate ? new Date(endDate) : null,
-        status: status || 'ACTIVE',
-      };
-
-      // Update createdBy if provided
-      if (createdById) {
-        updateData.createdBy = { connect: { id: createdById } };
-      }
-
-      // Update assignedTo - support both adding and removing
-      if (assignedToId) {
-        updateData.assignedTo = { connect: { id: assignedToId } };
-      } else if (assignedToId === null) {
-        updateData.assignedTo = { disconnect: true };
-      }
-
-      // Update rental using connect pattern
-      const rental = await prisma.rental.update({
-        where: { id },
-        data: updateData,
-      });
-
-      // Update or create configuration
-      if (configuration) {
-        await prisma.rentalConfiguration.upsert({
-          where: { rentalId: id },
-          update: {
-            rentalRate: configuration.rentalRate !== undefined ? parseFloat(configuration.rentalRate) : undefined,
-            billingCycle: configuration.billingCycle || undefined,
-            isGlobalOpenEnded: configuration.isGlobalOpenEnded !== undefined ? configuration.isGlobalOpenEnded : undefined,
-            cnamEligible: configuration.cnamEligible !== undefined ? configuration.cnamEligible : undefined,
-            deliveryNotes: configuration.deliveryNotes !== undefined ? configuration.deliveryNotes : undefined,
-            internalNotes: configuration.internalNotes !== undefined ? configuration.internalNotes : undefined,
+      // Use transaction to handle rental update and placeholder period
+      await prisma.$transaction(async (tx) => {
+        // Build update data
+        const updateData: any = {
+          patient: {
+            connect: { id: patientId },
           },
-          create: {
-            rentalId: id,
-            rentalRate: configuration.rentalRate || 0,
-            billingCycle: configuration.billingCycle || 'DAILY',
-            isGlobalOpenEnded: configuration.isGlobalOpenEnded || false,
-            cnamEligible: configuration.cnamEligible || false,
-            deliveryNotes: configuration.deliveryNotes || null,
-            internalNotes: configuration.internalNotes || null,
+          medicalDevice: {
+            connect: { id: medicalDeviceId },
           },
+          startDate: startDate ? new Date(startDate) : undefined,
+          endDate: endDate ? new Date(endDate) : null,
+          status: status || 'ACTIVE',
+        };
+
+        // Update createdBy if provided
+        if (createdById) {
+          updateData.createdBy = { connect: { id: createdById } };
+        }
+
+        // Update assignedTo - support both adding and removing
+        if (assignedToId) {
+          updateData.assignedTo = { connect: { id: assignedToId } };
+        } else if (assignedToId === null) {
+          updateData.assignedTo = { disconnect: true };
+        }
+
+        // Update rental using connect pattern
+        const rental = await tx.rental.update({
+          where: { id },
+          data: updateData,
         });
-      }
+
+        // Update or create configuration
+        if (configuration) {
+          await tx.rentalConfiguration.upsert({
+            where: { rentalId: id },
+            update: {
+              rentalRate: configuration.rentalRate !== undefined ? parseFloat(configuration.rentalRate) : undefined,
+              billingCycle: configuration.billingCycle || undefined,
+              isGlobalOpenEnded: configuration.isGlobalOpenEnded !== undefined ? configuration.isGlobalOpenEnded : undefined,
+              cnamEligible: configuration.cnamEligible !== undefined ? configuration.cnamEligible : undefined,
+              deliveryNotes: configuration.deliveryNotes !== undefined ? configuration.deliveryNotes : undefined,
+              internalNotes: configuration.internalNotes !== undefined ? configuration.internalNotes : undefined,
+            },
+            create: {
+              rentalId: id,
+              rentalRate: configuration.rentalRate || 0,
+              billingCycle: configuration.billingCycle || 'DAILY',
+              isGlobalOpenEnded: configuration.isGlobalOpenEnded || false,
+              cnamEligible: configuration.cnamEligible || false,
+              deliveryNotes: configuration.deliveryNotes || null,
+              internalNotes: configuration.internalNotes || null,
+            },
+          });
+        }
+
+        return rental;
+      });
 
       // Fetch updated rental with relations
       const updatedRental = await prisma.rental.findUnique({

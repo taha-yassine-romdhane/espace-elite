@@ -102,6 +102,13 @@ export default async function handler(
     }
 
     if (req.method === 'GET') {
+      // Parse query parameters for pagination
+      const usePagination = req.query.paginate !== 'false'; // Pagination enabled by default
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 100; // Default 100 items per page
+      const includeDetails = req.query.details === 'true'; // Option to include full details
+      const skip = usePagination ? (page - 1) * limit : 0;
+
       // Role-based filtering
       const whereClause: any = {};
 
@@ -113,109 +120,140 @@ export default async function handler(
         ];
       }
       // ADMIN and DOCTOR can see all sales (no filter)
-      
-      const sales = await prisma.sale.findMany({
-        where: whereClause,
-        include: {
-          processedBy: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-            },
+
+      // Build include based on details flag
+      const includeClause = includeDetails ? {
+        processedBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
           },
-          patient: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              telephone: true,
-              patientCode: true,
-            },
+        },
+        patient: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            telephone: true,
+            patientCode: true,
           },
-          company: {
-            select: {
-              id: true,
-              companyName: true,
-              companyCode: true,
-              telephone: true,
-            },
+        },
+        company: {
+          select: {
+            id: true,
+            companyName: true,
+            companyCode: true,
+            telephone: true,
           },
-          payment: {
-            include: {
-              paymentDetails: true, // Include payment details for complex payments
-            },
+        },
+        payments: {
+          include: {
+            paymentDetails: true,
           },
-          items: {
-            include: {
-              product: true,
-              medicalDevice: true,
-              configuration: true, // Include the new configuration
-            },
+          orderBy: {
+            createdAt: 'asc' as const,
           },
-          cnamDossiers: {
-            include: {
-              patient: {
-                select: {
-                  id: true,
-                  firstName: true,
-                  lastName: true,
-                  patientCode: true,
-                },
+        },
+        items: {
+          include: {
+            product: true,
+            medicalDevice: true,
+            configuration: true,
+          },
+        },
+        cnamDossiers: {
+          include: {
+            patient: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                patientCode: true,
               },
-            },
-          },
-          cnamBons: {
-            where: {
-              category: 'ACHAT', // Only include sale CNAM bons
-            },
-            include: {
-              patient: {
-                select: {
-                  id: true,
-                  firstName: true,
-                  lastName: true,
-                  patientCode: true,
-                },
-              },
-            },
-          },
-          assignedTo: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              role: true,
             },
           },
         },
+        cnamBons: {
+          where: {
+            category: 'ACHAT' as const,
+          },
+          include: {
+            patient: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                patientCode: true,
+              },
+            },
+          },
+        },
+        assignedTo: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+          },
+        },
+      } : {
+        // Minimal data for list view
+        patient: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            patientCode: true,
+          },
+        },
+        company: {
+          select: {
+            id: true,
+            companyName: true,
+            companyCode: true,
+          },
+        },
+        processedBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+        assignedTo: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+        _count: {
+          select: {
+            payments: true,
+            items: true,
+          },
+        },
+      };
+
+      // Get total count for pagination
+      const totalCount = await prisma.sale.count({ where: whereClause });
+
+      const sales = await prisma.sale.findMany({
+        where: whereClause,
+        include: includeClause,
         orderBy: {
           saleDate: 'desc',
         },
+        ...(usePagination && {
+          skip,
+          take: limit,
+        }),
       });
 
-      // Get all payments for all sales in a single query
-      const saleIds = sales.map(sale => sale.id);
-      const allPayments = await prisma.payment.findMany({
-        where: {
-          saleId: {
-            in: saleIds
-          }
-        },
-        orderBy: {
-          paymentDate: 'asc'
-        }
-      });
-
-      // Group payments by saleId
-      const paymentsBySale = allPayments.reduce((acc, payment) => {
-        if (!acc[payment.saleId!]) {
-          acc[payment.saleId!] = [];
-        }
-        acc[payment.saleId!].push(payment);
-        return acc;
-      }, {} as Record<string, typeof allPayments>);
+      // Payments are now included via the `payments` relation in the query above
+      // No need for a separate query
 
       // Transform the data to match the expected format in the frontend
       const transformedSales = sales.map(sale => ({
@@ -275,35 +313,42 @@ export default async function handler(
         clientType: sale.patient ? 'PATIENT' : (sale.company ? 'COMPANY' : null),
         
         // Payment information - handle multiple payments
-        paymentId: sale.paymentId,
+        payments: sale.payments,
         payment: (() => {
-          const salePayments = paymentsBySale[sale.id] || [];
-          
-          // If there are multiple payments via saleId, aggregate them
+          const salePayments = sale.payments || [];
+
+          // If there are multiple payments, aggregate them
           if (salePayments.length > 0) {
-            const totalAmount = salePayments.reduce((sum, p) => sum + Number(p.amount), 0);
+            const totalPaidAmount = salePayments.reduce((sum, p) => sum + Number(p.amount), 0);
             const allPaid = salePayments.every(p => p.status === 'PAID');
             const anyPending = salePayments.some(p => p.status === 'PENDING');
             const hasPartial = salePayments.some(p => p.status === 'PARTIAL');
-            
+
             let aggregatedStatus = 'PENDING';
-            if (allPaid) {
+            if (totalPaidAmount >= Number(sale.finalAmount)) {
               aggregatedStatus = 'PAID';
-            } else if (hasPartial || (salePayments.some(p => p.status === 'PAID') && anyPending)) {
+            } else if (totalPaidAmount > 0) {
               aggregatedStatus = 'PARTIAL';
             }
-            
+
             return {
               id: salePayments[0].id,
-              amount: totalAmount,
+              paymentCode: salePayments[0].paymentCode || null,
+              amount: totalPaidAmount,
+              remainingAmount: Number(sale.finalAmount) - totalPaidAmount,
               status: aggregatedStatus,
               method: salePayments.length > 1 ? 'MIXED' : salePayments[0].method,
               paymentDetails: salePayments.map(p => ({
+                id: p.id,
+                paymentCode: p.paymentCode,
                 method: p.method,
                 amount: Number(p.amount),
                 status: p.status,
                 paymentDate: p.paymentDate,
                 referenceNumber: p.referenceNumber,
+                chequeNumber: p.chequeNumber,
+                bankName: p.bankName,
+                notes: p.notes,
                 metadata: {
                   dossierNumber: p.cnamBonNumber,
                   cnamInfo: p.cnamBonNumber ? {
@@ -315,19 +360,13 @@ export default async function handler(
               }))
             };
           }
-          
-          // Fallback to single payment
-          return sale.payment ? {
-            id: sale.payment.id,
-            amount: sale.payment.amount,
-            status: sale.payment.status,
-            method: sale.payment.method,
-            paymentDetails: sale.payment.paymentDetails || []
-          } : null;
+
+          // No payments yet
+          return null;
         })(),
         
-        // Items in the sale
-        items: sale.items.map(item => ({
+        // Items in the sale (only when details are included)
+        items: sale.items ? sale.items.map(item => ({
           id: item.id,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
@@ -340,15 +379,17 @@ export default async function handler(
           productId: item.productId,
           product: item.product ? {
             id: item.product.id,
+            productCode: item.product.productCode || null,
             name: item.product.name,
             type: item.product.type,
             brand: item.product.brand || null,
             model: item.product.model || null,
           } : null,
-          
+
           medicalDeviceId: item.medicalDeviceId,
           medicalDevice: item.medicalDevice ? {
             id: item.medicalDevice.id,
+            deviceCode: item.medicalDevice.deviceCode || null,
             name: item.medicalDevice.name,
             type: item.medicalDevice.type,
             brand: item.medicalDevice.brand || null,
@@ -376,16 +417,53 @@ export default async function handler(
           configuration: item.configuration,
           
           // Item name for display
-          name: item.product 
-            ? item.product.name 
+          name: item.product
+            ? item.product.name
             : (item.medicalDevice ? item.medicalDevice.name : 'Article inconnu'),
-        })),
-        
+        })) : [],
+
+        // Use _count for items count when items not included
+        itemsCount: includeDetails ? undefined : (sale as any)._count?.items,
+        paymentsCount: includeDetails ? undefined : (sale as any)._count?.payments,
+
+        // CNAM Bons information (only when details included)
+        cnamBons: sale.cnamBons?.map(bon => ({
+          id: bon.id,
+          bonNumber: bon.bonNumber,
+          bonType: bon.bonType,
+          status: bon.status,
+          bonAmount: bon.bonAmount,
+          devicePrice: bon.devicePrice,
+          complementAmount: bon.complementAmount,
+          currentStep: bon.currentStep,
+          dossierNumber: bon.dossierNumber,
+          submissionDate: bon.submissionDate,
+          approvalDate: bon.approvalDate,
+          patient: bon.patient ? {
+            id: bon.patient.id,
+            patientCode: bon.patient.patientCode,
+            firstName: bon.patient.firstName,
+            lastName: bon.patient.lastName,
+            fullName: `${bon.patient.firstName} ${bon.patient.lastName}`,
+          } : null,
+        })) || [],
+
         createdAt: sale.createdAt,
         updatedAt: sale.updatedAt,
       }));
 
-      return res.status(200).json({ sales: transformedSales });
+      return res.status(200).json({
+        sales: transformedSales,
+        ...(usePagination && {
+          pagination: {
+            page,
+            limit,
+            total: totalCount,
+            totalPages: Math.ceil(totalCount / limit),
+            hasMore: skip + sales.length < totalCount,
+          },
+        }),
+      });
     }
 
     if (req.method === 'POST') {
@@ -443,9 +521,7 @@ export default async function handler(
       try {
         // Start a transaction to ensure all operations succeed or fail together
         const result = await prisma.$transaction(async (tx) => {
-          // 1. Create the payment if provided
-          let paymentId = null;
-          
+          // 1. Parse payment data if provided (we'll create payments after the sale is created)
           // Handle the new payment structure from the stepper
           // The stepper sends payment data in saleData.payment as an array
           let payments: Array<{
@@ -473,64 +549,6 @@ export default async function handler(
           if (saleData.payment) {
             // The stepper now sends an array of payments directly
             payments = Array.isArray(saleData.payment) ? saleData.payment : [saleData.payment];
-            
-            if (payments.length > 0) {
-              // Calculate total payment amount
-              const totalPaymentAmount = payments.reduce((sum: number, p) => sum + (Number(p.amount) || 0), 0);
-              
-              // Get the primary payment (first one or the one marked as 'principale')
-              const primaryPayment = payments.find(p => p.classification === 'principale') || payments[0];
-              
-              // Create the main payment record
-              const paymentCode = await generatePaymentCode(tx as any);
-              const payment = await tx.payment.create({
-                data: {
-                  paymentCode: paymentCode,
-                  source: 'SALE', // Payment source for sales
-                  amount: totalPaymentAmount,
-                  method: mapPaymentMethod(primaryPayment.type || 'cash'),
-                  status: totalPaymentAmount >= Number(saleData.finalAmount) ? PaymentStatus.PAID : PaymentStatus.PARTIAL,
-                  // Store primary payment details in main fields
-                  chequeNumber: primaryPayment.type === 'cheque' ? primaryPayment.chequeNumber || null : null,
-                  bankName: primaryPayment.type === 'cheque' ? primaryPayment.bank || null : null,
-                  referenceNumber: ['virement', 'mandat'].includes(primaryPayment.type || '') ? primaryPayment.reference || null : null,
-                  cnamCardNumber: primaryPayment.type === 'cnam' ? primaryPayment.dossierNumber || null : null,
-                  notes: primaryPayment.notes || null,
-                  paymentDate: primaryPayment.paymentDate ? new Date(primaryPayment.paymentDate) : new Date(),
-                  dueDate: primaryPayment.dueDate ? new Date(primaryPayment.dueDate) : null,
-                  // Create payment details for each payment method
-                  paymentDetails: {
-                    create: payments.map(p => ({
-                      method: p.type || 'cash',
-                      amount: Number(p.amount),
-                      classification: p.classification || 'principale',
-                      reference: createPaymentReference(p),
-                      metadata: {
-                        ...p,
-                        // Store CNAM info if present
-                        ...(p.cnamInfo && { cnamInfo: p.cnamInfo }),
-                        // Store payment-specific details
-                        ...(p.type === 'cheque' && {
-                          chequeNumber: p.chequeNumber,
-                          bank: p.bank
-                        }),
-                        ...(p.type === 'virement' && {
-                          reference: p.reference,
-                          bank: p.bank
-                        }),
-                        ...(p.type === 'cnam' && {
-                          bonType: p.cnamInfo?.bonType,
-                          dossierNumber: p.dossierNumber,
-                          currentStep: p.cnamInfo?.currentStep,
-                          status: p.cnamInfo?.status
-                        })
-                      }
-                    }))
-                  }
-                }
-              });
-              paymentId = payment.id;
-            }
           }
           
           // Store CNAM payment data for later processing (after sale creation)
@@ -546,7 +564,7 @@ export default async function handler(
             notes: string | null;
           }> = [];
           
-          if (saleData.patientId && paymentId) {
+          if (saleData.patientId && payments.length > 0) {
             const cnamPayments = payments.filter(p => p.type === 'cnam' && p.cnamInfo);
             
             for (const cnamPayment of cnamPayments) {
@@ -624,7 +642,6 @@ export default async function handler(
               assignedToId: saleData.assignedToId || null, // Employee assigned to manage this sale
               patientId: saleData.patientId || null,
               companyId: saleData.companyId || null,
-              paymentId: paymentId,
               // Items will be created in the next step
             }
           });
@@ -737,10 +754,16 @@ export default async function handler(
             }
             
             if (item.medicalDeviceId) {
+              // Find the "Vendu" stock location
+              const venduLocation = await tx.stockLocation.findFirst({
+                where: { name: 'Vendu' }
+              });
+
               await tx.medicalDevice.update({
                 where: { id: item.medicalDeviceId },
                 data: {
-                  status: 'SOLD'
+                  status: 'SOLD',
+                  stockLocationId: venduLocation?.id || null
                   // Note: Patient/company association is through the Sale record, not directly on the device
                 }
               });
@@ -838,9 +861,67 @@ export default async function handler(
               },
             });
           }
-          
-          // Return the created sale with its items
-          return { sale, saleItems };
+
+          // 6. Create payments linked to the sale via saleId
+          const createdPayments = [];
+          if (payments.length > 0) {
+            for (const paymentData of payments) {
+              const paymentCode = await generatePaymentCode(tx as any);
+              const payment = await tx.payment.create({
+                data: {
+                  paymentCode: paymentCode,
+                  source: 'SALE', // Payment source for sales
+                  saleId: sale.id, // Link payment to sale via saleId
+                  patientId: sale.patientId,
+                  companyId: sale.companyId,
+                  amount: Number(paymentData.amount),
+                  method: mapPaymentMethod(paymentData.type || 'cash'),
+                  status: PaymentStatus.PAID,
+                  // Store payment details in main fields
+                  chequeNumber: paymentData.type === 'cheque' ? paymentData.chequeNumber || null : null,
+                  bankName: paymentData.type === 'cheque' ? paymentData.bank || null : null,
+                  referenceNumber: ['virement', 'mandat'].includes(paymentData.type || '') ? paymentData.reference || null : null,
+                  cnamCardNumber: paymentData.type === 'cnam' ? paymentData.dossierNumber || null : null,
+                  notes: paymentData.notes || null,
+                  paymentDate: paymentData.paymentDate ? new Date(paymentData.paymentDate) : new Date(),
+                  dueDate: paymentData.dueDate ? new Date(paymentData.dueDate) : null,
+                  // Create payment details
+                  paymentDetails: {
+                    create: {
+                      method: paymentData.type || 'cash',
+                      amount: Number(paymentData.amount),
+                      classification: paymentData.classification || 'principale',
+                      reference: createPaymentReference(paymentData),
+                      metadata: {
+                        ...paymentData,
+                        // Store CNAM info if present
+                        ...(paymentData.cnamInfo && { cnamInfo: paymentData.cnamInfo }),
+                        // Store payment-specific details
+                        ...(paymentData.type === 'cheque' && {
+                          chequeNumber: paymentData.chequeNumber,
+                          bank: paymentData.bank
+                        }),
+                        ...(paymentData.type === 'virement' && {
+                          reference: paymentData.reference,
+                          bank: paymentData.bank
+                        }),
+                        ...(paymentData.type === 'cnam' && {
+                          bonType: paymentData.cnamInfo?.bonType,
+                          dossierNumber: paymentData.dossierNumber,
+                          currentStep: paymentData.cnamInfo?.currentStep,
+                          status: paymentData.cnamInfo?.status
+                        })
+                      }
+                    }
+                  }
+                }
+              });
+              createdPayments.push(payment);
+            }
+          }
+
+          // Return the created sale with its items and payments
+          return { sale, saleItems, createdPayments };
         });
 
         // Fetch the complete sale with all relations
@@ -880,9 +961,12 @@ export default async function handler(
                 telephone: true
               }
             },
-            payment: {
+            payments: {
               include: {
                 paymentDetails: true
+              },
+              orderBy: {
+                createdAt: 'asc'
               }
             },
             items: {

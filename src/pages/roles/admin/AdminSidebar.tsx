@@ -5,10 +5,7 @@ import { signOut } from 'next-auth/react';
 import {
     LayoutDashboard,
     BriefcaseMedical,
-    Settings,
-    HelpCircle,
     Power,
-    UserCog,
     ChevronLeft,
     ChevronRight,
     ContactRound,
@@ -23,7 +20,6 @@ import {
     GripVertical,
     MapPin,
     BarChart3,
-    FileSpreadsheet,
     MessageCircle,
     KeyRound,
     Shield,
@@ -31,6 +27,7 @@ import {
     Stethoscope,
     ShoppingCart,
     ListTodo,
+    Settings,
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
@@ -52,7 +49,7 @@ const Sidebar: React.FC = () => {
 
     // Default menu items with unique IDs - memoized to prevent recreation
     const defaultMenuItems: MenuItem[] = useMemo(() => [
-        { id: 'dashboard', icon: <LayoutDashboard size={20} />, label: "Accueil", path: "/roles/admin/dashboard" },
+        { id: 'dashboard', icon: <LayoutDashboard size={20} />, label: "Tableau de Bord", path: "/roles/admin/dashboard" },
         { id: 'analytics', icon: <BarChart3 size={20} />, label: "Analyses & Rapports", path: "/roles/admin/analytics" },
         { id: 'appointments', icon: <Calendar size={20} />, label: "Rendez-vous", path: "/roles/admin/appointments" },
         { id: 'diagnostics', icon: <Stethoscope size={20} />, label: "Polygraphies", path: "/roles/admin/diagnostics" },
@@ -60,18 +57,15 @@ const Sidebar: React.FC = () => {
         { id: 'rentals', icon: <KeyRound size={20} />, label: "Gestion des Locations", path: "/roles/admin/location" },
         { id: 'manual-tasks', icon: <ListTodo size={20} />, label: "Tâches Manuelles", path: "/roles/admin/manual-tasks" },
         { id: 'calendar', icon: <CalendarCheck size={20} />, label: "Calendrier & Tâches", path: "/roles/admin/calendar" },
-        { id: 'notifications', icon: <ClipboardCheck size={20} />, label: "Gestion des Notifications", path: "/roles/admin/notifications" },
+        { id: 'notifications', icon: <ClipboardCheck size={20} />, label: "Notifications", path: "/roles/admin/notifications" },
         { id: 'chat', icon: <MessageCircle size={20} />, label: "Messages", path: "/roles/admin/chat" },
         { id: 'users', icon: <ContactRound size={20} />, label: "Utilisateurs", path: "/roles/admin/users" },
-        { id: 'espace-technicien', icon: <UserCog size={20} />, label: "Espace Technicien", path: "/roles/admin/espace-technicien" },
         { id: 'renseignement', icon: <Users size={20} />, label: "Renseignement", path: "/roles/admin/renseignement" },
         { id: 'map', icon: <MapPin size={20} />, label: "Carte des Patients", path: "/roles/admin/map" },
-        { id: 'appareils', icon: <BriefcaseMedical size={20} />, label: "Gestion des Produits", path: "/roles/admin/appareils" },
+        { id: 'appareils', icon: <BriefcaseMedical size={20} />, label: "Gestion des Appareils", path: "/roles/admin/appareils" },
         { id: 'reparateur', icon: <Wrench size={20} />, label: "Gestion des Réparateurs", path: "/roles/admin/reparateur" },
         { id: 'stock', icon: <Database size={20} />, label: "Gestion des Stocks", path: "/roles/admin/stock" },
         { id: 'cnam-management', icon: <Shield size={20} />, label: "Gestion CNAM", path: "/roles/admin/cnam-management" },
-        { id: 'excel-import', icon: <FileSpreadsheet size={20} />, label: "Import/Export Excel", path: "/roles/admin/excel-import" },
-        { id: 'help', icon: <HelpCircle size={20} />, label: "Aide et Support", path: "/roles/admin/help" },
         { id: 'settings', icon: <Settings size={20} />, label: "Paramètres", path: "/roles/admin/settings" },
     ], []);
 

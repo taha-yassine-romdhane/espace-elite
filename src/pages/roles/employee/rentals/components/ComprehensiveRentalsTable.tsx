@@ -522,7 +522,9 @@ function ViewRowComponent({ rental, onEdit, onDelete, getStatusBadge }: any) {
         <div className="text-xs text-slate-700">
           <div>Début: {format(new Date(rental.startDate), 'dd/MM/yyyy', { locale: fr })}</div>
           <div className="text-slate-500">
-            Fin: {rental.endDate ? format(new Date(rental.endDate), 'dd/MM/yyyy', { locale: fr }) : 'Ouvert'}
+            Fin: {rental.endDate ? (
+              new Date(rental.endDate).getFullYear() >= 2099 ? 'Ouvert' : format(new Date(rental.endDate), 'dd/MM/yyyy', { locale: fr })
+            ) : 'Ouvert'}
           </div>
         </div>
       </td>

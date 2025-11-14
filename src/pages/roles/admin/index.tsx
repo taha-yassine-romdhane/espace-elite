@@ -6,18 +6,25 @@ import AdminLayout from './AdminLayout';
 import {
   Users,
   Package,
-  Bell,
   ShoppingCart,
-  Settings,
-  ClipboardList,
   Activity,
-  Home,
   Stethoscope,
   FileText,
-  AlertCircle,
   Shield,
   Clock,
-  ClipboardCheck
+  Calendar,
+  CalendarCheck,
+  BarChart3,
+  KeyRound,
+  Home,
+  ClipboardCheck,
+  MessageCircle,
+  MapPin,
+  Wrench,
+  Database,
+  FileSpreadsheet,
+  Settings,
+  ListTodo
 } from 'lucide-react';
 
 export default function AdminDashboard() {
@@ -45,87 +52,158 @@ export default function AdminDashboard() {
   }
 
   const quickLinks = [
-    { 
-      icon: <Home size={24} />, 
-      title: 'Tableau de Bord Principal', 
-      description: 'Accès au tableau de bord principal', 
-      bgColor: 'bg-gradient-to-br from-blue-500 to-blue-600', 
+    {
+      icon: <Home size={24} />,
+      title: 'Tableau de Bord',
+      description: 'Vue d\'ensemble et statistiques principales',
+      bgColor: 'bg-gradient-to-br from-blue-500 to-blue-600',
       path: '/roles/admin/dashboard',
       category: 'Tableau de Bord'
     },
-    { 
-      icon: <Users size={24} />, 
-      title: 'Techniciens & Utilisateurs', 
-      description: 'Gestion des comptes techniciens et utilisateurs', 
-      bgColor: 'bg-gradient-to-br from-blue-500 to-blue-600', 
-      path: '/roles/admin/users',
-      category: 'Gestion Utilisateurs'
+    {
+      icon: <BarChart3 size={24} />,
+      title: 'Analyses & Rapports',
+      description: 'Statistiques et analyses détaillées',
+      bgColor: 'bg-gradient-to-br from-violet-500 to-violet-600',
+      path: '/roles/admin/analytics',
+      category: 'Analyses'
     },
-    { 
-      icon: <Package size={24} />, 
-      title: 'Inventaire Médical', 
-      description: 'Stocks équipements oxygénothérapie', 
-      bgColor: 'bg-gradient-to-br from-emerald-500 to-emerald-600', 
-      path: '/roles/admin/stock',
-      category: 'Inventaire'
+    {
+      icon: <Calendar size={24} />,
+      title: 'Rendez-vous',
+      description: 'Gestion des rendez-vous patients',
+      bgColor: 'bg-gradient-to-br from-rose-500 to-rose-600',
+      path: '/roles/admin/appointments',
+      category: 'Planning'
     },
-    { 
-      icon: <ShoppingCart size={24} />, 
-      title: 'Équipements oxygénothérapie', 
-      description: 'Catalogue dispositifs médicaux', 
-      bgColor: 'bg-gradient-to-br from-purple-500 to-purple-600', 
-      path: '/roles/admin/appareils',
-      category: 'Équipements'
+    {
+      icon: <Stethoscope size={24} />,
+      title: 'Polygraphies',
+      description: 'Gestion des examens de polygraphie',
+      bgColor: 'bg-gradient-to-br from-teal-500 to-teal-600',
+      path: '/roles/admin/diagnostics',
+      category: 'Examens'
     },
-    { 
-      icon: <Bell size={24} />, 
-      title: 'Alertes Système', 
-      description: 'Notifications critiques et maintenance', 
-      bgColor: 'bg-gradient-to-br from-amber-500 to-orange-500', 
+    {
+      icon: <ShoppingCart size={24} />,
+      title: 'Gestion des Ventes',
+      description: 'Gestion complète des ventes',
+      bgColor: 'bg-gradient-to-br from-green-500 to-green-600',
+      path: '/roles/admin/sales',
+      category: 'Ventes'
+    },
+    {
+      icon: <KeyRound size={24} />,
+      title: 'Gestion des Locations',
+      description: 'Gestion des équipements en location',
+      bgColor: 'bg-gradient-to-br from-orange-500 to-orange-600',
+      path: '/roles/admin/location',
+      category: 'Locations'
+    },
+    {
+      icon: <ListTodo size={24} />,
+      title: 'Tâches Manuelles',
+      description: 'Créer et assigner des tâches',
+      bgColor: 'bg-gradient-to-br from-pink-500 to-pink-600',
+      path: '/roles/admin/manual-tasks',
+      category: 'Gestion des Tâches'
+    },
+    {
+      icon: <CalendarCheck size={24} />,
+      title: 'Calendrier & Tâches',
+      description: 'Vue calendrier et gestion des tâches',
+      bgColor: 'bg-gradient-to-br from-indigo-500 to-indigo-600',
+      path: '/roles/admin/calendar',
+      category: 'Planification'
+    },
+    {
+      icon: <ClipboardCheck size={24} />,
+      title: 'Notifications',
+      description: 'Notifications système et alertes',
+      bgColor: 'bg-gradient-to-br from-amber-500 to-orange-500',
       path: '/roles/admin/notifications',
       category: 'Surveillance'
     },
-    { 
-      icon: <Settings size={24} />, 
-      title: 'Configuration et paramètres', 
-      description: 'Paramètres système et sécurité', 
-      bgColor: 'bg-gradient-to-br from-slate-600 to-slate-700', 
-      path: '/roles/admin/settings',
-      category: 'Administration'
+    {
+      icon: <MessageCircle size={24} />,
+      title: 'Messages',
+      description: 'Messagerie et communication interne',
+      bgColor: 'bg-gradient-to-br from-sky-500 to-sky-600',
+      path: '/roles/admin/chat',
+      category: 'Communication'
     },
-    { 
-      icon: <ClipboardList size={24} />, 
-      title: 'Planification et tâches', 
-      description: 'Gestion des interventions et tâches', 
-      bgColor: 'bg-gradient-to-br from-indigo-500 to-indigo-600', 
-      path: '/roles/admin/tasks',
-      category: 'Planification'
-    },
-    { 
-      icon: <Stethoscope size={24} />, 
-      title: 'Reparateurs', 
-      description: 'Équipe technique et réparateurs', 
-      bgColor: 'bg-gradient-to-br from-teal-500 to-teal-600', 
-      path: '/roles/admin/reparateur',
-      category: 'Personnel'
+    {
+      icon: <Users size={24} />,
+      title: 'Utilisateurs',
+      description: 'Gestion des comptes utilisateurs',
+      bgColor: 'bg-gradient-to-br from-blue-500 to-blue-600',
+      path: '/roles/admin/users',
+      category: 'Gestion Utilisateurs'
     },
     {
       icon: <FileText size={24} />,
-      title: 'Patients et Entreprises',
-      description: 'Gestion des comptes patients et entreprises',
+      title: 'Renseignement',
+      description: 'Gestion des patients et entreprises',
       bgColor: 'bg-gradient-to-br from-cyan-500 to-cyan-600',
       path: '/roles/admin/renseignement',
       category: 'Gestion'
     },
     {
-      icon: <ClipboardCheck size={24} />,
-      title: 'Tâches Manuelles',
-      description: 'Créer et assigner des tâches aux employés',
-      bgColor: 'bg-gradient-to-br from-pink-500 to-pink-600',
-      path: '/roles/admin/manual-tasks',
-      category: 'Gestion des Tâches'
+      icon: <MapPin size={24} />,
+      title: 'Carte des Patients',
+      description: 'Localisation géographique des patients',
+      bgColor: 'bg-gradient-to-br from-red-500 to-red-600',
+      path: '/roles/admin/map',
+      category: 'Géolocalisation'
     },
-
+    {
+      icon: <Package size={24} />,
+      title: 'Gestion des Appareils',
+      description: 'Catalogue des équipements médicaux',
+      bgColor: 'bg-gradient-to-br from-emerald-500 to-emerald-600',
+      path: '/roles/admin/appareils',
+      category: 'Équipements'
+    },
+    {
+      icon: <Wrench size={24} />,
+      title: 'Gestion des Réparateurs',
+      description: 'Équipe technique et réparateurs',
+      bgColor: 'bg-gradient-to-br from-yellow-500 to-yellow-600',
+      path: '/roles/admin/reparateur',
+      category: 'Personnel'
+    },
+    {
+      icon: <Database size={24} />,
+      title: 'Gestion des Stocks',
+      description: 'Inventaire et stocks des équipements',
+      bgColor: 'bg-gradient-to-br from-lime-500 to-lime-600',
+      path: '/roles/admin/stock',
+      category: 'Inventaire'
+    },
+    {
+      icon: <Shield size={24} />,
+      title: 'Gestion CNAM',
+      description: 'Gestion des dossiers CNAM',
+      bgColor: 'bg-gradient-to-br from-fuchsia-500 to-fuchsia-600',
+      path: '/roles/admin/cnam-management',
+      category: 'CNAM'
+    },
+    {
+      icon: <FileSpreadsheet size={24} />,
+      title: 'Import/Export Excel',
+      description: 'Importation et exportation de données',
+      bgColor: 'bg-gradient-to-br from-gray-500 to-gray-600',
+      path: '/roles/admin/excel-import',
+      category: 'Données'
+    },
+    {
+      icon: <Settings size={24} />,
+      title: 'Paramètres',
+      description: 'Configuration système',
+      bgColor: 'bg-gradient-to-br from-slate-600 to-slate-700',
+      path: '/roles/admin/settings',
+      category: 'Administration'
+    }
   ];
 
   // Get current time for professional greeting

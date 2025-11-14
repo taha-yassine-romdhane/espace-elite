@@ -34,14 +34,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               },
             },
           },
-          rentalPeriods: {
-            select: {
-              id: true,
-              startDate: true,
-              endDate: true,
-              expectedAmount: true,
-            },
-          },
           payments: {
             select: {
               id: true,
@@ -72,6 +64,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         bonNumber,
         bonType,
         status,
+        category,
         currentStep,
         dossierNumber,
         submissionDate,
@@ -91,13 +84,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (bonNumber !== undefined) updateData.bonNumber = bonNumber;
       if (bonType !== undefined) updateData.bonType = bonType;
       if (status !== undefined) updateData.status = status;
+      if (category !== undefined) updateData.category = category;
       if (currentStep !== undefined) updateData.currentStep = parseInt(currentStep);
       if (dossierNumber !== undefined) updateData.dossierNumber = dossierNumber;
       if (submissionDate !== undefined) updateData.submissionDate = submissionDate ? new Date(submissionDate) : null;
       if (approvalDate !== undefined) updateData.approvalDate = approvalDate ? new Date(approvalDate) : null;
       if (startDate !== undefined) updateData.startDate = startDate ? new Date(startDate) : null;
       if (endDate !== undefined) updateData.endDate = endDate ? new Date(endDate) : null;
-      if (renewalReminderDays !== undefined) updateData.renewalReminderDays = renewalReminderDays;
+      if (renewalReminderDays !== undefined) updateData.renewalReminderDays = parseInt(renewalReminderDays);
       if (notes !== undefined) updateData.notes = notes;
 
       // If any pricing fields change, recalculate all amounts
@@ -150,12 +144,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === 'DELETE') {
     try {
-      // Check if bond has related payments or periods
+      // Check if bond has related payments
       const bond = await prisma.cNAMBonRental.findUnique({
         where: { id },
         include: {
           payments: true,
-          rentalPeriods: true,
         },
       });
 
@@ -163,9 +156,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(404).json({ error: 'CNAM bond not found' });
       }
 
-      if (bond.payments.length > 0 || bond.rentalPeriods.length > 0) {
+      if (bond.payments.length > 0) {
         return res.status(400).json({
-          error: 'Cannot delete CNAM bond with existing payments or rental periods. Please remove them first.',
+          error: 'Cannot delete CNAM bond with existing payments. Please remove them first.',
         });
       }
 

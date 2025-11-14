@@ -53,6 +53,7 @@ interface ComprehensiveTask {
     name: string;
     type: 'patient' | 'company';
     telephone?: string;
+    patientCode?: string;
   };
   
   relatedData?: {
@@ -531,10 +532,14 @@ export default function ModernTasksPage() {
               <div
                 key={dayIndex}
                 className={cn(
-                  "min-h-[120px] p-2 border-b border-r",
+                  "min-h-[120px] p-2 border-b border-r cursor-pointer hover:bg-gray-50 transition-colors",
                   !isCurrentMonth && "bg-gray-50 text-gray-400",
-                  isToday && isCurrentMonth && "bg-blue-50"
+                  isToday && isCurrentMonth && "bg-blue-50 hover:bg-blue-100"
                 )}
+                onClick={() => {
+                  setSelectedDate(day);
+                  setViewMode('day');
+                }}
               >
                 <div className={cn(
                   "text-sm font-medium mb-2",
@@ -542,18 +547,112 @@ export default function ModernTasksPage() {
                 )}>
                   {format(day, 'd')}
                 </div>
-                
-                <div className="space-y-1">
+
+                <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
                   {dayTasks.slice(0, 3).map(task => renderTaskCard(task, true))}
                   {dayTasks.length > 3 && (
-                    <div className="text-xs text-gray-500 p-1">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedDate(day);
+                        setViewMode('day');
+                      }}
+                      className="w-full text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 p-1 rounded transition-colors"
+                    >
                       +{dayTasks.length - 3} autres
-                    </div>
+                    </button>
                   )}
                 </div>
               </div>
             );
           })}
+        </div>
+      </div>
+    );
+  };
+
+  const renderWeekView = () => {
+    const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
+    const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+
+    return (
+      <div className="bg-white rounded-lg border overflow-hidden">
+        <div className="grid grid-cols-7 gap-0">
+          {weekDays.map((day, index) => {
+            const dayTasks = tasks.filter(task => {
+              const taskDate = new Date(task.dueDate || task.startDate);
+              return taskDate.toDateString() === day.toDateString();
+            });
+
+            const isToday = day.toDateString() === new Date().toDateString();
+
+            return (
+              <div
+                key={index}
+                className={cn(
+                  "min-h-[500px] p-3 border-r",
+                  isToday && "bg-blue-50"
+                )}
+              >
+                <div className={cn(
+                  "text-center mb-3 pb-2 border-b",
+                  isToday && "text-blue-600 font-bold border-blue-300"
+                )}>
+                  <div className="text-sm uppercase">{format(day, 'EEE', { locale: fr })}</div>
+                  <div className="text-2xl font-bold">{format(day, 'd')}</div>
+                  <div className="text-xs text-gray-500">{format(day, 'MMM', { locale: fr })}</div>
+                </div>
+
+                <div className="space-y-2">
+                  {dayTasks.slice(0, 5).map(task => renderTaskCard(task, true))}
+                  {dayTasks.length > 5 && (
+                    <button
+                      onClick={() => {
+                        setSelectedDate(day);
+                        setViewMode('day');
+                      }}
+                      className="w-full text-xs text-blue-600 hover:text-blue-800 p-2 hover:bg-blue-50 rounded transition-colors"
+                    >
+                      +{dayTasks.length - 5} autres tâches
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  const renderDayView = () => {
+    const dayTasks = tasks.filter(task => {
+      const taskDate = new Date(task.dueDate || task.startDate);
+      return taskDate.toDateString() === selectedDate.toDateString();
+    });
+
+    return (
+      <div className="bg-white rounded-lg border overflow-hidden">
+        <div className="p-4 border-b bg-gradient-to-r from-blue-50 to-indigo-50">
+          <h3 className="text-xl font-bold text-gray-900">
+            {format(selectedDate, 'EEEE d MMMM yyyy', { locale: fr })}
+          </h3>
+          <p className="text-sm text-gray-600 mt-1">
+            {dayTasks.length} tâche{dayTasks.length !== 1 ? 's' : ''} pour cette journée
+          </p>
+        </div>
+
+        <div className="p-6">
+          {dayTasks.length === 0 ? (
+            <div className="text-center py-12">
+              <Calendar className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500">Aucune tâche pour cette journée</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {dayTasks.map(task => renderTaskCard(task, false))}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -717,19 +816,31 @@ export default function ModernTasksPage() {
                 <Separator />
                 <div>
                   <h4 className="text-sm font-medium text-gray-500 mb-2">Client</h4>
-                  <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                  <div
+                    className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-blue-50 transition-colors group"
+                    onClick={() => {
+                      if (selectedTask.client?.type === 'patient') {
+                        router.push(`/roles/admin/renseignement/patient/${selectedTask.client.id}`);
+                      }
+                    }}
+                  >
                     <Avatar className="h-10 w-10">
-                      <AvatarFallback className="bg-gray-200">
+                      <AvatarFallback className="bg-gray-200 group-hover:bg-blue-100 transition-colors">
                         {getClientInitials(selectedTask.client.name)}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1">
-                      <p className="font-medium text-gray-900">
+                      <p className="font-medium text-blue-600 group-hover:text-blue-800 group-hover:underline transition-colors">
                         {selectedTask.client.name}
                         {selectedTask.client.type === 'company' && (
                           <Building2 className="h-4 w-4 text-gray-400 inline-block ml-2" />
                         )}
                       </p>
+                      {selectedTask.client.patientCode && (
+                        <p className="text-xs text-slate-500 font-mono mt-0.5">
+                          {selectedTask.client.patientCode}
+                        </p>
+                      )}
                       {selectedTask.client.telephone && (
                         <div className="flex items-center gap-2 mt-1">
                           <Phone className="h-3 w-3 text-gray-400" />
@@ -737,6 +848,9 @@ export default function ModernTasksPage() {
                         </div>
                       )}
                     </div>
+                    {selectedTask.client.type === 'patient' && (
+                      <ExternalLink className="h-4 w-4 text-gray-400 group-hover:text-blue-600 transition-colors" />
+                    )}
                   </div>
                 </div>
               </>
@@ -885,7 +999,9 @@ export default function ModernTasksPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tous les utilisateurs</SelectItem>
-              {usersData?.users?.map((user: any) => (
+              {usersData?.users
+                ?.filter((user: any) => user.role === 'ADMIN' || user.role === 'EMPLOYEE')
+                .map((user: any) => (
                 <SelectItem key={user.id} value={user.id}>
                   <div className="flex items-center gap-2">
                     <Avatar className="h-5 w-5">
@@ -989,6 +1105,8 @@ export default function ModernTasksPage() {
 
       {/* Content */}
       {viewMode === 'month' && renderMonthView()}
+      {viewMode === 'week' && renderWeekView()}
+      {viewMode === 'day' && renderDayView()}
       {viewMode === 'list' && renderListView()}
       
       {tasks.length === 0 && (

@@ -136,7 +136,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         };
       }));
 
-      return res.status(200).json(transformedUsers);
+      return res.status(200).json({ users: transformedUsers });
     } catch (error) {
       console.error('Error fetching users:', error);
       return res.status(500).json({ error: 'Internal server error while fetching users.' });
@@ -194,17 +194,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
 
         // Step 1: Handle optional relations - Set foreign keys to null
-        
-        // Update patients where user is technician (technicianId is optional)
-        await tx.patient.updateMany({ 
-          where: { technicianId: id }, 
-          data: { technicianId: null } 
+
+        // Update patients where user is doctor (doctorId is optional)
+        await tx.patient.updateMany({
+          where: { doctorId: id },
+          data: { doctorId: null }
         });
-        
+
+        // Update patients where user is technician (technicianId is optional)
+        await tx.patient.updateMany({
+          where: { technicianId: id },
+          data: { technicianId: null }
+        });
+
         // Update companies where user is technician (technicianId is optional)
-        await tx.company.updateMany({ 
-          where: { technicianId: id }, 
-          data: { technicianId: null } 
+        await tx.company.updateMany({
+          where: { technicianId: id },
+          data: { technicianId: null }
         });
         
         // Update tasks where user completed them
