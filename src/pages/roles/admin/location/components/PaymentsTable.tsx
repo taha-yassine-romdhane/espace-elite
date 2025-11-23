@@ -50,7 +50,7 @@ interface Payment {
     rentalCode: string;
     patient?: { id: string; firstName: string; lastName: string; patientCode?: string };
     company?: { companyName: string };
-    medicalDevice?: { id: string; name: string; deviceCode: string };
+    medicalDevice?: { id: string; name: string; deviceCode: string; serialNumber?: string };
   };
 }
 
@@ -957,6 +957,11 @@ export default function PaymentsTable() {
                     >
                       {payment.rental?.medicalDevice?.deviceCode}
                     </div>
+                    {payment.rental?.medicalDevice?.serialNumber && (
+                      <div className="text-xs text-slate-500 font-mono">
+                        SN: {payment.rental.medicalDevice.serialNumber}
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <span className="text-sm font-semibold text-green-700">

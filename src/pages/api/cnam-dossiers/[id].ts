@@ -116,8 +116,8 @@ export default async function handler(
               dossierId: id,
               fromStep: currentDossier.currentStep,
               toStep: currentStep || currentDossier.currentStep,
-              fromStatus: currentDossier.status,
-              toStatus: (status as CNAMStatus) || currentDossier.status,
+              fromStatus: currentDossier.status as CNAMStatus,
+              toStatus: (status as CNAMStatus) || (currentDossier.status as CNAMStatus),
               notes: notes || 'Mise à jour du statut/étape',
               changedById: session.user.id,
               changeDate: new Date()

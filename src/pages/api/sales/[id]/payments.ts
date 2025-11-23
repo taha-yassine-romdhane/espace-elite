@@ -370,21 +370,7 @@ async function handleGetPayments(req: NextApiRequest, res: NextApiResponse, sale
       include: { paymentDetails: true },
       orderBy: { createdAt: 'desc' }
     }) as unknown as Payment[];
-    
-    // If no payments found, check if the sale has a paymentId and fetch that payment
-    if (payments.length === 0 && sale.paymentId) {
-      console.log(`[PAYMENTS-API] No payments found with saleId, checking payment with ID: ${sale.paymentId}`);
-      const paymentFromSale = await prisma.payment.findUnique({
-        where: { id: sale.paymentId },
-        include: { paymentDetails: true }
-      }) as unknown as Payment | null;
-      
-      if (paymentFromSale) {
-        console.log(`[PAYMENTS-API] Found payment via sale.paymentId: ${paymentFromSale.id}`);
-        payments = [paymentFromSale];
-      }
-    }
-    
+
     console.log(`[PAYMENTS-API] Found ${payments.length} payments for sale ${saleId}`);
     
     // If still no payments found, create a synthetic payment based on sale data

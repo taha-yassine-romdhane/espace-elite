@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check, X, Edit2, Plus, Trash2, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Check, X, Edit2, Plus, Trash2, Search, ChevronLeft, ChevronRight, Lock, MapPin, Archive } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,6 +22,8 @@ interface StockLocation {
   id?: string;
   name: string;
   description?: string;
+  type?: 'PHYSICAL' | 'VIRTUAL' | 'ARCHIVE';
+  isTransferable?: boolean;
   userId?: string;
   user?: {
     id: string;
@@ -44,6 +48,8 @@ export function StockLocationsExcelTable() {
   const [newLocation, setNewLocation] = useState<Partial<StockLocation>>({
     name: "",
     description: "",
+    type: "PHYSICAL",
+    isTransferable: true,
     isActive: true
   });
   const [locationToDelete, setLocationToDelete] = useState<StockLocation | null>(null);
@@ -69,7 +75,7 @@ export function StockLocationsExcelTable() {
   });
 
   // Fetch users for the responsible dropdown
-  const { data: users = [] } = useQuery({
+  const { data: usersData } = useQuery({
     queryKey: ["users"],
     queryFn: async () => {
       const response = await fetch("/api/users");
@@ -77,6 +83,8 @@ export function StockLocationsExcelTable() {
       return response.json();
     },
   });
+
+  const users = usersData?.users || [];
 
   // Filter users to show only EMPLOYEE and ADMIN roles who don't have a location
   const getAvailableUsers = (currentUserId?: string) => {
@@ -210,7 +218,7 @@ export function StockLocationsExcelTable() {
 
   const handleCancelNew = () => {
     setIsAddingNew(false);
-    setNewLocation({ name: "", description: "", isActive: true });
+    setNewLocation({ name: "", description: "", type: "PHYSICAL", isTransferable: true, isActive: true });
   };
 
   const handleSaveNew = async () => {
@@ -254,6 +262,34 @@ export function StockLocationsExcelTable() {
     return `${user.firstName} ${user.lastName}`;
   };
 
+  const getLocationTypeBadge = (type?: string) => {
+    switch (type) {
+      case 'PHYSICAL':
+        return (
+          <Badge variant="default" className="bg-green-100 text-green-800 border-green-200 gap-1">
+            <MapPin className="h-3 w-3" />
+            Physique
+          </Badge>
+        );
+      case 'VIRTUAL':
+        return (
+          <Badge variant="default" className="bg-purple-100 text-purple-800 border-purple-200 gap-1">
+            <Lock className="h-3 w-3" />
+            Virtuel
+          </Badge>
+        );
+      case 'ARCHIVE':
+        return (
+          <Badge variant="default" className="bg-gray-100 text-gray-800 border-gray-200 gap-1">
+            <Archive className="h-3 w-3" />
+            Archive
+          </Badge>
+        );
+      default:
+        return <Badge variant="outline">Physique</Badge>;
+    }
+  };
+
   const renderCell = (location: StockLocation, field: keyof StockLocation, isEditing: boolean) => {
     const value = isEditing && editedLocation ? editedLocation[field] : location[field];
 
@@ -268,6 +304,49 @@ export function StockLocationsExcelTable() {
               className="h-8 text-xs"
               placeholder={field === 'name' ? 'Nom requis' : 'Description'}
             />
+          );
+
+        case 'type':
+          return (
+            <Select
+              value={editedLocation.type || 'PHYSICAL'}
+              onValueChange={(val) => updateEditedField('type', val)}
+            >
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="PHYSICAL">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-3 w-3" />
+                    Physique
+                  </div>
+                </SelectItem>
+                <SelectItem value="VIRTUAL">
+                  <div className="flex items-center gap-2">
+                    <Lock className="h-3 w-3" />
+                    Virtuel
+                  </div>
+                </SelectItem>
+                <SelectItem value="ARCHIVE">
+                  <div className="flex items-center gap-2">
+                    <Archive className="h-3 w-3" />
+                    Archive
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          );
+
+        case 'isTransferable':
+          return (
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={editedLocation.isTransferable !== false}
+                onCheckedChange={(checked) => updateEditedField('isTransferable', checked)}
+              />
+              <span className="text-xs">{editedLocation.isTransferable !== false ? 'Oui' : 'Non'}</span>
+            </div>
           );
 
         case 'userId':
@@ -298,6 +377,14 @@ export function StockLocationsExcelTable() {
 
     // Display mode
     switch (field) {
+      case 'type':
+        return getLocationTypeBadge(location.type);
+      case 'isTransferable':
+        return (
+          <Badge variant={location.isTransferable !== false ? "default" : "secondary"} className={location.isTransferable !== false ? "bg-blue-100 text-blue-800 border-blue-200" : ""}>
+            {location.isTransferable !== false ? 'Transférable' : 'Non transférable'}
+          </Badge>
+        );
       case 'userId':
         return <span className="text-xs">{getUserDisplayName(location.user)}</span>;
       default:
@@ -325,6 +412,45 @@ export function StockLocationsExcelTable() {
             className="h-8 text-xs"
             placeholder="Description"
           />
+        </td>
+        <td className="px-2 py-2">
+          <Select
+            value={newLocation.type || 'PHYSICAL'}
+            onValueChange={(val) => updateNewField('type', val)}
+          >
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="PHYSICAL">
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-3 w-3" />
+                  Physique
+                </div>
+              </SelectItem>
+              <SelectItem value="VIRTUAL">
+                <div className="flex items-center gap-2">
+                  <Lock className="h-3 w-3" />
+                  Virtuel
+                </div>
+              </SelectItem>
+              <SelectItem value="ARCHIVE">
+                <div className="flex items-center gap-2">
+                  <Archive className="h-3 w-3" />
+                  Archive
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </td>
+        <td className="px-2 py-2">
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={newLocation.isTransferable !== false}
+              onCheckedChange={(checked) => updateNewField('isTransferable', checked)}
+            />
+            <span className="text-xs">{newLocation.isTransferable !== false ? 'Oui' : 'Non'}</span>
+          </div>
         </td>
         <td className="px-2 py-2">
           <Select
@@ -398,6 +524,8 @@ export function StockLocationsExcelTable() {
             <tr className="border-b">
               <th className="px-2 py-3 text-left text-xs font-semibold min-w-[200px]">Nom</th>
               <th className="px-2 py-3 text-left text-xs font-semibold min-w-[300px]">Description</th>
+              <th className="px-2 py-3 text-left text-xs font-semibold min-w-[150px]">Type</th>
+              <th className="px-2 py-3 text-left text-xs font-semibold min-w-[150px]">Transférable</th>
               <th className="px-2 py-3 text-left text-xs font-semibold min-w-[200px]">Responsable</th>
               <th className="px-3 py-3 text-right text-xs font-semibold sticky right-0 bg-gray-100/95 backdrop-blur-sm z-30 min-w-[120px]">Actions</th>
             </tr>
@@ -414,6 +542,8 @@ export function StockLocationsExcelTable() {
                 <tr key={location.id} className={`border-b hover:bg-gray-50 ${isEditing ? 'bg-yellow-50' : ''}`}>
                   <td className="px-2 py-2">{renderCell(location, 'name', isEditing)}</td>
                   <td className="px-2 py-2">{renderCell(location, 'description', isEditing)}</td>
+                  <td className="px-2 py-2">{renderCell(location, 'type', isEditing)}</td>
+                  <td className="px-2 py-2">{renderCell(location, 'isTransferable', isEditing)}</td>
                   <td className="px-2 py-2">{renderCell(location, 'userId', isEditing)}</td>
                   <td className={`px-3 py-2 sticky right-0 z-10 ${isEditing ? 'bg-yellow-50/80' : 'bg-white/80'} backdrop-blur-sm`}>
                     {isEditing ? (

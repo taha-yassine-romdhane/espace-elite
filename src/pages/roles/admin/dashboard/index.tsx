@@ -30,7 +30,7 @@ function DashboardPage() {
               onClick={() => router.push("/roles/admin/manual-tasks")}
             >
               <ClipboardCheck className="h-5 w-5" />
-              <span>Tâches Manuelles</span>
+              <span>Saisie les Tâches</span>
             </Button>
 
             <Button

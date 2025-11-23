@@ -8,11 +8,12 @@ import { prisma } from '@/lib/prisma';
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
     try {
-      const { bonType, isActive } = req.query;
+      const { bonType, isActive, category } = req.query;
 
       const where: any = {};
       if (bonType) where.bonType = bonType as string;
       if (isActive !== undefined) where.isActive = isActive === 'true';
+      if (category) where.category = category as string;
 
       const nomenclature = await prisma.cNAMNomenclature.findMany({
         where,

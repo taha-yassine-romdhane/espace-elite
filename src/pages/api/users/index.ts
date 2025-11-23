@@ -2,18 +2,36 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import prisma from '@/lib/db';
 import { Prisma, Role } from '@prisma/client';
 import { hash } from 'bcryptjs';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '../auth/[...nextauth]';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!prisma) {
     return res.status(500).json({ error: 'Database connection not initialized' });
   }
 
+  // Get session for authentication
+  const session = await getServerSession(req, res, authOptions);
+
   // CREATE user
   if (req.method === 'POST') {
     try {
+      // Check authentication
+      if (!session) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
       const { firstName, lastName, email, password, telephone, role, address, speciality } = req.body;
       if (!firstName || !lastName || !email || !password || !role) {
         return res.status(400).json({ error: 'Missing required fields' });
+      }
+
+      // Authorization: ADMIN can create any user, EMPLOYEE can only create DOCTOR
+      const isAdmin = session.user.role === 'ADMIN';
+      const isEmployeeCreatingDoctor = session.user.role === 'EMPLOYEE' && role === 'DOCTOR';
+
+      if (!isAdmin && !isEmployeeCreatingDoctor) {
+        return res.status(403).json({ error: 'Forbidden: You do not have permission to create this user type' });
       }
       const hashedPassword = await hash(password, 12);
       const user = await prisma.$transaction(async (tx) => {
@@ -44,7 +62,34 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // GET users
   else if (req.method === 'GET') {
     try {
+      // Check authentication
+      if (!session) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      // Check if role filter is provided in query params
+      const { role } = req.query;
+
+      // Build where clause for role filtering
+      const whereClause: Prisma.UserWhereInput = {};
+      if (role) {
+        if (role === 'EMPLOYEE') {
+          // Only EMPLOYEE role
+          whereClause.role = 'EMPLOYEE';
+        } else if (role === 'ADMIN') {
+          // Only ADMIN role
+          whereClause.role = 'ADMIN';
+        } else if (role === 'EMPLOYEE_AND_ADMIN') {
+          // EMPLOYEE or ADMIN roles (exclude DOCTOR)
+          whereClause.role = { in: ['EMPLOYEE', 'ADMIN'] };
+        } else {
+          // Specific role filter
+          whereClause.role = role as Role;
+        }
+      }
+
       const users = await prisma.user.findMany({
+        where: whereClause,
         orderBy: { createdAt: 'desc' },
         select: {
           id: true, firstName: true, lastName: true, email: true, telephone: true,
@@ -145,6 +190,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // UPDATE user
   else if (req.method === 'PUT') {
     try {
+      // Check authentication
+      if (!session) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      // Only ADMIN can update users
+      if (session.user.role !== 'ADMIN') {
+        return res.status(403).json({ error: 'Forbidden: Only admins can update users' });
+      }
+
       const { id, firstName, lastName, email, password, telephone, address, speciality, role, isActive } = req.body;
       if (!id || !firstName || !lastName || !email || !role) {
         return res.status(400).json({ error: 'Missing required fields' });
@@ -181,6 +236,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   // DELETE user
   else if (req.method === 'DELETE') {
+    // Check authentication
+    if (!session) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Only ADMIN can delete users
+    if (session.user.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Forbidden: Only admins can delete users' });
+    }
+
     const { id } = req.query;
     if (!id || typeof id !== 'string') {
       return res.status(400).json({ error: 'User ID is required' });

@@ -94,7 +94,7 @@ export function GapsAlertsTab({
           </CardHeader>
           <CardContent>
             <div className="relative">
-              {/* Timeline will be generated based on rental details, CNAM bons, and payment periods */}
+              {/* Timeline will be generated based on rental details, CNAM bonds, and payment periods */}
               <div className="space-y-4">
                 {timeline.map((event, index) => (
                   <div key={index} className="flex items-start gap-4">

@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check, X, Edit2, Plus, Trash2, Search, ChevronLeft, ChevronRight, Calendar as CalendarIcon, User, MapPin, Clock, AlertCircle } from "lucide-react";
+import { Check, X, Edit2, Plus, Trash2, Search, ChevronLeft, ChevronRight, Calendar as CalendarIcon, User, MapPin, Clock, AlertCircle, Stethoscope, ShoppingCart, KeyRound } from "lucide-react";
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import {
@@ -18,6 +18,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { PolygraphieResultsDialog } from "@/components/appointments/PolygraphieResultsDialog";
 
 interface Patient {
   id: string;
@@ -228,6 +229,8 @@ export default function AppointmentsPage() {
   });
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [appointmentToDelete, setAppointmentToDelete] = useState<Appointment | null>(null);
+  const [polygraphieDialogOpen, setPolygraphieDialogOpen] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
 
   // Pagination & Filters
   const [currentPage, setCurrentPage] = useState(1);
@@ -271,6 +274,9 @@ export default function AppointmentsPage() {
 
   // Apply filters
   const filteredAppointments = appointments.filter((apt: Appointment) => {
+    // Hide completed appointments unless explicitly filtered
+    if (statusFilter === 'ALL' && apt.status === 'COMPLETED') return false;
+
     if (searchTerm) {
       const search = searchTerm.toLowerCase();
       const patientName = apt.patient ? `${apt.patient.firstName || ''} ${apt.patient.lastName || ''}`.toLowerCase() : '';
@@ -425,6 +431,87 @@ export default function AppointmentsPage() {
     }
   };
 
+  // Type-specific action handlers
+  const handlePolygraphieAction = (appointment: Appointment) => {
+    setSelectedAppointment(appointment);
+    setPolygraphieDialogOpen(true);
+  };
+
+  const handleVenteAction = (appointment: Appointment) => {
+    if (appointment.patient?.id) {
+      router.push(`/roles/admin/renseignement/patient/${appointment.patient.id}`);
+    } else {
+      toast({ title: "Erreur", description: "Aucun patient associé à ce rendez-vous", variant: "destructive" });
+    }
+  };
+
+  const handleLocationAction = (appointment: Appointment) => {
+    if (appointment.patient?.id) {
+      router.push(`/roles/admin/renseignement/patient/${appointment.patient.id}`);
+    } else {
+      toast({ title: "Erreur", description: "Aucun patient associé à ce rendez-vous", variant: "destructive" });
+    }
+  };
+
+  const handleOtherAction = (appointment: Appointment) => {
+    // TODO: Implement other types action
+    toast({ title: "Info", description: "Action - À implémenter" });
+  };
+
+  // Render type-specific action button
+  const renderTypeActionButton = (appointment: Appointment) => {
+    switch (appointment.appointmentType) {
+      case 'POLYGRAPHIE':
+        return (
+          <Button
+            onClick={() => handlePolygraphieAction(appointment)}
+            size="icon"
+            variant="ghost"
+            className="h-7 w-7 text-purple-600 hover:bg-purple-50"
+            title="Démarrer Polygraphie"
+          >
+            <Stethoscope className="h-4 w-4" />
+          </Button>
+        );
+      case 'VENTE':
+        return (
+          <Button
+            onClick={() => handleVenteAction(appointment)}
+            size="icon"
+            variant="ghost"
+            className="h-7 w-7 text-green-600 hover:bg-green-50"
+            title="Démarrer Vente"
+          >
+            <ShoppingCart className="h-4 w-4" />
+          </Button>
+        );
+      case 'LOCATION':
+        return (
+          <Button
+            onClick={() => handleLocationAction(appointment)}
+            size="icon"
+            variant="ghost"
+            className="h-7 w-7 text-blue-600 hover:bg-blue-50"
+            title="Démarrer Location"
+          >
+            <KeyRound className="h-4 w-4" />
+          </Button>
+        );
+      default:
+        return (
+          <Button
+            onClick={() => handleOtherAction(appointment)}
+            size="icon"
+            variant="ghost"
+            className="h-7 w-7 text-gray-600 hover:bg-gray-50"
+            title="Action"
+          >
+            <CalendarIcon className="h-4 w-4" />
+          </Button>
+        );
+    }
+  };
+
   const updateNewField = (field: keyof Appointment, value: any) => {
     setNewAppointment(prev => ({ ...prev, [field]: value }));
   };
@@ -567,14 +654,14 @@ export default function AppointmentsPage() {
           <div className="flex flex-col gap-1">
             <div
               className="text-xs text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-colors font-medium"
-              onClick={() => router.push(`/roles/admin/renseignement/patient/${appointment.patient.id}`)}
+              onClick={() => router.push(`/roles/admin/renseignement/patient/${appointment.patient?.id}`)}
             >
               {patientFullName}
             </div>
             {appointment.patient.patientCode && (
               <div
                 className="text-xs text-slate-500 font-mono cursor-pointer hover:text-blue-600 transition-colors"
-                onClick={() => router.push(`/roles/admin/renseignement/patient/${appointment.patient.id}`)}
+                onClick={() => router.push(`/roles/admin/renseignement/patient/${appointment.patient?.id}`)}
               >
                 {appointment.patient.patientCode}
               </div>
@@ -878,6 +965,7 @@ export default function AppointmentsPage() {
                         </div>
                       ) : (
                         <div className="flex gap-1 justify-center">
+                          {renderTypeActionButton(appointment)}
                           <Button onClick={() => handleEdit(appointment)} size="icon" variant="ghost" className="h-7 w-7">
                             <Edit2 className="h-4 w-4" />
                           </Button>
@@ -1013,6 +1101,15 @@ export default function AppointmentsPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Polygraphie Results Dialog */}
+      {selectedAppointment && (
+        <PolygraphieResultsDialog
+          appointment={selectedAppointment}
+          open={polygraphieDialogOpen}
+          onOpenChange={setPolygraphieDialogOpen}
+        />
+      )}
     </div>
   );
 }

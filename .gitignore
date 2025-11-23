@@ -53,3 +53,9 @@ espace-elite.tar.gz
 
 # Database exports
 /database-exports
+*.backup
+*.dump
+
+# User uploads
+/public/uploads/
+/public/imports/

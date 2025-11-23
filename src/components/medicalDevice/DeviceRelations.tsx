@@ -1,10 +1,10 @@
 import React from 'react';
 import Link from 'next/link';
-import { MedicalDevice, Patient, Company, Rental, Diagnostic } from '@prisma/client';
+import { MedicalDevice, Patient, Company, Rental, Diagnostic, SaleItem, Sale } from '@prisma/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CalendarIcon, UserIcon, BuildingIcon, ClipboardIcon, CircleCheckIcon, CircleIcon, ClockIcon } from 'lucide-react';
+import { CalendarIcon, UserIcon, BuildingIcon, ClipboardIcon, CircleCheckIcon, CircleIcon, ClockIcon, ShoppingCartIcon } from 'lucide-react';
 
 interface DeviceRelationsProps {
   device: MedicalDevice & {
@@ -15,6 +15,12 @@ interface DeviceRelationsProps {
       Company?: { companyName: string } | null;
     })[];
     Diagnostic?: Diagnostic[];
+    saleItems?: (SaleItem & {
+      sale: Sale & {
+        patient?: { firstName: string; lastName: string; patientCode: string } | null;
+        company?: { companyName: string; companyCode: string } | null;
+      };
+    })[];
   };
 }
 
@@ -74,90 +80,123 @@ export const DeviceRelations: React.FC<DeviceRelationsProps> = ({ device }) => {
     return `${diffDays} jours`;
   };
 
-  // Find the active rental to determine current assignment
-  const activeRental = device.Rental && Array.isArray(device.Rental)
-    ? device.Rental.find(rental => rental.status === 'ACTIVE')
-    : null;
-
   return (
-    <Card className="mb-6">
-      <CardHeader>
-        <CardTitle className="text-lg font-semibold text-slate-900">Relations</CardTitle>
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg font-semibold text-slate-900">Informations transactionnelles</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
-          {/* Current Assignment */}
+          {/* Sales */}
           <div>
-            <h3 className="text-sm font-medium text-slate-600 mb-3">Assigné à</h3>
-            {activeRental?.patient ? (
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 border">
-                <div className="flex-shrink-0">
-                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center">
-                    <UserIcon className="h-4 w-4 text-white" />
+            <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+              <ShoppingCartIcon className="h-4 w-4 text-emerald-600" />
+              Ventes
+            </h3>
+            {device.saleItems && Array.isArray(device.saleItems) && device.saleItems.length > 0 ? (
+              <div className="space-y-3">
+                {device.saleItems.map((saleItem) => (
+                  <div key={saleItem.id} className="border-2 rounded-lg p-4 bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-300 shadow-sm hover:shadow-md transition-all">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start gap-3 flex-1">
+                        <div className="flex-shrink-0 mt-1">
+                          <ShoppingCartIcon className="h-4 w-4 text-green-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Link
+                              href={`/roles/admin/sales/${saleItem.sale.id}`}
+                              className="font-medium text-slate-900 hover:text-green-600 transition-colors text-sm"
+                            >
+                              {saleItem.sale.saleCode || `Vente ${saleItem.sale.id.slice(-6)}`}
+                            </Link>
+                            <Badge className="bg-green-100 text-green-800 text-xs">
+                              {saleItem.sale.status === 'COMPLETED' ? 'Terminée' :
+                               saleItem.sale.status === 'PENDING' ? 'En attente' :
+                               saleItem.sale.status}
+                            </Badge>
+                          </div>
+
+                          <div className="text-sm text-slate-600 mb-2">
+                            Vendu le {new Date(saleItem.sale.saleDate).toLocaleDateString('fr-FR', {
+                              day: '2-digit',
+                              month: 'long',
+                              year: 'numeric'
+                            })}
+                          </div>
+
+                          <div className="space-y-1 text-xs text-slate-600">
+                            <div className="flex items-center justify-between">
+                              <span>Quantité:</span>
+                              <span className="font-medium">{saleItem.quantity}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span>Prix unitaire:</span>
+                              <span className="font-medium">{saleItem.unitPrice.toString()} DT</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span>Total:</span>
+                              <span className="font-semibold text-green-700">{saleItem.itemTotal.toString()} DT</span>
+                            </div>
+                            {saleItem.serialNumber && (
+                              <div className="flex items-center justify-between mt-2 pt-2 border-t border-green-200">
+                                <span>N° série:</span>
+                                <span className="font-mono font-medium">{saleItem.serialNumber}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {(saleItem.sale.patient || saleItem.sale.company) && (
+                            <div className="mt-3 pt-3 border-t border-green-200">
+                              {saleItem.sale.patient && (
+                                <div className="flex items-center gap-2">
+                                  <UserIcon className="h-3 w-3 text-slate-500" />
+                                  <Link
+                                    href={`/roles/admin/renseignement/patient/${saleItem.sale.patientId}`}
+                                    className="text-xs text-slate-600 hover:text-blue-600 transition-colors"
+                                  >
+                                    {saleItem.sale.patient.firstName} {saleItem.sale.patient.lastName}
+                                    {saleItem.sale.patient.patientCode && ` (${saleItem.sale.patient.patientCode})`}
+                                  </Link>
+                                </div>
+                              )}
+                              {saleItem.sale.company && (
+                                <div className="flex items-center gap-2">
+                                  <BuildingIcon className="h-3 w-3 text-slate-500" />
+                                  <span className="text-xs text-slate-600">
+                                    {saleItem.sale.company.companyName}
+                                    {saleItem.sale.company.companyCode && ` (${saleItem.sale.company.companyCode})`}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {saleItem.description && (
+                            <div className="mt-2 text-xs text-slate-500 italic">
+                              {saleItem.description}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div className="flex-1">
-                  <Link href={`/roles/admin/renseignement/patient/${activeRental.patientId}`} className="font-medium text-slate-900 hover:text-blue-600 transition-colors">
-                    {activeRental.patient.firstName} {activeRental.patient.lastName}
-                  </Link>
-                  <p className="text-sm text-slate-500">Patient (Location active)</p>
-                  {activeRental.patient.patientCode && (
-                    <p className="text-xs text-slate-400 font-mono">{activeRental.patient.patientCode}</p>
-                  )}
-                </div>
-              </div>
-            ) : activeRental?.Company ? (
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 border">
-                <div className="flex-shrink-0">
-                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center">
-                    <BuildingIcon className="h-4 w-4 text-white" />
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <Link href={`/roles/admin/companies/${activeRental.companyId}`} className="font-medium text-slate-900 hover:text-blue-600 transition-colors">
-                    {activeRental.Company.companyName}
-                  </Link>
-                  <p className="text-sm text-slate-500">Société (Location active)</p>
-                </div>
-              </div>
-            ) : device.Patient ? (
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 border">
-                <div className="flex-shrink-0">
-                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center">
-                    <UserIcon className="h-4 w-4 text-white" />
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <Link href={`/roles/admin/renseignement/patient/${device.Patient.id}`} className="font-medium text-slate-900 hover:text-blue-600 transition-colors">
-                    {device.Patient.firstName} {device.Patient.lastName}
-                  </Link>
-                  <p className="text-sm text-slate-500">Patient</p>
-                </div>
-              </div>
-            ) : device.Company ? (
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 border">
-                <div className="flex-shrink-0">
-                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center">
-                    <BuildingIcon className="h-4 w-4 text-white" />
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <Link href={`/roles/admin/companies/${device.Company.id}`} className="font-medium text-slate-900 hover:text-blue-600 transition-colors">
-                    {device.Company.companyName}
-                  </Link>
-                  <p className="text-sm text-slate-500">Société</p>
-                </div>
+                ))}
               </div>
             ) : (
-              <div className="p-3 rounded-lg bg-gray-50 border border-dashed border-gray-300">
-                <p className="text-gray-500 text-sm">Non assigné</p>
+              <div className="p-4 rounded-lg bg-gray-50 border border-dashed border-gray-300 text-center">
+                <ShoppingCartIcon className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                <p className="text-gray-500 text-sm">Cet appareil n'a pas été vendu</p>
               </div>
             )}
           </div>
 
           {/* Rental History */}
           <div>
-            <h3 className="text-sm font-medium text-slate-600 mb-3">Historique des locations</h3>
+            <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+              <CalendarIcon className="h-4 w-4 text-blue-600" />
+              Historique des locations
+            </h3>
             {device.Rental && Array.isArray(device.Rental) && device.Rental.length > 0 ? (
               <div className="space-y-3">
                 {device.Rental.slice(0, 5).map((rental) => (
@@ -219,7 +258,10 @@ export const DeviceRelations: React.FC<DeviceRelationsProps> = ({ device }) => {
 
           {/* Diagnostics */}
           <div>
-            <h3 className="text-sm font-medium text-slate-600 mb-3">Diagnostics</h3>
+            <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+              <ClipboardIcon className="h-4 w-4 text-purple-600" />
+              Diagnostics
+            </h3>
             {device.Diagnostic && Array.isArray(device.Diagnostic) && device.Diagnostic.length > 0 ? (
               <div className="space-y-2">
                 {device.Diagnostic.slice(0, 3).map((diagnostic) => (

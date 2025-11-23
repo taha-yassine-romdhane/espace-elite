@@ -3,8 +3,9 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbS
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChevronRight, Stethoscope } from 'lucide-react';
 import DiagnosticsExcelTable from './DiagnosticsExcelTable';
+import AdminLayout from '../AdminLayout';
 
-export default function DiagnosticsPage() {
+function DiagnosticsPage() {
   return (
     <div className="container mx-auto py-6 space-y-6">
       {/* Breadcrumb */}
@@ -42,3 +43,10 @@ export default function DiagnosticsPage() {
     </div>
   );
 }
+
+// Add layout wrapper
+DiagnosticsPage.getLayout = function getLayout(page: React.ReactElement) {
+  return <AdminLayout>{page}</AdminLayout>;
+};
+
+export default DiagnosticsPage;

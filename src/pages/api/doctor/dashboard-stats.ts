@@ -71,16 +71,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       }),
 
-      // Active medical devices for doctor's patients (through rentals)
-      prisma.medicalDevice.count({
+      // Active rentals for doctor's patients
+      prisma.rental.count({
         where: {
           status: 'ACTIVE',
-          Rental: {
-            some: {
-              patient: {
-                doctorId: doctor.id
-              }
-            }
+          patient: {
+            doctorId: doctor.id
           }
         }
       }),

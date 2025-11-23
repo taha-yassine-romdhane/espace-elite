@@ -59,6 +59,12 @@ export default async function handler(
       }
       // ADMIN and DOCTOR can see all diagnostics (no filter)
 
+      // Filter by status if provided in query
+      const { status } = req.query;
+      if (status && typeof status === 'string') {
+        whereClause.status = status;
+      }
+
       const diagnostics = await prisma.diagnostic.findMany({
         where: whereClause,
         include: {
@@ -78,6 +84,7 @@ export default async function handler(
               firstName: true,
               lastName: true,
               telephone: true,
+              isActive: true,
               governorate: true,
               delegation: true,
               detailedAddress: true,
@@ -146,6 +153,12 @@ export default async function handler(
           },
           // Include diagnostic result with the new model
           result: true,
+          // Include file count
+          _count: {
+            select: {
+              files: true,
+            },
+          },
         },
         orderBy: {
           createdAt: 'desc',
@@ -234,6 +247,8 @@ export default async function handler(
           // Add equipment installation tracking
           daysSinceFirstEquipment,
           firstEquipmentDate,
+          // Add file count
+          _count: diagnostic._count,
         };
       });
 
@@ -259,6 +274,7 @@ export default async function handler(
         notes = data.notes || '';
         totalPrice = data.totalPrice || 0;
         uploadedFileUrls = data.fileUrls || [];
+        const resultData = data.result || null; // Optional result data (IAH, ID values)
         
         // Validate required fields
         if (!clientId) {
@@ -309,13 +325,13 @@ export default async function handler(
           }
         });
         
-        // Create diagnostic result
+        // Create diagnostic result (use provided values or default to null)
         await prisma.diagnosticResult.create({
           data: {
-            iah: null,
-            idValue: null,
-            remarque: null,
-            status: 'PENDING',
+            iah: resultData?.iah ?? null,
+            idValue: resultData?.idValue ?? null,
+            remarque: resultData?.remarque ?? null,
+            status: resultData?.status || 'PENDING',
             diagnostic: { connect: { id: diagnostic.id } },
           },
         });

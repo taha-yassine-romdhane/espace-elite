@@ -37,6 +37,7 @@ model User {
   createdRentals       Rental[]               @relation("CreatedRentals")
   assignedRentals      Rental[]               @relation("AssignedRentals")
   stockLocation        StockLocation?
+  stockMovements       StockMovement[]
   receivedTransfers    StockTransfer[]        @relation("ReceivedTransfers")
   sentTransfers        StockTransfer[]        @relation("SentTransfers")
   stockTransfers       StockTransfer[]        @relation("TransferredByUser")
@@ -51,6 +52,7 @@ model User {
   receivedMessages     Message[]              @relation("ReceivedMessages")
   createdManualTasks   ManualTask[]           @relation("CreatedManualTasks")
   assignedManualTasks  ManualTask[]           @relation("AssignedManualTasks")
+  uploadedFiles        File[]                 @relation("UploadedFiles")
 }
 
 model Task {
@@ -76,6 +78,8 @@ model Task {
 model StockLocation {
   id                String                 @id @default(cuid())
   name              String                 @unique
+  type              StockLocationType      @default(PHYSICAL)
+  isTransferable    Boolean                @default(true)
   userId            String?                @unique
   description       String?
   isActive          Boolean                @default(true)
@@ -83,6 +87,9 @@ model StockLocation {
   updatedAt         DateTime               @updatedAt
   medicalDevices    MedicalDevice[]
   stocks            Stock[]
+  stockMovements    StockMovement[]
+  rentalAccessories RentalAccessory[]
+  saleItems         SaleItem[]
   user              User?                  @relation(fields: [userId], references: [id])
   outgoingTransfers StockTransfer[]        @relation("FromLocation")
   incomingTransfers StockTransfer[]        @relation("ToLocation")
@@ -102,6 +109,24 @@ model Stock {
   product    Product       @relation(fields: [productId], references: [id])
 
   @@unique([locationId, productId])
+}
+
+model StockMovement {
+  id          String              @id @default(cuid())
+  productId   String
+  locationId  String
+  type        StockMovementType
+  quantity    Int
+  notes       String?
+  createdById String
+  createdAt   DateTime            @default(now())
+  product     Product             @relation(fields: [productId], references: [id])
+  location    StockLocation       @relation(fields: [locationId], references: [id])
+  createdBy   User                @relation(fields: [createdById], references: [id])
+
+  @@index([productId])
+  @@index([locationId])
+  @@index([createdById])
 }
 
 model StockTransfer {
@@ -178,6 +203,7 @@ model Product {
   RepairSparePart    RepairSparePart[]
   saleItems          SaleItem[]
   stocks             Stock[]
+  stockMovements     StockMovement[]
   transfers          StockTransfer[]
   transferRequests   StockTransferRequest[]
 }
@@ -210,6 +236,7 @@ model Patient {
   detailedAddress    String?
   governorate        String?
   supervisorId       String?
+  isActive           Boolean                  @default(true)
   appointments       Appointment[]
   cnamBonRentals     CNAMBonRental[]
   cnamDossiers       CNAMDossier[]
@@ -243,6 +270,7 @@ model Company {
   delegation          String?
   detailedAddress     String?
   governorate         String?
+  isActive            Boolean        @default(true)
   appointments        Appointment[]
   technician          User?          @relation("TechnicianCompanies", fields: [technicianId], references: [id])
   assignedTo          User           @relation("AssignedCompanies", fields: [userId], references: [id])
@@ -353,18 +381,41 @@ model PaymentDetail {
 }
 
 model File {
-  id        String   @id @default(cuid())
-  url       String
-  type      String
-  patientId String?
-  companyId String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  fileName  String?
-  filePath  String?
-  fileSize  Int?
-  company   Company? @relation("CompanyFiles", fields: [companyId], references: [id])
-  patient   Patient? @relation(fields: [patientId], references: [id])
+  id           String        @id @default(cuid())
+  url          String
+  type         String        // MIME type
+  patientId    String?
+  companyId    String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  fileName     String?
+  filePath     String?
+  fileSize     Int?
+
+  // New fields for categorization and relations
+  category     FileCategory? // Document category
+  description  String?
+  diagnosticId String?
+  saleId       String?
+  rentalId     String?
+  uploadedById String?
+
+  // Existing relations
+  company      Company?      @relation("CompanyFiles", fields: [companyId], references: [id])
+  patient      Patient?      @relation(fields: [patientId], references: [id])
+
+  // New relations
+  diagnostic   Diagnostic?   @relation(fields: [diagnosticId], references: [id], onDelete: SetNull)
+  sale         Sale?         @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  rental       Rental?       @relation(fields: [rentalId], references: [id], onDelete: SetNull)
+  uploadedBy   User?         @relation("UploadedFiles", fields: [uploadedById], references: [id])
+
+  @@index([patientId])
+  @@index([companyId])
+  @@index([diagnosticId])
+  @@index([saleId])
+  @@index([rentalId])
+  @@index([category])
 }
 
 model MedicalDevice {
@@ -431,6 +482,7 @@ model Diagnostic {
   performedBy      User?             @relation("PerformedDiagnostics", fields: [performedById], references: [id])
   result           DiagnosticResult?
   Task             Task[]
+  files            File[]
 }
 
 model Doctor {
@@ -506,6 +558,7 @@ model Rental {
   accessories   RentalAccessory[]
   configuration RentalConfiguration?
   gaps          RentalGap[]
+  files         File[]
 
   @@index([assignedToId])
 }
@@ -516,19 +569,36 @@ model Notification {
   message   String
   type      NotificationType
   status    NotificationStatus @default(PENDING)
+  priority  String             @default("NORMAL") // LOW, NORMAL, HIGH, URGENT
   dueDate   DateTime?
   patientId String?
   companyId String?
-  createdAt DateTime           @default(now())
-  updatedAt DateTime           @updatedAt
-  relatedId String?
-  readAt    DateTime?
-  isRead    Boolean            @default(false)
-  metadata  Json?
   userId    String?
-  company   Company?           @relation(fields: [companyId], references: [id])
-  patient   Patient?           @relation(fields: [patientId], references: [id])
-  user      User?              @relation(fields: [userId], references: [id])
+  // Foreign keys for related records (IDs only, no Prisma relations to avoid circular dependencies)
+  rentalId           String?
+  saleId             String?
+  diagnosticId       String?
+  appointmentId      String?
+  manualTaskId       String?
+  paymentId          String?
+  stockTransferRequestId String?
+  // Metadata and tracking
+  relatedId String?
+  actionUrl String? // Direct URL to navigate to related record
+  metadata  Json?
+  isRead    Boolean  @default(false)
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  // Relations
+  company   Company? @relation(fields: [companyId], references: [id])
+  patient   Patient? @relation(fields: [patientId], references: [id])
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([type])
+  @@index([priority])
 }
 
 model MedicalDeviceParametre {
@@ -580,6 +650,7 @@ model Sale {
   processedBy   User            @relation(fields: [processedById], references: [id])
   assignedTo    User?           @relation("AssignedSales", fields: [assignedToId], references: [id])
   items         SaleItem[]
+  files         File[]
 }
 
 model SaleItem {
@@ -587,6 +658,7 @@ model SaleItem {
   saleId          String
   productId       String?
   medicalDeviceId String?
+  stockLocationId String?
   quantity        Int
   unitPrice       Decimal            @db.Decimal(10, 2)
   discount        Decimal?           @db.Decimal(10, 2)
@@ -599,7 +671,13 @@ model SaleItem {
   medicalDevice   MedicalDevice?     @relation(fields: [medicalDeviceId], references: [id])
   product         Product?           @relation(fields: [productId], references: [id])
   sale            Sale               @relation(fields: [saleId], references: [id])
+  stockLocation   StockLocation?     @relation(fields: [stockLocationId], references: [id])
   configuration   SaleConfiguration?
+
+  @@index([saleId])
+  @@index([productId])
+  @@index([medicalDeviceId])
+  @@index([stockLocationId])
 }
 
 model SaleConfiguration {
@@ -697,7 +775,7 @@ model CNAMDossier {
   complementAmount Decimal?          @default(0) @db.Decimal(10, 2)
   currentStep      Int               @default(1)
   totalSteps       Int               @default(10)
-  status           CNAMStatus        @default(EN_ATTENTE_APPROBATION)
+  status           String            @default("CREATION")
   notes            String?
   saleId           String
   paymentDetailId  String?           @unique
@@ -756,7 +834,7 @@ model CNAMBonRental {
   bonNumber      String?         @map("bondNumber")
   bonType        CNAMBonType     @map("bondType")
   category       CNAMBonCategory @default(LOCATION) @map("bondCategory") // LOCATION (rental) or ACHAT (sale)
-  status         CNAMStatus      @default(EN_ATTENTE_APPROBATION)
+  status         String          @default("CREATION")
   dossierNumber  String?
   submissionDate DateTime?
   approvalDate   DateTime?
@@ -799,19 +877,21 @@ model CNAMBonRental {
 }
 
 model RentalAccessory {
-  id        String   @id @default(cuid())
-  rentalId  String
-  productId String
-  quantity  Int
-  unitPrice Decimal  @db.Decimal(10, 2)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  product   Product  @relation(fields: [productId], references: [id])
-  rental    Rental   @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+  id              String          @id @default(cuid())
+  rentalId        String
+  productId       String
+  stockLocationId String?
+  quantity        Int
+  unitPrice       Decimal         @db.Decimal(10, 2)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  product         Product         @relation(fields: [productId], references: [id])
+  rental          Rental          @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+  stockLocation   StockLocation?  @relation(fields: [stockLocationId], references: [id])
 
-  @@unique([rentalId, productId])
   @@index([rentalId])
   @@index([productId])
+  @@index([stockLocationId])
 }
 
 model RentalConfiguration {
@@ -939,6 +1019,19 @@ enum StockStatus {
   FOR_SALE
   IN_REPAIR
   OUT_OF_SERVICE
+  SOLD
+}
+
+enum StockLocationType {
+  PHYSICAL
+  VIRTUAL
+  ARCHIVE
+}
+
+enum StockMovementType {
+  ENTREE
+  SORTIE
+  TRANSFERT
 }
 
 enum TaskStatus {
@@ -1015,8 +1108,18 @@ enum NotificationType {
   MAINTENANCE
   APPOINTMENT
   PAYMENT_DUE
-  OTHER
+  RENTAL_EXPIRING
+  RENTAL_RETURN
+  SALE_COMPLETED
+  TASK_ASSIGNED
+  TASK_COMPLETED
+  STOCK_LOW
   TRANSFER
+  TRANSFER_APPROVED
+  TRANSFER_REJECTED
+  CNAM_RENEWAL
+  DIAGNOSTIC_PENDING
+  OTHER
 }
 
 enum AppointmentType {
@@ -1110,6 +1213,7 @@ model ManualTask {
   patientId        String
   assignedToId     String
   createdById      String
+  priority         TaskPriority         @default(MEDIUM)
   adminNotes       String?              // Notes added by admin
   employeeNotes    String?              // Notes added by employee when completing
   status           ManualTaskStatus     @default(PENDING)
@@ -1125,10 +1229,19 @@ model ManualTask {
   @@index([assignedToId])
   @@index([createdById])
   @@index([status])
+  @@index([priority])
 }
 
 enum ManualTaskStatus {
   PENDING
   COMPLETED
   CANCELLED
+}
+
+enum FileCategory {
+  TITRATION
+  POLYGRAPHIE
+  VENTE
+  LOCATION
+  OTHER
 }

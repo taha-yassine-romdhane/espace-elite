@@ -17,8 +17,8 @@ export default async function handler(
     switch (req.method) {
       case 'GET':
         // Get query parameters first
-        const { type = 'all', showReserved = 'true', assignedToMe = 'false', excludeRented = 'false' } = req.query;
-
+        const { type = 'all', showReserved = 'true', assignedToMe = 'false', serialNumber, name } = req.query;
+        
         // Build the medical device query based on employee restrictions
         const medicalDeviceQuery: any = {
           include: {
@@ -43,32 +43,40 @@ export default async function handler(
 
           if (user?.stockLocation) {
             medicalDeviceQuery.where = {
+              ...medicalDeviceQuery.where,
               stockLocationId: user.stockLocation.id
             };
             console.log('Filtering devices by stockLocationId:', user.stockLocation.id);
           } else {
             // If user has no stock location, return empty array
             medicalDeviceQuery.where = {
+              ...medicalDeviceQuery.where,
               id: 'non-existent-id' // This will return no results
             };
             console.log('User has no stock location, returning empty results');
           }
         }
 
-        // Get all active rentals to exclude rented devices
-        let rentedDeviceIds: string[] = [];
-        if (excludeRented === 'true') {
-          const activeRentals = await prisma.rental.findMany({
-            where: {
-              status: {
-                in: ['ACTIVE', 'PENDING']
-              }
-            },
-            select: {
-              medicalDeviceId: true
+        // Filter by serial number if provided
+        if (serialNumber) {
+          medicalDeviceQuery.where = {
+            ...medicalDeviceQuery.where,
+            serialNumber: {
+              contains: serialNumber as string,
+              mode: 'insensitive'
             }
-          });
-          rentedDeviceIds = activeRentals.map(r => r.medicalDeviceId);
+          };
+        }
+
+        // Filter by name if provided
+        if (name) {
+          medicalDeviceQuery.where = {
+            ...medicalDeviceQuery.where,
+            name: {
+              equals: name as string,
+              mode: 'insensitive'
+            }
+          };
         }
 
         // Fetch both medical devices and regular products
@@ -106,20 +114,23 @@ export default async function handler(
         // Filter medical devices based on type and reservation status
         let filteredMedicalDevices = medicalDevices;
 
-        // Exclude rented devices if requested
-        if (excludeRented === 'true' && rentedDeviceIds.length > 0) {
-          filteredMedicalDevices = filteredMedicalDevices.filter(
-            device => !rentedDeviceIds.includes(device.id)
-          );
-        }
-
         // Filter by device type if specified
         if (type !== 'all' && type !== '') {
           filteredMedicalDevices = filteredMedicalDevices.filter(device => device.type === type);
         }
         
+        // Filter out reserved devices if showReserved is false
+        if (showReserved === 'false') {
+          filteredMedicalDevices = filteredMedicalDevices.filter(device =>
+            device.status !== 'RESERVED'
+          );
+        }
+        
         // Transform medical devices
         const transformedMedicalDevices = filteredMedicalDevices.map(device => {
+          // Check if device is currently reserved
+          const isReserved = device.status === 'RESERVED';
+          
           return {
             id: device.id,
             deviceCode: device.deviceCode,
@@ -132,45 +143,77 @@ export default async function handler(
             purchasePrice: device.purchasePrice,
             sellingPrice: device.sellingPrice,
             technicalSpecs: device.technicalSpecs,
-            description: device.description,
             destination: device.destination,
             stockLocation: (device as any).stockLocation,
             stockLocationId: device.stockLocationId,
             stockQuantity: device.stockQuantity || 1, // Default to 1 if not specified
             status: device.status,
+            warranty: device.warranty,
+            description: device.description,
+            maintenanceInterval: device.maintenanceInterval,
             configuration: device.configuration,
             location: device.location,
-            warranty: device.warranty,
-            maintenanceInterval: device.maintenanceInterval
+            isReserved: isReserved
           };
         });
 
-        // Transform products
-        const transformedProducts = products.map(product => ({
-          id: product.id,
-          productCode: product.productCode,
-          name: product.name,
-          type: product.type,
-          brand: product.brand,
-          model: product.model,
-          description: product.description,
-          serialNumber: product.serialNumber,
-          purchasePrice: product.purchasePrice,
-          sellingPrice: product.sellingPrice,
-          minQuantity: product.minQuantity,
-          partNumber: product.partNumber,
-          compatibleWith: product.compatibleWith,
-          status: product.status,
-          stocks: product.stocks
-        }));
+        // Transform products - now with multi-location support via stocks
+        const transformedProducts = products.map(product => {
+          // Calculate total quantity across all locations
+          const totalQuantity = product.stocks.reduce((sum, stock) => sum + stock.quantity, 0);
+
+          // Get all locations where this product exists
+          const locations = product.stocks.map(stock => ({
+            id: stock.location.id,
+            name: stock.location.name,
+            quantity: stock.quantity,
+            status: stock.status
+          }));
+
+          return {
+            id: product.id,
+            productCode: product.productCode,
+            name: product.name,
+            type: product.type,
+            brand: product.brand,
+            model: product.model,
+            serialNumber: product.serialNumber,
+            description: product.description,
+            partNumber: product.partNumber,
+            compatibleWith: product.compatibleWith,
+            minQuantity: product.minQuantity,
+            purchasePrice: product.purchasePrice,
+            sellingPrice: product.sellingPrice,
+            technicalSpecs: null,
+            status: product.status,
+            stocks: product.stocks, // Keep full stocks array for backwards compatibility
+            locations: locations, // New: array of all locations with quantities
+            totalQuantity: totalQuantity, // New: total across all locations
+            // For backwards compatibility, use first stock location if exists
+            stockLocation: product.stocks[0]?.location || null,
+            stockLocationId: product.stocks[0]?.location?.id || null,
+            stockQuantity: product.stocks[0]?.quantity || 0
+          };
+        });
 
         // Combine both types of products
         return res.status(200).json([...transformedMedicalDevices, ...transformedProducts]);
 
       case 'POST':
         try {
-          const { type, parameters, ...data } = req.body;
-          console.log('Received data:', { type, parameters, ...data });
+          const { type, parameters, assignToMe, ...data } = req.body;
+          console.log('Received data:', { type, parameters, assignToMe, ...data });
+
+          // Get user's stock location if assignToMe is true
+          let stockLocationId = data.stockLocationId;
+          if (assignToMe && !stockLocationId) {
+            const user = await prisma.user.findUnique({
+              where: { id: session.user.id },
+              include: { stockLocation: true }
+            });
+            stockLocationId = user?.stockLocation?.id;
+            console.log('Auto-assigning to user stock location:', stockLocationId);
+          }
 
           // Handle medical devices
           if (type === 'MEDICAL_DEVICE' || type === 'DIAGNOSTIC_DEVICE') {
@@ -180,7 +223,7 @@ export default async function handler(
             if (!deviceCode) {
               if (type === 'DIAGNOSTIC_DEVICE') {
                 // Generate APP-DIAG-01, APP-DIAG-02, etc. for diagnostic devices
-                const allDiagDevices = await prisma.medicalDevice.findMany({
+                const lastDiagDevice = await prisma.medicalDevice.findFirst({
                   where: {
                     deviceCode: {
                       startsWith: 'APP-DIAG-'
@@ -188,43 +231,37 @@ export default async function handler(
                   },
                   orderBy: {
                     deviceCode: 'desc'
-                  },
-                  take: 1
+                  }
                 });
 
                 deviceCode = 'APP-DIAG-01';
-                if (allDiagDevices.length > 0 && allDiagDevices[0].deviceCode) {
-                  const lastNumber = parseInt(allDiagDevices[0].deviceCode.replace('APP-DIAG-', ''));
+                if (lastDiagDevice && lastDiagDevice.deviceCode) {
+                  const lastNumber = parseInt(lastDiagDevice.deviceCode.replace('APP-DIAG-', ''));
                   if (!isNaN(lastNumber)) {
                     deviceCode = `APP-DIAG-${String(lastNumber + 1).padStart(2, '0')}`;
                   }
                 }
               } else {
                 // Generate APP-0001, APP-0002, etc. for regular medical devices
-                const allMedicalDevices = await prisma.medicalDevice.findMany({
+                const lastDevice = await prisma.medicalDevice.findFirst({
                   where: {
-                    type: 'MEDICAL_DEVICE'
+                    deviceCode: {
+                      startsWith: 'APP-',
+                      not: {
+                        startsWith: 'APP-DIAG-'
+                      }
+                    }
                   },
-                  select: {
-                    deviceCode: true
+                  orderBy: {
+                    deviceCode: 'desc'
                   }
                 });
 
-                // Filter devices with APP-XXXX pattern (excluding APP-DIAG-)
-                const medicalDeviceCodes = allMedicalDevices
-                  .map(d => d.deviceCode)
-                  .filter(code => code && code.match(/^APP-\d{4}$/));
-
                 deviceCode = 'APP-0001';
-                if (medicalDeviceCodes.length > 0) {
-                  // Sort and get the highest number
-                  const numbers = medicalDeviceCodes
-                    .map(code => parseInt(code!.replace('APP-', '')))
-                    .filter(num => !isNaN(num))
-                    .sort((a, b) => b - a);
-
-                  if (numbers.length > 0) {
-                    deviceCode = `APP-${String(numbers[0] + 1).padStart(4, '0')}`;
+                if (lastDevice && lastDevice.deviceCode) {
+                  const lastNumber = parseInt(lastDevice.deviceCode.replace('APP-', ''));
+                  if (!isNaN(lastNumber)) {
+                    deviceCode = `APP-${String(lastNumber + 1).padStart(4, '0')}`;
                   }
                 }
               }
@@ -233,10 +270,10 @@ export default async function handler(
             const newMedicalDevice = await prisma.medicalDevice.create({
               data: {
                 deviceCode: deviceCode,
-                name: data.name,
+                name: data.deviceName || data.name,
                 type: type,
-                brand: data.brand,
-                model: data.model,
+                brand: data.brand || 'N/A',
+                model: data.model || 'N/A',
                 serialNumber: data.serialNumber,
                 rentalPrice: data.rentalPrice ? parseFloat(data.rentalPrice) : null,
                 purchasePrice: data.purchasePrice ? parseFloat(data.purchasePrice) : null,
@@ -245,11 +282,12 @@ export default async function handler(
                 description: data.description,
                 destination: data.destination || 'FOR_SALE',
                 configuration: data.configuration,
-                status: 'ACTIVE',
-                stockLocationId: data.stockLocationId,
+                status: data.status || 'ACTIVE',
+                stockLocationId: stockLocationId,
                 stockQuantity: data.stockQuantity ? parseInt(data.stockQuantity) : 1,
-                warranty: data.warranty,
-                maintenanceInterval: data.maintenanceInterval,
+                // Optional fields
+                warranty: data.warranty || null,
+                maintenanceInterval: data.maintenanceInterval || null,
               },
               include: {
                 stockLocation: true
@@ -303,6 +341,9 @@ export default async function handler(
               stockLocationId: newMedicalDevice.stockLocationId,
               stockQuantity: newMedicalDevice.stockQuantity,
               status: newMedicalDevice.status,
+              warranty: newMedicalDevice.warranty,
+              description: newMedicalDevice.description,
+              maintenanceInterval: newMedicalDevice.maintenanceInterval,
               configuration: newMedicalDevice.configuration
             });
           }
@@ -344,44 +385,28 @@ export default async function handler(
                 brand: data.brand || null,
                 model: data.model || null,
                 description: data.description || null,
-                serialNumber: data.serialNumber || null,
-                minQuantity: data.minQuantity ? parseInt(data.minQuantity.toString()) : null,
                 partNumber: data.partNumber || null,
                 compatibleWith: data.compatibleWith || null,
+                minQuantity: data.minQuantity ? parseInt(data.minQuantity.toString()) : null,
+                serialNumber: data.serialNumber || null,
                 purchasePrice: data.purchasePrice ? parseFloat(data.purchasePrice.toString()) : null,
                 sellingPrice: data.sellingPrice ? parseFloat(data.sellingPrice.toString()) : null,
-                status: data.status || 'ACTIVE',
               },
             });
 
-            // Handle stock location (single location via stockLocationId)
-            let createdStocks: any[] = [];
-            if (data.stockLocationId) {
-              const stock = await prisma.stock.create({
-                data: {
-                  productId: newProduct.id,
-                  locationId: data.stockLocationId,
-                  quantity: data.stockQuantity ? parseInt(data.stockQuantity.toString()) : 0,
-                  status: 'FOR_SALE' // Use StockStatus enum value, not product status
-                },
-                include: {
-                  location: true
-                }
-              });
-              createdStocks = [stock];
-            }
+            // Handle multiple stock entries
+            const stockEntries = data.stockEntries || [];
 
-            // Handle multiple stock locations
-            const stockLocations = data.stockLocations || [];
-            if (stockLocations.length > 0) {
-              const multiStocks = await Promise.all(
-                stockLocations.map((stockLoc: any) =>
+            // If stockEntries is provided (new multi-location format), create multiple stocks
+            if (Array.isArray(stockEntries) && stockEntries.length > 0) {
+              const createdStocks = await Promise.all(
+                stockEntries.map((entry: any) =>
                   prisma.stock.create({
                     data: {
                       productId: newProduct.id,
-                      locationId: stockLoc.locationId,
-                      quantity: parseInt(stockLoc.quantity.toString()),
-                      status: stockLoc.status || 'FOR_SALE'
+                      locationId: entry.locationId,
+                      quantity: parseInt(entry.quantity.toString()),
+                      status: entry.status || 'FOR_SALE'
                     },
                     include: {
                       location: true
@@ -389,27 +414,85 @@ export default async function handler(
                   })
                 )
               );
-              createdStocks = [...createdStocks, ...multiStocks];
-            }
 
-            return res.status(201).json({
-              id: newProduct.id,
-              productCode: newProduct.productCode,
-              name: newProduct.name,
-              type: newProduct.type,
-              brand: newProduct.brand,
-              model: newProduct.model,
-              description: newProduct.description,
-              serialNumber: newProduct.serialNumber,
-              purchasePrice: newProduct.purchasePrice,
-              sellingPrice: newProduct.sellingPrice,
-              minQuantity: newProduct.minQuantity,
-              partNumber: newProduct.partNumber,
-              compatibleWith: newProduct.compatibleWith,
-              warrantyExpiration: newProduct.warrantyExpiration,
-              stocks: createdStocks,
-              status: newProduct.status
-            });
+              // Calculate total quantity
+              const totalQuantity = createdStocks.reduce((sum, stock) => sum + stock.quantity, 0);
+
+              return res.status(201).json({
+                id: newProduct.id,
+                productCode: newProduct.productCode,
+                name: newProduct.name,
+                type: newProduct.type,
+                brand: newProduct.brand,
+                model: newProduct.model,
+                description: newProduct.description,
+                partNumber: newProduct.partNumber,
+                compatibleWith: newProduct.compatibleWith,
+                minQuantity: newProduct.minQuantity,
+                serialNumber: newProduct.serialNumber,
+                purchasePrice: newProduct.purchasePrice,
+                sellingPrice: newProduct.sellingPrice,
+                warrantyExpiration: newProduct.warrantyExpiration,
+                stocks: createdStocks,
+                locations: createdStocks.map(stock => ({
+                  id: stock.location.id,
+                  name: stock.location.name,
+                  quantity: stock.quantity,
+                  status: stock.status
+                })),
+                totalQuantity: totalQuantity,
+                // Backwards compatibility
+                stockLocation: createdStocks[0]?.location.name,
+                stockLocationId: createdStocks[0]?.location.id,
+                stockQuantity: createdStocks[0]?.quantity,
+                status: createdStocks[0]?.status
+              });
+            }
+            // Fallback to old single-location format (backwards compatibility)
+            else if (data.stockLocationId) {
+              const stock = await prisma.stock.create({
+                data: {
+                  product: {
+                    connect: {
+                      id: newProduct.id
+                    }
+                  },
+                  location: {
+                    connect: {
+                      id: data.stockLocationId
+                    }
+                  },
+                  quantity: parseInt(data.stockQuantity.toString()),
+                  status: 'FOR_SALE'
+                },
+                include: {
+                  location: true
+                }
+              });
+
+              return res.status(201).json({
+                id: newProduct.id,
+                productCode: newProduct.productCode,
+                name: newProduct.name,
+                type: newProduct.type,
+                brand: newProduct.brand,
+                model: newProduct.model,
+                description: newProduct.description,
+                partNumber: newProduct.partNumber,
+                compatibleWith: newProduct.compatibleWith,
+                minQuantity: newProduct.minQuantity,
+                serialNumber: newProduct.serialNumber,
+                purchasePrice: newProduct.purchasePrice,
+                sellingPrice: newProduct.sellingPrice,
+                warrantyExpiration: newProduct.warrantyExpiration,
+                stockLocation: stock.location.name,
+                stockLocationId: stock.location.id,
+                stockQuantity: stock.quantity,
+                status: stock.status
+              });
+            } else {
+              throw new Error('No stock entries provided');
+            }
           }
         } catch (error) {
           console.error('Error creating product:', error);
@@ -438,11 +521,12 @@ export default async function handler(
               technicalSpecs: updateData.technicalSpecs,
               destination: updateData.destination || 'FOR_SALE',
               configuration: updateData.configuration || updateData.specifications,
+              warranty: updateData.warranty || null,
+              description: updateData.description || null,
+              maintenanceInterval: updateData.maintenanceInterval || null,
               status: updateData.status || 'ACTIVE',
               stockLocationId: updateData.stockLocationId || updateData.stockLocation,
               stockQuantity: updateData.stockQuantity ? parseInt(updateData.stockQuantity.toString()) : 1,
-              warranty: updateData.warranty,
-              maintenanceInterval: updateData.maintenanceInterval,
             },
             include: {
               stockLocation: true
@@ -491,6 +575,10 @@ export default async function handler(
             sellingPrice: updatedMedicalDevice.sellingPrice,
             technicalSpecs: updatedMedicalDevice.technicalSpecs,
             destination: updatedMedicalDevice.destination,
+            configuration: updatedMedicalDevice.configuration,
+            warranty: updatedMedicalDevice.warranty,
+            description: updatedMedicalDevice.description,
+            maintenanceInterval: updatedMedicalDevice.maintenanceInterval,
             stockLocation: updatedMedicalDevice.stockLocation,
             stockLocationId: updatedMedicalDevice.stockLocationId,
             stockQuantity: updatedMedicalDevice.stockQuantity,
@@ -498,12 +586,65 @@ export default async function handler(
           });
         }
         
-        // Handle regular product update
+        // Handle regular product update (accessories/spare parts)
         else {
-          // Update product metadata
+          // Check if product needs code generation or pattern correction
+          const existingProduct = await prisma.product.findUnique({
+            where: { id }
+          });
+
+          if (!existingProduct) {
+            return res.status(404).json({ error: 'Product not found' });
+          }
+
+          let productCode = existingProduct.productCode;
+          const type = updateData.type || existingProduct.type;
+
+          // Check if product needs code generation or pattern correction
+          const needsCodeGeneration = !productCode;
+          let needsPatternCorrection = false;
+
+          if (productCode && type) {
+            const expectedPrefix = type === 'ACCESSORY' ? 'ACC-' : type === 'SPARE_PART' ? 'PIEC-' : 'PRD-';
+            needsPatternCorrection = !productCode.startsWith(expectedPrefix);
+          }
+
+          if (needsCodeGeneration || needsPatternCorrection) {
+            if (needsCodeGeneration) {
+              console.log('Product has no code, generating new code...');
+            } else {
+              console.log('Product has incorrect pattern, correcting code from:', productCode);
+            }
+
+            const prefix = type === 'ACCESSORY' ? 'ACC-' : type === 'SPARE_PART' ? 'PIEC-' : 'PRD-';
+
+            const lastProduct = await prisma.product.findFirst({
+              where: {
+                type: type,
+                productCode: {
+                  startsWith: prefix
+                }
+              },
+              orderBy: {
+                productCode: 'desc'
+              }
+            });
+
+            productCode = `${prefix}001`;
+            if (lastProduct && lastProduct.productCode) {
+              const lastNumber = parseInt(lastProduct.productCode.replace(prefix, ''));
+              if (!isNaN(lastNumber)) {
+                productCode = `${prefix}${String(lastNumber + 1).padStart(3, '0')}`;
+              }
+            }
+
+            console.log('Generated/Corrected product code:', productCode);
+          }
+
           const updatedProduct = await prisma.product.update({
             where: { id },
             data: {
+              productCode: productCode,
               name: updateData.name,
               brand: updateData.brand,
               model: updateData.model,
@@ -512,58 +653,6 @@ export default async function handler(
               sellingPrice: updateData.sellingPrice ? parseFloat(updateData.sellingPrice) : null,
               warrantyExpiration: updateData.warrantyExpiration ? new Date(updateData.warrantyExpiration) : null,
             },
-          });
-
-          // Handle stock locations update if provided
-          if (updateData.stockLocations && Array.isArray(updateData.stockLocations)) {
-            // Get existing stocks for this product
-            const existingStocks = await prisma.stock.findMany({
-              where: { productId: id }
-            });
-
-            const existingLocationIds = new Set(existingStocks.map(s => s.locationId));
-            const newLocationIds = new Set(updateData.stockLocations.map((sl: any) => sl.locationId));
-
-            // Delete stocks that are no longer in the list
-            const toDelete = existingStocks.filter(s => !newLocationIds.has(s.locationId));
-            await Promise.all(
-              toDelete.map(stock =>
-                prisma.stock.delete({ where: { id: stock.id } })
-              )
-            );
-
-            // Update or create stocks
-            await Promise.all(
-              updateData.stockLocations.map(async (stockLoc: any) => {
-                const existing = existingStocks.find(s => s.locationId === stockLoc.locationId);
-
-                if (existing) {
-                  // Update existing stock
-                  return prisma.stock.update({
-                    where: { id: existing.id },
-                    data: {
-                      quantity: parseInt(stockLoc.quantity.toString()),
-                      status: stockLoc.status || 'FOR_SALE'
-                    }
-                  });
-                } else {
-                  // Create new stock
-                  return prisma.stock.create({
-                    data: {
-                      productId: id,
-                      locationId: stockLoc.locationId,
-                      quantity: parseInt(stockLoc.quantity.toString()),
-                      status: stockLoc.status || 'FOR_SALE'
-                    }
-                  });
-                }
-              })
-            );
-          }
-
-          // Fetch updated product with stocks
-          const productWithStocks = await prisma.product.findUnique({
-            where: { id },
             include: {
               stocks: {
                 include: {
@@ -573,18 +662,35 @@ export default async function handler(
             }
           });
 
+          // Calculate locations info for response
+          const locations = updatedProduct.stocks.map(stock => ({
+            id: stock.location.id,
+            name: stock.location.name,
+            quantity: stock.quantity,
+            status: stock.status
+          }));
+
+          const totalQuantity = updatedProduct.stocks.reduce((sum, stock) => sum + stock.quantity, 0);
+
           return res.status(200).json({
-            id: productWithStocks!.id,
-            name: productWithStocks!.name,
-            type: productWithStocks!.type,
-            brand: productWithStocks!.brand,
-            model: productWithStocks!.model,
-            serialNumber: productWithStocks!.serialNumber,
-            purchasePrice: productWithStocks!.purchasePrice,
-            sellingPrice: productWithStocks!.sellingPrice,
+            id: updatedProduct.id,
+            productCode: updatedProduct.productCode,
+            name: updatedProduct.name,
+            type: updatedProduct.type,
+            brand: updatedProduct.brand,
+            model: updatedProduct.model,
+            serialNumber: updatedProduct.serialNumber,
+            purchasePrice: updatedProduct.purchasePrice,
+            sellingPrice: updatedProduct.sellingPrice,
             technicalSpecs: null,
-            stocks: productWithStocks!.stocks,
-            status: productWithStocks!.status
+            locations: locations,
+            totalQuantity: totalQuantity,
+            stocks: updatedProduct.stocks,
+            // For backwards compatibility
+            stockLocation: updatedProduct.stocks[0]?.location.name || 'Non assigné',
+            stockLocationId: updatedProduct.stocks[0]?.location.id,
+            stockQuantity: updatedProduct.stocks[0]?.quantity || 0,
+            status: updatedProduct.stocks[0]?.status || 'FOR_SALE'
           });
         }
 

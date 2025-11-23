@@ -21,10 +21,10 @@ import {
 } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CNAMBondLocation, CNAMBonType, CNAMStatus, PredefinedBond } from "./types";
+import { CNAMBondLocation, CNAMBondType, CNAMStatus, PredefinedBond } from "./types";
 
 interface CNAMBondsTabProps {
-  cnamBons: CNAMBondLocation[];
+  cnamBonds: CNAMBondLocation[];
   setCnamBonds: (bonds: CNAMBondLocation[]) => void;
   activeCnamBond: string;
   setActiveCnamBond: (bondId: string) => void;
@@ -36,7 +36,7 @@ interface CNAMBondsTabProps {
 }
 
 // CNAM Bond types for rental - Only Oxygène and VNI as per user requirements
-const cnamBondTypes: CNAMBonType[] = [
+const cnamBondTypes: CNAMBondType[] = [
   { value: 'CONCENTRATEUR_OXYGENE', label: 'Concentrateur Oxygène' },
   { value: 'VNI', label: 'VNI (Ventilation Non Invasive)' }
 ];
@@ -45,14 +45,14 @@ const cnamBondTypes: CNAMBonType[] = [
 const predefinedBonds: PredefinedBond[] = [
   {
     id: 'concentrateur-1m',
-    bonType: 'CONCENTRATEUR_OXYGENE',
+    bondType: 'CONCENTRATEUR_OXYGENE',
     label: 'Concentrateur Oxygène - 1 mois',
     coveredMonths: 1,
     totalAmount: 190
   },
   {
     id: 'vni-1m',
-    bonType: 'VNI',
+    bondType: 'VNI',
     label: 'VNI - 1 mois',
     coveredMonths: 1,
     totalAmount: 430
@@ -68,7 +68,7 @@ const cnamStatuses: CNAMStatus[] = [
 ];
 
 export function CNAMBondsTab({
-  cnamBons,
+  cnamBonds,
   setCnamBonds,
   activeCnamBond,
   setActiveCnamBond,
@@ -85,8 +85,8 @@ export function CNAMBondsTab({
 
     const newBond: CNAMBondLocation = {
       id: `bond-${Date.now()}`,
-      bonNumber: '',
-      bonType: template.bonType as any,
+      bondNumber: '',
+      bondType: template.bondType as any,
       productIds: selectedProducts.map(p => p.id),
       status: 'EN_ATTENTE_APPROBATION',
       monthlyAmount: template.totalAmount / template.coveredMonths,
@@ -97,7 +97,7 @@ export function CNAMBondsTab({
       notes: `Bond prédéfini: ${template.label}`
     };
 
-    setCnamBonds([...cnamBons, newBond]);
+    setCnamBonds([...cnamBonds, newBond]);
     setActiveCnamBond(newBond.id);
     
     toast({
@@ -109,8 +109,8 @@ export function CNAMBondsTab({
   const createNewCnamBond = () => {
     const newBond: CNAMBondLocation = {
       id: `bond-${Date.now()}`,
-      bonNumber: '',
-      bonType: 'CONCENTRATEUR_OXYGENE',
+      bondNumber: '',
+      bondType: 'CONCENTRATEUR_OXYGENE',
       productIds: selectedProducts.map(p => p.id),
       status: 'EN_ATTENTE_APPROBATION',
       monthlyAmount: 190, // Default to 1-month concentrator rate
@@ -119,31 +119,31 @@ export function CNAMBondsTab({
       renewalReminderDays: 30,
       submissionDate: new Date()
     };
-    setCnamBonds([...cnamBons, newBond]);
+    setCnamBonds([...cnamBonds, newBond]);
     setActiveCnamBond(newBond.id);
   };
 
   const removeCnamBond = (bondId: string) => {
-    setCnamBonds(cnamBons.filter(b => b.id !== bondId));
+    setCnamBonds(cnamBonds.filter(b => b.id !== bondId));
     if (activeCnamBond === bondId) {
       setActiveCnamBond('');
     }
   };
 
   const updateCnamBond = (bondId: string, updates: Partial<CNAMBondLocation>) => {
-    const updatedBonds = cnamBons.map(bond => 
+    const updatedBonds = cnamBonds.map(bond => 
       bond.id === bondId ? { ...bond, ...updates } : bond
     );
     setCnamBonds(updatedBonds);
   };
 
-  const activeBond = cnamBons.find(b => b.id === activeCnamBond);
+  const activeBond = cnamBonds.find(b => b.id === activeCnamBond);
 
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <div>
-          <h3 className="text-lg font-semibold">Bons de Location CNAM</h3>
+          <h3 className="text-lg font-semibold">Bonds de Location CNAM</h3>
           <p className="text-sm text-gray-600">Gérez les bonds CNAM pour la prise en charge de la location</p>
         </div>
         <div className="flex gap-2">
@@ -151,7 +151,7 @@ export function CNAMBondsTab({
             onClick={onAutoGeneratePaymentPeriods}
             size="sm" 
             variant="outline"
-            disabled={cnamBons.length === 0}
+            disabled={cnamBonds.length === 0}
             className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
           >
             <CheckCircle className="h-4 w-4 mr-2" />
@@ -190,7 +190,7 @@ export function CNAMBondsTab({
       )}
 
       {/* Auto-calculation Info */}
-      {cnamBons.length > 0 && (
+      {cnamBonds.length > 0 && (
         <Alert className="border-green-200 bg-green-50">
           <Info className="h-4 w-4 text-green-600" />
           <AlertDescription>
@@ -228,9 +228,9 @@ export function CNAMBondsTab({
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* CNAM bons List */}
+        {/* CNAM Bonds List */}
         <div className="space-y-2">
-          {cnamBons.length === 0 ? (
+          {cnamBonds.length === 0 ? (
             <Card className="border-dashed">
               <CardContent className="p-4 text-center text-gray-500">
                 <Shield className="h-8 w-8 mx-auto mb-2 text-gray-400" />
@@ -238,7 +238,7 @@ export function CNAMBondsTab({
               </CardContent>
             </Card>
           ) : (
-            cnamBons.map((bond, index) => (
+            cnamBonds.map((bond, index) => (
               <Card 
                 key={bond.id}
                 className={`cursor-pointer transition-all ${
@@ -257,8 +257,8 @@ export function CNAMBondsTab({
                           {cnamStatuses.find(s => s.value === bond.status)?.label}
                         </Badge>
                       </div>
-                      {bond.bonNumber && (
-                        <div className="text-sm font-medium">{bond.bonNumber}</div>
+                      {bond.bondNumber && (
+                        <div className="text-sm font-medium">{bond.bondNumber}</div>
                       )}
                       <div className="text-xs text-gray-600">
                         {bond.coveredMonths} mois - {bond.totalAmount.toFixed(2)} TND
@@ -300,9 +300,9 @@ export function CNAMBondsTab({
                   <div className="space-y-2">
                     <Label>Type de Bond</Label>
                     <Select
-                      value={activeBond.bonType}
+                      value={activeBond.bondType}
                       onValueChange={(value) => {
-                        updateCnamBond(activeBond.id, { bonType: value as any });
+                        updateCnamBond(activeBond.id, { bondType: value as any });
                       }}
                     >
                       <SelectTrigger>
@@ -346,9 +346,9 @@ export function CNAMBondsTab({
                     <Label>Numéro du Bond</Label>
                     <Input
                       placeholder="BL-2024-001234"
-                      value={activeBond.bonNumber}
+                      value={activeBond.bondNumber}
                       onChange={(e) => {
-                        updateCnamBond(activeBond.id, { bonNumber: e.target.value });
+                        updateCnamBond(activeBond.id, { bondNumber: e.target.value });
                       }}
                     />
                   </div>

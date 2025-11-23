@@ -102,7 +102,7 @@ const Map: React.FC<MapProps> = ({ patients }) => {
   // Tunisia center coordinates
   const tunisiaCenter: LatLngExpression = [33.8869, 9.5375];
   
-  // Elite Medical Services headquarters coordinates in M'saken
+  // Elite medicale Services headquarters coordinates in M'saken
   const companyLocation: LatLngExpression = [35.734867, 10.5740649];
   
   // Create company headquarters icon
@@ -156,7 +156,7 @@ const Map: React.FC<MapProps> = ({ patients }) => {
           <div className="p-3">
             <h3 className="font-bold text-lg text-gray-900 mb-2 pb-2 border-b flex items-center gap-2">
               <Building2 size={20} className="text-blue-900" />
-              Elite Medical Services
+              Elite medicale Services
             </h3>
             <div className="space-y-2 text-sm">
               <div className="bg-blue-50 p-2 rounded">
@@ -173,7 +173,7 @@ const Map: React.FC<MapProps> = ({ patients }) => {
               <div className="bg-green-50 p-2 rounded">
                 <h4 className="font-semibold text-gray-700 mb-1">Contact</h4>
                 <p className="text-gray-600">📞 +216 XX XXX XXX</p>
-                <p className="text-gray-600">📧 contact@elitemedical.tn</p>
+                <p className="text-gray-600">📧 contact@elite-medicale.tn</p>
               </div>
             </div>
           </div>

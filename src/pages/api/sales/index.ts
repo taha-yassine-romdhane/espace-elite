@@ -131,6 +131,14 @@ export default async function handler(
             email: true,
           },
         },
+        assignedTo: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+          },
+        },
         patient: {
           select: {
             id: true,
@@ -138,6 +146,7 @@ export default async function handler(
             lastName: true,
             telephone: true,
             patientCode: true,
+            isActive: true,
           },
         },
         company: {
@@ -190,14 +199,6 @@ export default async function handler(
             },
           },
         },
-        assignedTo: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            role: true,
-          },
-        },
       } : {
         // Minimal data for list view
         patient: {
@@ -206,6 +207,7 @@ export default async function handler(
             firstName: true,
             lastName: true,
             patientCode: true,
+            isActive: true,
           },
         },
         company: {
@@ -227,6 +229,7 @@ export default async function handler(
             id: true,
             firstName: true,
             lastName: true,
+            role: true,
           },
         },
         _count: {
@@ -274,7 +277,7 @@ export default async function handler(
           firstName: sale.processedBy.firstName,
           lastName: sale.processedBy.lastName,
           name: `${sale.processedBy.firstName} ${sale.processedBy.lastName}`,
-          email: sale.processedBy.email,
+          email: 'email' in sale.processedBy ? sale.processedBy.email : undefined,
         } : null,
 
         // Who is assigned to the sale
@@ -292,17 +295,18 @@ export default async function handler(
           id: sale.patient.id,
           firstName: sale.patient.firstName,
           lastName: sale.patient.lastName,
-          telephone: sale.patient.telephone,
+          telephone: 'telephone' in sale.patient ? sale.patient.telephone : undefined,
           patientCode: sale.patient.patientCode,
+          isActive: sale.patient.isActive,
           fullName: `${sale.patient.firstName} ${sale.patient.lastName}`,
         } : null,
-        
+
         companyId: sale.companyId,
         company: sale.company ? {
           id: sale.company.id,
           companyName: sale.company.companyName,
           companyCode: sale.company.companyCode,
-          telephone: sale.company.telephone,
+          telephone: 'telephone' in sale.company ? sale.company.telephone : undefined,
         } : null,
         
         // Client display name (either patient name or company name)
@@ -366,7 +370,7 @@ export default async function handler(
         })(),
         
         // Items in the sale (only when details are included)
-        items: sale.items ? sale.items.map(item => ({
+        items: sale.items ? sale.items.map((item: any) => ({
           id: item.id,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
@@ -427,7 +431,7 @@ export default async function handler(
         paymentsCount: includeDetails ? undefined : (sale as any)._count?.payments,
 
         // CNAM Bons information (only when details included)
-        cnamBons: sale.cnamBons?.map(bon => ({
+        cnamBons: sale.cnamBons?.map((bon: any) => ({
           id: bon.id,
           bonNumber: bon.bonNumber,
           bonType: bon.bonType,
@@ -734,18 +738,22 @@ export default async function handler(
               
               // Distribute the deduction across multiple stock records if needed
               let remainingToDeduct = requestedQuantity;
-              
+
               for (const stockRecord of stockRecords) {
                 if (remainingToDeduct <= 0) break;
-                
+
                 const deductFromThis = Math.min(stockRecord.quantity, remainingToDeduct);
                 const newQuantity = stockRecord.quantity - deductFromThis;
-                
+
+                // Update quantity and set status to SOLD if quantity reaches 0
                 await tx.stock.update({
                   where: { id: stockRecord.id },
-                  data: { quantity: newQuantity }
+                  data: {
+                    quantity: newQuantity,
+                    status: newQuantity === 0 ? 'SOLD' : stockRecord.status
+                  }
                 });
-                
+
                 remainingToDeduct -= deductFromThis;
               }
               
@@ -754,29 +762,26 @@ export default async function handler(
             }
             
             if (item.medicalDeviceId) {
-              // Find the "Vendu" stock location
-              const venduLocation = await tx.stockLocation.findFirst({
-                where: { name: 'Vendu' }
-              });
-
+              // Mark medical device as SOLD (keep it in current location)
               await tx.medicalDevice.update({
                 where: { id: item.medicalDeviceId },
                 data: {
-                  status: 'SOLD',
-                  stockLocationId: venduLocation?.id || null
-                  // Note: Patient/company association is through the Sale record, not directly on the device
+                  status: 'SOLD'
+                  // Note: Device stays in its current location
+                  // Patient/company association is through the Sale record, not directly on the device
                 }
               });
             }
             }
           }
 
-          // 4.5. Create CNAM dossiers now that sale is created
+          // 4.5. Create CNAM dossiers AND bons now that sale is created
           const cnamDossierIds: string[] = [];
           if (cnamPaymentsData.length > 0 && saleData.patientId) {
             for (const cnamData of cnamPaymentsData) {
-              // Generate CNAM dossier number
-              const dossierNumber = await generateCNAMDossierNumber(tx as any);
+              // Generate CNAM dossier number (use provided or generate new)
+              const dossierNumber = cnamData.dossierNumber || await generateCNAMDossierNumber(tx as any);
+
               // Create CNAM dossier with proper sale reference
               const cnamDossier = await tx.cNAMDossier.create({
                 data: {
@@ -793,18 +798,39 @@ export default async function handler(
                   patientId: saleData.patientId
                 }
               });
-              
+
               cnamDossierIds.push(cnamDossier.id);
-              
+
               // Create initial step history entry
               await tx.cNAMStepHistory.create({
                 data: {
                   dossierId: cnamDossier.id,
                   toStep: cnamDossier.currentStep,
-                  toStatus: cnamDossier.status,
+                  toStatus: cnamDossier.status as any,
                   notes: 'Dossier CNAM créé lors de la vente',
                   changedById: saleData.processedById,
                   changeDate: new Date()
+                }
+              });
+
+              // Create CNAM Bon directly from payment data
+              const bonNumber = `BON-${Date.now()}-${Math.random().toString(36).substring(7).toUpperCase()}`;
+
+              await tx.cNAMBonRental.create({
+                data: {
+                  bonNumber: bonNumber,
+                  category: 'ACHAT', // Sale type CNAM bon
+                  bonType: cnamData.bonType,
+                  status: cnamData.status,
+                  bonAmount: cnamData.bonAmount || 0,
+                  devicePrice: cnamData.devicePrice || 0,
+                  complementAmount: cnamData.complementAmount || 0,
+                  cnamMonthlyRate: 0, // Not applicable for sales (one-time purchase)
+                  deviceMonthlyRate: 0, // Not applicable for sales
+                  coveredMonths: 1, // Set to 1 for one-time purchase
+                  notes: cnamData.notes || null,
+                  patientId: saleData.patientId,
+                  saleId: sale.id // Link to this sale
                 }
               });
             }

@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { useSession, signOut } from 'next-auth/react';
 import EmployeeNavbar from './EmployeeNavbar';
 import EmployeeSidebar from './EmployeeSidebar';
+import EmployeeQuickActionsBar from './EmployeeQuickActionsBar';
 
 const EmployeeLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const router = useRouter();
@@ -21,6 +22,9 @@ const EmployeeLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Navbar */}
         <EmployeeNavbar />
+
+        {/* Quick Actions Bar - Shows on all pages except dashboard */}
+        <EmployeeQuickActionsBar />
 
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto p-6 bg-gray-50">

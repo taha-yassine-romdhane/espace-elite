@@ -19,8 +19,8 @@ const PartnershipSection: React.FC = () => {
             </span>
           </h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Espace Elite est le fruit d'un partenariat stratégique entre cubix. 
-            et Elite Medical Services pour révolutionner la gestion médicale en Tunisie.
+            Espace Elite est le fruit d'un partenariat stratégique entre cubix.
+            et Elite medicale Services pour révolutionner la gestion médicale en Tunisie.
           </p>
         </div>
 
@@ -62,20 +62,20 @@ const PartnershipSection: React.FC = () => {
             </div>
           </div>
 
-          {/* Elite Medical Services */}
+          {/* Elite medicale Services */}
           <div className="bg-white rounded-3xl p-8 border border-gray-200 hover:shadow-2xl transition-all duration-300 group">
             <div className="flex items-center space-x-4 mb-6">
               <div className="p-3 bg-blue-50 rounded-2xl group-hover:bg-blue-100 transition-colors">
                 <Image 
                   src="/logo_No_BG.png" 
-                  alt="Elite Medical Services" 
+                  alt="Elite medicale Services" 
                   width={48} 
                   height={48} 
                   className="w-12 h-12 object-contain" 
                 />
               </div>
               <div>
-                <h3 className="text-2xl font-bold text-gray-900">Elite Medical Services</h3>
+                <h3 className="text-2xl font-bold text-gray-900">Elite medicale Services</h3>
                 <p className="text-purple-600 font-semibold">Expertise Médicale</p>
               </div>
             </div>

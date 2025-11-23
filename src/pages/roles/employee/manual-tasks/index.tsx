@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check, X, Search, ChevronLeft, ChevronRight, ClipboardCheck, CheckCircle } from "lucide-react";
+import { Check, X, Search, ChevronLeft, ChevronRight, ClipboardCheck, CheckCircle, Calendar, User } from "lucide-react";
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Textarea } from "@/components/ui/textarea";
@@ -28,12 +30,22 @@ interface ManualTask {
     firstName: string;
     lastName: string;
   };
+  priority: 'LOW' | 'MEDIUM' | 'HIGH';
   adminNotes?: string;
   employeeNotes?: string;
   status: 'PENDING' | 'COMPLETED' | 'CANCELLED';
   completedAt?: Date | string;
   createdAt: Date | string;
 }
+
+const TASK_TYPES = [
+  { value: 'POLYGRAPHIE', label: 'Polygraphie' },
+  { value: 'CONSULTATION', label: 'Consultation' },
+  { value: 'LOCATION', label: 'Location' },
+  { value: 'VENTE', label: 'Vente' },
+  { value: 'MAINTENANCE', label: 'Maintenance' },
+  { value: 'RECUPERATION', label: 'Récupération' }
+];
 
 const TASK_TYPES_LABELS: Record<string, string> = {
   POLYGRAPHIE: 'Polygraphie',
@@ -43,6 +55,12 @@ const TASK_TYPES_LABELS: Record<string, string> = {
   MAINTENANCE: 'Maintenance',
   RECUPERATION: 'Récupération'
 };
+
+const PRIORITIES = [
+  { value: 'LOW', label: 'Faible' },
+  { value: 'MEDIUM', label: 'Moyenne' },
+  { value: 'HIGH', label: 'Haute' }
+];
 
 const STATUSES = ['PENDING', 'COMPLETED'];
 
@@ -76,18 +94,47 @@ const getTaskTypeColor = (type: string): string => {
   return colors[type] || 'bg-gray-100 text-gray-800 border-gray-200';
 };
 
+const getPriorityLabel = (priority: string): string => {
+  const labels: Record<string, string> = {
+    LOW: 'Faible',
+    MEDIUM: 'Moyenne',
+    HIGH: 'Haute'
+  };
+  return labels[priority] || priority;
+};
+
+const getPriorityColor = (priority: string): string => {
+  const colors: Record<string, string> = {
+    LOW: 'bg-gray-100 text-gray-700 border-gray-300',
+    MEDIUM: 'bg-blue-100 text-blue-700 border-blue-300',
+    HIGH: 'bg-red-100 text-red-700 border-red-300'
+  };
+  return colors[priority] || 'bg-gray-100 text-gray-800 border-gray-200';
+};
+
 export default function EmployeeManualTasksPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const [completingId, setCompletingId] = useState<string | null>(null);
   const [employeeNotes, setEmployeeNotes] = useState<string>('');
+  const [appointmentDialogOpen, setAppointmentDialogOpen] = useState(false);
+  const [appointmentTask, setAppointmentTask] = useState<ManualTask | null>(null);
+  const [appointmentData, setAppointmentData] = useState({
+    scheduledDate: '',
+    location: '',
+    priority: 'NORMAL',
+    status: 'SCHEDULED',
+    notes: '',
+  });
 
   // Pagination & Filters
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('PENDING'); // Default to pending tasks
+  const [typeFilter, setTypeFilter] = useState<string>('ALL');
+  const [priorityFilter, setPriorityFilter] = useState<string>('ALL');
 
   // Fetch manual tasks (only assigned to this employee)
   const { data: tasks = [] } = useQuery({
@@ -112,6 +159,8 @@ export default function EmployeeManualTasksPage() {
     }
 
     if (statusFilter !== 'ALL' && task.status !== statusFilter) return false;
+    if (typeFilter !== 'ALL' && task.taskType !== typeFilter) return false;
+    if (priorityFilter !== 'ALL' && task.priority !== priorityFilter) return false;
 
     return true;
   });
@@ -124,7 +173,7 @@ export default function EmployeeManualTasksPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, statusFilter]);
+  }, [searchTerm, statusFilter, typeFilter, priorityFilter]);
 
   // Update mutation
   const updateMutation = useMutation({
@@ -148,6 +197,38 @@ export default function EmployeeManualTasksPage() {
     },
   });
 
+  // Create appointment mutation
+  const createAppointmentMutation = useMutation({
+    mutationFn: async (appointment: any) => {
+      const response = await fetch('/api/appointments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(appointment),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create appointment');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["manualTasks"] });
+      toast({ title: "Succès", description: "Rendez-vous créé avec succès" });
+      setAppointmentDialogOpen(false);
+      setAppointmentTask(null);
+      setAppointmentData({
+        scheduledDate: '',
+        location: '',
+        priority: 'NORMAL',
+        status: 'SCHEDULED',
+        notes: '',
+      });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erreur", description: error.message, variant: "destructive" });
+    },
+  });
+
   const handleStartComplete = (task: ManualTask) => {
     setCompletingId(task.id);
     setEmployeeNotes(task.employeeNotes || '');
@@ -166,8 +247,48 @@ export default function EmployeeManualTasksPage() {
     });
   };
 
+  const handleOpenAppointmentDialog = (task: ManualTask) => {
+    // Pre-fill the appointment with tomorrow's date
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(9, 0, 0, 0); // Set to 9:00 AM
+
+    setAppointmentTask(task);
+    setAppointmentData({
+      scheduledDate: tomorrow.toISOString().slice(0, 16), // Format for datetime-local input
+      location: '',
+      priority: 'NORMAL',
+      status: 'SCHEDULED',
+      notes: `Rendez-vous pour ${TASK_TYPES_LABELS[task.taskType] || task.taskType}`,
+    });
+    setAppointmentDialogOpen(true);
+  };
+
+  const handleCreateAppointment = () => {
+    if (!appointmentTask) return;
+
+    if (!appointmentData.scheduledDate || !appointmentData.location) {
+      toast({
+        title: "Erreur",
+        description: "Date et lieu sont requis",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    createAppointmentMutation.mutate({
+      patientId: appointmentTask.patientId,
+      appointmentType: appointmentTask.taskType,
+      scheduledDate: new Date(appointmentData.scheduledDate),
+      location: appointmentData.location,
+      priority: appointmentData.priority,
+      status: appointmentData.status,
+      notes: appointmentData.notes,
+    });
+  };
+
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="px-4 py-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
@@ -211,12 +332,38 @@ export default function EmployeeManualTasksPage() {
             </SelectContent>
           </Select>
 
-          {(statusFilter !== 'PENDING' || searchTerm) && (
+          <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <SelectTrigger className="w-[180px] h-9">
+              <SelectValue placeholder="Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Tous les types</SelectItem>
+              {TASK_TYPES.map(type => (
+                <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+            <SelectTrigger className="w-[160px] h-9">
+              <SelectValue placeholder="Priorité" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Toutes priorités</SelectItem>
+              {PRIORITIES.map(priority => (
+                <SelectItem key={priority.value} value={priority.value}>{priority.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {(statusFilter !== 'PENDING' || typeFilter !== 'ALL' || priorityFilter !== 'ALL' || searchTerm) && (
             <Button
               variant="ghost"
               size="sm"
               onClick={() => {
                 setStatusFilter('PENDING');
+                setTypeFilter('ALL');
+                setPriorityFilter('ALL');
                 setSearchTerm('');
               }}
               className="h-9"
@@ -238,10 +385,12 @@ export default function EmployeeManualTasksPage() {
                 <th className="px-2 py-3 text-left font-medium text-xs">Type</th>
                 <th className="px-2 py-3 text-left font-medium text-xs">Patient</th>
                 <th className="px-2 py-3 text-left font-medium text-xs">Téléphone</th>
+                <th className="px-2 py-3 text-left font-medium text-xs">Priorité</th>
                 <th className="px-2 py-3 text-left font-medium text-xs">Notes Admin</th>
                 <th className="px-2 py-3 text-left font-medium text-xs">Mes Notes</th>
                 <th className="px-2 py-3 text-left font-medium text-xs">Statut</th>
                 <th className="px-2 py-3 text-left font-medium text-xs">Date création</th>
+                <th className="px-2 py-3 text-left font-medium text-xs">Date terminé</th>
                 <th className="px-2 py-3 text-center font-medium text-xs sticky right-0 bg-gray-100">Action</th>
               </tr>
             </thead>
@@ -261,12 +410,24 @@ export default function EmployeeManualTasksPage() {
                       </Badge>
                     </td>
                     <td className="px-2 py-2">
-                      <span className="text-xs">
-                        {task.patient ? `${task.patient.firstName} ${task.patient.lastName}` : '-'}
-                      </span>
+                      {task.patient ? (
+                        <Link
+                          href={`/roles/employee/renseignement/patient/${task.patientId}`}
+                          className="text-xs text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                        >
+                          {`${task.patient.firstName} ${task.patient.lastName}`}
+                        </Link>
+                      ) : (
+                        <span className="text-xs">-</span>
+                      )}
                     </td>
                     <td className="px-2 py-2">
                       <span className="text-xs">{task.patient?.telephone || '-'}</span>
+                    </td>
+                    <td className="px-2 py-2">
+                      <Badge variant="outline" className={`text-xs ${getPriorityColor(task.priority)}`}>
+                        {getPriorityLabel(task.priority)}
+                      </Badge>
                     </td>
                     <td className="px-2 py-2">
                       <span className="text-xs">{task.adminNotes || '-'}</span>
@@ -293,48 +454,67 @@ export default function EmployeeManualTasksPage() {
                         {format(new Date(task.createdAt), 'dd/MM/yyyy HH:mm', { locale: fr })}
                       </span>
                     </td>
+                    <td className="px-2 py-2">
+                      <span className="text-xs">
+                        {task.completedAt ? format(new Date(task.completedAt), 'dd/MM/yyyy HH:mm', { locale: fr }) : '-'}
+                      </span>
+                    </td>
                     <td className="px-2 py-2 sticky right-0 bg-white">
-                      {task.status === 'PENDING' && (
-                        <>
-                          {isCompleting ? (
-                            <div className="flex gap-1 justify-center">
+                      <div className="flex gap-1 justify-center">
+                        {/* RDV Button - Always visible */}
+                        <Button
+                          onClick={() => handleOpenAppointmentDialog(task)}
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-blue-600 hover:bg-blue-50"
+                          title="Créer un rendez-vous"
+                        >
+                          <Calendar className="h-4 w-4" />
+                        </Button>
+
+                        {/* Complete Task Actions */}
+                        {task.status === 'PENDING' && (
+                          <>
+                            {isCompleting ? (
+                              <>
+                                <Button
+                                  onClick={() => handleCompleteTask(task)}
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7 text-green-600 hover:bg-green-50"
+                                  title="Marquer comme terminé"
+                                >
+                                  <Check className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  onClick={handleCancelComplete}
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7 text-red-600 hover:bg-red-50"
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </>
+                            ) : (
                               <Button
-                                onClick={() => handleCompleteTask(task)}
-                                size="icon"
-                                variant="ghost"
-                                className="h-7 w-7 text-green-600 hover:bg-green-50"
-                                title="Marquer comme terminé"
+                                onClick={() => handleStartComplete(task)}
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs"
                               >
-                                <Check className="h-4 w-4" />
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Terminer
                               </Button>
-                              <Button
-                                onClick={handleCancelComplete}
-                                size="icon"
-                                variant="ghost"
-                                className="h-7 w-7 text-red-600 hover:bg-red-50"
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ) : (
-                            <Button
-                              onClick={() => handleStartComplete(task)}
-                              size="sm"
-                              variant="outline"
-                              className="h-7 text-xs"
-                            >
-                              <CheckCircle className="h-3 w-3 mr-1" />
-                              Terminer
-                            </Button>
-                          )}
-                        </>
-                      )}
-                      {task.status === 'COMPLETED' && (
-                        <span className="text-xs text-green-600 font-medium flex items-center justify-center gap-1">
-                          <CheckCircle className="h-3 w-3" />
-                          Terminé
-                        </span>
-                      )}
+                            )}
+                          </>
+                        )}
+                        {task.status === 'COMPLETED' && (
+                          <span className="text-xs text-green-600 font-medium flex items-center gap-1">
+                            <CheckCircle className="h-3 w-3" />
+                            Terminé
+                          </span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -393,6 +573,125 @@ export default function EmployeeManualTasksPage() {
           </div>
         </div>
       )}
+
+      {/* Appointment Creation Dialog */}
+      <Dialog open={appointmentDialogOpen} onOpenChange={setAppointmentDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader className="pb-3">
+            <DialogTitle className="flex items-center gap-2 text-blue-600 text-base">
+              <Calendar className="h-4 w-4" />
+              Créer un Rendez-vous
+            </DialogTitle>
+          </DialogHeader>
+          {appointmentTask && (
+            <div className="space-y-3 py-2">
+              {/* Patient Info - Compact */}
+              <div className="bg-blue-50 p-2 rounded border border-blue-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <User className="h-3 w-3 text-blue-600" />
+                    <span className="text-xs font-medium text-blue-900">
+                      {appointmentTask.patient ? `${appointmentTask.patient.firstName} ${appointmentTask.patient.lastName}` : 'N/A'}
+                    </span>
+                  </div>
+                  <Badge variant="outline" className={`text-xs ${getTaskTypeColor(appointmentTask.taskType)}`}>
+                    {TASK_TYPES_LABELS[appointmentTask.taskType] || appointmentTask.taskType}
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Date and Location - Grid */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-700">Date et heure *</label>
+                  <Input
+                    type="datetime-local"
+                    value={appointmentData.scheduledDate}
+                    onChange={(e) => setAppointmentData({ ...appointmentData, scheduledDate: e.target.value })}
+                    className="text-xs h-8"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-700">Lieu *</label>
+                  <Input
+                    type="text"
+                    value={appointmentData.location}
+                    onChange={(e) => setAppointmentData({ ...appointmentData, location: e.target.value })}
+                    placeholder="Cabinet, Domicile..."
+                    className="text-xs h-8"
+                  />
+                </div>
+              </div>
+
+              {/* Priority and Status - Grid */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-700">Priorité</label>
+                  <Select
+                    value={appointmentData.priority}
+                    onValueChange={(value) => setAppointmentData({ ...appointmentData, priority: value })}
+                  >
+                    <SelectTrigger className="text-xs h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="LOW">Faible</SelectItem>
+                      <SelectItem value="NORMAL">Normale</SelectItem>
+                      <SelectItem value="HIGH">Élevée</SelectItem>
+                      <SelectItem value="URGENT">Urgente</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-700">Statut</label>
+                  <Select
+                    value={appointmentData.status}
+                    onValueChange={(value) => setAppointmentData({ ...appointmentData, status: value })}
+                  >
+                    <SelectTrigger className="text-xs h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="SCHEDULED">Planifié</SelectItem>
+                      <SelectItem value="CONFIRMED">Confirmé</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Notes - Compact */}
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-700">Notes</label>
+                <Textarea
+                  value={appointmentData.notes}
+                  onChange={(e) => setAppointmentData({ ...appointmentData, notes: e.target.value })}
+                  placeholder="Notes supplémentaires..."
+                  rows={2}
+                  className="text-xs resize-none"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2 pt-3">
+            <Button
+              variant="outline"
+              onClick={() => setAppointmentDialogOpen(false)}
+              disabled={createAppointmentMutation.isPending}
+              className="h-8 text-xs"
+            >
+              Annuler
+            </Button>
+            <Button
+              onClick={handleCreateAppointment}
+              disabled={createAppointmentMutation.isPending}
+              className="bg-blue-600 hover:bg-blue-700 h-8 text-xs"
+            >
+              <Calendar className="h-3 w-3 mr-1" />
+              {createAppointmentMutation.isPending ? "Création..." : "Créer"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

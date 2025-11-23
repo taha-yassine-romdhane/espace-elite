@@ -13,6 +13,7 @@ import {
 import {
   AlertDialog,
   AlertDialogAction,
+  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -57,15 +58,28 @@ export function AccessoryImportExport({ onImportSuccess, stockLocations }: Acces
   const { toast } = useToast();
 
   // Template structure matching the AccessoryForm fields
+  // Multi-location support: one row per product-location combination
   const getTemplateData = () => {
-    const firstLocationName = stockLocations.length > 0 ? stockLocations[0].name : 'Bureau Principale';
+    const location1 = stockLocations.length > 0 ? stockLocations[0].name : 'Bureau Principal';
+    const location2 = stockLocations.length > 1 ? stockLocations[1].name : 'Entrepôt';
     return [
       {
         name: 'Masque respiratoire',
         brand: 'Philips',
         model: 'DreamWear',
-        stockLocationName: firstLocationName,
+        stockLocationName: location1,
         stockQuantity: 50,
+        purchasePrice: 25.5,
+        sellingPrice: 35.0,
+        warrantyExpiration: '2025-12-31',
+        status: 'FOR_SALE'
+      },
+      {
+        name: 'Masque respiratoire',
+        brand: 'Philips',
+        model: 'DreamWear',
+        stockLocationName: location2,
+        stockQuantity: 20,
         purchasePrice: 25.5,
         sellingPrice: 35.0,
         warrantyExpiration: '2025-12-31',
@@ -75,7 +89,7 @@ export function AccessoryImportExport({ onImportSuccess, stockLocations }: Acces
         name: 'Tube CPAP',
         brand: 'ResMed',
         model: 'SlimLine',
-        stockLocationName: firstLocationName,
+        stockLocationName: location1,
         stockQuantity: 30,
         purchasePrice: 15.0,
         sellingPrice: 22.0,
@@ -90,25 +104,33 @@ export function AccessoryImportExport({ onImportSuccess, stockLocations }: Acces
     const ws = XLSX.utils.json_to_sheet(templateData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Accessoires');
-    
-    // Add headers styling and instructions
-    const locationNames = stockLocations.map(loc => loc.name).join(', ');
-    const headers = [
-      'Nom (obligatoire)',
-      'Marque',
-      'Modèle',
-      `Lieu de Stockage (${locationNames})`,
-      'Quantité en Stock',
-      'Prix d\'Achat',
-      'Prix de Vente',
-      'Fin de Garantie (YYYY-MM-DD)',
-      'Statut (EN_VENTE, EN_LOCATION, EN_REPARATION, HORS_SERVICE)'
+
+    // Add instruction sheet
+    const instructions = [
+      ['INSTRUCTIONS POUR L\'IMPORTATION D\'ACCESSOIRES'],
+      [''],
+      ['Format Multi-Emplacements:'],
+      ['- Pour ajouter un produit dans PLUSIEURS emplacements, ajoutez UNE LIGNE par emplacement'],
+      ['- Utilisez le MÊME NOM de produit pour chaque ligne'],
+      ['- Exemple: "Masque respiratoire" au Bureau Principal (50 unités) + Entrepôt (20 unités) = 2 lignes'],
+      [''],
+      ['Colonnes Obligatoires:'],
+      ['- Nom: Nom du produit (obligatoire)'],
+      ['- Lieu de Stockage: Doit correspondre exactement à un emplacement existant'],
+      ['- Quantité: Nombre d\'unités dans cet emplacement'],
+      [''],
+      [`Emplacements Disponibles: ${stockLocations.map(loc => loc.name).join(', ')}`],
+      [''],
+      ['Statuts Disponibles: FOR_SALE, FOR_RENT, IN_REPAIR, OUT_OF_SERVICE'],
+      [''],
+      ['Voir l\'onglet "Accessoires" pour des exemples']
     ];
-    
-    XLSX.utils.sheet_add_aoa(wb.Sheets['Accessoires'], [headers], { origin: 'A1' });
-    
+
+    const wsInstructions = XLSX.utils.aoa_to_sheet(instructions);
+    XLSX.utils.book_append_sheet(wb, wsInstructions, 'Instructions');
+
     XLSX.writeFile(wb, 'template_accessoires.xlsx');
-    
+
     toast({
       title: 'Succès',
       description: 'Template téléchargé avec succès',
@@ -196,6 +218,9 @@ export function AccessoryImportExport({ onImportSuccess, stockLocations }: Acces
     const file = event.target.files?.[0];
     if (!file) return;
 
+    // IMMEDIATELY close the import dialog before processing
+    setIsImportOpen(false);
+
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
@@ -211,6 +236,10 @@ export function AccessoryImportExport({ onImportSuccess, stockLocations }: Acces
             description: 'Le fichier Excel doit contenir au moins une ligne de données',
             variant: 'destructive',
           });
+          // Reset file input
+          if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+          }
           return;
         }
 
@@ -239,13 +268,26 @@ export function AccessoryImportExport({ onImportSuccess, stockLocations }: Acces
         if (allErrors.length > 0) {
           setValidationErrors(allErrors);
           setShowErrorDialog(true);
+          // Reset file input
+          if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+          }
           return;
         }
 
         // Show preview if validation passes
         setPreviewData(rows);
-        setShowPreviewDialog(true);
-        
+
+        // Reset file input
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+
+        // Open preview dialog after a short delay to ensure import dialog is unmounted
+        setTimeout(() => {
+          setShowPreviewDialog(true);
+        }, 300);
+
       } catch (error) {
         console.error('Error reading file:', error);
         toast({
@@ -253,6 +295,10 @@ export function AccessoryImportExport({ onImportSuccess, stockLocations }: Acces
           description: 'Erreur lors de la lecture du fichier Excel',
           variant: 'destructive',
         });
+        // Reset file input
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
       }
     };
     reader.readAsArrayBuffer(file);
@@ -261,24 +307,54 @@ export function AccessoryImportExport({ onImportSuccess, stockLocations }: Acces
   const processImport = async () => {
     setIsProcessing(true);
     try {
-      const accessoriesToImport = previewData.map(row => {
+      // Group rows by product name to handle multi-location products
+      const productGroups = new Map<string, {
+        productInfo: Partial<AccessoryRow>,
+        stockEntries: Array<{ locationId: string, quantity: number, status: string }>
+      }>();
+
+      previewData.forEach(row => {
+        const productKey = `${row.name.toLowerCase()}_${row.brand?.toLowerCase() || ''}_${row.model?.toLowerCase() || ''}`;
+
+        if (!productGroups.has(productKey)) {
+          productGroups.set(productKey, {
+            productInfo: {
+              name: row.name,
+              brand: row.brand,
+              model: row.model,
+              purchasePrice: row.purchasePrice,
+              sellingPrice: row.sellingPrice,
+              warrantyExpiration: row.warrantyExpiration,
+            },
+            stockEntries: []
+          });
+        }
+
+        const group = productGroups.get(productKey)!;
         const stockLocation = stockLocations.find(
           loc => loc.name.toLowerCase() === row.stockLocationName?.toLowerCase()
         );
 
-        return {
-          name: row.name,
-          type: 'ACCESSORY',
-          brand: row.brand || null,
-          model: row.model || null,
-          stockLocationId: stockLocation?.id || null,
-          stockQuantity: row.stockQuantity || 1,
-          purchasePrice: row.purchasePrice || null,
-          sellingPrice: row.sellingPrice || null,
-          warrantyExpiration: row.warrantyExpiration ? new Date(row.warrantyExpiration) : null,
-          status: row.status || 'FOR_SALE',
-        };
+        if (stockLocation && row.stockQuantity && row.stockQuantity > 0) {
+          group.stockEntries.push({
+            locationId: stockLocation.id,
+            quantity: row.stockQuantity,
+            status: row.status || 'FOR_SALE'
+          });
+        }
       });
+
+      // Convert to API format
+      const accessoriesToImport = Array.from(productGroups.values()).map(group => ({
+        name: group.productInfo.name!,
+        type: 'ACCESSORY',
+        brand: group.productInfo.brand || null,
+        model: group.productInfo.model || null,
+        purchasePrice: group.productInfo.purchasePrice || null,
+        sellingPrice: group.productInfo.sellingPrice || null,
+        warrantyExpiration: group.productInfo.warrantyExpiration ? new Date(group.productInfo.warrantyExpiration) : null,
+        stockEntries: group.stockEntries
+      }));
 
       const response = await fetch('/api/products/import-accessories', {
         method: 'POST',
@@ -293,7 +369,7 @@ export function AccessoryImportExport({ onImportSuccess, stockLocations }: Acces
       }
 
       const result = await response.json();
-      
+
       toast({
         title: 'Succès',
         description: `${result.imported} accessoires importés avec succès`,
@@ -303,12 +379,12 @@ export function AccessoryImportExport({ onImportSuccess, stockLocations }: Acces
       setIsImportOpen(false);
       setPreviewData([]);
       onImportSuccess();
-      
+
       // Reset file input
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
-      
+
     } catch (error) {
       console.error('Import error:', error);
       toast({
@@ -329,31 +405,55 @@ export function AccessoryImportExport({ onImportSuccess, stockLocations }: Acces
       }
 
       const accessories = await response.json();
-      
-      const exportData = accessories.map((acc: any) => ({
-        'Nom': acc.name,
-        'Marque': acc.brand || '',
-        'Modèle': acc.model || '',
-        'Lieu de Stockage': acc.stockLocation?.name || '',
-        'Quantité en Stock': acc.stockQuantity || 0,
-        'Prix d\'Achat': acc.purchasePrice || '',
-        'Prix de Vente': acc.sellingPrice || '',
-        'Fin de Garantie': acc.warrantyExpiration ? new Date(acc.warrantyExpiration).toISOString().split('T')[0] : '',
-        'Statut': acc.status || '',
-        'Date de Création': acc.createdAt ? new Date(acc.createdAt).toLocaleDateString('fr-FR') : '',
-      }));
+
+      // Export format: one row per product-location combination
+      const exportData: any[] = [];
+
+      accessories.forEach((acc: any) => {
+        if (acc.stocks && acc.stocks.length > 0) {
+          // Create one row for each stock location
+          acc.stocks.forEach((stock: any) => {
+            exportData.push({
+              'Nom': acc.name,
+              'Marque': acc.brand || '',
+              'Modèle': acc.model || '',
+              'Lieu de Stockage': stock.location?.name || '',
+              'Quantité en Stock': stock.quantity || 0,
+              'Prix d\'Achat': acc.purchasePrice || '',
+              'Prix de Vente': acc.sellingPrice || '',
+              'Fin de Garantie': acc.warrantyExpiration ? new Date(acc.warrantyExpiration).toISOString().split('T')[0] : '',
+              'Statut': stock.status || '',
+              'Date de Création': acc.createdAt ? new Date(acc.createdAt).toLocaleDateString('fr-FR') : '',
+            });
+          });
+        } else {
+          // Fallback for products without stock entries
+          exportData.push({
+            'Nom': acc.name,
+            'Marque': acc.brand || '',
+            'Modèle': acc.model || '',
+            'Lieu de Stockage': '',
+            'Quantité en Stock': 0,
+            'Prix d\'Achat': acc.purchasePrice || '',
+            'Prix de Vente': acc.sellingPrice || '',
+            'Fin de Garantie': acc.warrantyExpiration ? new Date(acc.warrantyExpiration).toISOString().split('T')[0] : '',
+            'Statut': '',
+            'Date de Création': acc.createdAt ? new Date(acc.createdAt).toLocaleDateString('fr-FR') : '',
+          });
+        }
+      });
 
       const ws = XLSX.utils.json_to_sheet(exportData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Accessoires');
-      
+
       XLSX.writeFile(wb, `accessoires_export_${new Date().toISOString().split('T')[0]}.xlsx`);
-      
+
       toast({
         title: 'Succès',
-        description: 'Export terminé avec succès',
+        description: `Export terminé avec succès (${exportData.length} lignes)`,
       });
-      
+
     } catch (error) {
       console.error('Export error:', error);
       toast({
@@ -448,7 +548,12 @@ export function AccessoryImportExport({ onImportSuccess, stockLocations }: Acces
 
       {/* Preview Dialog */}
       <Dialog open={showPreviewDialog} onOpenChange={setShowPreviewDialog}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent
+          className="max-w-4xl max-h-[80vh] overflow-y-auto"
+          onInteractOutside={(e) => e.preventDefault()}
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>Aperçu de l'importation</DialogTitle>
             <DialogDescription>

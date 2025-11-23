@@ -5,8 +5,8 @@ import prisma from '@/lib/db';
 import fs from 'fs';
 import path from 'path';
 
-// Base storage path outside the project
-const STORAGE_BASE_PATH = '/home/taha/Desktop/projects/espace-elite-files';
+// Base storage path - configurable via environment variable
+const STORAGE_BASE_PATH = process.env.FILE_STORAGE_PATH || '/var/espace-elite-files';
 
 // Helper function to delete file from filesystem
 const deleteFileFromDisk = async (filePath: string) => {
@@ -58,19 +58,14 @@ export default async function handler(
   // Handle POST request to create files
   if (req.method === 'POST') {
     try {
-      const { files, patientId, companyId } = req.body;
-      
+      const { files } = req.body;
+
       if (!files || !Array.isArray(files) || files.length === 0) {
         return res.status(400).json({ error: 'Files data is required and must be an array' });
       }
-      
-      if (!patientId && !companyId) {
-        return res.status(400).json({ error: 'Either patientId or companyId is required' });
-      }
-      
-      console.log('Creating files for entity:', patientId || companyId);
-      console.log('Files data:', files);
-      
+
+      console.log('Creating files:', files);
+
       // Create the files in the database
       const createdFiles = await Promise.all(
         files.map(async (file) => {
@@ -78,13 +73,20 @@ export default async function handler(
             data: {
               url: file.url,
               type: file.type || 'IMAGE',
-              ...(patientId ? { patientId: patientId } : {}),
-              ...(companyId ? { companyId: companyId } : {})
+              fileName: file.fileName || null,
+              fileSize: file.fileSize || null,
+              category: file.category || null,
+              uploadedById: session.user.id,
+              ...(file.patientId ? { patientId: file.patientId } : {}),
+              ...(file.companyId ? { companyId: file.companyId } : {}),
+              ...(file.diagnosticId ? { diagnosticId: file.diagnosticId } : {}),
+              ...(file.rentalId ? { rentalId: file.rentalId } : {}),
+              ...(file.saleId ? { saleId: file.saleId } : {})
             }
           });
         })
       );
-      
+
       console.log(`Successfully created ${createdFiles.length} files`);
       return res.status(201).json(createdFiles);
     } catch (error) {

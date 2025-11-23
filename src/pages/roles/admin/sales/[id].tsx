@@ -38,6 +38,21 @@ import ProductParameterDialog from '@/pages/roles/admin/dashboard/components/ste
 import { Stethoscope} from 'lucide-react';
 
 
+// Helper function to translate payment methods to French
+const getPaymentMethodLabel = (method: string): string => {
+  const methodLabels: Record<string, string> = {
+    'CASH': 'Espèces',
+    'CHEQUE': 'Chèque',
+    'VIREMENT': 'Virement',
+    'BANK_TRANSFER': 'Virement Bancaire',
+    'CNAM': 'CNAM',
+    'TRAITE': 'Traite',
+    'MANDAT': 'Mandat',
+    'MIXED': 'Mixte',
+  };
+  return methodLabels[method] || method;
+};
+
 export default function EnhancedSaleDetailsPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -686,7 +701,7 @@ export default function EnhancedSaleDetailsPage() {
                     <div key={idx} className="border rounded-lg p-4">
                       <div className="flex justify-between items-start">
                         <div>
-                          <h4 className="font-medium">{detail.displayMethod || detail.method}</h4>
+                          <h4 className="font-medium">{detail.displayMethod || getPaymentMethodLabel(detail.method)}</h4>
                           {detail.metadata?.groupName && (
                             <p className="text-sm text-gray-600">{detail.metadata.groupName}</p>
                           )}
@@ -950,7 +965,7 @@ export default function EnhancedSaleDetailsPage() {
                   <h3 className="font-semibold text-green-800 mb-2">Détails du Paiement:</h3>
                   {sale.payment.paymentDetails.map((detail: any, idx: number) => (
                     <div key={idx} className="flex justify-between py-1">
-                      <span className="text-green-700">{detail.displayMethod || detail.method}</span>
+                      <span className="text-green-700">{detail.displayMethod || getPaymentMethodLabel(detail.method)}</span>
                       <span className="font-medium text-green-800">{Number(detail.amount).toFixed(2)} DT</span>
                     </div>
                   ))}

@@ -44,6 +44,7 @@ export default async function handler(
           beneficiaryType: true,
           affiliation: true,
           generalNote: true,
+          isActive: true,
           doctorId: true,
           technicianId: true,
           supervisorId: true,
@@ -158,6 +159,8 @@ export default async function handler(
                   category: true,
                   currentStep: true,
                   coveredMonths: true,
+                  startDate: true,
+                  endDate: true,
                   createdAt: true,
                 }
               },
@@ -267,6 +270,8 @@ export default async function handler(
                   category: true,
                   currentStep: true,
                   coveredMonths: true,
+                  startDate: true,
+                  endDate: true,
                   createdAt: true,
                 }
               },
@@ -290,7 +295,14 @@ export default async function handler(
             }
           },
           PatientHistory: {
-            include: {
+            select: {
+              id: true,
+              actionType: true,
+              details: true,
+              relatedItemId: true,
+              relatedItemType: true,
+              createdAt: true,
+              updatedAt: true,
               performedBy: {
                 select: {
                   id: true,
@@ -304,6 +316,9 @@ export default async function handler(
             }
           },
           manualTasks: {
+            where: session.user.role === 'EMPLOYEE'
+              ? { assignedToId: session.user.id }
+              : undefined,
             include: {
               assignedTo: {
                 select: {
@@ -322,6 +337,30 @@ export default async function handler(
             },
             orderBy: {
               createdAt: 'desc'
+            }
+          },
+          appointments: {
+            where: session.user.role === 'EMPLOYEE'
+              ? { assignedToId: session.user.id }
+              : undefined,
+            include: {
+              assignedTo: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                }
+              },
+              createdBy: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                }
+              }
+            },
+            orderBy: {
+              scheduledDate: 'desc'
             }
           }
         },
@@ -385,6 +424,7 @@ export default async function handler(
             beneficiaire: patient.beneficiaryType,
             caisseAffiliation: patient.affiliation,
             generalNote: patient.generalNote,
+            isActive: patient.isActive,
             // Include relationship IDs for form population
             doctorId: doctorId,
             technicianId: technicianId,
@@ -438,8 +478,53 @@ export default async function handler(
                 saleDate: sale.saleDate
               }))
             ) || [],
-            history: patient.PatientHistory || [],
+            // Enrich history with related codes
+            history: await Promise.all((patient.PatientHistory || []).map(async (historyItem: any) => {
+              let relatedItemCode = null;
+
+              // Fetch related codes based on type
+              if (historyItem.relatedItemId && historyItem.relatedItemType) {
+                try {
+                  if (historyItem.relatedItemType === 'Sale') {
+                    const sale = await prisma.sale.findUnique({
+                      where: { id: historyItem.relatedItemId },
+                      select: { saleCode: true, invoiceNumber: true }
+                    });
+                    relatedItemCode = sale?.saleCode || sale?.invoiceNumber;
+                  } else if (historyItem.relatedItemType === 'Rental') {
+                    const rental = await prisma.rental.findUnique({
+                      where: { id: historyItem.relatedItemId },
+                      select: { rentalCode: true }
+                    });
+                    relatedItemCode = rental?.rentalCode;
+                  } else if (historyItem.relatedItemType === 'Payment') {
+                    const payment = await prisma.payment.findUnique({
+                      where: { id: historyItem.relatedItemId },
+                      select: { paymentCode: true }
+                    });
+                    relatedItemCode = payment?.paymentCode;
+                  } else if (historyItem.relatedItemType === 'Diagnostic') {
+                    const diagnostic = await prisma.diagnostic.findUnique({
+                      where: { id: historyItem.relatedItemId },
+                      select: { id: true }
+                    });
+                    relatedItemCode = diagnostic?.id ? `DIAG-${diagnostic.id.substring(0, 8)}` : null;
+                  }
+                } catch (error) {
+                  console.error(`Error fetching related code for ${historyItem.relatedItemType}:`, error);
+                }
+              }
+
+              return {
+                ...historyItem,
+                relatedItemCode,
+                performedBy: historyItem.performedBy ? {
+                  name: `${historyItem.performedBy.firstName} ${historyItem.performedBy.lastName}`
+                } : null
+              };
+            })),
             manualTasks: patient.manualTasks || [],
+            appointments: patient.appointments || [],
             createdAt: patient.createdAt,
             updatedAt: patient.updatedAt,
           };
@@ -453,11 +538,38 @@ export default async function handler(
       // If not found as patient, try to find as company
       const company = await prisma.company.findUnique({
         where: { id },
-        include: {
-          technician: true,
+        select: {
+          id: true,
+          companyCode: true,
+          companyName: true,
+          telephone: true,
+          telephoneSecondaire: true,
+          governorate: true,
+          delegation: true,
+          detailedAddress: true,
+          taxId: true,
+          generalNote: true,
+          isActive: true,
+          technicianId: true,
+          userId: true,
+          createdAt: true,
+          updatedAt: true,
+          technician: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true
+            }
+          },
           files: true,
-          assignedTo: true
-        },
+          assignedTo: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true
+            }
+          }
+        }
       });
 
       if (company) {
@@ -487,8 +599,12 @@ export default async function handler(
             telephone: company.telephone,
             telephoneSecondaire: company.telephoneSecondaire,
             adresse: company.detailedAddress,
+            governorate: company.governorate,
+            delegation: company.delegation,
+            detailedAddress: company.detailedAddress,
             matriculeFiscale: company.taxId,
             generalNote: company.generalNote || '',
+            isActive: company.isActive,
             technician: company.technician ? {
               id: technicianId,
               name: technicianName
@@ -544,6 +660,7 @@ export default async function handler(
         if (data.identifiantCNAM) patientUpdateData.cnamId = data.identifiantCNAM;
         if (data.beneficiaire) patientUpdateData.beneficiaryType = data.beneficiaire;
         if (data.caisseAffiliation) patientUpdateData.affiliation = data.caisseAffiliation;
+        if (data.isActive !== undefined) patientUpdateData.isActive = data.isActive;
         if (data.doctorId) patientUpdateData.doctorId = data.doctorId;
         if (data.technicianId) patientUpdateData.technicianId = data.technicianId;
         if (data.assignedToId) patientUpdateData.userId = data.assignedToId;
@@ -705,6 +822,7 @@ export default async function handler(
           if (data.adresse) companyUpdateData.address = data.adresse;
           if (data.matriculeFiscale) companyUpdateData.taxId = data.matriculeFiscale;
           if (data.generalNote !== undefined) companyUpdateData.generalNote = data.generalNote;
+          if (data.isActive !== undefined) companyUpdateData.isActive = data.isActive;
           
           // Update the company
           const updatedCompany = await prisma.company.update({

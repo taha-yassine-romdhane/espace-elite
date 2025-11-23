@@ -407,7 +407,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       employees: {
         total: employees.length,
         totalRevenue: employeesData.reduce((sum, e) => sum + Number(e.totalRevenue), 0).toFixed(2),
-        avgRevenuePerEmployee: (employeesData.reduce((sum, e) => sum + Number(e.totalRevenue), 0) / employees.length).toFixed(2),
+        avgRevenuePerEmployee: (employeesData.reduce((sum, e) => sum + Number(e.totalRevenue), 0) / Math.max(employees.length, 1)).toFixed(2),
         totalPatients: employeesData.reduce((sum, e) => sum + e.totalPatients, 0),
         totalRentals: employeesData.reduce((sum, e) => sum + e.totalRentals, 0),
         totalSales: employeesData.reduce((sum, e) => sum + e.totalSales, 0)
@@ -415,7 +415,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       patients: {
         total: patients.length,
         totalRevenue: patientsData.reduce((sum, p) => sum + Number(p.totalPaid), 0).toFixed(2),
-        avgRevenuePerPatient: (patientsData.reduce((sum, p) => sum + Number(p.totalPaid), 0) / patients.length).toFixed(2),
+        avgRevenuePerPatient: (patientsData.reduce((sum, p) => sum + Number(p.totalPaid), 0) / Math.max(patients.length, 1)).toFixed(2),
         activeRentals: patientsData.reduce((sum, p) => sum + p.activeRentals, 0),
         totalCnamBons: patientsData.reduce((sum, p) => sum + p.cnamBons, 0),
         totalCnamAmount: patientsData.reduce((sum, p) => sum + Number(p.cnamTotal), 0).toFixed(2)
@@ -423,7 +423,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       devices: {
         total: medicalDevices.length,
         totalRevenue: devicesData.reduce((sum, d) => sum + Number(d.totalRevenue), 0).toFixed(2),
-        avgRevenuePerDevice: (devicesData.reduce((sum, d) => sum + Number(d.totalRevenue), 0) / medicalDevices.length).toFixed(2),
+        avgRevenuePerDevice: (devicesData.reduce((sum, d) => sum + Number(d.totalRevenue), 0) / Math.max(medicalDevices.length, 1)).toFixed(2),
         activeRentals: devicesData.reduce((sum, d) => sum + d.activeRentals, 0),
         totalRepairCost: devicesData.reduce((sum, d) => sum + Number(d.repairCost), 0).toFixed(2),
         totalProfitability: devicesData.reduce((sum, d) => sum + Number(d.profitability), 0).toFixed(2)

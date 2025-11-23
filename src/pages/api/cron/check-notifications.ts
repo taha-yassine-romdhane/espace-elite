@@ -68,7 +68,7 @@ export default async function handler(
     }
 
     // Check for CNAM bond renewals
-    const cnamBons = await prisma.cNAMBonRental.findMany({
+    const cnamBonds = await prisma.cNAMBonRental.findMany({
       where: {
         endDate: {
           gte: new Date(),
@@ -77,33 +77,37 @@ export default async function handler(
         status: 'APPROUVE'
       },
       include: {
-        patient: true
+        rental: {
+          include: {
+            patient: true
+          }
+        }
       }
     });
 
-    for (const bond of cnamBons) {
+    for (const bond of cnamBonds) {
       const existingNotification = await prisma.notification.findFirst({
         where: {
           metadata: {
-            path: ['cnamBonId'],
+            path: ['cnamBondId'],
             equals: bond.id
           },
           type: 'FOLLOW_UP'
         }
       });
 
-      if (!existingNotification && bond.endDate) {
+      if (!existingNotification && bond.endDate && bond.rental && bond.rental.patient) {
         await prisma.notification.create({
           data: {
             title: 'Renouvellement CNAM requis',
-            message: `Le bon CNAM pour ${bond.patient.firstName} ${bond.patient.lastName} expire le ${bond.endDate.toLocaleDateString('fr-FR')}`,
+            message: `Le bon CNAM pour ${bond.rental.patient.firstName} ${bond.rental.patient.lastName} expire le ${bond.endDate.toLocaleDateString('fr-FR')}`,
             type: 'FOLLOW_UP',
             status: 'PENDING',
-            userId: bond.patient.userId,
-            patientId: bond.patientId,
+            userId: bond.rental.patient.userId,
+            patientId: bond.rental.patientId,
             dueDate: bond.endDate,
             metadata: {
-              cnamBonId: bond.id,
+              cnamBondId: bond.id,
               bonNumber: bond.bonNumber,
               bonType: bond.bonType
             }
@@ -112,12 +116,81 @@ export default async function handler(
       }
     }
 
+    // Check for maintenance due
+    const maintenanceDueDevices = await prisma.medicalDevice.findMany({
+      where: {
+        status: 'ACTIVE'
+      },
+      include: {
+        Rental: {
+          where: {
+            status: 'ACTIVE'
+          },
+          include: {
+            patient: true
+          }
+        }
+      }
+    });
+
+    for (const device of maintenanceDueDevices) {
+      // Check last maintenance date from repair logs
+      const lastMaintenance = await prisma.repairLog.findFirst({
+        where: {
+          medicalDeviceId: device.id
+        },
+        orderBy: {
+          repairDate: 'desc'
+        }
+      });
+
+      // If last maintenance was more than 6 months ago or no maintenance record
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+      if (!lastMaintenance || lastMaintenance.repairDate < sixMonthsAgo) {
+        const existingNotification = await prisma.notification.findFirst({
+          where: {
+            metadata: {
+              path: ['deviceId'],
+              equals: device.id
+            },
+            type: 'MAINTENANCE'
+          }
+        });
+
+        if (!existingNotification && device.Rental.length > 0) {
+          const rental = device.Rental[0];
+          const userId = rental.patient.userId;
+          if (userId) {
+            await prisma.notification.create({
+              data: {
+                title: 'Maintenance requise',
+                message: `Le dispositif ${device.name} nécessite une maintenance`,
+                type: 'MAINTENANCE',
+                status: 'PENDING',
+                userId,
+                patientId: rental.patientId,
+                dueDate: new Date(),
+                metadata: {
+                  deviceId: device.id,
+                  deviceName: device.name,
+                  lastMaintenance: lastMaintenance?.repairDate || null
+                }
+              }
+            });
+          }
+        }
+      }
+    }
+
     return res.status(200).json({
       success: true,
       message: 'Notification check completed',
       stats: {
         expiringRentals: expiringRentals.length,
-        cnamBondsToRenew: cnamBons.length
+        cnamBondsToRenew: cnamBonds.length,
+        maintenanceDue: maintenanceDueDevices.length
       }
     });
 

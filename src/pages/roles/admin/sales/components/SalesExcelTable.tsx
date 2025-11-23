@@ -452,7 +452,7 @@ export default function SalesExcelTable() {
       assignedToId: newSaleData.assignedToId || undefined,
       patientId: newSaleData.patientId || undefined,
       companyId: newSaleData.companyId || undefined,
-      payment: newSaleData.payments && newSaleData.payments.length > 0 ? newSaleData.payments : undefined,
+      payments: newSaleData.payments && newSaleData.payments.length > 0 ? newSaleData.payments : undefined,
       items: newSaleData.items && newSaleData.items.length > 0 ? newSaleData.items : undefined,
     };
 
@@ -548,7 +548,7 @@ export default function SalesExcelTable() {
       // For existing sale - update via API
       updateMutation.mutate({
         id: managingSaleId,
-        payment: payments
+        payments: payments
       });
     }
     setShowPaymentsManagementDialog(false);
@@ -947,7 +947,7 @@ export default function SalesExcelTable() {
                         <SelectValue placeholder="Sélectionner..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {users?.filter((u: any) => u.role === 'EMPLOYEE').map((user: any) => (
+                        {users?.filter((u: any) => u.role === 'EMPLOYEE' || u.role === 'ADMIN').map((user: any) => (
                           <SelectItem key={user.id} value={user.id}>
                             {user.firstName} {user.lastName}
                           </SelectItem>
@@ -1130,17 +1130,17 @@ export default function SalesExcelTable() {
                           <div className="flex flex-col gap-1">
                             <div
                               className="flex items-center gap-2 text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-colors"
-                              onClick={() => router.push(`/roles/admin/renseignement/patient/${sale.patient.id}`)}
+                              onClick={() => router.push(`/roles/admin/renseignement/patient/${sale.patient?.id}`)}
                             >
                               <User className="h-4 w-4" />
-                              <span>{`${sale.patient.firstName} ${sale.patient.lastName}`}</span>
+                              <span>{`${sale.patient?.firstName} ${sale.patient?.lastName}`}</span>
                             </div>
-                            {sale.patient.patientCode && (
+                            {sale.patient?.patientCode && (
                               <div
                                 className="text-xs text-slate-500 font-mono cursor-pointer hover:text-blue-600 transition-colors ml-6"
-                                onClick={() => router.push(`/roles/admin/renseignement/patient/${sale.patient.id}`)}
+                                onClick={() => router.push(`/roles/admin/renseignement/patient/${sale.patient?.id}`)}
                               >
-                                {sale.patient.patientCode}
+                                {sale.patient?.patientCode}
                               </div>
                             )}
                           </div>
@@ -1181,7 +1181,7 @@ export default function SalesExcelTable() {
                             <SelectValue placeholder="Sélectionner..." />
                           </SelectTrigger>
                           <SelectContent>
-                            {users?.filter((u: any) => u.role === 'EMPLOYEE').map((user: any) => (
+                            {users?.filter((u: any) => u.role === 'EMPLOYEE' || u.role === 'ADMIN').map((user: any) => (
                               <SelectItem key={user.id} value={user.id}>
                                 {user.firstName} {user.lastName}
                               </SelectItem>
@@ -1791,7 +1791,7 @@ export default function SalesExcelTable() {
           setShowItemsManagementDialog(false);
           setManagingSaleId(null);
         }}
-        items={managingSaleId === 'new' ? (newSaleData.items || []) : (selectedSale?.items || [])}
+        items={(managingSaleId === 'new' ? (newSaleData.items || []) : (selectedSale?.items || [])) as any}
         onSave={handleSaveItems}
       />
 
@@ -1802,8 +1802,8 @@ export default function SalesExcelTable() {
           setShowPaymentsManagementDialog(false);
           setManagingSaleId(null);
         }}
-        saleItems={managingSaleId === 'new' ? (newSaleData.items || []) : (selectedSale?.items || [])}
-        payments={managingSaleId === 'new' ? (newSaleData.payments || []) : (selectedSale?.payment || [])}
+        saleItems={(managingSaleId === 'new' ? (newSaleData.items || []) : (selectedSale?.items || [])) as any}
+        payments={managingSaleId === 'new' ? (newSaleData.payments || []) : (selectedSale?.payments || [])}
         onSave={handleSavePayments}
         clientType={managingSaleId === 'new' ? (newSaleData.patientId ? 'patient' : 'company') : (selectedSale?.patientId ? 'patient' : 'company')}
       />

@@ -54,6 +54,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         },
       });
 
+      // Sort by priority (HIGH > MEDIUM > LOW) then by date
+      const priorityOrder: Record<string, number> = { HIGH: 3, MEDIUM: 2, LOW: 1 };
+      tasks.sort((a, b) => {
+        const priorityDiff = (priorityOrder[b.priority] || 0) - (priorityOrder[a.priority] || 0);
+        if (priorityDiff !== 0) return priorityDiff;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+
       // Generate task codes for tasks without one
       for (const task of tasks) {
         if (!task.taskCode) {
@@ -74,7 +82,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(403).json({ error: 'Only admins can create tasks' });
       }
 
-      const { taskType, patientId, assignedToId, adminNotes } = req.body;
+      const { taskType, patientId, assignedToId, priority, adminNotes } = req.body;
 
       if (!taskType || !patientId || !assignedToId) {
         return res.status(400).json({ error: 'Missing required fields' });
@@ -92,6 +100,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           patientId,
           assignedToId,
           createdById: userId,
+          priority: priority || 'MEDIUM', // Default to MEDIUM if not provided
           adminNotes,
           status: 'PENDING',
         },

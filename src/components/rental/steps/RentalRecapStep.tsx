@@ -66,7 +66,7 @@ export function RentalRecapStep({
   const totalGapAmount = gapPayments;
 
   // Calculate financial summary
-  const totalCnamAmount = paymentData?.cnamBons?.reduce((sum: number, bond: any) => sum + bond.totalAmount, 0) || 0;
+  const totalCnamAmount = paymentData?.cnamBonds?.reduce((sum: number, bond: any) => sum + bond.totalAmount, 0) || 0;
   const totalDirectPayments = paymentData?.paymentPeriods?.filter((p: any) => !p.isGapPeriod).reduce((sum: number, period: any) => sum + period.amount, 0) || 0;
   const depositAmount = paymentData?.depositAmount || 0;
   const totalPatientPayment = depositAmount + gapPayments; // Patient pays deposit + gaps
@@ -96,12 +96,12 @@ export function RentalRecapStep({
     }
     
     // CNAM dates
-    paymentData?.cnamBons?.forEach((bond: any) => {
+    paymentData?.cnamBonds?.forEach((bond: any) => {
       if (bond.submissionDate) {
         dates.push({
           date: new Date(bond.submissionDate),
           type: 'cnam_submission',
-          description: `Soumission CNAM - ${bond.bonType}`,
+          description: `Soumission CNAM - ${bond.bondType}`,
           priority: 'medium'
         });
       }
@@ -111,7 +111,7 @@ export function RentalRecapStep({
         dates.push({
           date: new Date(bond.endDate),
           type: 'cnam_expiry',
-          description: `Expiration CNAM - ${bond.bonType}`,
+          description: `Expiration CNAM - ${bond.bondType}`,
           priority: daysUntil <= 30 ? 'high' : 'medium'
         });
       }
@@ -319,23 +319,23 @@ export function RentalRecapStep({
         </CardContent>
       </Card>
 
-      {/* CNAM bons */}
-      {paymentData?.cnamBons && paymentData.cnamBons.length > 0 && (
+      {/* CNAM Bonds */}
+      {paymentData?.cnamBonds && paymentData.cnamBonds.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-blue-600" />
-              Bons CNAM ({paymentData.cnamBons.length})
+              Bonds CNAM ({paymentData.cnamBonds.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {paymentData.cnamBons.map((bond: any, index: number) => (
+              {paymentData.cnamBonds.map((bond: any, index: number) => (
                 <div key={bond.id} className="p-3 bg-blue-50 rounded-lg border border-blue-200">
                   <div className="flex justify-between items-start">
                     <div>
-                      <div className="font-medium">{bond.bonNumber || `Bond ${index + 1}`}</div>
-                      <div className="text-sm text-gray-600">{bond.bonType} • {bond.coveredMonths} mois</div>
+                      <div className="font-medium">{bond.bondNumber || `Bond ${index + 1}`}</div>
+                      <div className="text-sm text-gray-600">{bond.bondType} • {bond.coveredMonths} mois</div>
                       {bond.startDate && bond.endDate && (
                         <div className="text-sm text-blue-600">
                           {format(new Date(bond.startDate), "dd/MM", { locale: fr })} - {format(new Date(bond.endDate), "dd/MM/yyyy", { locale: fr })}

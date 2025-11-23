@@ -1,29 +1,43 @@
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
-import { Building2, ShoppingCart, Stethoscope, Calendar, ListTodo } from "lucide-react";
+import { Building2, ShoppingCart, Stethoscope, Calendar, ListTodo, FileText } from "lucide-react";
 import { useRouter } from "next/router";
 import EmployeeLayout from '../EmployeeLayout';
 import { TabSwitcher } from "./components/TabSwitcher";
 import { Card, CardContent } from "@/components/ui/card";
-import RentalStatistics from '../rentals/components/RentalStatistics';
+import RentalStatistics from '../location/components/RentalStatistics';
 
 // Import new Excel table components
 import AppointmentsExcelTable from "./components/tables/AppointmentsExcelTable";
-import DiagnosticsExcelTable from "./components/tables/DiagnosticsExcelTable";
-import SalesExcelTable from "./components/tables/SalesExcelTable";
+import DiagnosticsExcelTable from "../diagnostics/DiagnosticsExcelTable";
+import CNAMRappelsTable from "../sales/components/CNAMRappelsTable";
 import EmployeeManualTasksTable from "../manual-tasks/index";
+
+// Import dialogs
+import { CreateAppointmentDialog } from "@/components/appointments/CreateAppointmentDialog";
+import { CreateDiagnosticDialog } from "@/components/diagnostics/CreateDiagnosticDialog";
+import { CompleteDiagnosticDialog } from "@/components/diagnostics/CompleteDiagnosticDialog";
+import { CreateSaleDialog } from "@/components/sales/CreateSaleDialog";
+import { RentalCreationDialog } from "@/components/dialogs/RentalCreationDialog";
 
 function DashboardPage() {
   const [activeTab, setActiveTab] = useState<"appointments" | "diagnostics" | "sales" | "rentals" | "manual-tasks">("manual-tasks");
   const router = useRouter();
 
+  // Dialog states
+  const [appointmentDialogOpen, setAppointmentDialogOpen] = useState(false);
+  const [diagnosticDialogOpen, setDiagnosticDialogOpen] = useState(false);
+  const [completeDiagnosticDialogOpen, setCompleteDiagnosticDialogOpen] = useState(false);
+  const [saleDialogOpen, setSaleDialogOpen] = useState(false);
+  const [rentalDialogOpen, setRentalDialogOpen] = useState(false);
+
   return (
-    <div className="container mx-auto py-6 px-4">
+    <div className="py-4 px-3">
       <h1 className="text-3xl font-bold mb-8 text-green-900">Tableau de Bord</h1>
 
-      {/* Action Buttons Row - 5 per line, same color */}
+      {/* Action Buttons Row - 6 buttons in same line */}
       <div className="mb-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 items-center">
           <Button
             className="w-full bg-green-700 hover:bg-green-600 text-white flex items-center justify-start gap-2"
             onClick={() => router.push("/roles/employee/manual-tasks")}
@@ -34,23 +48,36 @@ function DashboardPage() {
 
           <Button
             className="w-full bg-green-700 hover:bg-green-600 text-white flex items-center justify-start gap-2"
-            onClick={() => router.push("/roles/employee/appointments")}
+            onClick={() => setAppointmentDialogOpen(true)}
           >
             <Calendar className="h-5 w-5" />
             <span>Nouveau Rendez-vous</span>
           </Button>
 
-          <Button
-            className="w-full bg-green-700 hover:bg-green-600 text-white flex items-center justify-start gap-2"
-            onClick={() => router.push("/roles/employee/diagnostics")}
-          >
-            <Stethoscope className="h-5 w-5" />
-            <span>Commencer un Diagnostic</span>
-          </Button>
+          {/* Diagnostic buttons grouped in a frame */}
+          <div className="lg:col-span-2 border-2 border-blue-300 rounded-lg p-1 bg-blue-50/30">
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                className="w-full h-full bg-green-700 hover:bg-green-600 text-white flex items-center justify-center gap-2"
+                onClick={() => setDiagnosticDialogOpen(true)}
+              >
+                <Stethoscope className="h-5 w-5" />
+                <span>Commencer Diagnostic</span>
+              </Button>
+
+              <Button
+                className="w-full h-full bg-blue-700 hover:bg-blue-600 text-white flex items-center justify-center gap-2"
+                onClick={() => setCompleteDiagnosticDialogOpen(true)}
+              >
+                <FileText className="h-5 w-5" />
+                <span>Compléter Résultats</span>
+              </Button>
+            </div>
+          </div>
 
           <Button
             className="w-full bg-green-700 hover:bg-green-600 text-white flex items-center justify-start gap-2"
-            onClick={() => router.push("/roles/employee/sales")}
+            onClick={() => setSaleDialogOpen(true)}
           >
             <ShoppingCart className="h-5 w-5" />
             <span>Commencer une Vente</span>
@@ -58,10 +85,10 @@ function DashboardPage() {
 
           <Button
             className="w-full bg-green-700 hover:bg-green-600 text-white flex items-center justify-start gap-2"
-            onClick={() => router.push("/roles/employee/rentals")}
+            onClick={() => setRentalDialogOpen(true)}
           >
             <Building2 className="h-5 w-5" />
-            <span>Gestion des Locations</span>
+            <span>Commencer une Location</span>
           </Button>
         </div>
       </div>
@@ -89,7 +116,7 @@ function DashboardPage() {
       {activeTab === "sales" && (
         <Card>
           <CardContent className="pt-6">
-            <SalesExcelTable />
+            <CNAMRappelsTable showActions={false} />
           </CardContent>
         </Card>
       )}
@@ -105,6 +132,32 @@ function DashboardPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Dialogs */}
+      <CreateAppointmentDialog
+        open={appointmentDialogOpen}
+        onOpenChange={setAppointmentDialogOpen}
+      />
+      <CreateDiagnosticDialog
+        open={diagnosticDialogOpen}
+        onOpenChange={setDiagnosticDialogOpen}
+      />
+      <CompleteDiagnosticDialog
+        open={completeDiagnosticDialogOpen}
+        onOpenChange={setCompleteDiagnosticDialogOpen}
+      />
+      <CreateSaleDialog
+        open={saleDialogOpen}
+        onOpenChange={setSaleDialogOpen}
+      />
+      <RentalCreationDialog
+        open={rentalDialogOpen}
+        onOpenChange={setRentalDialogOpen}
+        onSuccess={(rentalId) => {
+          // Optional: redirect to location page or show success message
+          console.log('Rental created:', rentalId);
+        }}
+      />
     </div>
   );
 }

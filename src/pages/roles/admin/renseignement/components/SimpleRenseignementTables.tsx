@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
-import { Eye, Edit3, Trash2, ChevronLeft, ChevronRight, User, Building2, FileText, Upload, X, Download, Save } from "lucide-react";
+import { Eye, Edit3, Trash2, ChevronLeft, ChevronRight, User, Building2, FileText, Upload, X, Download } from "lucide-react";
 import { Renseignement } from '@/types/renseignement';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PatientDeletionDialog } from "@/components/ui/patient-deletion-dialog";
@@ -14,7 +14,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { FileUploader, type UploadedFile } from '@/components/ui/file-uploader';
+import { useToast } from '@/components/ui/use-toast';
 
 interface SimpleRenseignementTablesProps {
   data: Renseignement[];
@@ -50,9 +51,9 @@ export default function SimpleRenseignementTables({
   // Documents dialog state
   const [showDocumentsDialog, setShowDocumentsDialog] = useState(false);
   const [selectedPatientDocs, setSelectedPatientDocs] = useState<Renseignement | null>(null);
-  const [uploadingFiles, setUploadingFiles] = useState(false);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [uploadProgress, setUploadProgress] = useState<string>('');
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [savingFiles, setSavingFiles] = useState(false);
+  const { toast } = useToast();
 
   // Filter data
   const patients = useMemo(() => data.filter(item => item.type === 'Patient'), [data]);
@@ -89,11 +90,14 @@ export default function SimpleRenseignementTables({
     setShowPatientDeletionDialog(true);
   };
 
-  const handleConfirmDelete = async () => {
+  const handleConfirmDelete = () => {
+    // PatientDeletionDialog already handles the deletion internally
+    // This callback is just for cleaning up UI state after deletion
     if (patientToDelete) {
-      await onDelete([patientToDelete.id]);
       setShowPatientDeletionDialog(false);
       setPatientToDelete(null);
+      // Reload the page to refresh the data
+      window.location.reload();
     }
   };
 
@@ -104,62 +108,78 @@ export default function SimpleRenseignementTables({
     }
   };
 
-  // Handle file upload
-  const handleUploadDocuments = async () => {
-    if (!selectedPatientDocs || selectedFiles.length === 0) return;
+  // Handle file upload complete
+  const handleFileUploadComplete = (files: UploadedFile[]) => {
+    setUploadedFiles(prev => [...prev, ...files]);
+    toast({
+      title: 'Succès',
+      description: `${files.length} fichier(s) téléchargé(s) avec succès`,
+    });
+  };
+
+  // Handle file upload error
+  const handleFileUploadError = (error: Error) => {
+    toast({
+      title: 'Erreur de téléchargement',
+      description: error.message,
+      variant: 'destructive',
+    });
+  };
+
+  // Remove uploaded file
+  const removeUploadedFile = (index: number) => {
+    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Save files to database
+  const handleSaveDocuments = async () => {
+    if (!selectedPatientDocs || uploadedFiles.length === 0) return;
 
     try {
-      setUploadingFiles(true);
-      setUploadProgress('Téléchargement en cours...');
+      setSavingFiles(true);
 
-      const formData = new FormData();
-      formData.append('patientId', selectedPatientDocs.id);
+      const filesData = uploadedFiles.map(file => ({
+        url: file.url,
+        type: file.type.startsWith('image/') ? 'IMAGE' : 'DOCUMENT',
+        fileName: file.name,
+        fileSize: file.size,
+        category: 'PATIENT_DOCUMENT',
+        patientId: selectedPatientDocs.id,
+      }));
 
-      selectedFiles.forEach((file) => {
-        formData.append('files', file);
-      });
-
-      const response = await fetch('/api/patients/upload-documents', {
+      const response = await fetch('/api/files', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ files: filesData }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to upload documents');
+        throw new Error('Failed to save documents');
       }
 
-      const result = await response.json();
+      toast({
+        title: 'Succès',
+        description: 'Documents enregistrés avec succès',
+      });
 
-      setUploadProgress('Documents téléchargés avec succès!');
-      setSelectedFiles([]);
+      setUploadedFiles([]);
+      setShowDocumentsDialog(false);
 
-      // Refresh the data by calling onEdit with the updated patient
-      // This will trigger a refetch in the parent component
+      // Refresh page to show updated files
       setTimeout(() => {
-        setShowDocumentsDialog(false);
-        setUploadProgress('');
-        window.location.reload(); // Temporary - ideally should refetch data
-      }, 1500);
+        window.location.reload();
+      }, 500);
 
     } catch (error) {
-      console.error('Upload error:', error);
-      setUploadProgress('Erreur lors du téléchargement');
+      console.error('Save error:', error);
+      toast({
+        title: 'Erreur',
+        description: 'Erreur lors de l\'enregistrement des documents',
+        variant: 'destructive',
+      });
     } finally {
-      setUploadingFiles(false);
+      setSavingFiles(false);
     }
-  };
-
-  // Handle file selection
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      setSelectedFiles(Array.from(files));
-    }
-  };
-
-  // Remove selected file
-  const removeFile = (index: number) => {
-    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   if (isLoading) {
@@ -295,10 +315,9 @@ export default function SimpleRenseignementTables({
                     <th className="px-3 py-3 text-center text-xs font-semibold text-slate-700 border-r border-slate-200 min-w-[80px]">Ventes</th>
                     <th className="px-3 py-3 text-center text-xs font-semibold text-slate-700 border-r border-slate-200 min-w-[90px]">Diagnostics</th>
                     <th className="px-3 py-3 text-center text-xs font-semibold text-slate-700 border-r border-slate-200 min-w-[80px]">RDV</th>
+                    <th className="px-3 py-3 text-center text-xs font-semibold text-slate-700 border-r border-slate-200 min-w-[90px]">Tâches</th>
                     <th className="px-3 py-3 text-center text-xs font-semibold text-slate-700 border-r border-slate-200 min-w-[90px]">Paiements</th>
                     <th className="px-3 py-3 text-center text-xs font-semibold text-slate-700 border-r border-slate-200 min-w-[90px]">Bons CNAM</th>
-                    <th className="px-3 py-3 text-center text-xs font-semibold text-slate-700 border-r border-slate-200 min-w-[90px]">Dossiers</th>
-                    <th className="px-3 py-3 text-center text-xs font-semibold text-slate-700 border-r border-slate-200 min-w-[90px]">Paramètres</th>
                     <th className="px-3 py-3 text-center text-xs font-semibold text-slate-700 border-r border-slate-200 min-w-[90px]">Notifications</th>
                     <th className="px-3 py-3 text-center text-xs font-semibold text-slate-700 border-r border-slate-200 min-w-[90px]">Historique</th>
                     <th className="px-3 py-3 text-center text-xs font-semibold text-slate-700 sticky right-0 bg-slate-50 shadow-[-2px_0_4px_rgba(0,0,0,0.05)] min-w-[120px]">Actions</th>
@@ -325,7 +344,15 @@ export default function SimpleRenseignementTables({
                         className="px-3 py-2.5 text-sm font-medium text-slate-900 border-r border-slate-100 cursor-pointer hover:text-blue-600 hover:underline transition-colors"
                         onClick={() => onViewDetails(patient)}
                       >
-                        {patient.nom}
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`h-2 w-2 rounded-full flex-shrink-0 ${
+                              patient.isActive !== false ? 'bg-green-500' : 'bg-red-500'
+                            }`}
+                            title={patient.isActive !== false ? 'Actif' : 'Inactif'}
+                          />
+                          <span>{patient.nom}</span>
+                        </div>
                       </td>
                       <td className="px-3 py-2.5 text-xs text-slate-600 border-r border-slate-100">{patient.telephone || '-'}</td>
                       <td className="px-3 py-2.5 text-xs text-slate-600 border-r border-slate-100">{patient.telephoneSecondaire || '-'}</td>
@@ -426,9 +453,17 @@ export default function SimpleRenseignementTables({
                       {/* Diagnostics */}
                       <td className="px-3 py-2.5 text-center border-r border-slate-100">
                         {patient.diagnostics && patient.diagnostics.length > 0 ? (
-                          <Badge variant="default" className="bg-cyan-100 text-cyan-700 border-cyan-200 text-xs">
-                            {patient.diagnostics.length}
-                          </Badge>
+                          <div className="flex flex-col gap-1 items-center">
+                            {patient.diagnostics.map((diagnostic: any) => (
+                              <Badge
+                                key={diagnostic.id}
+                                variant="outline"
+                                className="bg-cyan-50 text-cyan-700 border-cyan-200 text-xs font-mono hover:bg-cyan-100 cursor-default whitespace-nowrap"
+                              >
+                                {diagnostic.diagnosticCode || diagnostic.id.slice(0, 8)}
+                              </Badge>
+                            ))}
+                          </div>
                         ) : (
                           <span className="text-slate-400 text-xs">-</span>
                         )}
@@ -437,9 +472,36 @@ export default function SimpleRenseignementTables({
                       {/* Appointments/RDV */}
                       <td className="px-3 py-2.5 text-center border-r border-slate-100">
                         {patient.appointments && patient.appointments.length > 0 ? (
-                          <Badge variant="default" className="bg-orange-100 text-orange-700 border-orange-200 text-xs">
-                            {patient.appointments.length}
-                          </Badge>
+                          <div className="flex flex-col gap-1 items-center">
+                            {patient.appointments.map((appointment: any) => (
+                              <Badge
+                                key={appointment.id}
+                                variant="outline"
+                                className="bg-orange-50 text-orange-700 border-orange-200 text-xs font-mono hover:bg-orange-100 cursor-default whitespace-nowrap"
+                              >
+                                {appointment.appointmentCode || appointment.id.slice(0, 8)}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 text-xs">-</span>
+                        )}
+                      </td>
+
+                      {/* Manual Tasks */}
+                      <td className="px-3 py-2.5 text-center border-r border-slate-100">
+                        {patient.tasks && patient.tasks.length > 0 ? (
+                          <div className="flex flex-col gap-1 items-center">
+                            {patient.tasks.map((task: any) => (
+                              <Badge
+                                key={task.id}
+                                variant="outline"
+                                className="bg-violet-50 text-violet-700 border-violet-200 text-xs font-mono hover:bg-violet-100 cursor-default whitespace-nowrap"
+                              >
+                                {task.taskCode || task.id.slice(0, 8)}
+                              </Badge>
+                            ))}
+                          </div>
                         ) : (
                           <span className="text-slate-400 text-xs">-</span>
                         )}
@@ -478,28 +540,6 @@ export default function SimpleRenseignementTables({
                               </Badge>
                             ))}
                           </div>
-                        ) : (
-                          <span className="text-slate-400 text-xs">-</span>
-                        )}
-                      </td>
-
-                      {/* CNAM Dossiers */}
-                      <td className="px-3 py-2.5 text-center border-r border-slate-100">
-                        {patient.cnamDossiers && patient.cnamDossiers.length > 0 ? (
-                          <Badge variant="default" className="bg-indigo-100 text-indigo-700 border-indigo-200 text-xs">
-                            {patient.cnamDossiers.length}
-                          </Badge>
-                        ) : (
-                          <span className="text-slate-400 text-xs">-</span>
-                        )}
-                      </td>
-
-                      {/* Device Parameters */}
-                      <td className="px-3 py-2.5 text-center border-r border-slate-100">
-                        {patient.deviceParameters && patient.deviceParameters.length > 0 ? (
-                          <Badge variant="default" className="bg-teal-100 text-teal-700 border-teal-200 text-xs">
-                            {patient.deviceParameters.length}
-                          </Badge>
                         ) : (
                           <span className="text-slate-400 text-xs">-</span>
                         )}
@@ -605,7 +645,15 @@ export default function SimpleRenseignementTables({
                         className="px-3 py-2.5 text-sm font-medium text-slate-900 border-r border-slate-100 cursor-pointer hover:text-blue-600 hover:underline transition-colors"
                         onClick={() => onViewDetails(company)}
                       >
-                        {company.nom}
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`h-2 w-2 rounded-full flex-shrink-0 ${
+                              company.isActive !== false ? 'bg-green-500' : 'bg-red-500'
+                            }`}
+                            title={company.isActive !== false ? 'Actif' : 'Inactif'}
+                          />
+                          <span>{company.nom}</span>
+                        </div>
                       </td>
                       <td
                         className="px-3 py-2.5 text-xs text-slate-600 border-r border-slate-100 cursor-pointer hover:text-blue-600 transition-colors"
@@ -702,83 +750,82 @@ export default function SimpleRenseignementTables({
 
           <div className="space-y-4 overflow-y-auto max-h-[50vh] py-4">
             {/* Upload Section */}
-            <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 hover:border-blue-500 transition-colors">
-              <div className="flex flex-col items-center justify-center space-y-3">
-                <Upload className="h-10 w-10 text-slate-400" />
-                <div className="text-center">
-                  <p className="text-sm font-medium text-slate-700">
-                    Télécharger des documents
-                  </p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    PDF, images, ou autres fichiers (max 10MB)
-                  </p>
-                </div>
-                <Input
-                  type="file"
-                  multiple
-                  accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                  onChange={handleFileSelect}
-                  className="max-w-xs"
-                  disabled={uploadingFiles}
-                />
-                {uploadProgress && (
-                  <p className={`text-sm ${uploadProgress.includes('succès') ? 'text-green-600' : uploadProgress.includes('Erreur') ? 'text-red-600' : 'text-blue-600'}`}>
-                    {uploadProgress}
-                  </p>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                  <Upload className="h-4 w-4" />
+                  Télécharger des documents
+                </h4>
+                {uploadedFiles.length > 0 && (
+                  <span className="text-xs text-gray-500">
+                    {uploadedFiles.length} fichier(s) téléchargé(s)
+                  </span>
                 )}
               </div>
-            </div>
 
-            {/* Selected Files Preview */}
-            {selectedFiles.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="text-sm font-semibold text-slate-700">
-                  Fichiers sélectionnés ({selectedFiles.length})
-                </h4>
+              {/* Show uploaded files */}
+              {uploadedFiles.length > 0 && (
                 <div className="space-y-2">
-                  {selectedFiles.map((file, index) => (
+                  {uploadedFiles.map((file, index) => (
                     <div
                       key={index}
-                      className="flex items-center justify-between p-2 border border-slate-200 rounded bg-blue-50"
+                      className="flex items-center justify-between p-2 bg-gray-50 rounded-lg border border-gray-200"
                     >
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-blue-600" />
-                        <span className="text-sm text-slate-700">{file.name}</span>
-                        <span className="text-xs text-slate-500">
-                          ({(file.size / 1024).toFixed(1)} KB)
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <FileText className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                        <span className="text-sm text-gray-900 truncate">{file.name}</span>
+                        <span className="text-xs text-gray-500">
+                          ({Math.round(file.size / 1024)} KB)
                         </span>
                       </div>
                       <Button
+                        type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={() => removeFile(index)}
-                        className="h-6 w-6 p-0"
-                        disabled={uploadingFiles}
+                        onClick={() => removeUploadedFile(index)}
+                        className="flex-shrink-0 h-7 w-7 p-0"
                       >
                         <X className="h-4 w-4" />
                       </Button>
                     </div>
                   ))}
+                  <Button
+                    onClick={handleSaveDocuments}
+                    disabled={savingFiles}
+                    className="w-full bg-blue-600 hover:bg-blue-700"
+                  >
+                    {savingFiles ? (
+                      <>
+                        <Upload className="h-4 w-4 mr-2 animate-pulse" />
+                        Enregistrement en cours...
+                      </>
+                    ) : (
+                      <>
+                        <FileText className="h-4 w-4 mr-2" />
+                        Enregistrer les documents
+                      </>
+                    )}
+                  </Button>
                 </div>
-                <Button
-                  onClick={handleUploadDocuments}
-                  disabled={uploadingFiles}
-                  className="w-full bg-blue-600 hover:bg-blue-700"
-                >
-                  {uploadingFiles ? (
-                    <>
-                      <Upload className="h-4 w-4 mr-2 animate-pulse" />
-                      Téléchargement...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="h-4 w-4 mr-2" />
-                      Enregistrer les documents
-                    </>
-                  )}
-                </Button>
-              </div>
-            )}
+              )}
+
+              {/* File uploader */}
+              <FileUploader
+                onUploadComplete={handleFileUploadComplete}
+                onUploadError={handleFileUploadError}
+                maxFiles={10}
+                maxSize={16 * 1024 * 1024}
+                accept={{
+                  'application/pdf': ['.pdf'],
+                  'image/*': ['.png', '.jpg', '.jpeg'],
+                  'application/msword': ['.doc'],
+                  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+                }}
+              />
+              <p className="text-xs text-gray-500">
+                Formats acceptés: PDF, Images (PNG, JPG), Documents Word. Maximum 16MB par fichier.
+              </p>
+            </div>
 
             {/* Existing Documents */}
             {selectedPatientDocs?.files && selectedPatientDocs.files.length > 0 ? (

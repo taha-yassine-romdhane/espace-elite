@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Activity, AlertCircle, FileText } from 'lucide-react';
-import { 
+import { Activity, AlertCircle, FileText, Plus, Edit } from 'lucide-react';
+import {
   Table,
   TableBody,
   TableCell,
@@ -11,15 +11,35 @@ import {
 } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useRouter } from 'next/router';
+import { AddDiagnosticForm } from '@/components/employee/patient-details-forms/AddDiagnosticForm';
 
 interface PatientDiagnosticsProps {
   diagnostics: any[];
   isLoading?: boolean;
+  patientId?: string;
+  patientName?: string;
 }
 
-export const PatientDiagnostics = ({ diagnostics = [], isLoading = false }: PatientDiagnosticsProps) => {
+export const PatientDiagnostics = ({ diagnostics = [], isLoading = false, patientId, patientName }: PatientDiagnosticsProps) => {
   const router = useRouter();
+  const [selectedDiagnostic, setSelectedDiagnostic] = useState<any>(null);
+  const [showAddDialog, setShowAddDialog] = useState(false);
+
+  const handleAddDiagnostic = () => {
+    setShowAddDialog(true);
+  };
+
+  const handleAddSuccess = () => {
+    setShowAddDialog(false);
+    // Data will be automatically refreshed by React Query invalidation
+  };
+
+  const handleEditDiagnostic = (diagnostic: any) => {
+    // Navigate to diagnostics page with diagnostic to edit
+    router.push(`/roles/employee/diagnostics?diagnosticId=${diagnostic.id}`);
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -31,6 +51,60 @@ export const PatientDiagnostics = ({ diagnostics = [], isLoading = false }: Pati
         return 'bg-blue-100 text-blue-800';
       default:
         return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    const statusLabels: Record<string, string> = {
+      'COMPLETED': 'Terminé',
+      'PENDING': 'En attente',
+      'IN_PROGRESS': 'En cours',
+    };
+    return statusLabels[status] || status;
+  };
+
+  const getSeverityLabel = (severity: string) => {
+    const severityLabels: Record<string, string> = {
+      'NORMAL': 'Normal',
+      'LIGHT': 'Léger',
+      'MODERATE': 'Modéré',
+      'SEVERE': 'Sévère',
+      'VERY_SEVERE': 'Très sévère',
+    };
+    return severityLabels[severity] || severity;
+  };
+
+  const getSeverityColor = (severity: string) => {
+    switch (severity) {
+      case 'NORMAL':
+        return 'bg-green-100 text-green-800 border-green-200';
+      case 'LIGHT':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'MODERATE':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'SEVERE':
+        return 'bg-orange-100 text-orange-800 border-orange-200';
+      case 'VERY_SEVERE':
+        return 'bg-red-100 text-red-800 border-red-200';
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+
+  // Calculate severity from IAH value
+  const calculateSeverityFromIAH = (iah: number | null | undefined): { severity: string; label: string; color: string } => {
+    if (iah === null || iah === undefined) {
+      return { severity: 'UNKNOWN', label: '-', color: 'bg-gray-100 text-gray-800 border-gray-200' };
+    }
+
+    if (iah < 5) {
+      return { severity: 'NORMAL', label: 'Normal', color: 'bg-green-100 text-green-800 border-green-200' };
+    } else if (iah < 15) {
+      return { severity: 'LIGHT', label: 'Léger', color: 'bg-blue-100 text-blue-800 border-blue-200' };
+    } else if (iah < 30) {
+      return { severity: 'MODERATE', label: 'Modéré', color: 'bg-yellow-100 text-yellow-800 border-yellow-200' };
+    } else {
+      return { severity: 'SEVERE', label: 'Sévère', color: 'bg-orange-100 text-orange-800 border-orange-200' };
     }
   };
 
@@ -51,15 +125,26 @@ export const PatientDiagnostics = ({ diagnostics = [], isLoading = false }: Pati
               Historique des polygraphies réalisées pour ce patient
             </CardDescription>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handlePrint}
-            className="flex items-center gap-2 print:hidden"
-          >
-            <FileText className="h-4 w-4" />
-            Imprimer
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handlePrint}
+              className="flex items-center gap-2 print:hidden"
+            >
+              <FileText className="h-4 w-4" />
+              Imprimer
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={handleAddDiagnostic}
+              className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
+            >
+              <Edit className="h-4 w-4" />
+              Gérer
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -133,35 +218,49 @@ export const PatientDiagnostics = ({ diagnostics = [], isLoading = false }: Pati
                       </div>
                     </TableCell>
                     <TableCell>
-                      {diagnostic.result?.status ? (
-                        <Badge variant="outline" className="text-xs whitespace-nowrap">
-                          {diagnostic.result.status}
-                        </Badge>
-                      ) : (
-                        <span className="text-gray-400 text-sm">-</span>
-                      )}
+                      {(() => {
+                        const severityData = calculateSeverityFromIAH(diagnostic.result?.iah);
+                        return severityData.label === '-' ? (
+                          <span className="text-gray-400 text-sm">-</span>
+                        ) : (
+                          <Badge variant="outline" className={`text-xs whitespace-nowrap ${severityData.color}`}>
+                            {severityData.label}
+                          </Badge>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell className="text-xs text-gray-600 max-w-[200px] truncate">
                       {diagnostic.notes || diagnostic.description || '-'}
                     </TableCell>
                     <TableCell>
-                      <Badge className={getStatusColor(diagnostic.status || 'PENDING')} size="sm">
-                        {diagnostic.status === 'COMPLETED' ? 'Terminé' : diagnostic.status === 'PENDING' ? 'En attente' : diagnostic.status === 'IN_PROGRESS' ? 'En cours' : diagnostic.status}
+                      <Badge className={getStatusColor(diagnostic.status || 'PENDING')}>
+                        {getStatusLabel(diagnostic.status || 'PENDING')}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm">
                       {diagnostic.performedBy ? `${diagnostic.performedBy.firstName} ${diagnostic.performedBy.lastName}` : 'Non assigné'}
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => router.push(`/roles/admin/diagnostics/${diagnostic.id}`)}
-                        className="h-8 px-2"
-                      >
-                        <FileText className="h-3 w-3 mr-1" />
-                        Voir
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditDiagnostic(diagnostic)}
+                          className="h-8 px-2 hover:bg-green-100 hover:text-green-700"
+                        >
+                          <Edit className="h-3 w-3 mr-1" />
+                          Modifier
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => router.push(`/roles/employee/diagnostics/${diagnostic.id}`)}
+                          className="h-8 px-2 hover:bg-blue-100 hover:text-blue-700"
+                        >
+                          <FileText className="h-3 w-3 mr-1" />
+                          Voir
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -175,6 +274,25 @@ export const PatientDiagnostics = ({ diagnostics = [], isLoading = false }: Pati
           </div>
         )}
       </CardContent>
+
+      {/* Manage Diagnostics Dialog */}
+      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-green-700">
+              <Activity className="h-5 w-5 text-green-600" />
+              Gérer les Polygraphies
+            </DialogTitle>
+          </DialogHeader>
+          {patientId && (
+            <AddDiagnosticForm
+              patientId={patientId}
+              diagnostics={diagnostics}
+              onSuccess={handleAddSuccess}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };

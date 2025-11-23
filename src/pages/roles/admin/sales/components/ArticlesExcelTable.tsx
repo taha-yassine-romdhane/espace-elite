@@ -32,6 +32,7 @@ interface SaleItem {
   saleId: string;
   productId?: string;
   medicalDeviceId?: string;
+  stockLocationId?: string;
   quantity: number;
   unitPrice: number;
   discount: number;
@@ -69,6 +70,8 @@ interface SaleItem {
     name: string;
     productCode: string;
     type?: string;
+    brand?: string;
+    model?: string;
   };
   medicalDevice?: {
     id: string;
@@ -76,6 +79,10 @@ interface SaleItem {
     deviceCode?: string;
     serialNumber: string;
     type?: string;
+  };
+  stockLocation?: {
+    id: string;
+    name: string;
   };
 }
 
@@ -116,7 +123,7 @@ export default function ArticlesExcelTable() {
   const [configuringDevice, setConfiguringDevice] = useState<any>(null);
   const [userRole, setUserRole] = useState<string>('');
   const [availableStock, setAvailableStock] = useState<number>(0);
-  const itemsPerPage = 50;
+  const [itemsPerPage, setItemsPerPage] = useState<number>(50);
 
   // Ref to track if we've already set default stock location
   const stockLocationInitialized = useRef(false);
@@ -280,7 +287,7 @@ export default function ArticlesExcelTable() {
 
       // Client search
       const clientName = article.sale?.patient
-        ? `${article.sale.patient.firstName} ${article.sale.patient.lastName}`.toLowerCase()
+        ? `${article.sale?.patient?.firstName} ${article.sale?.patient?.lastName}`.toLowerCase()
         : article.sale?.company?.companyName?.toLowerCase() || '';
 
       const matchesSearch = (
@@ -426,14 +433,14 @@ export default function ArticlesExcelTable() {
     if (article.sale?.patient) {
       setSelectedClient({
         type: 'patient',
-        id: article.sale.patient.id,
-        name: `${article.sale.patient.firstName} ${article.sale.patient.lastName}`
+        id: article.sale?.patient?.id,
+        name: `${article.sale?.patient?.firstName} ${article.sale?.patient?.lastName}`
       });
     } else if (article.sale?.company) {
       setSelectedClient({
         type: 'company',
-        id: article.sale.company.id,
-        name: article.sale.company.companyName
+        id: article.sale?.company?.id,
+        name: article.sale?.company?.companyName
       });
     }
 
@@ -499,6 +506,11 @@ export default function ArticlesExcelTable() {
       updatePayload.medicalDeviceId = editedData.medicalDeviceId;
     }
 
+    // Include stock location change
+    if (editedData.stockLocationId !== undefined) {
+      updatePayload.stockLocationId = editedData.stockLocationId;
+    }
+
     // Include serial number
     if (editedData.serialNumber !== undefined) {
       updatePayload.serialNumber = editedData.serialNumber;
@@ -524,6 +536,16 @@ export default function ArticlesExcelTable() {
       toast({
         title: 'Erreur',
         description: 'Veuillez sélectionner un article',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    // Validate stockLocationId is required for products
+    if (newArticle.productId && !newArticle.stockLocationId) {
+      toast({
+        title: 'Erreur',
+        description: 'Veuillez sélectionner un emplacement de stock',
         variant: 'destructive'
       });
       return;
@@ -616,17 +638,17 @@ export default function ArticlesExcelTable() {
     const targetArticle = article || selectedArticle;
 
     // Check if it's a medical device or diagnostic device
-    if (targetArticle && targetArticle.medicalDeviceId) {
-      const deviceName = targetArticle.medicalDevice?.name || 'Appareil médical';
-      const deviceType = targetArticle.medicalDevice?.type || 'MEDICAL_DEVICE';
-      const deviceSerialNumber = targetArticle.medicalDevice?.serialNumber || targetArticle.serialNumber;
+    if (targetArticle && 'medicalDeviceId' in targetArticle && targetArticle.medicalDeviceId) {
+      const deviceName = ('medicalDevice' in targetArticle ? targetArticle.medicalDevice?.name : undefined) || 'Appareil médical';
+      const deviceType = ('medicalDevice' in targetArticle ? targetArticle.medicalDevice?.type : undefined) || 'MEDICAL_DEVICE';
+      const deviceSerialNumber = ('medicalDevice' in targetArticle ? targetArticle.medicalDevice?.serialNumber : undefined) || targetArticle.serialNumber;
 
       setConfiguringDevice({
         id: targetArticle.id, // Use saleItem id
         name: deviceName,
         serialNumber: deviceSerialNumber,
         type: deviceType,
-        configuration: targetArticle.configuration // Pass existing config
+        configuration: 'configuration' in targetArticle ? targetArticle.configuration : undefined // Pass existing config
       });
       setParameterDialogOpen(true);
     }
@@ -955,6 +977,7 @@ export default function ArticlesExcelTable() {
                 <th className="px-3 py-3 text-left text-xs font-semibold text-slate-700 border-r border-slate-200 min-w-[180px]">Client</th>
                 <th className="px-3 py-3 text-left text-xs font-semibold text-slate-700 border-r border-slate-200 min-w-[100px]">Type</th>
                 <th className="px-3 py-3 text-left text-xs font-semibold text-slate-700 border-r border-slate-200 min-w-[200px]">Article</th>
+                <th className="px-3 py-3 text-left text-xs font-semibold text-slate-700 border-r border-slate-200 min-w-[150px]">Marque/Modèle</th>
                 <th className="px-3 py-3 text-left text-xs font-semibold text-slate-700 border-r border-slate-200 min-w-[120px]">N° Série</th>
                 <th className="px-3 py-3 text-left text-xs font-semibold text-slate-700 border-r border-slate-200 min-w-[300px]">Description</th>
                 <th className="px-3 py-3 text-left text-xs font-semibold text-slate-700 border-r border-slate-200 min-w-[200px]">Stock</th>
@@ -1062,6 +1085,11 @@ export default function ArticlesExcelTable() {
                         'Sélectionner Article'
                       )}
                     </Button>
+                  </td>
+
+                  {/* Brand/Model - New Row */}
+                  <td className="px-3 py-2.5 border-r border-slate-100">
+                    <div className="text-xs text-center text-gray-400">-</div>
                   </td>
 
                   {/* Serial Number */}
@@ -1228,7 +1256,7 @@ export default function ArticlesExcelTable() {
 
               {paginatedArticles.length === 0 && !isAddingNew ? (
                 <tr>
-                  <td colSpan={11} className="px-3 py-8 text-center text-slate-500">
+                  <td colSpan={14} className="px-3 py-8 text-center text-slate-500">
                     Aucun article trouvé
                   </td>
                 </tr>
@@ -1360,19 +1388,19 @@ export default function ArticlesExcelTable() {
                             <div className="flex flex-col gap-1">
                               <div
                                 className="flex items-center gap-1.5 whitespace-nowrap text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-colors"
-                                onClick={() => router.push(`/roles/admin/renseignement/patient/${article.sale.patient.id}`)}
+                                onClick={() => router.push(`/roles/admin/renseignement/patient/${article.sale?.patient?.id}`)}
                               >
                                 <Users className="h-3.5 w-3.5 shrink-0" />
                                 <span className="text-xs font-medium">
-                                  {article.sale.patient.lastName.toUpperCase()} {article.sale.patient.firstName}
+                                  {article.sale?.patient?.lastName.toUpperCase()} {article.sale?.patient?.firstName}
                                 </span>
                               </div>
-                              {article.sale.patient.patientCode && (
+                              {article.sale?.patient?.patientCode && (
                                 <div
                                   className="text-xs text-slate-500 font-mono cursor-pointer hover:text-blue-600 transition-colors ml-5"
-                                  onClick={() => router.push(`/roles/admin/renseignement/patient/${article.sale.patient.id}`)}
+                                  onClick={() => router.push(`/roles/admin/renseignement/patient/${article.sale?.patient?.id}`)}
                                 >
-                                  {article.sale.patient.patientCode}
+                                  {article.sale?.patient?.patientCode}
                                 </div>
                               )}
                             </div>
@@ -1391,27 +1419,33 @@ export default function ArticlesExcelTable() {
 
                       {/* Type & Article - Editable */}
                       {editingId === article.id ? (
-                        <td colSpan={2} className="px-3 py-2.5 border-r border-slate-100">
-                          <Button
-                            variant="outline"
-                            className="h-8 w-full text-xs justify-start overflow-hidden"
-                            onClick={() => setArticleDialogOpen(true)}
-                          >
-                            <Package className="h-4 w-4 mr-2 shrink-0" />
-                            {selectedArticle ? (
-                              <div className="flex items-center gap-1.5 overflow-hidden">
-                                {selectedArticle.code && (
-                                  <Badge variant="outline" className="bg-slate-100 text-slate-700 border-slate-300 text-xs font-mono shrink-0">
-                                    {selectedArticle.code}
-                                  </Badge>
-                                )}
-                                <span className="truncate">{selectedArticle.name}</span>
-                              </div>
-                            ) : (
-                              'Changer Article'
-                            )}
-                          </Button>
-                        </td>
+                        <>
+                          <td colSpan={2} className="px-3 py-2.5 border-r border-slate-100">
+                            <Button
+                              variant="outline"
+                              className="h-8 w-full text-xs justify-start overflow-hidden"
+                              onClick={() => setArticleDialogOpen(true)}
+                            >
+                              <Package className="h-4 w-4 mr-2 shrink-0" />
+                              {selectedArticle ? (
+                                <div className="flex items-center gap-1.5 overflow-hidden">
+                                  {selectedArticle.code && (
+                                    <Badge variant="outline" className="bg-slate-100 text-slate-700 border-slate-300 text-xs font-mono shrink-0">
+                                      {selectedArticle.code}
+                                    </Badge>
+                                  )}
+                                  <span className="truncate">{selectedArticle.name}</span>
+                                </div>
+                              ) : (
+                                'Changer Article'
+                              )}
+                            </Button>
+                          </td>
+                          {/* Brand/Model - Edit mode */}
+                          <td className="px-3 py-2.5 border-r border-slate-100">
+                            <div className="text-xs text-center text-gray-400">-</div>
+                          </td>
+                        </>
                       ) : (
                         <>
                           {/* Type */}
@@ -1440,6 +1474,26 @@ export default function ArticlesExcelTable() {
                               <span>{getArticleName()}</span>
                             </div>
                           </td>
+
+                          {/* Brand/Model */}
+                          <td className="px-3 py-2.5 text-xs text-slate-600 border-r border-slate-100">
+                            {article.product?.brand || article.product?.model ? (
+                              <div className="flex flex-col gap-0.5">
+                                {article.product.brand && (
+                                  <div className="text-xs">
+                                    <span className="text-slate-500">Marque:</span> <span className="font-medium">{article.product.brand}</span>
+                                  </div>
+                                )}
+                                {article.product.model && (
+                                  <div className="text-xs">
+                                    <span className="text-slate-500">Modèle:</span> <span className="font-medium">{article.product.model}</span>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="text-center text-gray-400">-</div>
+                            )}
+                          </td>
                         </>
                       )}
 
@@ -1467,11 +1521,27 @@ export default function ArticlesExcelTable() {
 
                       {/* Stock - Show source location for sold articles */}
                       <td className="px-3 py-2.5 text-xs text-slate-600 border-r border-slate-100">
-                        {article.sale?.assignedTo?.stockLocation?.name ? (
+                        {editingId === article.id && article.productId ? (
+                          <Select
+                            value={editedData.stockLocationId || article.stockLocationId || ''}
+                            onValueChange={(value) => setEditedData({...editedData, stockLocationId: value})}
+                          >
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue placeholder="Sélectionner stock" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {stockLocations?.map((location: any) => (
+                                <SelectItem key={location.id} value={location.id}>
+                                  {location.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : article.stockLocation?.name ? (
                           <div className="flex flex-col">
                             <span className="text-xs text-slate-500">Sortie de:</span>
                             <span className="text-xs font-medium text-blue-600">
-                              {article.sale.assignedTo.stockLocation.name}
+                              {article.stockLocation.name}
                             </span>
                           </div>
                         ) : (

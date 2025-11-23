@@ -13,19 +13,43 @@ export default async function handler(
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    // Only admins can see all users
-    if (session.user.role !== 'ADMIN') {
-      return res.status(403).json({ error: 'Forbidden' });
-    }
-
     if (req.method !== 'GET') {
       return res.status(405).json({ error: 'Method not allowed' });
     }
 
+    // Get role filter from query params
+    const { role } = req.query;
+
+    // Authorization logic
+    const isAdmin = session.user.role === 'ADMIN';
+    const isEmployeeQueryingDoctors = session.user.role === 'EMPLOYEE' && role === 'DOCTOR';
+
+    // Only admins can see all users, employees can only query doctors
+    if (!isAdmin && !isEmployeeQueryingDoctors) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    // Build where clause based on role filter and permissions
+    const whereClause: any = {
+      isActive: true
+    };
+
+    if (role === 'DOCTOR' && isEmployeeQueryingDoctors) {
+      // Employee querying doctors
+      whereClause.role = 'DOCTOR';
+    } else if (isAdmin) {
+      // Admin can filter by role or see all
+      if (role) {
+        whereClause.role = role;
+      } else {
+        whereClause.role = {
+          in: ['ADMIN', 'EMPLOYEE']
+        };
+      }
+    }
+
     const users = await prisma.user.findMany({
-      where: {
-        isActive: true
-      },
+      where: whereClause,
       select: {
         id: true,
         firstName: true,

@@ -2,7 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../auth/[...nextauth]';
 import prisma from '@/lib/db';
-import { ProductType } from '@prisma/client';
+import { ProductType, StockStatus, DeviceStatus } from '@prisma/client';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const session = await getServerSession(req, res, authOptions);
@@ -13,7 +13,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === 'GET') {
     try {
-      const { locationId, search, page = '1', limit = '10', productType } = req.query;
+      const { locationId, search, page = '1', limit = '10', productType, status } = req.query;
       
       // Parse pagination parameters
       const pageNumber = parseInt(page as string, 10) || 1;
@@ -26,28 +26,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           { name: { contains: search as string, mode: 'insensitive' as const } },
           { brand: { contains: search as string, mode: 'insensitive' as const } },
           { model: { contains: search as string, mode: 'insensitive' as const } },
+          { serialNumber: { contains: search as string, mode: 'insensitive' as const } },
         ]
       } : {};
-      
+
       // Create search conditions for medical devices
       const deviceSearchCondition = search ? {
         OR: [
           { name: { contains: search as string, mode: 'insensitive' as const } },
           { brand: { contains: search as string, mode: 'insensitive' as const } },
           { model: { contains: search as string, mode: 'insensitive' as const } },
+          { serialNumber: { contains: search as string, mode: 'insensitive' as const } },
         ]
       } : {};
       
       // Create location filter condition
       const locationCondition = locationId ? { stockLocationId: locationId as string } : {};
-      
+
       // Create product type filter condition
       const productTypeCondition = productType ? { type: productType as string } : {};
-      
+
+      // Stock statuses: FOR_RENT, FOR_SALE, IN_REPAIR, OUT_OF_SERVICE (no SOLD for stocks)
+      const stockStatuses = ['FOR_RENT', 'FOR_SALE', 'IN_REPAIR', 'OUT_OF_SERVICE'];
+      // Device statuses: ACTIVE, RESERVED, MAINTENANCE, RETIRED, SOLD
+      const deviceStatuses = ['ACTIVE', 'RESERVED', 'MAINTENANCE', 'RETIRED', 'SOLD'];
+
+      const isStockStatus = status && stockStatuses.includes(status as string);
+      const isDeviceStatus = status && deviceStatuses.includes(status as string);
+
       // 1. Get regular inventory items (accessories and spare parts)
       const stocksPromise = prisma.stock.findMany({
         where: {
           ...(locationId ? { locationId: locationId as string } : {}),
+          // If status filter is a valid stock status, use it; otherwise exclude SOLD
+          ...(isStockStatus ?
+              { status: status as StockStatus } :
+              { status: { not: 'SOLD' as StockStatus } }
+          ),
           product: {
             AND: [
               searchCondition,
@@ -60,6 +75,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             select: {
               id: true,
               name: true,
+              type: true,
+              isTransferable: true,
             }
           },
           product: {
@@ -69,6 +86,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               model: true,
               brand: true,
               type: true,
+              serialNumber: true,
             }
           }
         },
@@ -77,30 +95,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           { product: { name: 'asc' } }
         ]
       });
-      
+
       // 2. Get medical devices with patient information for RESERVED devices
-      // Exclude SOLD devices as they cannot be transferred
-      const medicalDevicesPromise = prisma.medicalDevice.findMany({
-        where: {
-          ...locationCondition,
-          ...deviceSearchCondition,
-          ...productTypeCondition,
-          // Exclude SOLD devices from transfers
-          status: {
-            not: 'SOLD'
+      // Only fetch medical devices if productType is not ACCESSORY or SPARE_PART
+      const shouldFetchDevices = !productType ||
+        productType === 'MEDICAL_DEVICE' ||
+        productType === 'DIAGNOSTIC_DEVICE';
+
+      let medicalDevicesPromise;
+
+      if (shouldFetchDevices) {
+        medicalDevicesPromise = prisma.medicalDevice.findMany({
+          where: {
+            ...locationCondition,
+            ...deviceSearchCondition,
+            ...productTypeCondition,
+            // If device status filter is provided, use it; otherwise exclude SOLD devices
+            ...(isDeviceStatus ?
+                { status: status as DeviceStatus } :
+                { status: { not: 'SOLD' as DeviceStatus } }
+            ),
+            // If productType is specified, only include matching devices
+            ...(productType ?
+                productType === 'DIAGNOSTIC_DEVICE' ?
+                  { type: 'DIAGNOSTIC_DEVICE' } :
+                  { type: { not: 'DIAGNOSTIC_DEVICE' } }
+                : {})
           },
-          // If productType is specified, only include matching devices
-          ...(productType ? 
-              productType === 'DIAGNOSTIC_DEVICE' ? 
-                { type: 'DIAGNOSTIC_DEVICE' } : 
-                { type: { not: 'DIAGNOSTIC_DEVICE' } }
-              : {})
-        },
         include: {
           stockLocation: {
             select: {
               id: true,
-              name: true
+              name: true,
+              type: true,
+              isTransferable: true,
             }
           },
           // Include diagnostic information to find the patient
@@ -139,7 +167,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           { name: 'asc' }
         ]
       });
-      
+      } else {
+        medicalDevicesPromise = Promise.resolve([]);
+      }
+
       // 3. Execute both queries in parallel
       const [stocks, medicalDevices] = await Promise.all([stocksPromise, medicalDevicesPromise]);
       

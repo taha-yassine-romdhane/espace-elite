@@ -163,19 +163,18 @@ export async function migrateExistingPatientCodes(prisma: PrismaClient): Promise
  * @returns Promise<string> - The generated sale code
  */
 export async function generateSaleCode(prisma: PrismaClient): Promise<string> {
-  const maxRetries = 5;
+  const maxRetries = 10;
   let retryCount = 0;
 
   while (retryCount < maxRetries) {
     try {
-      const lastSale = await prisma.sale.findFirst({
+      // Fetch ALL sale codes and find the maximum numerically
+      const allSales = await prisma.sale.findMany({
         where: {
           saleCode: {
-            not: null
+            not: null,
+            startsWith: 'SAL-'
           }
-        },
-        orderBy: {
-          saleCode: 'desc'
         },
         select: {
           saleCode: true
@@ -183,16 +182,25 @@ export async function generateSaleCode(prisma: PrismaClient): Promise<string> {
       });
 
       let nextNumber = 1;
-      
-      if (lastSale?.saleCode) {
-        const match = lastSale.saleCode.match(/SAL-(\d+)/);
-        if (match) {
-          nextNumber = parseInt(match[1], 10) + 1;
+
+      if (allSales.length > 0) {
+        // Extract numbers and find the maximum
+        const numbers = allSales
+          .map(s => {
+            const match = s.saleCode?.match(/SAL-(\d+)/);
+            return match ? parseInt(match[1], 10) : 0;
+          })
+          .filter(n => !isNaN(n));
+
+        if (numbers.length > 0) {
+          nextNumber = Math.max(...numbers) + 1;
         }
       }
 
-      const paddedNumber = nextNumber.toString().padStart(4, '0');
-      const newCode = `SAL-${paddedNumber}`;
+      // Add retry count to handle collisions
+      nextNumber += retryCount;
+
+      const newCode = `SAL-${nextNumber}`;
 
       const exists = await prisma.sale.findUnique({
         where: { saleCode: newCode }
@@ -221,19 +229,18 @@ export async function generateSaleCode(prisma: PrismaClient): Promise<string> {
  * @returns Promise<string> - The generated rental code
  */
 export async function generateRentalCode(prisma: PrismaClient): Promise<string> {
-  const maxRetries = 5;
+  const maxRetries = 10;
   let retryCount = 0;
 
   while (retryCount < maxRetries) {
     try {
-      const lastRental = await prisma.rental.findFirst({
+      // Fetch ALL rental codes and find the maximum numerically
+      const allRentals = await prisma.rental.findMany({
         where: {
           rentalCode: {
-            not: null
+            not: null,
+            startsWith: 'RNT-'
           }
-        },
-        orderBy: {
-          rentalCode: 'desc'
         },
         select: {
           rentalCode: true
@@ -241,16 +248,25 @@ export async function generateRentalCode(prisma: PrismaClient): Promise<string> 
       });
 
       let nextNumber = 1;
-      
-      if (lastRental?.rentalCode) {
-        const match = lastRental.rentalCode.match(/RNT-(\d+)/);
-        if (match) {
-          nextNumber = parseInt(match[1], 10) + 1;
+
+      if (allRentals.length > 0) {
+        // Extract numbers and find the maximum
+        const numbers = allRentals
+          .map(r => {
+            const match = r.rentalCode?.match(/RNT-(\d+)/);
+            return match ? parseInt(match[1], 10) : 0;
+          })
+          .filter(n => !isNaN(n));
+
+        if (numbers.length > 0) {
+          nextNumber = Math.max(...numbers) + 1;
         }
       }
 
-      const paddedNumber = nextNumber.toString().padStart(4, '0');
-      const newCode = `RNT-${paddedNumber}`;
+      // Add retry count to handle collisions
+      nextNumber += retryCount;
+
+      const newCode = `RNT-${nextNumber}`;
 
       const exists = await prisma.rental.findUnique({
         where: { rentalCode: newCode }
@@ -274,39 +290,23 @@ export async function generateRentalCode(prisma: PrismaClient): Promise<string> 
 }
 
 /**
- * Generate a sequential payment code in format PAY-{SOURCE}-XXXX
+ * Generate a sequential payment code in format PAY-XXXX
  * @param prisma - Prisma client instance
- * @param source - Payment source: 'SALE' | 'RENTAL' | 'DIAGNOSTIC' | 'AUTRE'
  * @returns Promise<string> - The generated payment code
  */
-export async function generatePaymentCode(
-  prisma: PrismaClient,
-  source: 'SALE' | 'RENTAL' | 'DIAGNOSTIC' | 'AUTRE' = 'AUTRE'
-): Promise<string> {
-  const maxRetries = 5;
+export async function generatePaymentCode(prisma: PrismaClient): Promise<string> {
+  const maxRetries = 10;
   let retryCount = 0;
-
-  // Map source to code prefix
-  const sourcePrefix: Record<string, string> = {
-    SALE: 'VEN',      // Vente
-    RENTAL: 'LOC',    // Location
-    DIAGNOSTIC: 'DIAG', // Diagnostic
-    AUTRE: 'AUT'      // Autre
-  };
-
-  const prefix = sourcePrefix[source] || 'AUT';
 
   while (retryCount < maxRetries) {
     try {
-      const lastPayment = await prisma.payment.findFirst({
+      // Fetch ALL payment codes and find the maximum numerically
+      const allPayments = await prisma.payment.findMany({
         where: {
           paymentCode: {
             not: null,
-            startsWith: `PAY-${prefix}-`
+            startsWith: 'PAY-'
           }
-        },
-        orderBy: {
-          paymentCode: 'desc'
         },
         select: {
           paymentCode: true
@@ -315,15 +315,24 @@ export async function generatePaymentCode(
 
       let nextNumber = 1;
 
-      if (lastPayment?.paymentCode) {
-        const match = lastPayment.paymentCode.match(/PAY-[A-Z]+-(\d+)/);
-        if (match) {
-          nextNumber = parseInt(match[1], 10) + 1;
+      if (allPayments.length > 0) {
+        // Extract numbers and find the maximum
+        const numbers = allPayments
+          .map(p => {
+            const match = p.paymentCode?.match(/PAY-(\d+)/);
+            return match ? parseInt(match[1], 10) : 0;
+          })
+          .filter(n => !isNaN(n));
+
+        if (numbers.length > 0) {
+          nextNumber = Math.max(...numbers) + 1;
         }
       }
 
-      const paddedNumber = nextNumber.toString().padStart(4, '0');
-      const newCode = `PAY-${prefix}-${paddedNumber}`;
+      // Add retry count to handle collisions
+      nextNumber += retryCount;
+
+      const newCode = `PAY-${nextNumber}`;
 
       const exists = await prisma.payment.findUnique({
         where: { paymentCode: newCode }

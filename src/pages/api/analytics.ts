@@ -73,7 +73,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const patiensByAffiliation = await getPatientsByAffiliation().catch(() => []);
       const activeRentals = await getActiveRentalsCount().catch(() => 0);
       
-      const cnamBons = await getCNAMBonds(startDate).catch(() => ({ total: 0, approved: 0, totalAmount: 0 }));
+      const cnamBonds = await getCNAMBonds(startDate).catch(() => ({ total: 0, approved: 0, totalAmount: 0 }));
       const cnamByType = await getCNAMByType(startDate).catch(() => []);
       
       const recentSales = await getRecentSales().catch(() => []);
@@ -135,10 +135,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           activeRentals
         },
         cnam: {
-          totalBonds: cnamBons.total,
-          approvedBonds: cnamBons.approved,
-          approvalRate: cnamBons.total > 0 ? (cnamBons.approved / cnamBons.total) * 100 : 0,
-          totalAmount: cnamBons.totalAmount,
+          totalBonds: cnamBonds.total,
+          approvedBonds: cnamBonds.approved,
+          approvalRate: cnamBonds.total > 0 ? (cnamBonds.approved / cnamBonds.total) * 100 : 0,
+          totalAmount: cnamBonds.totalAmount,
           byBondType: cnamByType
         },
         recentActivity
@@ -203,7 +203,7 @@ async function getMonthlyRevenue(startDate: Date) {
   });
 
   const monthlyData = new Map();
-  
+
   // Process sales
   sales.forEach(sale => {
     const month = sale.saleDate.toLocaleDateString('en-US', { month: 'short' });
@@ -219,16 +219,16 @@ async function getMonthlyRevenue(startDate: Date) {
   // Process rentals
   rentals.forEach(rental => {
     if (rental.payments && rental.payments.length > 0) {
-      rental.payments.forEach(payment => {
-        const month = rental.startDate.toLocaleDateString('en-US', { month: 'short' });
-        const monthKey = `${rental.startDate.getFullYear()}-${month}`;
-        if (!monthlyData.has(monthKey)) {
-          monthlyData.set(monthKey, { month, amount: 0, sales: 0, rentals: 0 });
-        }
-        const data = monthlyData.get(monthKey);
-        data.amount += Number(payment.amount);
-        data.rentals += 1;
-      });
+      const month = rental.startDate.toLocaleDateString('en-US', { month: 'short' });
+      const monthKey = `${rental.startDate.getFullYear()}-${month}`;
+      if (!monthlyData.has(monthKey)) {
+        monthlyData.set(monthKey, { month, amount: 0, sales: 0, rentals: 0 });
+      }
+      const data = monthlyData.get(monthKey);
+      // Sum all payments for this rental
+      const totalPayments = rental.payments.reduce((sum, payment) => sum + Number(payment.amount), 0);
+      data.amount += totalPayments;
+      data.rentals += 1;
     }
   });
 

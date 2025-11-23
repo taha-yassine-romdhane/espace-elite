@@ -2,7 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]';
 import prisma from '@/lib/db';
-import { ProductType } from '@prisma/client';
+import { ProductType, StockStatus, DeviceStatus } from '@prisma/client';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const session = await getServerSession(req, res, authOptions);
@@ -13,7 +13,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === 'GET') {
     try {
-      const { search, page = '1', limit = '10', productType } = req.query;
+      const { search, page = '1', limit = '10', productType, status } = req.query;
       
       // Parse pagination parameters
       const pageNumber = parseInt(page as string, 10) || 1;
@@ -43,25 +43,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           { name: { contains: search as string, mode: 'insensitive' as const } },
           { brand: { contains: search as string, mode: 'insensitive' as const } },
           { model: { contains: search as string, mode: 'insensitive' as const } },
+          { serialNumber: { contains: search as string, mode: 'insensitive' as const } },
         ]
       } : {};
-      
+
       // Create search conditions for medical devices
       const deviceSearchCondition = search ? {
         OR: [
           { name: { contains: search as string, mode: 'insensitive' as const } },
           { brand: { contains: search as string, mode: 'insensitive' as const } },
           { model: { contains: search as string, mode: 'insensitive' as const } },
+          { serialNumber: { contains: search as string, mode: 'insensitive' as const } },
         ]
       } : {};
       
       // Create product type filter condition
       const productTypeCondition = productType ? { type: productType as string } : {};
-      
+
+      // Stock statuses: FOR_RENT, FOR_SALE, IN_REPAIR, OUT_OF_SERVICE (no SOLD for stocks)
+      const stockStatuses = ['FOR_RENT', 'FOR_SALE', 'IN_REPAIR', 'OUT_OF_SERVICE'];
+      // Device statuses: ACTIVE, RESERVED, MAINTENANCE, RETIRED, SOLD
+      const deviceStatuses = ['ACTIVE', 'RESERVED', 'MAINTENANCE', 'RETIRED', 'SOLD'];
+
+      const isStockStatus = status && stockStatuses.includes(status as string);
+      const isDeviceStatus = status && deviceStatuses.includes(status as string);
+
       // 1. Get regular inventory items (accessories and spare parts) for this location
       const stocksPromise = prisma.stock.findMany({
         where: {
           locationId: locationId,
+          // If status filter is a valid stock status, use it; otherwise exclude SOLD
+          ...(isStockStatus ?
+              { status: status as StockStatus } :
+              { status: { not: 'SOLD' as StockStatus } }
+          ),
           product: {
             AND: [
               searchCondition,
@@ -83,6 +98,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               model: true,
               brand: true,
               type: true,
+              serialNumber: true,
             }
           }
         },
@@ -92,80 +108,165 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
       
       // 2. Get medical devices for this location
-      const medicalDevicesPromise = prisma.medicalDevice.findMany({
-        where: {
-          stockLocationId: locationId,
-          ...deviceSearchCondition,
-          ...productTypeCondition,
-          // If productType is specified, only include matching devices
-          ...(productType ? 
-              productType === 'DIAGNOSTIC_DEVICE' ? 
-                { type: 'DIAGNOSTIC_DEVICE' } : 
-                { type: { not: 'DIAGNOSTIC_DEVICE' } }
-              : {})
-        },
-        include: {
-          stockLocation: {
-            select: {
-              id: true,
-              name: true
+      // Only fetch medical devices if productType is not ACCESSORY or SPARE_PART
+      const shouldFetchDevices = !productType ||
+        productType === 'MEDICAL_DEVICE' ||
+        productType === 'DIAGNOSTIC_DEVICE';
+
+      let medicalDevicesPromise;
+
+      if (shouldFetchDevices) {
+        medicalDevicesPromise = prisma.medicalDevice.findMany({
+          where: {
+            stockLocationId: locationId,
+            // If status filter is a valid device status, use it; otherwise exclude SOLD
+            ...(isDeviceStatus ?
+                { status: status as DeviceStatus } :
+                { status: { not: 'SOLD' as DeviceStatus } }
+            ),
+            ...deviceSearchCondition,
+            // Filter by device type if specified
+            ...(productType === 'DIAGNOSTIC_DEVICE' ?
+              { type: 'DIAGNOSTIC_DEVICE' } :
+              productType === 'MEDICAL_DEVICE' ?
+              { type: { not: 'DIAGNOSTIC_DEVICE' } } :
+              {})
+          },
+          include: {
+            stockLocation: {
+              select: {
+                id: true,
+                name: true
+              }
+            },
+            // Include sales to find patient
+            saleItems: {
+              select: {
+                sale: {
+                  select: {
+                    id: true,
+                    saleCode: true,
+                    patient: {
+                      select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        patientCode: true,
+                        telephone: true
+                      }
+                    }
+                  }
+                }
+              },
+              orderBy: {
+                createdAt: 'desc'
+              },
+              take: 1
+            },
+            // Include rentals to find patient
+            Rental: {
+              select: {
+                patient: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    patientCode: true,
+                    telephone: true
+                  }
+                }
+              },
+              orderBy: {
+                startDate: 'desc'
+              },
+              take: 1
+            },
+            // Include diagnostic information
+            Diagnostic: {
+              select: {
+                id: true,
+                patient: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    patientCode: true,
+                    telephone: true
+                  }
+                },
+                diagnosticDate: true,
+                followUpDate: true
+              },
+              orderBy: {
+                diagnosticDate: 'desc'
+              },
+              take: 1
             }
           },
-          // Include diagnostic information to find the patient
-          Diagnostic: {
-            where: {
-              followUpRequired: true
-            },
-            select: {
-              id: true,
-              patient: {
-                select: {
-                  id: true,
-                  firstName: true,
-                  lastName: true,
-                  telephone: true
-                }
-              },
-              Company: {
-                select: {
-                  id: true,
-                  companyName: true,
-                  telephone: true
-                }
-              },
-              diagnosticDate: true,
-              followUpDate: true
-            },
-            orderBy: {
-              diagnosticDate: 'desc'
-            },
-            take: 1
-          }
-        },
-        orderBy: [
-          { name: 'asc' }
-        ]
-      });
-      
+          orderBy: [
+            { name: 'asc' }
+          ]
+        });
+      } else {
+        medicalDevicesPromise = Promise.resolve([]);
+      }
+
       // 3. Execute both queries in parallel
       const [stocks, medicalDevices] = await Promise.all([stocksPromise, medicalDevicesPromise]);
       
       // 4. Transform medical devices to match the stock format
       const medicalDeviceItems = medicalDevices.map(device => {
         const latestDiagnostic = device.Diagnostic && device.Diagnostic.length > 0 ? device.Diagnostic[0] : null;
-        
-        const isReserved = device.status === 'RESERVED';
-        const reservedFor = isReserved && latestDiagnostic ? {
-          id: latestDiagnostic.patient?.id || latestDiagnostic.Company?.id || '',
-          name: latestDiagnostic.patient 
-            ? `${latestDiagnostic.patient.firstName} ${latestDiagnostic.patient.lastName}` 
-            : latestDiagnostic.Company?.companyName || '',
-          telephone: latestDiagnostic.patient?.telephone || latestDiagnostic.Company?.telephone || '',
-          isCompany: !!latestDiagnostic.Company,
-          diagnosticId: latestDiagnostic.id,
-          diagnosticDate: latestDiagnostic.diagnosticDate,
-          resultDueDate: latestDiagnostic.followUpDate
-        } : null;
+        const latestSale = (device as any).saleItems && (device as any).saleItems.length > 0 ? (device as any).saleItems[0] : null;
+        const latestRental = (device as any).Rental && (device as any).Rental.length > 0 ? (device as any).Rental[0] : null;
+
+        // Get patient info from sales, rentals, or diagnostics
+        let reservedPatient = null;
+        let soldInfo = null;
+
+        if (device.status === 'RESERVED') {
+          // Check sale first
+          if (latestSale?.sale?.patient) {
+            reservedPatient = {
+              id: latestSale.sale.patient.id,
+              firstName: latestSale.sale.patient.firstName,
+              lastName: latestSale.sale.patient.lastName,
+              patientCode: latestSale.sale.patient.patientCode
+            };
+          }
+          // Check rental
+          else if (latestRental?.patient) {
+            reservedPatient = {
+              id: latestRental.patient.id,
+              firstName: latestRental.patient.firstName,
+              lastName: latestRental.patient.lastName,
+              patientCode: latestRental.patient.patientCode
+            };
+          }
+          // Check diagnostic
+          else if (latestDiagnostic?.patient) {
+            reservedPatient = {
+              id: latestDiagnostic.patient.id,
+              firstName: latestDiagnostic.patient.firstName,
+              lastName: latestDiagnostic.patient.lastName,
+              patientCode: latestDiagnostic.patient.patientCode
+            };
+          }
+        }
+
+        // Get sold info for SOLD devices
+        if (device.status === 'SOLD' && latestSale?.sale) {
+          soldInfo = {
+            saleId: latestSale.sale.id,
+            saleCode: latestSale.sale.saleCode,
+            patient: latestSale.sale.patient ? {
+              id: latestSale.sale.patient.id,
+              firstName: latestSale.sale.patient.firstName,
+              lastName: latestSale.sale.patient.lastName,
+              patientCode: latestSale.sale.patient.patientCode
+            } : null
+          };
+        }
 
         return {
           id: device.id,
@@ -182,10 +283,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             model: device.model || '',
             type: device.type === 'DIAGNOSTIC_DEVICE' ? 'DIAGNOSTIC_DEVICE' : 'MEDICAL_DEVICE',
             originalType: device.type,
-            serialNumber: device.serialNumber
+            serialNumber: device.serialNumber,
+            deviceCode: device.deviceCode
           },
           isDevice: true,
-          reservedFor: reservedFor
+          reservedPatient: reservedPatient,
+          soldInfo: soldInfo
         };
       });
       

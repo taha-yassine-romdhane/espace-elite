@@ -8,12 +8,10 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
-  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -42,13 +40,16 @@ interface MedicalDeviceRow {
   brand?: string;
   model?: string;
   serialNumber?: string;
+  description?: string;
   stockLocationName?: string;
   purchasePrice?: number;
   sellingPrice?: number;
   rentalPrice?: number;
-  technicalSpecs?: string;
-  destination?: string;
   status?: string;
+  destination?: string;
+  technicalSpecs?: string;
+  warranty?: string;
+  maintenanceInterval?: string;
 }
 
 export function MedicalDeviceImportExport({ onImportSuccess, stockLocations }: MedicalDeviceImportExportProps) {
@@ -61,81 +62,45 @@ export function MedicalDeviceImportExport({ onImportSuccess, stockLocations }: M
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  // Template structure with all device types
+  // Template structure matching the MedicalDeviceForm fields
   const getTemplateData = () => {
-    // Use only available locations - all examples will use the first location
     const firstLocationName = stockLocations.length > 0 ? stockLocations[0].name : 'Bureau Principal';
-
     return [
       {
+        deviceCode: 'APP0001',
         name: 'CPAP',
         type: 'MEDICAL_DEVICE',
         brand: 'Philips',
         model: 'DreamStation 2',
         serialNumber: 'DS2-2024-001',
+        description: 'Appareil de PPC pour traitement apnée du sommeil',
         stockLocationName: firstLocationName,
         purchasePrice: 1500.0,
         sellingPrice: 2200.0,
         rentalPrice: 45.0,
-        technicalSpecs: 'Auto-CPAP avec humidificateur intégré, pression 4-20 cmH2O',
+        status: 'ACTIVE',
         destination: 'FOR_RENT',
-        status: 'ACTIVE'
+        technicalSpecs: '120',
+        warranty: '2 ans',
+        maintenanceInterval: '6 mois'
       },
       {
+        deviceCode: 'APP0002',
         name: 'VNI',
         type: 'MEDICAL_DEVICE',
         brand: 'ResMed',
         model: 'Stellar 150',
         serialNumber: 'ST150-2024-002',
+        description: 'Ventilateur non invasif pour assistance respiratoire',
         stockLocationName: firstLocationName,
         purchasePrice: 2800.0,
         sellingPrice: 3500.0,
         rentalPrice: 65.0,
-        technicalSpecs: 'Ventilateur non invasif bi-level, modes ST, CPAP, BIPAP',
+        status: 'ACTIVE',
         destination: 'FOR_RENT',
-        status: 'ACTIVE'
-      },
-      {
-        name: 'Concentrateur O²',
-        type: 'MEDICAL_DEVICE',
-        brand: 'Invacare',
-        model: 'Platinum 10',
-        serialNumber: 'PLT10-2024-003',
-        stockLocationName: firstLocationName,
-        purchasePrice: 1200.0,
-        sellingPrice: 1800.0,
-        rentalPrice: 35.0,
-        technicalSpecs: 'Concentrateur 10L/min, pureté O2 93% ±3%',
-        destination: 'FOR_RENT',
-        status: 'ACTIVE'
-      },
-      {
-        name: 'Vi',
-        type: 'MEDICAL_DEVICE',
-        brand: 'AirSep',
-        model: 'VisionAire 5',
-        serialNumber: 'VA5-2024-004',
-        stockLocationName: firstLocationName,
-        purchasePrice: 900.0,
-        sellingPrice: 1400.0,
-        rentalPrice: 28.0,
-        technicalSpecs: 'Concentrateur 5L/min, faible consommation',
-        destination: 'FOR_SALE',
-        status: 'ACTIVE'
-      },
-      {
-        name: 'Bouteil O²',
-        type: 'MEDICAL_DEVICE',
-        brand: 'Air Liquide',
-        model: 'B50',
-        serialNumber: 'B50-2024-005',
-        stockLocationName: firstLocationName,
-        purchasePrice: 150.0,
-        sellingPrice: 250.0,
-        rentalPrice: 12.0,
-        technicalSpecs: 'Bouteille 50L, pression 200 bar, avec manodétendeur',
-        destination: 'FOR_RENT',
-        status: 'ACTIVE'
+        technicalSpecs: '80',
+        warranty: '3 ans',
+        maintenanceInterval: '3 mois'
       }
     ];
   };
@@ -145,38 +110,41 @@ export function MedicalDeviceImportExport({ onImportSuccess, stockLocations }: M
     const ws = XLSX.utils.json_to_sheet(templateData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Appareils_Medicaux');
-
-    // Add headers with instructions
+    
+    // Add headers styling and instructions
     const locationNames = stockLocations.map(loc => loc.name).join(', ');
     const headers = [
-      'Nom (CPAP, VNI, Concentrateur O², Vi, Bouteil O², Autre)',
+      'Code Appareil (APP0001, APP0002, etc.)',
+      'Nom (CPAP, VNI, Concentrateur O², Vi, Bouteil O², ou nom personnalisé)',
       'Type (MEDICAL_DEVICE)',
       'Marque',
       'Modèle',
       'Numéro de Série (obligatoire)',
+      'Description',
       `Lieu de Stockage (${locationNames})`,
-      'Prix d\'Achat (DT)',
-      'Prix de Vente (DT)',
-      'Prix de Location/jour (DT)',
-      'Spécifications Techniques',
-      'Destination (FOR_SALE, FOR_RENT, IN_REPAIR, OUT_OF_SERVICE)',
-      'Statut (ACTIVE, MAINTENANCE, RETIRED, RESERVED)',
-      'Note: Le code appareil (APP0001, APP0002...) sera généré automatiquement'
+      'Prix d\'Achat',
+      'Prix de Vente',
+      'Prix de Location par jour',
+      'Statut (ACTIVE, MAINTENANCE, RETIRED, RESERVED, SOLD)',
+      'Destination (FOR_SALE, FOR_RENT)',
+      'Compteur (heures)',
+      'Garantie',
+      'Intervalle Maintenance'
     ];
-
+    
     XLSX.utils.sheet_add_aoa(wb.Sheets['Appareils_Medicaux'], [headers], { origin: 'A1' });
-
+    
     XLSX.writeFile(wb, 'template_appareils_medicaux.xlsx');
-
+    
     toast({
       title: 'Succès',
-      description: 'Template téléchargé avec succès avec 5 exemples (CPAP, VNI, Concentrateur, Vi, Bouteille O²)',
+      description: 'Template téléchargé avec succès',
     });
   };
 
   const validateRow = (row: MedicalDeviceRow, index: number): ValidationError[] => {
     const errors: ValidationError[] = [];
-
+    
     // Required field validation
     if (!row.name || row.name.trim() === '') {
       errors.push({
@@ -191,29 +159,29 @@ export function MedicalDeviceImportExport({ onImportSuccess, stockLocations }: M
       errors.push({
         row: index + 2,
         field: 'type',
-        message: 'Le type doit être MEDICAL_DEVICE'
+        message: 'Le type doit être "MEDICAL_DEVICE"'
       });
     }
 
-    // Serial number validation (recommended but not strictly required)
+    // Serial number validation (required for medical devices)
     if (!row.serialNumber || row.serialNumber.trim() === '') {
       errors.push({
         row: index + 2,
         field: 'serialNumber',
-        message: 'Le numéro de série est fortement recommandé'
+        message: 'Le numéro de série est obligatoire pour les appareils médicaux'
       });
     }
 
-    // Location validation
-    if (row.stockLocationName && row.stockLocationName.trim() !== '') {
-      const locationExists = stockLocations.some(
+    // Stock location validation
+    if (row.stockLocationName) {
+      const locationExists = stockLocations.find(
         loc => loc.name.toLowerCase() === row.stockLocationName?.toLowerCase()
       );
       if (!locationExists) {
         errors.push({
           row: index + 2,
           field: 'stockLocationName',
-          message: `Emplacement "${row.stockLocationName}" non trouvé. Emplacements disponibles: ${stockLocations.map(l => l.name).join(', ')}`
+          message: `Lieu de stockage "${row.stockLocationName}" n'existe pas. Lieux disponibles: ${stockLocations.map(l => l.name).join(', ')}`
         });
       }
     }
@@ -244,7 +212,7 @@ export function MedicalDeviceImportExport({ onImportSuccess, stockLocations }: M
     }
 
     // Status validation
-    const validStatuses = ['ACTIVE', 'MAINTENANCE', 'RETIRED', 'RESERVED'];
+    const validStatuses = ['ACTIVE', 'MAINTENANCE', 'RETIRED', 'RESERVED', 'SOLD'];
     if (row.status && !validStatuses.includes(row.status)) {
       errors.push({
         row: index + 2,
@@ -254,7 +222,7 @@ export function MedicalDeviceImportExport({ onImportSuccess, stockLocations }: M
     }
 
     // Destination validation
-    const validDestinations = ['FOR_SALE', 'FOR_RENT', 'IN_REPAIR', 'OUT_OF_SERVICE'];
+    const validDestinations = ['FOR_SALE', 'FOR_RENT'];
     if (row.destination && !validDestinations.includes(row.destination)) {
       errors.push({
         row: index + 2,
@@ -263,12 +231,22 @@ export function MedicalDeviceImportExport({ onImportSuccess, stockLocations }: M
       });
     }
 
+    // Device name validation - allow standard names or any custom name
+    // Standard names with configuration support
+    const standardNames = ['CPAP', 'VNI', 'Concentrateur O²', 'Vi', 'Bouteil O²'];
+
+    // Note: We allow any custom name, but we can optionally warn about configuration
+    // No validation error for custom names - they're allowed
+
     return errors;
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
+    // IMMEDIATELY close the import dialog before processing
+    setIsImportOpen(false);
 
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -285,25 +263,33 @@ export function MedicalDeviceImportExport({ onImportSuccess, stockLocations }: M
             description: 'Le fichier Excel doit contenir au moins une ligne de données',
             variant: 'destructive',
           });
+          // Reset file input
+          if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+          }
           return;
         }
 
-        // Skip header row and convert to objects (device code will be auto-generated)
+        // Skip header row and convert to objects, filter out empty rows
         const rows = jsonData.slice(1)
-          .filter((row: any) => row[0] && row[0].toString().trim() !== '') // Filter rows with name
+          .filter((row: any) => row[1] && row[1].toString().trim() !== '') // Only rows with a name (now in column 1)
           .map((row: any) => ({
-            name: row[0]?.toString().trim() || '',
-            type: row[1]?.toString().trim() || 'MEDICAL_DEVICE',
-            brand: row[2]?.toString().trim() || '',
-            model: row[3]?.toString().trim() || '',
-            serialNumber: row[4]?.toString().trim() || '',
-            stockLocationName: row[5]?.toString().trim() || '',
-            purchasePrice: row[6] ? Number(row[6]) : undefined,
-            sellingPrice: row[7] ? Number(row[7]) : undefined,
-            rentalPrice: row[8] ? Number(row[8]) : undefined,
-            technicalSpecs: row[9]?.toString().trim() || '',
-            destination: row[10]?.toString().trim() || 'FOR_SALE',
+            deviceCode: (row[0] && row[0].toString().trim()) || undefined,
+            name: row[1]?.toString().trim() || '',
+            type: row[2]?.toString().trim() || 'MEDICAL_DEVICE',
+            brand: row[3]?.toString().trim() || '',
+            model: row[4]?.toString().trim() || '',
+            serialNumber: row[5]?.toString().trim() || '',
+            description: row[6]?.toString().trim() || '',
+            stockLocationName: row[7]?.toString().trim() || '',
+            purchasePrice: row[8] ? Number(row[8]) : undefined,
+            sellingPrice: row[9] ? Number(row[9]) : undefined,
+            rentalPrice: row[10] ? Number(row[10]) : undefined,
             status: row[11]?.toString().trim() || 'ACTIVE',
+            destination: row[12]?.toString().trim() || 'FOR_SALE',
+            technicalSpecs: row[13]?.toString().trim() || '',
+            warranty: row[14]?.toString().trim() || '',
+            maintenanceInterval: row[15]?.toString().trim() || '',
           })) as MedicalDeviceRow[];
 
         // Validate all rows
@@ -316,13 +302,26 @@ export function MedicalDeviceImportExport({ onImportSuccess, stockLocations }: M
         if (allErrors.length > 0) {
           setValidationErrors(allErrors);
           setShowErrorDialog(true);
+          // Reset file input
+          if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+          }
           return;
         }
 
         // Show preview if validation passes
         setPreviewData(rows);
-        setShowPreviewDialog(true);
 
+        // Reset file input
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+        
+        // Open preview dialog after a short delay to ensure import dialog is unmounted
+        setTimeout(() => {
+          setShowPreviewDialog(true);
+        }, 300);
+        
       } catch (error) {
         console.error('Error reading file:', error);
         toast({
@@ -330,6 +329,10 @@ export function MedicalDeviceImportExport({ onImportSuccess, stockLocations }: M
           description: 'Erreur lors de la lecture du fichier Excel',
           variant: 'destructive',
         });
+        // Reset file input
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
       }
     };
     reader.readAsArrayBuffer(file);
@@ -338,25 +341,28 @@ export function MedicalDeviceImportExport({ onImportSuccess, stockLocations }: M
   const processImport = async () => {
     setIsProcessing(true);
     try {
-      const devicesToImport = previewData.map(row => {
+      const medicalDevicesToImport = previewData.map(row => {
         const stockLocation = stockLocations.find(
           loc => loc.name.toLowerCase() === row.stockLocationName?.toLowerCase()
         );
 
         return {
-          // deviceCode will be auto-generated by the API (APP0001, APP0002, etc.)
+          deviceCode: row.deviceCode || null,
           name: row.name,
-          type: 'MEDICAL_DEVICE',
+          type: row.type || 'MEDICAL_DEVICE',
           brand: row.brand || null,
           model: row.model || null,
-          serialNumber: row.serialNumber || null,
+          serialNumber: row.serialNumber,
+          description: row.description || null,
           stockLocationId: stockLocation?.id || null,
           purchasePrice: row.purchasePrice || null,
           sellingPrice: row.sellingPrice || null,
           rentalPrice: row.rentalPrice || null,
-          technicalSpecs: row.technicalSpecs || null,
-          destination: row.destination || 'FOR_SALE',
           status: row.status || 'ACTIVE',
+          destination: row.destination || 'FOR_SALE',
+          technicalSpecs: row.technicalSpecs || null,
+          warranty: row.warranty || null,
+          maintenanceInterval: row.maintenanceInterval || null,
         };
       });
 
@@ -365,16 +371,15 @@ export function MedicalDeviceImportExport({ onImportSuccess, stockLocations }: M
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ devices: devicesToImport }),
+        body: JSON.stringify({ medicalDevices: medicalDevicesToImport }),
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Erreur lors de l\'importation');
+        throw new Error('Erreur lors de l\'importation');
       }
 
       const result = await response.json();
-
+      
       toast({
         title: 'Succès',
         description: `${result.imported} appareils médicaux importés avec succès`,
@@ -384,17 +389,17 @@ export function MedicalDeviceImportExport({ onImportSuccess, stockLocations }: M
       setIsImportOpen(false);
       setPreviewData([]);
       onImportSuccess();
-
+      
       // Reset file input
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
-
+      
     } catch (error) {
       console.error('Import error:', error);
       toast({
         title: 'Erreur',
-        description: error instanceof Error ? error.message : 'Erreur lors de l\'importation des appareils',
+        description: 'Erreur lors de l\'importation des appareils médicaux',
         variant: 'destructive',
       });
     } finally {
@@ -402,57 +407,55 @@ export function MedicalDeviceImportExport({ onImportSuccess, stockLocations }: M
     }
   };
 
-  const exportDevices = async () => {
+  const exportMedicalDevices = async () => {
     try {
-      const response = await fetch('/api/medical-devices?type=MEDICAL_DEVICE');
+      const response = await fetch('/api/medical-devices');
       if (!response.ok) {
         throw new Error('Erreur lors du chargement des appareils médicaux');
       }
 
-      const devices = await response.json();
-
-      if (devices.length === 0) {
-        toast({
-          title: 'Information',
-          description: 'Aucun appareil médical à exporter',
-        });
-        return;
-      }
-
-      // Transform devices for export
-      const exportData = devices.map((device: any) => ({
+      const allDevices = await response.json();
+      
+      // Filter only medical devices (not products)
+      const medicalDevices = allDevices.filter((device: any) => 
+        device.type === 'MEDICAL_DEVICE' && device.serialNumber
+      );
+      
+      const exportData = medicalDevices.map((device: any) => ({
         'Code Appareil': device.deviceCode || '',
-        'Nom': device.name || '',
-        'Type': device.type || 'MEDICAL_DEVICE',
+        'Nom': device.name,
+        'Type': device.type,
         'Marque': device.brand || '',
         'Modèle': device.model || '',
         'Numéro de Série': device.serialNumber || '',
+        'Description': device.description || '',
         'Lieu de Stockage': device.stockLocation?.name || '',
         'Prix d\'Achat': device.purchasePrice || '',
         'Prix de Vente': device.sellingPrice || '',
         'Prix de Location': device.rentalPrice || '',
-        'Spécifications': device.technicalSpecs || '',
+        'Statut': device.status || '',
         'Destination': device.destination || '',
-        'Statut': device.status || 'ACTIVE',
+        'Compteur (heures)': device.technicalSpecs || '',
+        'Garantie': device.warranty || '',
+        'Intervalle Maintenance': device.maintenanceInterval || '',
       }));
 
       const ws = XLSX.utils.json_to_sheet(exportData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Appareils_Medicaux');
-
-      const fileName = `appareils_medicaux_export_${new Date().toISOString().split('T')[0]}.xlsx`;
-      XLSX.writeFile(wb, fileName);
-
+      
+      XLSX.writeFile(wb, `appareils_medicaux_export_${new Date().toISOString().split('T')[0]}.xlsx`);
+      
       toast({
         title: 'Succès',
-        description: `${devices.length} appareils médicaux exportés avec succès`,
+        description: 'Export terminé avec succès',
       });
-
+      
     } catch (error) {
       console.error('Export error:', error);
       toast({
         title: 'Erreur',
-        description: 'Erreur lors de l\'exportation des appareils médicaux',
+        description: 'Erreur lors de l\'export des appareils médicaux',
         variant: 'destructive',
       });
     }
@@ -461,35 +464,44 @@ export function MedicalDeviceImportExport({ onImportSuccess, stockLocations }: M
   return (
     <div className="flex gap-2">
       {/* Template Download Button */}
-      <Button variant="outline" onClick={downloadTemplate}>
-        <FileSpreadsheet className="mr-2 h-4 w-4" />
+      <Button
+        variant="outline"
+        onClick={downloadTemplate}
+        className="flex items-center gap-2"
+      >
+        <FileSpreadsheet className="h-4 w-4" />
         Template
       </Button>
 
       {/* Import Button */}
+      <Button 
+        variant="outline" 
+        className="flex items-center gap-2"
+        onClick={() => setIsImportOpen(true)}
+      >
+        <Upload className="h-4 w-4" />
+        Importer
+      </Button>
+
+      {/* Import Dialog */}
       <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
-        <DialogTrigger asChild>
-          <Button variant="outline">
-            <Upload className="mr-2 h-4 w-4" />
-            Importer
-          </Button>
-        </DialogTrigger>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Importer des Appareils Médicaux</DialogTitle>
+            <DialogTitle>Importer des appareils médicaux</DialogTitle>
             <DialogDescription>
-              Téléchargez d'abord le template, remplissez-le avec vos données, puis importez-le ici.
+              Sélectionnez un fichier Excel pour importer des appareils médicaux
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
+          <div className="space-y-4">
+            <div>
               <Label htmlFor="file">Fichier Excel</Label>
               <Input
+                ref={fileInputRef}
                 id="file"
                 type="file"
                 accept=".xlsx,.xls"
-                ref={fileInputRef}
                 onChange={handleFileUpload}
+                className="mt-1"
               />
             </div>
           </div>
@@ -497,86 +509,104 @@ export function MedicalDeviceImportExport({ onImportSuccess, stockLocations }: M
       </Dialog>
 
       {/* Export Button */}
-      <Button variant="outline" onClick={exportDevices}>
-        <Download className="mr-2 h-4 w-4" />
+      <Button
+        variant="outline"
+        onClick={exportMedicalDevices}
+        className="flex items-center gap-2"
+      >
+        <Download className="h-4 w-4" />
         Exporter
       </Button>
 
       {/* Validation Errors Dialog */}
       <AlertDialog open={showErrorDialog} onOpenChange={setShowErrorDialog}>
-        <AlertDialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <AlertDialogContent className="max-w-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-red-500" />
-              Erreurs de validation ({validationErrors.length})
+              Erreurs de validation
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Le fichier contient des erreurs. Veuillez les corriger et réessayer.
+              Le fichier contient des erreurs qui doivent être corrigées:
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="space-y-2">
-            {validationErrors.map((error, index) => (
-              <div key={index} className="text-sm border-l-2 border-red-500 pl-3 py-1">
-                <span className="font-semibold">Ligne {error.row}</span> - {error.field}: {error.message}
-              </div>
-            ))}
+          <div className="max-h-60 overflow-y-auto">
+            <ul className="space-y-2">
+              {validationErrors.map((error, index) => (
+                <li key={index} className="text-sm bg-red-50 p-2 rounded">
+                  <strong>Ligne {error.row}:</strong> {error.message}
+                </li>
+              ))}
+            </ul>
           </div>
           <AlertDialogFooter>
             <AlertDialogAction onClick={() => setShowErrorDialog(false)}>
-              Fermer
+              OK
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       {/* Preview Dialog */}
-      <AlertDialog open={showPreviewDialog} onOpenChange={setShowPreviewDialog}>
-        <AlertDialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              Aperçu des appareils à importer ({previewData.length})
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              Vérifiez les données avant de confirmer l'importation.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="max-h-96 overflow-y-auto">
-            <div className="mb-2 text-sm text-blue-600 bg-blue-50 p-2 rounded">
-              Note: Les codes d'appareil (APP0001, APP0002...) seront générés automatiquement
-            </div>
-            <table className="w-full text-sm">
-              <thead className="bg-gray-100 sticky top-0">
-                <tr>
-                  <th className="p-2 text-left">Nom</th>
-                  <th className="p-2 text-left">Marque</th>
-                  <th className="p-2 text-left">Modèle</th>
-                  <th className="p-2 text-left">N° Série</th>
-                  <th className="p-2 text-left">Emplacement</th>
-                  <th className="p-2 text-left">Destination</th>
-                </tr>
-              </thead>
-              <tbody>
-                {previewData.map((row, index) => (
-                  <tr key={index} className="border-b">
-                    <td className="p-2">{row.name}</td>
-                    <td className="p-2">{row.brand || '-'}</td>
-                    <td className="p-2">{row.model || '-'}</td>
-                    <td className="p-2">{row.serialNumber || '-'}</td>
-                    <td className="p-2">{row.stockLocationName || '-'}</td>
-                    <td className="p-2">{row.destination || 'FOR_SALE'}</td>
+      <Dialog open={showPreviewDialog} onOpenChange={setShowPreviewDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Aperçu de l&apos;importation</DialogTitle>
+            <DialogDescription>
+              {previewData.length} appareils médicaux seront importés
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse border border-gray-300">
+                <thead>
+                  <tr className="bg-gray-50">
+                    <th className="border border-gray-300 p-2 text-left">Code</th>
+                    <th className="border border-gray-300 p-2 text-left">Nom</th>
+                    <th className="border border-gray-300 p-2 text-left">Marque</th>
+                    <th className="border border-gray-300 p-2 text-left">N° Série</th>
+                    <th className="border border-gray-300 p-2 text-left">Description</th>
+                    <th className="border border-gray-300 p-2 text-left">Statut</th>
+                    <th className="border border-gray-300 p-2 text-left">Destination</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {previewData.slice(0, 10).map((row, index) => (
+                    <tr key={index}>
+                      <td className="border border-gray-300 p-2">{row.deviceCode || '-'}</td>
+                      <td className="border border-gray-300 p-2">{row.name}</td>
+                      <td className="border border-gray-300 p-2">{row.brand}</td>
+                      <td className="border border-gray-300 p-2">{row.serialNumber}</td>
+                      <td className="border border-gray-300 p-2">{row.description || '-'}</td>
+                      <td className="border border-gray-300 p-2">{row.status}</td>
+                      <td className="border border-gray-300 p-2">{row.destination}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {previewData.length > 10 && (
+                <p className="text-sm text-gray-500 mt-2">
+                  ... et {previewData.length - 10} autres appareils médicaux
+                </p>
+              )}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowPreviewDialog(false)}
+              >
+                Annuler
+              </Button>
+              <Button
+                onClick={processImport}
+                disabled={isProcessing}
+              >
+                {isProcessing ? 'Importation...' : 'Confirmer l&apos;importation'}
+              </Button>
+            </div>
           </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isProcessing}>Annuler</AlertDialogCancel>
-            <AlertDialogAction onClick={processImport} disabled={isProcessing}>
-              {isProcessing ? 'Importation...' : 'Confirmer l\'importation'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

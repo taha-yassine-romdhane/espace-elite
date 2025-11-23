@@ -81,6 +81,7 @@ export default async function handler(
               id: true,
               name: true,
               deviceCode: true,
+              serialNumber: true,
               rentalPrice: true,
               type: true,
             },
@@ -125,6 +126,31 @@ export default async function handler(
             },
             orderBy: {
               periodStartDate: 'asc', // Order by period start date ascending to get all payments in chronological order
+            },
+          },
+          accessories: {
+            select: {
+              id: true,
+              quantity: true,
+              unitPrice: true,
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                  productCode: true,
+                  brand: true,
+                  model: true,
+                },
+              },
+              stockLocation: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+            orderBy: {
+              createdAt: 'desc',
             },
           },
         },
@@ -181,6 +207,7 @@ export default async function handler(
           createdBy: rental.createdBy,
           assignedTo: rental.assignedTo,
           configuration: rental.configuration,
+          accessories: rental.accessories || [],
         };
       });
 

@@ -279,7 +279,7 @@ const MapComponent: React.FC<MapProps> = ({ patients }) => {
     };
 
     // Create company headquarters marker
-    const companyLocation: [number, number] = [35.734867, 10.5740649];
+    const companyLocation: [number, number] = [35.835287, 10.595304];
     const companyIcon = L.divIcon({
       html: `
         <div style="
@@ -313,12 +313,14 @@ const MapComponent: React.FC<MapProps> = ({ patients }) => {
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1e3a8a" stroke-width="2">
             <path d="M3 21h18M4 21V7l8-4v18M20 21V11l-8-4M9 9h0M9 12h0M9 15h0M14 12h0M14 15h0"/>
           </svg>
-          Elite Medical Services
+          Elite medicale Services
         </h3>
         <div class="space-y-2 text-sm">
           <div class="bg-blue-50 p-2 rounded">
-            <h4 class="font-semibold text-gray-700 mb-1">Siège Social</h4>
-            <p class="text-gray-600">M'saken, Sousse</p>
+            <h4 class="font-semibold text-gray-700 mb-1">Bureau Principal</h4>
+            <p class="text-gray-600">Rue Yasser Arafet</p>
+            <p class="text-gray-600">Immeuble Mahdi appartement 201</p>
+            <p class="text-gray-600">4054 Sahloul, Sousse</p>
             <p class="text-gray-600">Tunisie</p>
           </div>
           <div class="bg-gray-50 p-2 rounded">

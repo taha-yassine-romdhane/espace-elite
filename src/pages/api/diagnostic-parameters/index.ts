@@ -9,7 +9,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Log the received data
       console.log('Received configuration:', { deviceId, resultDueDate });
       
-      // Update the device with the reserved until date
+      // Update the device status to reserved
       if (deviceId && resultDueDate) {
         await prisma.medicalDevice.update({
           where: { id: deviceId },
@@ -17,8 +17,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             status: 'RESERVED'
           }
         });
-        
-        console.log(`Device ${deviceId} reserved until ${resultDueDate}`);
+
+        console.log(`Device ${deviceId} reserved (result due: ${resultDueDate})`);
       }
       
       res.status(200).json({ 
@@ -45,8 +45,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (!device) {
         return res.status(404).json({ error: 'Device not found' });
       }
-      
-      // Return null since we no longer track reservedUntil
+
+      // Return null as result due date (reservation tracking removed from device schema)
       res.status(200).json({
         resultDueDate: null
       });

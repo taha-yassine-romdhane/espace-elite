@@ -27,79 +27,47 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     for (let i = 0; i < spareParts.length; i++) {
       const sparePart = spareParts[i];
-      
+
       try {
-        // Check if product with same name already exists
-        const existingProduct = await prisma.product.findFirst({
-          where: {
+        // Create the product first (without stockLocation)
+        const product = await prisma.product.create({
+          data: {
             name: sparePart.name,
             type: 'SPARE_PART',
+            brand: sparePart.brand,
+            model: sparePart.model,
+            purchasePrice: sparePart.purchasePrice,
+            sellingPrice: sparePart.sellingPrice,
+            status: 'ACTIVE', // Products use ProductStatus enum
           },
         });
 
-        let product;
-
-        if (existingProduct) {
-          // Product exists, just add or update stock for this location
-          product = existingProduct;
-
-          if (sparePart.stockLocationId && sparePart.stockQuantity > 0) {
-            // Check if stock entry exists for this location
-            const existingStock = await prisma.stock.findUnique({
-              where: {
-                locationId_productId: {
-                  locationId: sparePart.stockLocationId,
-                  productId: product.id,
-                },
-              },
-            });
-
-            if (existingStock) {
-              // Update existing stock quantity (add to existing)
-              await prisma.stock.update({
-                where: { id: existingStock.id },
-                data: {
-                  quantity: existingStock.quantity + sparePart.stockQuantity,
-                  status: sparePart.status || existingStock.status,
-                },
-              });
-            } else {
-              // Create new stock entry for this location
-              await prisma.stock.create({
+        // Handle multi-location stock entries
+        if (sparePart.stockEntries && Array.isArray(sparePart.stockEntries) && sparePart.stockEntries.length > 0) {
+          // Create multiple stock entries (one per location)
+          await Promise.all(
+            sparePart.stockEntries.map((entry: any) =>
+              prisma.stock.create({
                 data: {
                   productId: product.id,
-                  locationId: sparePart.stockLocationId,
-                  quantity: sparePart.stockQuantity,
-                  status: sparePart.status || 'FOR_SALE',
+                  locationId: entry.locationId,
+                  quantity: parseInt(entry.quantity.toString()),
+                  status: entry.status || 'FOR_SALE',
                 },
-              });
-            }
-          }
-        } else {
-          // Create new product
-          product = await prisma.product.create({
+              })
+            )
+          );
+        }
+        // Backwards compatibility: single location format
+        else if (sparePart.stockLocationId && sparePart.stockQuantity > 0) {
+          await prisma.stock.create({
             data: {
-              name: sparePart.name,
-              type: 'SPARE_PART',
-              brand: sparePart.brand,
-              model: sparePart.model,
-              purchasePrice: sparePart.purchasePrice,
-              sellingPrice: sparePart.sellingPrice,
-              status: 'ACTIVE', // Products use ProductStatus enum
+              productId: product.id,
+              locationId: sparePart.stockLocationId,
+              quantity: sparePart.stockQuantity,
+              status: sparePart.status || 'FOR_SALE',
             },
           });
-
-          // Create stock entry if stockLocationId is provided
-          if (sparePart.stockLocationId && sparePart.stockQuantity > 0) {
-            await prisma.stock.create({
-              data: {
-                productId: product.id,
-                locationId: sparePart.stockLocationId,
-                quantity: sparePart.stockQuantity,
-                status: sparePart.status || 'FOR_SALE',
-              },
-            });
-          }
         }
 
         imported++;

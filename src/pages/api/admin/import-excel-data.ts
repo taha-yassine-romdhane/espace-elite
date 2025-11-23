@@ -320,11 +320,10 @@ export default async function handler(
     }
 
     if (step === 'payments' || step === 'all') {
-      console.log('📥 Importing Payments/Periods...');
+      console.log('📥 Importing Payments...');
 
       const paymentsData = JSON.parse(fs.readFileSync(path.join(transformedDir, 'payments.json'), 'utf8'));
       let paymentsCreated = 0;
-      let periodsCreated = 0;
 
       for (const payment of paymentsData) {
         try {
@@ -354,19 +353,6 @@ export default async function handler(
           });
           paymentsCreated++;
 
-          // Also create rental period
-          await prisma.rentalPeriod.create({
-            data: {
-              rentalId: rental.id,
-              startDate: new Date(payment.periodStartDate),
-              endDate: new Date(payment.periodEndDate),
-              expectedAmount: payment.amount,
-              isGapPeriod: payment.hasGap,
-              gapReason: payment.hasGap ? `Gap of ${payment.gapDays} days` : null,
-            }
-          });
-          periodsCreated++;
-
         } catch (error) {
           console.error(`Error creating payment ${payment.originalId}:`, error);
         }
@@ -376,7 +362,7 @@ export default async function handler(
         return res.status(200).json({
           success: true,
           step: 'payments',
-          results: { paymentsCreated, periodsCreated }
+          results: { paymentsCreated }
         });
       }
     }

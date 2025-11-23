@@ -18,7 +18,10 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Loader2, ArrowRightLeft, Package } from 'lucide-react';
+import {
+  Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Loader2, ArrowRightLeft, Package,
+  CheckCircle, Clock, Wrench, XCircle, DollarSign, ShoppingCart, Box, Hammer, AlertTriangle
+} from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -42,6 +45,8 @@ interface Stock {
   location: {
     id: string;
     name: string;
+    type?: string;
+    isTransferable?: boolean;
   };
   product: {
     id: string;
@@ -77,6 +82,7 @@ export default function GlobalStockView() {
   // State for filters and pagination
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
   const [selectedType, setSelectedType] = useState<string>('all');
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -98,10 +104,15 @@ export default function GlobalStockView() {
   // Reset pagination when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedLocation, selectedType, debouncedSearchQuery]);
+  }, [selectedLocation, selectedType, selectedStatus, debouncedSearchQuery]);
 
-  // Fetch locations for filtering
-  const { data: locations } = useQuery({
+  // Reset status filter when type changes
+  useEffect(() => {
+    setSelectedStatus('all');
+  }, [selectedType]);
+
+  // Fetch locations for filtering (exclude VIRTUAL locations)
+  const { data: allLocations } = useQuery({
     queryKey: ['stockLocations'],
     queryFn: async () => {
       const response = await fetch('/api/stock/locations');
@@ -110,9 +121,12 @@ export default function GlobalStockView() {
     }
   });
 
+  // Filter out VIRTUAL locations from dropdown
+  const locations = allLocations?.filter((loc: any) => loc.type !== 'VIRTUAL') || [];
+
   // Fetch global stock inventory
   const { data: globalStockData, isLoading } = useQuery<GlobalStockResponse>({
-    queryKey: ['globalStockInventory', selectedLocation, selectedType, debouncedSearchQuery, currentPage, itemsPerPage],
+    queryKey: ['globalStockInventory', selectedLocation, selectedType, selectedStatus, debouncedSearchQuery, currentPage, itemsPerPage],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (selectedLocation !== 'all') {
@@ -121,12 +135,15 @@ export default function GlobalStockView() {
       if (selectedType !== 'all') {
         params.append('productType', selectedType);
       }
+      if (selectedStatus !== 'all') {
+        params.append('status', selectedStatus);
+      }
       if (debouncedSearchQuery) {
         params.append('search', debouncedSearchQuery);
       }
       params.append('page', currentPage.toString());
       params.append('limit', itemsPerPage.toString());
-      
+
       const response = await fetch(`/api/stock/inventory?${params}`);
       if (!response.ok) throw new Error('Failed to fetch global inventory');
       return response.json();
@@ -174,23 +191,15 @@ export default function GlobalStockView() {
     if (isDevice) {
       switch (status) {
         case 'ACTIVE':
-          return (
-            <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
-              Actif
-            </Badge>
-          );
+          return <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">Actif</Badge>;
+        case 'RESERVED':
+          return <Badge variant="default" className="bg-yellow-100 text-yellow-800 border-yellow-200">Réservé</Badge>;
         case 'MAINTENANCE':
-          return (
-            <Badge variant="secondary">
-              En Maintenance
-            </Badge>
-          );
+          return <Badge variant="secondary">En Maintenance</Badge>;
         case 'RETIRED':
-          return (
-            <Badge variant="destructive">
-              Retiré
-            </Badge>
-          );
+          return <Badge variant="destructive">Retiré</Badge>;
+        case 'SOLD':
+          return <Badge variant="default" className="bg-blue-100 text-blue-800 border-blue-200">Vendu</Badge>;
         default:
           return <Badge variant="outline">{status}</Badge>;
       }
@@ -212,8 +221,10 @@ export default function GlobalStockView() {
 
   // Check if product is available for transfer
   const canRequestTransfer = (item: Stock) => {
-    return item.quantity > 0 && 
-           (item.status === 'FOR_SALE' || item.status === 'ACTIVE');
+    return item.quantity > 0 &&
+           (item.status === 'FOR_SALE' || item.status === 'ACTIVE') &&
+           item.location.type !== 'VIRTUAL' &&
+           item.location.isTransferable !== false;
   };
 
   // Loading state
@@ -330,6 +341,93 @@ export default function GlobalStockView() {
           </Select>
         </div>
 
+        <div className="w-full md:w-[280px]">
+          <Select
+            value={selectedStatus}
+            onValueChange={setSelectedStatus}
+            disabled={selectedType === 'all'}
+          >
+            <SelectTrigger className="border-blue-200 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
+              <SelectValue placeholder={selectedType === 'all' ? 'Sélectionner un type d\'abord' : 'Tous les statuts'} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous les statuts</SelectItem>
+
+              {/* Medical Devices Statuses */}
+              {(selectedType === ProductType.MEDICAL_DEVICE || selectedType === ProductType.DIAGNOSTIC_DEVICE) && (
+                <>
+                  <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 bg-gray-50 mt-1">
+                    Statuts Appareils
+                  </div>
+                  <SelectItem value="ACTIVE">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <span>Actif</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="RESERVED">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-yellow-600" />
+                      <span>Réservé</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="MAINTENANCE">
+                    <div className="flex items-center gap-2">
+                      <Wrench className="h-4 w-4 text-blue-600" />
+                      <span>En Maintenance</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="RETIRED">
+                    <div className="flex items-center gap-2">
+                      <XCircle className="h-4 w-4 text-red-600" />
+                      <span>Retiré</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="SOLD">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4 text-blue-700" />
+                      <span>Vendu</span>
+                    </div>
+                  </SelectItem>
+                </>
+              )}
+
+              {/* Stock Items (Accessories/Spare Parts) Statuses */}
+              {(selectedType === ProductType.ACCESSORY || selectedType === ProductType.SPARE_PART) && (
+                <>
+                  <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 bg-gray-50 mt-1">
+                    Statuts Stock
+                  </div>
+                  <SelectItem value="FOR_SALE">
+                    <div className="flex items-center gap-2">
+                      <ShoppingCart className="h-4 w-4 text-green-600" />
+                      <span>En vente</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="FOR_RENT">
+                    <div className="flex items-center gap-2">
+                      <Box className="h-4 w-4 text-blue-600" />
+                      <span>En location</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="IN_REPAIR">
+                    <div className="flex items-center gap-2">
+                      <Hammer className="h-4 w-4 text-orange-600" />
+                      <span>En réparation</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="OUT_OF_SERVICE">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 text-red-600" />
+                      <span>Hors service</span>
+                    </div>
+                  </SelectItem>
+                </>
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="relative flex-1">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
           <Input
@@ -341,8 +439,8 @@ export default function GlobalStockView() {
         </div>
 
         <div className="w-full md:w-auto">
-          <Select 
-            value={itemsPerPage.toString()} 
+          <Select
+            value={itemsPerPage.toString()}
             onValueChange={(value) => setItemsPerPage(parseInt(value))}
           >
             <SelectTrigger className="w-[120px] border-blue-200 focus:ring-blue-500">

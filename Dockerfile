@@ -18,14 +18,14 @@ COPY . .
 ENV DATABASE_URL=postgresql://postgres:postgres@localhost:5432/espace-elite
 ENV SKIP_ENV_VALIDATION=1
 RUN npx prisma generate --schema=./prisma/schema.prisma
-ENV NODE_OPTIONS="--max-old-space-size=1536"
-RUN npm run build || (echo "Build failed, trying with reduced memory" && NODE_OPTIONS="--max-old-space-size=1024" npm run build)
+ENV NODE_OPTIONS="--max-old-space-size=3072"
+RUN npm run build || (echo "Build failed, trying with reduced memory" && NODE_OPTIONS="--max-old-space-size=2048" npm run build)
 
 # Stage 4: Runner
 FROM base AS runner
 WORKDIR /app
-ENV NODE_ENV production
-ENV NEXT_TELEMETRY_DISABLED 1
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 RUN apk add --no-cache vips-dev
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
@@ -33,6 +33,11 @@ RUN adduser --system --uid 1001 nextjs
 COPY --from=builder /app/public ./public
 RUN mkdir .next
 RUN chown nextjs:nodejs .next
+
+# Create file storage directory with proper permissions
+RUN mkdir -p /var/espace-elite-files && \
+    chown -R nextjs:nodejs /var/espace-elite-files && \
+    chmod -R 755 /var/espace-elite-files
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
@@ -43,6 +48,6 @@ RUN chmod +x startup.sh
 
 USER nextjs
 EXPOSE 3001
-ENV PORT 3001
-ENV HOSTNAME "0.0.0.0"
+ENV PORT=3001
+ENV HOSTNAME="0.0.0.0"
 CMD ["./startup.sh"]

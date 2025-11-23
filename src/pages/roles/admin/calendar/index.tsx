@@ -1,14 +1,18 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
 import { useQuery } from '@tanstack/react-query';
-import { 
+import { toast } from '@/components/ui/use-toast';
+import {
   Calendar, Clock, CreditCard, Stethoscope, Building2,
   ChevronLeft, ChevronRight,  Activity,
   FileText, Phone, Eye, ExternalLink,
   Hash, CalendarDays, ArrowRight,
   CheckCircle2,
   AlertTriangle,
-  Users
+  Users,
+  RefreshCw,
+  Filter,
+  X
 } from 'lucide-react';
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, addDays, addWeeks, subWeeks, addMonths, subMonths } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -28,18 +32,21 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
 interface ComprehensiveTask {
   id: string;
   title: string;
   description?: string;
-  type: 'TASK' | 'DIAGNOSTIC_PENDING' | 'RENTAL_EXPIRING' | 'PAYMENT_DUE' | 'APPOINTMENT_REMINDER' | 'CNAM_RENEWAL' | 'MAINTENANCE_DUE';
+  notes?: string;
+  type: 'TASK' | 'DIAGNOSTIC_PENDING' | 'RENTAL_EXPIRING' | 'PAYMENT_DUE' | 'APPOINTMENT_REMINDER' | 'CNAM_RENEWAL' | 'MAINTENANCE_DUE' | 'SALE_RAPPEL_2YEARS' | 'SALE_RAPPEL_7YEARS' | 'RENTAL_ALERT' | 'RENTAL_TITRATION' | 'RENTAL_APPOINTMENT' | 'PAYMENT_PERIOD_END';
   status: 'TODO' | 'IN_PROGRESS' | 'COMPLETED' | 'OVERDUE';
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
   startDate: string;
   endDate?: string;
   dueDate?: string;
-  
+
   assignedTo?: {
     id: string;
     firstName: string;
@@ -47,29 +54,33 @@ interface ComprehensiveTask {
     email: string;
     role: string;
   };
-  
+
   client?: {
     id: string;
     name: string;
     type: 'patient' | 'company';
     telephone?: string;
-    patientCode?: string;
   };
-  
+
   relatedData?: {
     deviceName?: string;
     amount?: number;
     diagnosticId?: string;
+    diagnosticCode?: string;
     rentalId?: string;
+    rentalCode?: string;
     appointmentId?: string;
+    appointmentCode?: string;
     paymentId?: string;
+    paymentCode?: string;
     bonNumber?: string;
+    saleCode?: string;
   };
-  
+
   actionUrl?: string;
   actionLabel?: string;
   canComplete?: boolean;
-  
+
   createdAt: string;
   updatedAt: string;
   completedAt?: string;
@@ -125,6 +136,48 @@ const taskTypeConfig = {
     bgColor: 'bg-yellow-50',
     borderColor: 'border-yellow-200',
     label: 'Maintenance'
+  },
+  SALE_RAPPEL_2YEARS: {
+    icon: FileText,
+    color: 'text-teal-600',
+    bgColor: 'bg-teal-50',
+    borderColor: 'border-teal-200',
+    label: 'Rappel Accessoires'
+  },
+  SALE_RAPPEL_7YEARS: {
+    icon: FileText,
+    color: 'text-cyan-600',
+    bgColor: 'bg-cyan-50',
+    borderColor: 'border-cyan-200',
+    label: 'Rappel Appareil'
+  },
+  RENTAL_ALERT: {
+    icon: Building2,
+    color: 'text-amber-600',
+    bgColor: 'bg-amber-50',
+    borderColor: 'border-amber-200',
+    label: 'Rappel Location'
+  },
+  RENTAL_TITRATION: {
+    icon: Activity,
+    color: 'text-pink-600',
+    bgColor: 'bg-pink-50',
+    borderColor: 'border-pink-200',
+    label: 'Rappel Titration'
+  },
+  RENTAL_APPOINTMENT: {
+    icon: Calendar,
+    color: 'text-emerald-600',
+    bgColor: 'bg-emerald-50',
+    borderColor: 'border-emerald-200',
+    label: 'RDV Location'
+  },
+  PAYMENT_PERIOD_END: {
+    icon: Clock,
+    color: 'text-violet-600',
+    bgColor: 'bg-violet-50',
+    borderColor: 'border-violet-200',
+    label: 'Fin Période'
   }
 };
 
@@ -138,6 +191,10 @@ export default function ModernTasksPage() {
   const [assignedUserId, setAssignedUserId] = useState('all');
   const [selectedTask, setSelectedTask] = useState<ComprehensiveTask | null>(null);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  const [hideCompleted, setHideCompleted] = useState(false);
+  const [isCompletingTask, setIsCompletingTask] = useState(false);
+  const [editedNotes, setEditedNotes] = useState<string>('');
+  const [isSavingNotes, setIsSavingNotes] = useState(false);
 
   // Calculate date range based on view mode
   const getDateRange = () => {
@@ -148,9 +205,14 @@ export default function ModernTasksPage() {
           end: endOfWeek(selectedDate, { weekStartsOn: 1 })
         };
       case 'day':
+        // Set to start of day (00:00:00) and end of day (23:59:59)
+        const startOfDay = new Date(selectedDate);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(selectedDate);
+        endOfDay.setHours(23, 59, 59, 999);
         return {
-          start: selectedDate,
-          end: selectedDate
+          start: startOfDay,
+          end: endOfDay
         };
       case 'list':
         return {
@@ -194,17 +256,160 @@ export default function ModernTasksPage() {
     }
   });
 
-  const tasks: ComprehensiveTask[] = data?.tasks || [];
-  const stats = data?.stats || {};
+  // Filter tasks based on hideCompleted setting
+  const allTasks: ComprehensiveTask[] = data?.tasks || [];
+  const tasks = hideCompleted
+    ? allTasks.filter(task => task.status !== 'COMPLETED')
+    : allTasks;
+
+  // Recalculate stats based on filtered tasks
+  const stats = hideCompleted ? {
+    total: tasks.length,
+    byStatus: {
+      TODO: tasks.filter(t => t.status === 'TODO').length,
+      IN_PROGRESS: tasks.filter(t => t.status === 'IN_PROGRESS').length,
+      COMPLETED: 0, // Hidden
+      OVERDUE: tasks.filter(t => t.status === 'OVERDUE').length
+    },
+    byPriority: data?.stats?.byPriority || {},
+    byType: {
+      TASK: tasks.filter(t => t.type === 'TASK').length,
+      DIAGNOSTIC_PENDING: tasks.filter(t => t.type === 'DIAGNOSTIC_PENDING').length,
+      RENTAL_EXPIRING: tasks.filter(t => t.type === 'RENTAL_EXPIRING').length,
+      PAYMENT_DUE: tasks.filter(t => t.type === 'PAYMENT_DUE').length,
+      APPOINTMENT_REMINDER: tasks.filter(t => t.type === 'APPOINTMENT_REMINDER').length,
+      CNAM_RENEWAL: tasks.filter(t => t.type === 'CNAM_RENEWAL').length,
+      SALE_RAPPEL_2YEARS: tasks.filter(t => t.type === 'SALE_RAPPEL_2YEARS').length,
+      SALE_RAPPEL_7YEARS: tasks.filter(t => t.type === 'SALE_RAPPEL_7YEARS').length,
+      RENTAL_ALERT: tasks.filter(t => t.type === 'RENTAL_ALERT').length,
+      RENTAL_TITRATION: tasks.filter(t => t.type === 'RENTAL_TITRATION').length,
+      RENTAL_APPOINTMENT: tasks.filter(t => t.type === 'RENTAL_APPOINTMENT').length,
+      PAYMENT_PERIOD_END: tasks.filter(t => t.type === 'PAYMENT_PERIOD_END').length
+    }
+  } : (data?.stats || {});
 
   const handleTaskAction = (task: ComprehensiveTask) => {
     setSelectedTask(task);
+    setEditedNotes(task.notes || '');
     setIsDetailsDialogOpen(true);
   };
 
   const handleRedirectToDetails = () => {
     if (selectedTask?.actionUrl) {
       router.push(selectedTask.actionUrl);
+    }
+  };
+
+  const handleCompleteTask = async () => {
+    if (!selectedTask) return;
+
+    setIsCompletingTask(true);
+
+    try {
+      const response = await fetch('/api/tasks/complete-comprehensive', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          taskId: selectedTask.id,
+          taskType: selectedTask.type,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        // If the task requires action (like diagnostics, payments), redirect to the action URL
+        if (data.requiresAction && selectedTask.actionUrl) {
+          toast({
+            title: "Action requise",
+            description: data.error,
+            variant: "default",
+          });
+          setIsDetailsDialogOpen(false);
+          router.push(selectedTask.actionUrl);
+          return;
+        }
+
+        throw new Error(data.error || 'Erreur lors de la complétion de la tâche');
+      }
+
+      // Success
+      toast({
+        title: "Tâche complétée",
+        description: "La tâche a été marquée comme terminée avec succès",
+        variant: "default",
+      });
+
+      // Close dialog and refresh tasks
+      setIsDetailsDialogOpen(false);
+      refetch();
+
+    } catch (error: any) {
+      toast({
+        title: "Erreur",
+        description: error.message || "Une erreur est survenue lors de la complétion de la tâche",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCompletingTask(false);
+    }
+  };
+
+  const handleSaveNotes = async () => {
+    if (!selectedTask) return;
+
+    // Only allow note editing for TASK and APPOINTMENT_REMINDER
+    if (selectedTask.type !== 'TASK' && selectedTask.type !== 'APPOINTMENT_REMINDER') {
+      return;
+    }
+
+    setIsSavingNotes(true);
+
+    try {
+      const response = await fetch('/api/tasks/update-notes', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          taskId: selectedTask.id,
+          taskType: selectedTask.type,
+          notes: editedNotes,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erreur lors de la mise à jour des notes');
+      }
+
+      // Success
+      toast({
+        title: "Notes mises à jour",
+        description: "Les notes ont été sauvegardées avec succès",
+        variant: "default",
+      });
+
+      // Update the selected task with new notes
+      setSelectedTask({
+        ...selectedTask,
+        notes: editedNotes
+      });
+
+      // Refresh tasks to get updated data
+      refetch();
+
+    } catch (error: any) {
+      toast({
+        title: "Erreur",
+        description: error.message || "Une erreur est survenue lors de la mise à jour des notes",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingNotes(false);
     }
   };
 
@@ -261,7 +466,10 @@ export default function ModernTasksPage() {
             config.borderColor,
             task.status === 'OVERDUE' && "ring-1 ring-red-300"
           )}
-          onClick={() => handleTaskAction(task)}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleTaskAction(task);
+          }}
         >
           <div className="flex items-center gap-1 mb-1">
             <Icon className={cn("h-3 w-3", config.color)} />
@@ -408,92 +616,80 @@ export default function ModernTasksPage() {
     // Calculate assignment stats
     const assignedTasks = tasks.filter(t => t.assignedTo);
     const unassignedTasks = tasks.filter(t => !t.assignedTo);
-    
+
     return (
-      <div className="space-y-4 mb-6">
-        {/* Assignment Overview */}
-        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold text-blue-900">Vue d&apos;ensemble des affectations</h3>
-                <p className="text-sm text-blue-700 mt-1">
-                  {assignedTasks.length} tâches assignées • {unassignedTasks.length} non assignées
-                  {assignedUserId !== 'all' && ` • Filtrées pour: ${usersData?.users?.find((u: any) => u.id === assignedUserId)?.name}`}
-                </p>
-              </div>
-              <Users className="h-8 w-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
+      <div className="mb-6">
+        {/* Compact Stats as Badges in a single row */}
+        <div className="flex flex-wrap items-center gap-2 bg-white p-4 rounded-lg border">
+          {/* Assignment Info */}
+          <div className="flex items-center gap-2 mr-2">
+            <Users className="h-4 w-4 text-blue-600" />
+            <span className="text-sm font-medium text-gray-700">
+              {assignedTasks.length} assignées • {unassignedTasks.length} non assignées
+            </span>
+          </div>
 
-        {/* Status and Priority Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
-        {/* Status Stats */}
-        <Card className="border-red-200">
-          <CardContent className="p-3 text-center">
-            <AlertTriangle className="h-6 w-6 text-red-500 mx-auto mb-1" />
-            <p className="text-lg font-bold text-red-600">{stats.byStatus?.OVERDUE || 0}</p>
-            <p className="text-xs text-red-600">En retard</p>
-          </CardContent>
-        </Card>
+          <Separator orientation="vertical" className="h-6" />
 
-        <Card className="border-blue-200">
-          <CardContent className="p-3 text-center">
-            <Activity className="h-6 w-6 text-blue-500 mx-auto mb-1" />
-            <p className="text-lg font-bold text-blue-600">{stats.byStatus?.IN_PROGRESS || 0}</p>
-            <p className="text-xs text-blue-600">En cours</p>
-          </CardContent>
-        </Card>
+          {/* Status Stats */}
+          {(stats.byStatus?.OVERDUE || 0) > 0 && (
+            <Badge className="bg-red-100 text-red-700 border-red-300 px-3 py-1.5 text-sm font-medium">
+              <AlertTriangle className="h-3.5 w-3.5 mr-1.5" />
+              {stats.byStatus.OVERDUE} En retard
+            </Badge>
+          )}
 
-        <Card className="border-gray-200">
-          <CardContent className="p-3 text-center">
-            <Clock className="h-6 w-6 text-gray-500 mx-auto mb-1" />
-            <p className="text-lg font-bold text-gray-600">{stats.byStatus?.TODO || 0}</p>
-            <p className="text-xs text-gray-600">À faire</p>
-          </CardContent>
-        </Card>
+          {(stats.byStatus?.IN_PROGRESS || 0) > 0 && (
+            <Badge className="bg-blue-100 text-blue-700 border-blue-300 px-3 py-1.5 text-sm font-medium">
+              <Activity className="h-3.5 w-3.5 mr-1.5" />
+              {stats.byStatus.IN_PROGRESS} En cours
+            </Badge>
+          )}
 
-        <Card className="border-green-200">
-          <CardContent className="p-3 text-center">
-            <CheckCircle2 className="h-6 w-6 text-green-500 mx-auto mb-1" />
-            <p className="text-lg font-bold text-green-600">{stats.byStatus?.COMPLETED || 0}</p>
-            <p className="text-xs text-green-600">Terminé</p>
-          </CardContent>
-        </Card>
+          {(stats.byStatus?.TODO || 0) > 0 && (
+            <Badge className="bg-gray-100 text-gray-700 border-gray-300 px-3 py-1.5 text-sm font-medium">
+              <Clock className="h-3.5 w-3.5 mr-1.5" />
+              {stats.byStatus.TODO} À faire
+            </Badge>
+          )}
 
-        {/* Type Stats */}
-        <Card className="border-purple-200">
-          <CardContent className="p-3 text-center">
-            <Stethoscope className="h-6 w-6 text-purple-500 mx-auto mb-1" />
-            <p className="text-lg font-bold text-purple-600">{stats.byType?.DIAGNOSTIC_PENDING || 0}</p>
-            <p className="text-xs text-purple-600">Diagnostics</p>
-          </CardContent>
-        </Card>
+          {(stats.byStatus?.COMPLETED || 0) > 0 && (
+            <Badge className="bg-green-100 text-green-700 border-green-300 px-3 py-1.5 text-sm font-medium">
+              <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+              {stats.byStatus.COMPLETED} Terminé
+            </Badge>
+          )}
 
-        <Card className="border-orange-200">
-          <CardContent className="p-3 text-center">
-            <Building2 className="h-6 w-6 text-orange-500 mx-auto mb-1" />
-            <p className="text-lg font-bold text-orange-600">{stats.byType?.RENTAL_EXPIRING || 0}</p>
-            <p className="text-xs text-orange-600">Locations</p>
-          </CardContent>
-        </Card>
+          <Separator orientation="vertical" className="h-6" />
 
-        <Card className="border-red-200">
-          <CardContent className="p-3 text-center">
-            <CreditCard className="h-6 w-6 text-red-500 mx-auto mb-1" />
-            <p className="text-lg font-bold text-red-600">{stats.byType?.PAYMENT_DUE || 0}</p>
-            <p className="text-xs text-red-600">Paiements</p>
-          </CardContent>
-        </Card>
+          {/* Type Stats */}
+          {(stats.byType?.DIAGNOSTIC_PENDING || 0) > 0 && (
+            <Badge className="bg-purple-100 text-purple-700 border-purple-300 px-3 py-1.5 text-sm font-medium">
+              <Stethoscope className="h-3.5 w-3.5 mr-1.5" />
+              {stats.byType.DIAGNOSTIC_PENDING} Diagnostics
+            </Badge>
+          )}
 
-        <Card className="border-green-200">
-          <CardContent className="p-3 text-center">
-            <Calendar className="h-6 w-6 text-green-500 mx-auto mb-1" />
-            <p className="text-lg font-bold text-green-600">{stats.byType?.APPOINTMENT_REMINDER || 0}</p>
-            <p className="text-xs text-green-600">RDV</p>
-          </CardContent>
-        </Card>
+          {(stats.byType?.RENTAL_EXPIRING || 0) > 0 && (
+            <Badge className="bg-orange-100 text-orange-700 border-orange-300 px-3 py-1.5 text-sm font-medium">
+              <Building2 className="h-3.5 w-3.5 mr-1.5" />
+              {stats.byType.RENTAL_EXPIRING} Locations
+            </Badge>
+          )}
+
+          {(stats.byType?.PAYMENT_DUE || 0) > 0 && (
+            <Badge className="bg-red-100 text-red-700 border-red-300 px-3 py-1.5 text-sm font-medium">
+              <CreditCard className="h-3.5 w-3.5 mr-1.5" />
+              {stats.byType.PAYMENT_DUE} Paiements
+            </Badge>
+          )}
+
+          {(stats.byType?.APPOINTMENT_REMINDER || 0) > 0 && (
+            <Badge className="bg-green-100 text-green-700 border-green-300 px-3 py-1.5 text-sm font-medium">
+              <Calendar className="h-3.5 w-3.5 mr-1.5" />
+              {stats.byType.APPOINTMENT_REMINDER} RDV
+            </Badge>
+          )}
         </div>
       </div>
     );
@@ -532,9 +728,9 @@ export default function ModernTasksPage() {
               <div
                 key={dayIndex}
                 className={cn(
-                  "min-h-[120px] p-2 border-b border-r cursor-pointer hover:bg-gray-50 transition-colors",
+                  "min-h-[120px] p-2 border-b border-r cursor-pointer hover:bg-gray-100 transition-colors",
                   !isCurrentMonth && "bg-gray-50 text-gray-400",
-                  isToday && isCurrentMonth && "bg-blue-50 hover:bg-blue-100"
+                  isToday && isCurrentMonth && "bg-blue-50"
                 )}
                 onClick={() => {
                   setSelectedDate(day);
@@ -548,19 +744,12 @@ export default function ModernTasksPage() {
                   {format(day, 'd')}
                 </div>
 
-                <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
+                <div className="space-y-1">
                   {dayTasks.slice(0, 3).map(task => renderTaskCard(task, true))}
                   {dayTasks.length > 3 && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedDate(day);
-                        setViewMode('day');
-                      }}
-                      className="w-full text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 p-1 rounded transition-colors"
-                    >
+                    <div className="text-xs text-gray-500 p-1">
                       +{dayTasks.length - 3} autres
-                    </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -573,7 +762,10 @@ export default function ModernTasksPage() {
 
   const renderWeekView = () => {
     const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
-    const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+    const weekDays = eachDayOfInterval({
+      start: weekStart,
+      end: addDays(weekStart, 6)
+    });
 
     return (
       <div className="bg-white rounded-lg border overflow-hidden">
@@ -590,31 +782,43 @@ export default function ModernTasksPage() {
               <div
                 key={index}
                 className={cn(
-                  "min-h-[500px] p-3 border-r",
+                  "min-h-[400px] p-3 border-r cursor-pointer hover:bg-gray-50 transition-colors",
                   isToday && "bg-blue-50"
                 )}
+                onClick={() => {
+                  setSelectedDate(day);
+                  setViewMode('day');
+                }}
               >
-                <div className={cn(
-                  "text-center mb-3 pb-2 border-b",
-                  isToday && "text-blue-600 font-bold border-blue-300"
-                )}>
-                  <div className="text-sm uppercase">{format(day, 'EEE', { locale: fr })}</div>
-                  <div className="text-2xl font-bold">{format(day, 'd')}</div>
-                  <div className="text-xs text-gray-500">{format(day, 'MMM', { locale: fr })}</div>
+                <div className="text-center mb-3">
+                  <div className="text-xs font-medium text-gray-500 uppercase">
+                    {format(day, 'EEEE', { locale: fr })}
+                  </div>
+                  <div className={cn(
+                    "text-2xl font-bold mt-1",
+                    isToday && "text-blue-600"
+                  )}>
+                    {format(day, 'd')}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {format(day, 'MMMM yyyy', { locale: fr })}
+                  </div>
                 </div>
 
                 <div className="space-y-2">
-                  {dayTasks.slice(0, 5).map(task => renderTaskCard(task, true))}
-                  {dayTasks.length > 5 && (
-                    <button
-                      onClick={() => {
-                        setSelectedDate(day);
-                        setViewMode('day');
-                      }}
-                      className="w-full text-xs text-blue-600 hover:text-blue-800 p-2 hover:bg-blue-50 rounded transition-colors"
-                    >
-                      +{dayTasks.length - 5} autres tâches
-                    </button>
+                  {dayTasks.length > 0 ? (
+                    <>
+                      {dayTasks.slice(0, 8).map(task => renderTaskCard(task, true))}
+                      {dayTasks.length > 8 && (
+                        <div className="text-xs text-center text-gray-500 p-2 bg-gray-50 rounded">
+                          +{dayTasks.length - 8} autres tâches
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="text-xs text-center text-gray-400 py-4">
+                      Aucune tâche
+                    </div>
                   )}
                 </div>
               </div>
@@ -631,29 +835,136 @@ export default function ModernTasksPage() {
       return taskDate.toDateString() === selectedDate.toDateString();
     });
 
+    const isToday = selectedDate.toDateString() === new Date().toDateString();
+
+    // Group tasks by status
+    const tasksByStatus = {
+      OVERDUE: dayTasks.filter(t => t.status === 'OVERDUE'),
+      IN_PROGRESS: dayTasks.filter(t => t.status === 'IN_PROGRESS'),
+      TODO: dayTasks.filter(t => t.status === 'TODO'),
+      COMPLETED: dayTasks.filter(t => t.status === 'COMPLETED')
+    };
+
     return (
-      <div className="bg-white rounded-lg border overflow-hidden">
-        <div className="p-4 border-b bg-gradient-to-r from-blue-50 to-indigo-50">
-          <h3 className="text-xl font-bold text-gray-900">
-            {format(selectedDate, 'EEEE d MMMM yyyy', { locale: fr })}
-          </h3>
-          <p className="text-sm text-gray-600 mt-1">
-            {dayTasks.length} tâche{dayTasks.length !== 1 ? 's' : ''} pour cette journée
-          </p>
+      <div className="space-y-4">
+        {/* Compact Day Header */}
+        <div className={cn(
+          "bg-white p-4 rounded-lg border flex items-center justify-between",
+          isToday && "border-blue-500 bg-blue-50"
+        )}>
+          <div className="flex items-center gap-4">
+            <div className={cn(
+              "text-4xl font-bold",
+              isToday ? "text-blue-600" : "text-gray-900"
+            )}>
+              {format(selectedDate, 'd')}
+            </div>
+            <div>
+              <div className="text-sm font-medium text-gray-500 uppercase">
+                {format(selectedDate, 'EEEE', { locale: fr })}
+              </div>
+              <div className="text-sm text-gray-600">
+                {format(selectedDate, 'MMMM yyyy', { locale: fr })}
+              </div>
+            </div>
+            {isToday && (
+              <Badge className="bg-blue-500">Aujourd'hui</Badge>
+            )}
+          </div>
+
+          <div className="flex items-center gap-4">
+            <div className="text-center">
+              <p className="text-lg font-bold text-red-600">{tasksByStatus.OVERDUE.length}</p>
+              <p className="text-xs text-gray-600">En retard</p>
+            </div>
+            <div className="text-center">
+              <p className="text-lg font-bold text-blue-600">{tasksByStatus.IN_PROGRESS.length}</p>
+              <p className="text-xs text-gray-600">En cours</p>
+            </div>
+            <div className="text-center">
+              <p className="text-lg font-bold text-gray-600">{tasksByStatus.TODO.length}</p>
+              <p className="text-xs text-gray-600">À faire</p>
+            </div>
+            <div className="text-center">
+              <p className="text-lg font-bold text-green-600">{tasksByStatus.COMPLETED.length}</p>
+              <p className="text-xs text-gray-600">Terminé</p>
+            </div>
+          </div>
         </div>
 
-        <div className="p-6">
-          {dayTasks.length === 0 ? (
-            <div className="text-center py-12">
-              <Calendar className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500">Aucune tâche pour cette journée</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {dayTasks.map(task => renderTaskCard(task, false))}
-            </div>
-          )}
-        </div>
+        {/* Tasks by Status */}
+        {dayTasks.length === 0 ? (
+          <div className="bg-white p-8 rounded-lg border text-center">
+            <Activity className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500 text-sm">Aucune tâche pour ce jour</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {/* Overdue Tasks */}
+            {tasksByStatus.OVERDUE.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-2 px-2">
+                  <AlertTriangle className="h-4 w-4 text-red-500" />
+                  <h3 className="text-sm font-semibold text-red-600">En retard</h3>
+                  <Badge variant="outline" className="bg-red-50 text-red-700 text-xs h-5">
+                    {tasksByStatus.OVERDUE.length}
+                  </Badge>
+                </div>
+                <div className="space-y-2">
+                  {tasksByStatus.OVERDUE.map(task => renderTaskCard(task))}
+                </div>
+              </div>
+            )}
+
+            {/* In Progress Tasks */}
+            {tasksByStatus.IN_PROGRESS.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-2 px-2">
+                  <Activity className="h-4 w-4 text-blue-500" />
+                  <h3 className="text-sm font-semibold text-blue-600">En cours</h3>
+                  <Badge variant="outline" className="bg-blue-50 text-blue-700 text-xs h-5">
+                    {tasksByStatus.IN_PROGRESS.length}
+                  </Badge>
+                </div>
+                <div className="space-y-2">
+                  {tasksByStatus.IN_PROGRESS.map(task => renderTaskCard(task))}
+                </div>
+              </div>
+            )}
+
+            {/* TODO Tasks */}
+            {tasksByStatus.TODO.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-2 px-2">
+                  <Clock className="h-4 w-4 text-gray-500" />
+                  <h3 className="text-sm font-semibold text-gray-600">À faire</h3>
+                  <Badge variant="outline" className="bg-gray-50 text-gray-700 text-xs h-5">
+                    {tasksByStatus.TODO.length}
+                  </Badge>
+                </div>
+                <div className="space-y-2">
+                  {tasksByStatus.TODO.map(task => renderTaskCard(task))}
+                </div>
+              </div>
+            )}
+
+            {/* Completed Tasks */}
+            {tasksByStatus.COMPLETED.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-2 px-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  <h3 className="text-sm font-semibold text-green-600">Terminé</h3>
+                  <Badge variant="outline" className="bg-green-50 text-green-700 text-xs h-5">
+                    {tasksByStatus.COMPLETED.length}
+                  </Badge>
+                </div>
+                <div className="space-y-2">
+                  {tasksByStatus.COMPLETED.map(task => renderTaskCard(task))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     );
   };
@@ -708,71 +1019,57 @@ export default function ModernTasksPage() {
 
     return (
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <div className="flex items-center gap-3">
-              <div className={cn("p-2 rounded-lg", config.bgColor)}>
-                <Icon className={cn("h-5 w-5", config.color)} />
+        <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <div className={cn("p-1.5 rounded", config.bgColor)}>
+                <Icon className={cn("h-4 w-4", config.color)} />
               </div>
               <div className="flex-1">
-                <DialogTitle className="text-xl">{selectedTask.title}</DialogTitle>
-                <DialogDescription className="mt-1">
-                  {config.label} • {format(new Date(selectedTask.createdAt), 'dd MMMM yyyy à HH:mm', { locale: fr })}
+                <DialogTitle className="text-base">{selectedTask.title}</DialogTitle>
+                <DialogDescription className="text-xs mt-0.5">
+                  {config.label} • {format(new Date(selectedTask.createdAt), 'dd/MM/yyyy HH:mm', { locale: fr })}
                 </DialogDescription>
               </div>
             </div>
           </DialogHeader>
 
-          <div className="space-y-6 py-4">
+          <div className="space-y-3 py-2">
             {/* Status and Priority */}
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-500">Statut:</span>
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-medium text-gray-500">Statut:</span>
                 {getStatusBadge(selectedTask.status)}
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-500">Priorité:</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-medium text-gray-500">Priorité:</span>
                 {getPriorityBadge(selectedTask.priority)}
               </div>
             </div>
 
-            <Separator />
-
             {/* Description */}
             {selectedTask.description && (
-              <div>
-                <h4 className="text-sm font-medium text-gray-500 mb-2">Description</h4>
-                <p className="text-gray-700">{selectedTask.description}</p>
+              <div className="bg-gray-50 p-2 rounded text-sm text-gray-700">
+                {selectedTask.description}
               </div>
             )}
 
             {/* Dates */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <h4 className="text-sm font-medium text-gray-500 mb-2">Date de début</h4>
-                <div className="flex items-center gap-2">
-                  <CalendarDays className="h-4 w-4 text-gray-400" />
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="bg-gray-50 p-2 rounded">
+                <div className="text-gray-500 mb-1">Début</div>
+                <div className="flex items-center gap-1">
+                  <CalendarDays className="h-3 w-3 text-gray-400" />
                   <span className="text-gray-700">
                     {format(new Date(selectedTask.startDate), 'dd/MM/yyyy HH:mm', { locale: fr })}
                   </span>
                 </div>
               </div>
-              {selectedTask.endDate && (
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500 mb-2">Date de fin</h4>
-                  <div className="flex items-center gap-2">
-                    <CalendarDays className="h-4 w-4 text-gray-400" />
-                    <span className="text-gray-700">
-                      {format(new Date(selectedTask.endDate), 'dd/MM/yyyy HH:mm', { locale: fr })}
-                    </span>
-                  </div>
-                </div>
-              )}
               {selectedTask.dueDate && (
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500 mb-2">Date d&apos;échéance</h4>
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-orange-500" />
+                <div className="bg-orange-50 p-2 rounded">
+                  <div className="text-orange-600 mb-1">Échéance</div>
+                  <div className="flex items-center gap-1">
+                    <Clock className="h-3 w-3 text-orange-500" />
                     <span className="text-gray-700 font-medium">
                       {format(new Date(selectedTask.dueDate), 'dd/MM/yyyy HH:mm', { locale: fr })}
                     </span>
@@ -781,181 +1078,179 @@ export default function ModernTasksPage() {
               )}
             </div>
 
-            <Separator />
-
             {/* Assignment */}
-            <div>
-              <h4 className="text-sm font-medium text-gray-500 mb-2">Assignation</h4>
-              {selectedTask.assignedTo ? (
-                <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
-                  <Avatar className="h-10 w-10">
-                    <AvatarFallback className="bg-blue-100">
-                      {`${selectedTask.assignedTo.firstName[0]}${selectedTask.assignedTo.lastName[0]}`}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="font-medium text-gray-900">
-                      {selectedTask.assignedTo.firstName} {selectedTask.assignedTo.lastName}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      {selectedTask.assignedTo.email} • {selectedTask.assignedTo.role}
-                    </p>
-                  </div>
+            {selectedTask.assignedTo ? (
+              <div className="flex items-center gap-2 p-2 bg-blue-50 rounded">
+                <Avatar className="h-7 w-7">
+                  <AvatarFallback className="bg-blue-100 text-xs">
+                    {`${selectedTask.assignedTo.firstName[0]}${selectedTask.assignedTo.lastName[0]}`}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">
+                    {selectedTask.assignedTo.firstName} {selectedTask.assignedTo.lastName}
+                  </p>
+                  <p className="text-xs text-gray-600">{selectedTask.assignedTo.role}</p>
                 </div>
-              ) : (
-                <div className="flex items-center gap-2 p-3 bg-red-50 rounded-lg">
-                  <AlertTriangle className="h-5 w-5 text-red-500" />
-                  <span className="font-medium text-red-800">Non assigné</span>
-                </div>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 p-2 bg-red-50 rounded text-xs">
+                <AlertTriangle className="h-4 w-4 text-red-500" />
+                <span className="font-medium text-red-800">Non assigné</span>
+              </div>
+            )}
 
             {/* Client Information */}
             {selectedTask.client && (
-              <>
-                <Separator />
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500 mb-2">Client</h4>
-                  <div
-                    className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-blue-50 transition-colors group"
-                    onClick={() => {
-                      if (selectedTask.client?.type === 'patient') {
-                        router.push(`/roles/admin/renseignement/patient/${selectedTask.client.id}`);
-                      }
-                    }}
-                  >
-                    <Avatar className="h-10 w-10">
-                      <AvatarFallback className="bg-gray-200 group-hover:bg-blue-100 transition-colors">
-                        {getClientInitials(selectedTask.client.name)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <p className="font-medium text-blue-600 group-hover:text-blue-800 group-hover:underline transition-colors">
-                        {selectedTask.client.name}
-                        {selectedTask.client.type === 'company' && (
-                          <Building2 className="h-4 w-4 text-gray-400 inline-block ml-2" />
-                        )}
-                      </p>
-                      {selectedTask.client.patientCode && (
-                        <p className="text-xs text-slate-500 font-mono mt-0.5">
-                          {selectedTask.client.patientCode}
-                        </p>
-                      )}
-                      {selectedTask.client.telephone && (
-                        <div className="flex items-center gap-2 mt-1">
-                          <Phone className="h-3 w-3 text-gray-400" />
-                          <span className="text-sm text-gray-600">{selectedTask.client.telephone}</span>
-                        </div>
-                      )}
-                    </div>
-                    {selectedTask.client.type === 'patient' && (
-                      <ExternalLink className="h-4 w-4 text-gray-400 group-hover:text-blue-600 transition-colors" />
+              <div className="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                <Avatar className="h-7 w-7">
+                  <AvatarFallback className="bg-gray-200 text-xs">
+                    {getClientInitials(selectedTask.client.name)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">
+                    {selectedTask.client.name}
+                    {selectedTask.client.type === 'company' && (
+                      <Building2 className="h-3 w-3 text-gray-400 inline-block ml-1" />
                     )}
-                  </div>
+                  </p>
+                  {selectedTask.client.telephone && (
+                    <div className="flex items-center gap-1">
+                      <Phone className="h-3 w-3 text-gray-400" />
+                      <span className="text-xs text-gray-600">{selectedTask.client.telephone}</span>
+                    </div>
+                  )}
                 </div>
-              </>
+              </div>
             )}
 
             {/* Related Data */}
             {selectedTask.relatedData && (
-              <>
-                <Separator />
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500 mb-2">Informations supplémentaires</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    {selectedTask.relatedData.deviceName && (
-                      <div className="flex items-center gap-2">
-                        <Stethoscope className="h-4 w-4 text-gray-400" />
-                        <div>
-                          <p className="text-xs text-gray-500">Équipement</p>
-                          <p className="text-sm font-medium">{selectedTask.relatedData.deviceName}</p>
-                        </div>
-                      </div>
-                    )}
-                    {selectedTask.relatedData.amount && (
-                      <div className="flex items-center gap-2">
-                        <CreditCard className="h-4 w-4 text-gray-400" />
-                        <div>
-                          <p className="text-xs text-gray-500">Montant</p>
-                          <p className="text-sm font-medium">{selectedTask.relatedData.amount.toFixed(2)} TND</p>
-                        </div>
-                      </div>
-                    )}
-                    {selectedTask.relatedData.bonNumber && (
-                      <div className="flex items-center gap-2">
-                        <Hash className="h-4 w-4 text-gray-400" />
-                        <div>
-                          <p className="text-xs text-gray-500">N° Bon</p>
-                          <p className="text-sm font-medium">{selectedTask.relatedData.bonNumber}</p>
-                        </div>
-                      </div>
-                    )}
+              <div className="grid grid-cols-2 gap-2">
+                {selectedTask.relatedData.deviceName && (
+                  <div className="flex items-center gap-1.5 bg-purple-50 p-1.5 rounded">
+                    <Stethoscope className="h-3 w-3 text-purple-500" />
+                    <span className="text-xs font-medium text-gray-700 truncate">{selectedTask.relatedData.deviceName}</span>
                   </div>
-                </div>
-              </>
+                )}
+                {selectedTask.relatedData.amount && (
+                  <div className="flex items-center gap-1.5 bg-green-50 p-1.5 rounded">
+                    <CreditCard className="h-3 w-3 text-green-500" />
+                    <span className="text-xs font-medium text-gray-700">{selectedTask.relatedData.amount.toFixed(2)} TND</span>
+                  </div>
+                )}
+                {selectedTask.relatedData.bonNumber && (
+                  <div className="flex items-center gap-1.5 bg-indigo-50 p-1.5 rounded col-span-2">
+                    <Hash className="h-3 w-3 text-indigo-500" />
+                    <span className="text-xs font-medium text-gray-700">Bon: {selectedTask.relatedData.bonNumber}</span>
+                  </div>
+                )}
+              </div>
             )}
 
-            {/* IDs for reference */}
-            {(selectedTask.relatedData?.diagnosticId || selectedTask.relatedData?.rentalId || 
-              selectedTask.relatedData?.appointmentId || selectedTask.relatedData?.paymentId) && (
-              <>
+            {/* Codes for reference */}
+            {(selectedTask.relatedData?.diagnosticCode || selectedTask.relatedData?.rentalCode ||
+              selectedTask.relatedData?.appointmentCode || selectedTask.relatedData?.paymentCode || selectedTask.relatedData?.saleCode) && (
+              <div className="flex flex-wrap gap-1">
+                {selectedTask.relatedData.diagnosticCode && (
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0.5">
+                    Diag: {selectedTask.relatedData.diagnosticCode}
+                  </Badge>
+                )}
+                {selectedTask.relatedData.rentalCode && (
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0.5">
+                    Loc: {selectedTask.relatedData.rentalCode}
+                  </Badge>
+                )}
+                {selectedTask.relatedData.appointmentCode && (
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0.5">
+                    RDV: {selectedTask.relatedData.appointmentCode}
+                  </Badge>
+                )}
+                {selectedTask.relatedData.paymentCode && (
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0.5">
+                    Paie: {selectedTask.relatedData.paymentCode}
+                  </Badge>
+                )}
+                {selectedTask.relatedData.saleCode && (
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0.5">
+                    Vente: {selectedTask.relatedData.saleCode}
+                  </Badge>
+                )}
+              </div>
+            )}
+
+            {/* Notes Editor - Only for TASK and APPOINTMENT_REMINDER */}
+            {(selectedTask.type === 'TASK' || selectedTask.type === 'APPOINTMENT_REMINDER') && (
+              <div className="space-y-2">
                 <Separator />
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500 mb-2">Références</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedTask.relatedData.diagnosticId && (
-                      <Badge variant="outline" className="text-xs">
-                        Diagnostic: {selectedTask.relatedData.diagnosticId.slice(-8)}
-                      </Badge>
-                    )}
-                    {selectedTask.relatedData.rentalId && (
-                      <Badge variant="outline" className="text-xs">
-                        Location: {selectedTask.relatedData.rentalId.slice(-8)}
-                      </Badge>
-                    )}
-                    {selectedTask.relatedData.appointmentId && (
-                      <Badge variant="outline" className="text-xs">
-                        RDV: {selectedTask.relatedData.appointmentId.slice(-8)}
-                      </Badge>
-                    )}
-                    {selectedTask.relatedData.paymentId && (
-                      <Badge variant="outline" className="text-xs">
-                        Paiement: {selectedTask.relatedData.paymentId.slice(-8)}
-                      </Badge>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="task-notes" className="text-sm font-medium">
+                      Notes
+                    </Label>
+                    {editedNotes !== (selectedTask.notes || '') && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleSaveNotes}
+                        disabled={isSavingNotes}
+                        className="h-7 text-xs"
+                      >
+                        {isSavingNotes ? 'Sauvegarde...' : 'Sauvegarder'}
+                      </Button>
                     )}
                   </div>
+                  <Textarea
+                    id="task-notes"
+                    value={editedNotes}
+                    onChange={(e) => setEditedNotes(e.target.value)}
+                    placeholder="Ajouter des notes..."
+                    className="min-h-[80px] text-sm resize-none"
+                    disabled={isSavingNotes}
+                  />
                 </div>
-              </>
+              </div>
             )}
 
             {/* Completion Info */}
             {selectedTask.completedAt && (
-              <>
-                <Separator />
-                <div className="p-3 bg-green-50 rounded-lg">
-                  <div className="flex items-center gap-2 text-green-700">
-                    <CheckCircle2 className="h-4 w-4" />
-                    <span className="text-sm font-medium">
-                      Terminé le {format(new Date(selectedTask.completedAt), 'dd MMMM yyyy à HH:mm', { locale: fr })}
-                    </span>
-                    {selectedTask.completedBy && (
-                      <span className="text-sm">par {selectedTask.completedBy}</span>
-                    )}
-                  </div>
+              <div className="p-2 bg-green-50 rounded">
+                <div className="flex items-center gap-1.5 text-green-700">
+                  <CheckCircle2 className="h-3 w-3" />
+                  <span className="text-xs font-medium">
+                    Terminé le {format(new Date(selectedTask.completedAt), 'dd/MM/yyyy', { locale: fr })}
+                    {selectedTask.completedBy && ` par ${selectedTask.completedBy}`}
+                  </span>
                 </div>
-              </>
+              </div>
             )}
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDetailsDialogOpen(false)}>
+          <DialogFooter className="gap-2 pt-3">
+            <Button variant="outline" size="sm" onClick={() => setIsDetailsDialogOpen(false)}>
               Fermer
             </Button>
+            {/* Show "Marquer comme terminé" only for TASK and APPOINTMENT_REMINDER */}
+            {(selectedTask.type === 'TASK' || selectedTask.type === 'APPOINTMENT_REMINDER') &&
+             selectedTask.status !== 'COMPLETED' && (
+              <Button
+                size="sm"
+                onClick={handleCompleteTask}
+                disabled={isCompletingTask}
+                className="gap-1.5 bg-green-600 hover:bg-green-700"
+              >
+                <CheckCircle2 className="h-3 w-3" />
+                {isCompletingTask ? 'En cours...' : 'Marquer comme terminé'}
+              </Button>
+            )}
+            {/* Show "Voir les détails" for all types */}
             {selectedTask.actionUrl && (
-              <Button onClick={handleRedirectToDetails} className="gap-2">
-                <Eye className="h-4 w-4" />
-                Voir les détails complets
-                <ArrowRight className="h-4 w-4" />
+              <Button size="sm" onClick={handleRedirectToDetails} className="gap-1.5">
+                <Eye className="h-3 w-3" />
+                Voir les détails
+                <ArrowRight className="h-3 w-3" />
               </Button>
             )}
           </DialogFooter>
@@ -969,26 +1264,100 @@ export default function ModernTasksPage() {
       {/* Header */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Centre de Gestion des Tâches</h1>
-          <p className="text-gray-600 mt-1">
-            Vue complète de toutes vos tâches, diagnostics, locations et rappels
-          </p>
+          <h1 className="text-3xl font-bold text-gray-900">Calendrier</h1>
         </div>
         
         <div className="flex items-center gap-3 flex-wrap">
           {/* Type Filter */}
           <Select value={filter} onValueChange={setFilter}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="Type" />
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Filtrer par type" />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tous types</SelectItem>
-              <SelectItem value="tasks">Tâches</SelectItem>
-              <SelectItem value="diagnostics">Diagnostics</SelectItem>
-              <SelectItem value="rentals">Locations</SelectItem>
-              <SelectItem value="payments">Paiements</SelectItem>
-              <SelectItem value="appointments">RDV</SelectItem>
-              <SelectItem value="cnam">CNAM</SelectItem>
+            <SelectContent className="max-h-[400px]">
+              <SelectItem value="all">
+                <div className="flex items-center gap-2">
+                  <Filter className="h-4 w-4" />
+                  <span>Tous les types</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="tasks">
+                <div className="flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-blue-600" />
+                  <span>Tâches</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="diagnostics">
+                <div className="flex items-center gap-2">
+                  <Stethoscope className="h-4 w-4 text-purple-600" />
+                  <span>Diagnostics</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="appointments">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-green-600" />
+                  <span>Rendez-vous</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="rentals">
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-orange-600" />
+                  <span>Locations (Expiration)</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="RENTAL_ALERT">
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-amber-600" />
+                  <span>Rappels Location</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="RENTAL_TITRATION">
+                <div className="flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-pink-600" />
+                  <span>Rappels Titration</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="RENTAL_APPOINTMENT">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-emerald-600" />
+                  <span>RDV Locations</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="payments">
+                <div className="flex items-center gap-2">
+                  <CreditCard className="h-4 w-4 text-red-600" />
+                  <span>Paiements Dus</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="PAYMENT_PERIOD_END">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-violet-600" />
+                  <span>Fin Périodes Paiement</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="sales">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-teal-600" />
+                  <span>Ventes (Rappels)</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="SALE_RAPPEL_2YEARS">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-teal-600" />
+                  <span>Rappels Accessoires (2 ans)</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="SALE_RAPPEL_7YEARS">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-cyan-600" />
+                  <span>Rappels Appareil (7 ans)</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="cnam">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-indigo-600" />
+                  <span>Renouvellements CNAM</span>
+                </div>
+              </SelectItem>
             </SelectContent>
           </Select>
 
@@ -999,9 +1368,7 @@ export default function ModernTasksPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tous les utilisateurs</SelectItem>
-              {usersData?.users
-                ?.filter((user: any) => user.role === 'ADMIN' || user.role === 'EMPLOYEE')
-                .map((user: any) => (
+              {usersData?.users?.map((user: any) => (
                 <SelectItem key={user.id} value={user.id}>
                   <div className="flex items-center gap-2">
                     <Avatar className="h-5 w-5">
@@ -1019,62 +1386,131 @@ export default function ModernTasksPage() {
             </SelectContent>
           </Select>
 
-          {/* Navigation */}
-          <div className="flex items-center gap-1">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                if (viewMode === 'month') {
-                  setSelectedDate(subMonths(selectedDate, 1));
-                } else if (viewMode === 'week') {
-                  setSelectedDate(subWeeks(selectedDate, 1));
-                } else if (viewMode === 'day') {
-                  setSelectedDate(addDays(selectedDate, -1));
+          {/* Navigation - Only show for date-based views */}
+          {viewMode !== 'list' && (
+            <div className="flex items-center gap-1 border rounded-lg p-1 bg-white">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  if (viewMode === 'month') {
+                    setSelectedDate(subMonths(selectedDate, 1));
+                  } else if (viewMode === 'week') {
+                    setSelectedDate(subWeeks(selectedDate, 1));
+                  } else if (viewMode === 'day') {
+                    setSelectedDate(addDays(selectedDate, -1));
+                  }
+                }}
+                className="hover:bg-gray-100"
+                title={
+                  viewMode === 'month' ? 'Mois précédent' :
+                  viewMode === 'week' ? 'Semaine précédente' :
+                  'Jour précédent'
                 }
-              }}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSelectedDate(new Date())}
-            >
-              Aujourd&apos;hui
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                if (viewMode === 'month') {
-                  setSelectedDate(addMonths(selectedDate, 1));
-                } else if (viewMode === 'week') {
-                  setSelectedDate(addWeeks(selectedDate, 1));
-                } else if (viewMode === 'day') {
-                  setSelectedDate(addDays(selectedDate, 1));
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={selectedDate.toDateString() === new Date().toDateString() ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setSelectedDate(new Date())}
+                className="min-w-[100px] hover:bg-blue-50"
+              >
+                {selectedDate.toDateString() === new Date().toDateString() ? (
+                  <span className="flex items-center gap-1">
+                    <CalendarDays className="h-4 w-4" />
+                    Aujourd'hui
+                  </span>
+                ) : (
+                  "Aujourd'hui"
+                )}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  if (viewMode === 'month') {
+                    setSelectedDate(addMonths(selectedDate, 1));
+                  } else if (viewMode === 'week') {
+                    setSelectedDate(addWeeks(selectedDate, 1));
+                  } else if (viewMode === 'day') {
+                    setSelectedDate(addDays(selectedDate, 1));
+                  }
+                }}
+                className="hover:bg-gray-100"
+                title={
+                  viewMode === 'month' ? 'Mois suivant' :
+                  viewMode === 'week' ? 'Semaine suivante' :
+                  'Jour suivant'
                 }
-              }}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
 
           {/* View Mode */}
           <Select value={viewMode} onValueChange={(value: ViewMode) => setViewMode(value)}>
-            <SelectTrigger className="w-32">
+            <SelectTrigger className="w-36">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="month">Mois</SelectItem>
-              <SelectItem value="week">Semaine</SelectItem>
-              <SelectItem value="day">Jour</SelectItem>
-              <SelectItem value="list">Liste</SelectItem>
+              <SelectItem value="month">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  <span>Mois</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="week">
+                <div className="flex items-center gap-2">
+                  <CalendarDays className="h-4 w-4" />
+                  <span>Semaine</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="day">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  <span>Jour</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="list">
+                <div className="flex items-center gap-2">
+                  <Activity className="h-4 w-4" />
+                  <span>Liste</span>
+                </div>
+              </SelectItem>
             </SelectContent>
           </Select>
 
-          <Button onClick={() => refetch()} variant="outline">
-            <Activity className="h-4 w-4 mr-2" />
+          {/* Clear Filters Button */}
+          {(filter !== 'all' || assignedUserId !== 'all') && (
+            <Button
+              onClick={() => {
+                setFilter('all');
+                setAssignedUserId('all');
+              }}
+              variant="outline"
+              size="sm"
+              className="gap-1"
+            >
+              <X className="h-4 w-4" />
+              Réinitialiser filtres
+            </Button>
+          )}
+
+          {/* Hide Completed Toggle */}
+          <Button
+            onClick={() => setHideCompleted(!hideCompleted)}
+            variant={hideCompleted ? 'default' : 'outline'}
+            size="sm"
+            className="gap-1"
+          >
+            <CheckCircle2 className="h-4 w-4" />
+            {hideCompleted ? 'Afficher terminées' : 'Masquer terminées'}
+          </Button>
+
+          <Button onClick={() => refetch()} variant="outline" size="sm" className="gap-1">
+            <RefreshCw className="h-4 w-4" />
             Actualiser
           </Button>
         </div>
@@ -1083,23 +1519,46 @@ export default function ModernTasksPage() {
       {/* Stats */}
       {renderStats()}
 
-      {/* Current Date Info */}
+      {/* Current Period Info - Simplified */}
       <div className="mb-6">
-        <div className="bg-white p-4 rounded-lg border">
-          <h2 className="text-lg font-semibold text-gray-900">
-            {viewMode === 'month' && format(selectedDate, 'MMMM yyyy', { locale: fr })}
-            {viewMode === 'week' && `Semaine du ${format(startOfWeek(selectedDate, { weekStartsOn: 1 }), 'dd MMMM yyyy', { locale: fr })}`}
-            {viewMode === 'day' && format(selectedDate, 'EEEE dd MMMM yyyy', { locale: fr })}
-            {viewMode === 'list' && 'Vue d\'ensemble des tâches'}
-          </h2>
-          <p className="text-sm text-gray-600 mt-1">
-            {tasks.length} tâche{tasks.length !== 1 ? 's' : ''} 
-            {filter !== 'all' && ` • Type: ${filter}`}
-            {assignedUserId !== 'all' && ` • Assigné à: ${usersData?.users?.find((u: any) => u.id === assignedUserId)?.name || assignedUserId}`}
-            {' • '}
-            {stats.byStatus?.OVERDUE || 0} en retard • 
-            {stats.byStatus?.IN_PROGRESS || 0} en cours
-          </p>
+        <div className="bg-white px-4 py-3 rounded-lg border">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <h2 className="text-lg font-semibold text-gray-900">
+              {viewMode === 'month' && format(selectedDate, 'MMMM yyyy', { locale: fr })}
+              {viewMode === 'week' && `Semaine du ${format(startOfWeek(selectedDate, { weekStartsOn: 1 }), 'dd MMMM yyyy', { locale: fr })}`}
+              {viewMode === 'day' && format(selectedDate, 'EEEE dd MMMM yyyy', { locale: fr })}
+              {viewMode === 'list' && 'Vue d\'ensemble des tâches'}
+            </h2>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="bg-gray-50 text-sm">
+                {tasks.length} tâche{tasks.length !== 1 ? 's' : ''}
+              </Badge>
+              {filter !== 'all' && (
+                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-sm">
+                  <Filter className="h-3 w-3 mr-1" />
+                  {filter === 'tasks' ? 'Tâches' :
+                   filter === 'diagnostics' ? 'Diagnostics' :
+                   filter === 'appointments' ? 'Rendez-vous' :
+                   filter === 'rentals' ? 'Locations' :
+                   filter === 'RENTAL_ALERT' ? 'Rappels' :
+                   filter === 'RENTAL_TITRATION' ? 'Titration' :
+                   filter === 'RENTAL_APPOINTMENT' ? 'RDV Location' :
+                   filter === 'payments' ? 'Paiements' :
+                   filter === 'PAYMENT_PERIOD_END' ? 'Fin Périodes' :
+                   filter === 'sales' ? 'Ventes' :
+                   filter === 'SALE_RAPPEL_2YEARS' ? 'Rappels 2 ans' :
+                   filter === 'SALE_RAPPEL_7YEARS' ? 'Rappels 7 ans' :
+                   filter === 'cnam' ? 'CNAM' : filter}
+                </Badge>
+              )}
+              {assignedUserId !== 'all' && (
+                <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-sm">
+                  <Users className="h-3 w-3 mr-1" />
+                  {usersData?.users?.find((u: any) => u.id === assignedUserId)?.name || assignedUserId}
+                </Badge>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1108,8 +1567,8 @@ export default function ModernTasksPage() {
       {viewMode === 'week' && renderWeekView()}
       {viewMode === 'day' && renderDayView()}
       {viewMode === 'list' && renderListView()}
-      
-      {tasks.length === 0 && (
+
+      {tasks.length === 0 && viewMode !== 'day' && (
         <Card>
           <CardContent className="py-12 text-center">
             <Activity className="h-12 w-12 text-gray-300 mx-auto mb-4" />

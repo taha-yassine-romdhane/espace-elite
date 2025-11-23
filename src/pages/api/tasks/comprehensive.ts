@@ -8,13 +8,14 @@ interface ComprehensiveTask {
   id: string;
   title: string;
   description?: string;
-  type: 'TASK' | 'DIAGNOSTIC_PENDING' | 'RENTAL_EXPIRING' | 'PAYMENT_DUE' | 'APPOINTMENT_REMINDER' | 'CNAM_RENEWAL' | 'MAINTENANCE_DUE';
+  notes?: string; // For TASK (uses description) and APPOINTMENT_REMINDER (uses notes field)
+  type: 'TASK' | 'DIAGNOSTIC_PENDING' | 'RENTAL_EXPIRING' | 'PAYMENT_DUE' | 'APPOINTMENT_REMINDER' | 'CNAM_RENEWAL' | 'MAINTENANCE_DUE' | 'SALE_RAPPEL_2YEARS' | 'SALE_RAPPEL_7YEARS' | 'RENTAL_ALERT' | 'RENTAL_TITRATION' | 'RENTAL_APPOINTMENT' | 'PAYMENT_PERIOD_END';
   status: 'TODO' | 'IN_PROGRESS' | 'COMPLETED' | 'OVERDUE';
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
   startDate: Date;
   endDate?: Date;
   dueDate?: Date;
-  
+
   // Assignment info
   assignedTo?: {
     id: string;
@@ -23,7 +24,7 @@ interface ComprehensiveTask {
     email: string;
     role: string;
   };
-  
+
   // Client info
   client?: {
     id: string;
@@ -33,24 +34,29 @@ interface ComprehensiveTask {
     patientCode?: string;
     avatar?: string;
   };
-  
+
   // Related data
   relatedData?: {
     deviceName?: string;
     amount?: number;
     diagnosticId?: string;
+    diagnosticCode?: string;
     rentalId?: string;
+    rentalCode?: string;
     appointmentId?: string;
+    appointmentCode?: string;
     paymentId?: string;
+    paymentCode?: string;
     bonNumber?: string;
+    saleCode?: string;
     lastMaintenance?: Date;
   };
-  
+
   // Action info
   actionUrl?: string;
   actionLabel?: string;
   canComplete?: boolean;
-  
+
   // Metadata
   createdAt: Date;
   updatedAt: Date;
@@ -83,7 +89,7 @@ export default async function handler(
     const currentUserId = filterByCurrentUser ? session.user.id : (assignedUserId as string);
 
     // 1. Fetch actual tasks from database
-    if (filter === 'all' || filter === 'TASK' || type === 'TASK') {
+    if (filter === 'all' || filter === 'tasks' || filter === 'TASK' || type === 'TASK') {
       const dbTasks = await prisma.task.findMany({
         where: {
           ...(currentUserId && {
@@ -111,12 +117,20 @@ export default async function handler(
       });
 
       dbTasks.forEach(task => {
+        // Calculate dynamic status based on dates
+        const now = Date.now();
+        const isOverdue = task.endDate && task.endDate.getTime() < now && task.status !== 'COMPLETED';
+        const calculatedStatus = task.status === 'COMPLETED' ? 'COMPLETED' :
+                                isOverdue ? 'OVERDUE' :
+                                task.status;
+
         tasks.push({
           id: task.id,
           title: task.title,
           description: task.description || undefined,
+          notes: task.description || undefined, // For TASK, notes field is the description
           type: 'TASK',
-          status: task.status as any,
+          status: calculatedStatus as any,
           priority: task.priority as any,
           startDate: task.startDate,
           endDate: task.endDate,
@@ -132,27 +146,27 @@ export default async function handler(
             name: `${task.diagnostic.patient.firstName} ${task.diagnostic.patient.lastName}`,
             type: 'patient',
             telephone: task.diagnostic.patient.telephone,
-            patientCode: task.diagnostic.patient.patientCode
+            patientCode: task.diagnostic.patient.patientCode ?? undefined
           } : undefined,
           relatedData: task.diagnostic ? {
             deviceName: task.diagnostic.medicalDevice.name,
             diagnosticId: task.diagnostic.id
           } : undefined,
-          actionUrl: task.diagnostic ? (session.user.role === 'ADMIN' ? `/roles/admin/diagnostics/${task.diagnostic.id}` : `/roles/employee/diagnostics/${task.diagnostic.id}`) : undefined,
+          actionUrl: task.diagnostic?.patient ? (session.user.role === 'ADMIN' ? `/roles/admin/renseignement/patient/${task.diagnostic.patient.id}` : `/roles/employee/renseignement/patient/${task.diagnostic.patient.id}`) : undefined,
           actionLabel: 'Voir la tâche',
           canComplete: task.status !== 'COMPLETED',
           createdAt: task.createdAt,
           updatedAt: task.updatedAt,
           completedAt: task.completedAt || undefined,
-          completedBy: task.completedBy?.firstName && task.completedBy?.lastName 
-            ? `${task.completedBy.firstName} ${task.completedBy.lastName}` 
+          completedBy: task.completedBy?.firstName && task.completedBy?.lastName
+            ? `${task.completedBy.firstName} ${task.completedBy.lastName}`
             : undefined
         });
       });
     }
 
     // 2. Fetch pending diagnostics
-    if (filter === 'all' || filter === 'DIAGNOSTIC_PENDING' || type === 'DIAGNOSTIC_PENDING') {
+    if (filter === 'all' || filter === 'diagnostics' || filter === 'DIAGNOSTIC_PENDING' || type === 'DIAGNOSTIC_PENDING') {
       const pendingDiagnostics = await prisma.diagnostic.findMany({
         where: {
           status: 'PENDING',
@@ -211,7 +225,7 @@ export default async function handler(
             name: `${diagnostic.patient.firstName} ${diagnostic.patient.lastName}`,
             type: 'patient',
             telephone: diagnostic.patient.telephone,
-            patientCode: diagnostic.patient.patientCode
+            patientCode: diagnostic.patient.patientCode ?? undefined
           } : diagnostic.Company ? {
             id: diagnostic.Company.id,
             name: diagnostic.Company.companyName,
@@ -220,9 +234,10 @@ export default async function handler(
           } : undefined,
           relatedData: {
             deviceName: diagnostic.medicalDevice.name,
-            diagnosticId: diagnostic.id
+            diagnosticId: diagnostic.id,
+            diagnosticCode: diagnostic.diagnosticCode ?? undefined
           },
-          actionUrl: session.user.role === 'ADMIN' ? `/roles/admin/diagnostics/${diagnostic.id}/results` : `/roles/employee/diagnostics/${diagnostic.id}/results`,
+          actionUrl: diagnostic.patient ? (session.user.role === 'ADMIN' ? `/roles/admin/renseignement/patient/${diagnostic.patient.id}` : `/roles/employee/renseignement/patient/${diagnostic.patient.id}`) : diagnostic.Company ? (session.user.role === 'ADMIN' ? `/roles/admin/renseignement/company/${diagnostic.Company.id}` : `/roles/employee/renseignement/company/${diagnostic.Company.id}`) : undefined,
           actionLabel: 'Saisir le résultat',
           canComplete: true,
           createdAt: diagnostic.createdAt,
@@ -232,7 +247,7 @@ export default async function handler(
     }
 
     // 3. Fetch expiring rentals
-    if (filter === 'all' || filter === 'RENTAL_EXPIRING' || type === 'RENTAL_EXPIRING') {
+    if (filter === 'all' || filter === 'rentals' || filter === 'RENTAL_EXPIRING' || type === 'RENTAL_EXPIRING') {
       const expiringRentals = await prisma.rental.findMany({
         where: {
           endDate: { gte: start, lte: end },
@@ -284,13 +299,14 @@ export default async function handler(
             name: `${rental.patient.firstName} ${rental.patient.lastName}`,
             type: 'patient',
             telephone: rental.patient.telephone,
-            patientCode: rental.patient.patientCode
+            patientCode: rental.patient.patientCode ?? undefined
           } : undefined,
           relatedData: {
             deviceName: rental.medicalDevice.name,
-            rentalId: rental.id
+            rentalId: rental.id,
+            rentalCode: rental.rentalCode ?? undefined
           },
-          actionUrl: session.user.role === 'ADMIN' ? `/roles/admin/rentals/${rental.id}` : `/roles/employee/rentals/${rental.id}`,
+          actionUrl: rental.patient ? (session.user.role === 'ADMIN' ? `/roles/admin/renseignement/patient/${rental.patient.id}` : `/roles/employee/renseignement/patient/${rental.patient.id}`) : (session.user.role === 'ADMIN' ? `/roles/admin/location` : `/roles/employee/location`),
           actionLabel: 'Voir la location',
           canComplete: true,
           createdAt: rental.createdAt,
@@ -300,7 +316,7 @@ export default async function handler(
     }
 
     // 4. Fetch overdue payments
-    if (filter === 'all' || filter === 'PAYMENT_DUE' || type === 'PAYMENT_DUE') {
+    if (filter === 'all' || filter === 'payments' || filter === 'PAYMENT_DUE' || type === 'PAYMENT_DUE') {
       const overduePayments = await prisma.payment.findMany({
         where: {
           status: 'PENDING',
@@ -327,8 +343,16 @@ export default async function handler(
           })
         },
         include: {
-          patient: true,
-          company: true,
+          patient: {
+            include: {
+              technician: true
+            }
+          },
+          company: {
+            include: {
+              technician: true
+            }
+          },
           rental: {
             include: { medicalDevice: true }
           }
@@ -337,6 +361,10 @@ export default async function handler(
 
       overduePayments.forEach(payment => {
         const daysOverdue = payment.dueDate ? Math.ceil((Date.now() - payment.dueDate.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+
+        // Determine responsible user (technician assigned to patient/company)
+        const responsibleUser = payment.patient?.technician || payment.company?.technician;
+
         tasks.push({
           id: `payment-${payment.id}`,
           title: `Paiement ${daysOverdue > 0 ? 'en retard' : 'à venir'}`,
@@ -346,12 +374,19 @@ export default async function handler(
           priority: daysOverdue > TASK_TIME_CONSTANTS.PAYMENT_DUE.URGENT_DAYS ? 'URGENT' : daysOverdue > 0 ? 'HIGH' : 'MEDIUM',
           startDate: payment.createdAt,
           dueDate: payment.dueDate!,
+          assignedTo: responsibleUser ? {
+            id: responsibleUser.id,
+            firstName: responsibleUser.firstName,
+            lastName: responsibleUser.lastName,
+            email: responsibleUser.email,
+            role: responsibleUser.role
+          } : undefined,
           client: payment.patient ? {
             id: payment.patient.id,
             name: `${payment.patient.firstName} ${payment.patient.lastName}`,
             type: 'patient',
             telephone: payment.patient.telephone,
-            patientCode: payment.patient.patientCode
+            patientCode: payment.patient.patientCode ?? undefined
           } : payment.company ? {
             id: payment.company.id,
             name: payment.company.companyName,
@@ -361,9 +396,11 @@ export default async function handler(
           relatedData: {
             amount: Number(payment.amount),
             paymentId: payment.id,
-            deviceName: payment.rental?.medicalDevice?.name
+            paymentCode: payment.paymentCode ?? undefined,
+            deviceName: payment.rental?.medicalDevice?.name,
+            rentalCode: payment.rental?.rentalCode ?? undefined
           },
-          actionUrl: payment.rentalId ? (session.user.role === 'ADMIN' ? `/roles/admin/rentals/${payment.rentalId}` : `/roles/employee/rentals/${payment.rentalId}`) : '#',
+          actionUrl: payment.patient ? (session.user.role === 'ADMIN' ? `/roles/admin/renseignement/patient/${payment.patient.id}` : `/roles/employee/renseignement/patient/${payment.patient.id}`) : payment.company ? (session.user.role === 'ADMIN' ? `/roles/admin/renseignement/company/${payment.company.id}` : `/roles/employee/renseignement/company/${payment.company.id}`) : (session.user.role === 'ADMIN' ? `/roles/admin/location` : `/roles/employee/location`),
           actionLabel: 'Voir le paiement',
           canComplete: true,
           createdAt: payment.createdAt,
@@ -373,7 +410,7 @@ export default async function handler(
     }
 
     // 5. Fetch upcoming appointments
-    if (filter === 'all' || filter === 'APPOINTMENT_REMINDER' || type === 'APPOINTMENT_REMINDER') {
+    if (filter === 'all' || filter === 'appointments' || filter === 'APPOINTMENT_REMINDER' || type === 'APPOINTMENT_REMINDER') {
       const upcomingAppointments = await prisma.appointment.findMany({
         where: {
           scheduledDate: { gte: start, lte: end },
@@ -415,6 +452,7 @@ export default async function handler(
           id: `appointment-${appointment.id}`,
           title: `Rendez-vous - ${appointment.appointmentType}`,
           description: `${appointment.location} - ${daysUntil === 0 ? "Aujourd'hui" : daysUntil === 1 ? "Demain" : `Dans ${daysUntil} jours`}`,
+          notes: appointment.notes || undefined, // For APPOINTMENT, notes field from database
           type: 'APPOINTMENT_REMINDER',
           status: daysUntil < 0 ? 'OVERDUE' : daysUntil === 0 ? 'IN_PROGRESS' : 'TODO',
           priority: daysUntil <= 0 ? 'URGENT' : daysUntil === 1 ? 'HIGH' : 'MEDIUM',
@@ -432,7 +470,7 @@ export default async function handler(
             name: `${appointment.patient.firstName} ${appointment.patient.lastName}`,
             type: 'patient',
             telephone: appointment.patient.telephone,
-            patientCode: appointment.patient.patientCode
+            patientCode: appointment.patient.patientCode ?? undefined
           } : appointment.company ? {
             id: appointment.company.id,
             name: appointment.company.companyName,
@@ -440,9 +478,10 @@ export default async function handler(
             telephone: appointment.company.telephone
           } : undefined,
           relatedData: {
-            appointmentId: appointment.id
+            appointmentId: appointment.id,
+            appointmentCode: appointment.appointmentCode ?? undefined
           },
-          actionUrl: session.user.role === 'ADMIN' ? `/roles/admin/appointments/${appointment.id}` : `/roles/employee/appointments/${appointment.id}`,
+          actionUrl: appointment.patient ? (session.user.role === 'ADMIN' ? `/roles/admin/renseignement/patient/${appointment.patient.id}` : `/roles/employee/renseignement/patient/${appointment.patient.id}`) : appointment.company ? (session.user.role === 'ADMIN' ? `/roles/admin/renseignement/company/${appointment.company.id}` : `/roles/employee/renseignement/company/${appointment.company.id}`) : undefined,
           actionLabel: 'Voir le rendez-vous',
           canComplete: true,
           createdAt: appointment.createdAt,
@@ -452,7 +491,7 @@ export default async function handler(
     }
 
     // 6. Fetch CNAM renewals
-    if (filter === 'all' || filter === 'CNAM_RENEWAL' || type === 'CNAM_RENEWAL') {
+    if (filter === 'all' || filter === 'cnam' || filter === 'CNAM_RENEWAL' || type === 'CNAM_RENEWAL') {
       const expiringBonds = await prisma.cNAMBonRental.findMany({
         where: {
           endDate: { gte: start, lte: end },
@@ -512,18 +551,405 @@ export default async function handler(
             name: `${bond.patient.firstName} ${bond.patient.lastName}`,
             type: 'patient',
             telephone: bond.patient.telephone,
-            patientCode: bond.patient.patientCode
+            patientCode: bond.patient.patientCode ?? undefined
           },
           relatedData: {
             bonNumber: bond.bonNumber || undefined,
             amount: Number(bond.bonAmount),
-            deviceName: bond.rental?.medicalDevice?.name
+            deviceName: bond.rental?.medicalDevice?.name,
+            rentalCode: bond.rental?.rentalCode ?? undefined
           },
-          actionUrl: bond.rentalId ? (session.user.role === 'ADMIN' ? `/roles/admin/rentals/${bond.rentalId}` : `/roles/employee/rentals/${bond.rentalId}`) : '#',
+          actionUrl: session.user.role === 'ADMIN' ? `/roles/admin/renseignement/patient/${bond.patient.id}` : `/roles/employee/renseignement/patient/${bond.patient.id}`,
           actionLabel: 'Voir le dossier',
           canComplete: true,
           createdAt: bond.createdAt,
           updatedAt: bond.updatedAt
+        });
+      });
+    }
+
+    // 7. Fetch Sales Rappels (2 years for accessories, 7 years for apparatus)
+    if (filter === 'all' || filter === 'sales' || filter === 'SALE_RAPPEL_2YEARS' || filter === 'SALE_RAPPEL_7YEARS' || type === 'SALE_RAPPEL_2YEARS' || type === 'SALE_RAPPEL_7YEARS') {
+      const sales = await prisma.sale.findMany({
+        where: {
+          status: { not: 'CANCELLED' },
+          ...(currentUserId && {
+            OR: [
+              { assignedToId: currentUserId }, // Sales assigned to user
+              {
+                patient: {
+                  OR: [
+                    { technicianId: currentUserId },
+                    { userId: currentUserId }
+                  ]
+                }
+              },
+              {
+                company: {
+                  OR: [
+                    { technicianId: currentUserId },
+                    { userId: currentUserId }
+                  ]
+                }
+              }
+            ]
+          })
+        },
+        include: {
+          patient: true,
+          company: true,
+          assignedTo: true
+        }
+      });
+
+      sales.forEach(sale => {
+        const saleDate = new Date(sale.saleDate);
+
+        // Rappel 2 years (accessories)
+        const rappel2Years = new Date(saleDate);
+        rappel2Years.setFullYear(saleDate.getFullYear() + 2);
+
+        // Rappel 7 years (apparatus)
+        const rappel7Years = new Date(saleDate);
+        rappel7Years.setFullYear(saleDate.getFullYear() + 7);
+
+        // Only include if within date range
+        if (rappel2Years >= start && rappel2Years <= end) {
+          const daysUntil = Math.floor((rappel2Years.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+
+          tasks.push({
+            id: `sale-rappel-2y-${sale.id}`,
+            title: `Rappel Accessoires (2 ans) - ${sale.saleCode || 'Vente'}`,
+            description: `Rappel de remplacement des accessoires ${daysUntil < 0 ? `dépassé de ${Math.abs(daysUntil)} jours` : daysUntil === 0 ? "aujourd'hui" : `dans ${daysUntil} jours`}`,
+            type: 'SALE_RAPPEL_2YEARS',
+            status: daysUntil < 0 ? 'OVERDUE' : daysUntil <= 30 ? 'IN_PROGRESS' : 'TODO',
+            priority: daysUntil < 0 ? 'URGENT' : daysUntil <= 30 ? 'HIGH' : daysUntil <= 90 ? 'MEDIUM' : 'LOW',
+            startDate: sale.saleDate,
+            dueDate: rappel2Years,
+            assignedTo: sale.assignedTo ? {
+              id: sale.assignedTo.id,
+              firstName: sale.assignedTo.firstName,
+              lastName: sale.assignedTo.lastName,
+              email: sale.assignedTo.email,
+              role: sale.assignedTo.role
+            } : undefined,
+            client: sale.patient ? {
+              id: sale.patient.id,
+              name: `${sale.patient.firstName} ${sale.patient.lastName}`,
+              type: 'patient',
+              telephone: sale.patient.telephone,
+              patientCode: sale.patient.patientCode ?? undefined
+            } : sale.company ? {
+              id: sale.company.id,
+              name: sale.company.companyName,
+              type: 'company',
+              telephone: sale.company.telephone
+            } : undefined,
+            relatedData: {
+              amount: Number(sale.finalAmount),
+              saleCode: sale.saleCode ?? undefined
+            },
+            actionUrl: sale.patient ? (session.user.role === 'ADMIN' ? `/roles/admin/renseignement/patient/${sale.patient.id}` : `/roles/employee/renseignement/patient/${sale.patient.id}`) : sale.company ? (session.user.role === 'ADMIN' ? `/roles/admin/renseignement/company/${sale.company.id}` : `/roles/employee/renseignement/company/${sale.company.id}`) : (session.user.role === 'ADMIN' ? `/roles/admin/sales/${sale.id}` : `/roles/employee/sales/${sale.id}`),
+            actionLabel: 'Voir la vente',
+            canComplete: true,
+            createdAt: sale.createdAt,
+            updatedAt: sale.updatedAt
+          });
+        }
+
+        if (rappel7Years >= start && rappel7Years <= end) {
+          const daysUntil = Math.floor((rappel7Years.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+
+          tasks.push({
+            id: `sale-rappel-7y-${sale.id}`,
+            title: `Rappel Appareil (7 ans) - ${sale.saleCode || 'Vente'}`,
+            description: `Rappel de remplacement de l'appareil ${daysUntil < 0 ? `dépassé de ${Math.abs(daysUntil)} jours` : daysUntil === 0 ? "aujourd'hui" : `dans ${daysUntil} jours`}`,
+            type: 'SALE_RAPPEL_7YEARS',
+            status: daysUntil < 0 ? 'OVERDUE' : daysUntil <= 30 ? 'IN_PROGRESS' : 'TODO',
+            priority: daysUntil < 0 ? 'URGENT' : daysUntil <= 30 ? 'HIGH' : daysUntil <= 90 ? 'MEDIUM' : 'LOW',
+            startDate: sale.saleDate,
+            dueDate: rappel7Years,
+            assignedTo: sale.assignedTo ? {
+              id: sale.assignedTo.id,
+              firstName: sale.assignedTo.firstName,
+              lastName: sale.assignedTo.lastName,
+              email: sale.assignedTo.email,
+              role: sale.assignedTo.role
+            } : undefined,
+            client: sale.patient ? {
+              id: sale.patient.id,
+              name: `${sale.patient.firstName} ${sale.patient.lastName}`,
+              type: 'patient',
+              telephone: sale.patient.telephone,
+              patientCode: sale.patient.patientCode ?? undefined
+            } : sale.company ? {
+              id: sale.company.id,
+              name: sale.company.companyName,
+              type: 'company',
+              telephone: sale.company.telephone
+            } : undefined,
+            relatedData: {
+              amount: Number(sale.finalAmount),
+              saleCode: sale.saleCode ?? undefined
+            },
+            actionUrl: sale.patient ? (session.user.role === 'ADMIN' ? `/roles/admin/renseignement/patient/${sale.patient.id}` : `/roles/employee/renseignement/patient/${sale.patient.id}`) : sale.company ? (session.user.role === 'ADMIN' ? `/roles/admin/renseignement/company/${sale.company.id}` : `/roles/employee/renseignement/company/${sale.company.id}`) : (session.user.role === 'ADMIN' ? `/roles/admin/sales/${sale.id}` : `/roles/employee/sales/${sale.id}`),
+            actionLabel: 'Voir la vente',
+            canComplete: true,
+            createdAt: sale.createdAt,
+            updatedAt: sale.updatedAt
+          });
+        }
+      });
+    }
+
+    // 8. Fetch Rental Alert Dates (alertDate, titrationReminderDate, appointmentDate)
+    if (filter === 'all' || filter === 'rentals' || filter === 'RENTAL_ALERT' || filter === 'RENTAL_TITRATION' || filter === 'RENTAL_APPOINTMENT' || type === 'RENTAL_ALERT' || type === 'RENTAL_TITRATION' || type === 'RENTAL_APPOINTMENT') {
+      const rentalsWithDates = await prisma.rental.findMany({
+        where: {
+          status: 'ACTIVE',
+          OR: [
+            { alertDate: { gte: start, lte: end } },
+            { titrationReminderDate: { gte: start, lte: end } },
+            { appointmentDate: { gte: start, lte: end } }
+          ],
+          ...(currentUserId && {
+            patient: {
+              OR: [
+                { technicianId: currentUserId },
+                { userId: currentUserId }
+              ]
+            }
+          })
+        },
+        include: {
+          patient: {
+            include: {
+              technician: true
+            }
+          },
+          medicalDevice: true,
+          assignedTo: true
+        }
+      });
+
+      rentalsWithDates.forEach(rental => {
+        const responsibleUser = rental.assignedTo || rental.patient?.technician;
+
+        // Alert Date (DATE RAPPEL)
+        if (rental.alertDate && rental.alertDate >= start && rental.alertDate <= end) {
+          const daysUntil = Math.floor((rental.alertDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+
+          tasks.push({
+            id: `rental-alert-${rental.id}`,
+            title: `Rappel Location - ${rental.medicalDevice.name}`,
+            description: `Date de rappel/suivi ${daysUntil === 0 ? "aujourd'hui" : daysUntil > 0 ? `dans ${daysUntil} jours` : `dépassée de ${Math.abs(daysUntil)} jours`}`,
+            type: 'RENTAL_ALERT',
+            status: daysUntil < 0 ? 'OVERDUE' : daysUntil === 0 ? 'IN_PROGRESS' : 'TODO',
+            priority: daysUntil < 0 ? 'URGENT' : daysUntil <= 7 ? 'HIGH' : 'MEDIUM',
+            startDate: rental.startDate,
+            dueDate: rental.alertDate,
+            assignedTo: responsibleUser ? {
+              id: responsibleUser.id,
+              firstName: responsibleUser.firstName,
+              lastName: responsibleUser.lastName,
+              email: responsibleUser.email,
+              role: responsibleUser.role
+            } : undefined,
+            client: rental.patient ? {
+              id: rental.patient.id,
+              name: `${rental.patient.firstName} ${rental.patient.lastName}`,
+              type: 'patient',
+              telephone: rental.patient.telephone,
+              patientCode: rental.patient.patientCode ?? undefined
+            } : undefined,
+            relatedData: {
+              deviceName: rental.medicalDevice.name,
+              rentalId: rental.id,
+              rentalCode: rental.rentalCode ?? undefined
+            },
+            actionUrl: rental.patient ? (session.user.role === 'ADMIN' ? `/roles/admin/renseignement/patient/${rental.patient.id}` : `/roles/employee/renseignement/patient/${rental.patient.id}`) : (session.user.role === 'ADMIN' ? `/roles/admin/location` : `/roles/employee/location`),
+            actionLabel: 'Voir la location',
+            canComplete: true,
+            createdAt: rental.createdAt,
+            updatedAt: rental.updatedAt
+          });
+        }
+
+        // Titration Reminder Date (DATE RAPPEL TITRATION)
+        if (rental.titrationReminderDate && rental.titrationReminderDate >= start && rental.titrationReminderDate <= end) {
+          const daysUntil = Math.floor((rental.titrationReminderDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+
+          tasks.push({
+            id: `rental-titration-${rental.id}`,
+            title: `Rappel Titration - ${rental.medicalDevice.name}`,
+            description: `Rappel de titration ${daysUntil === 0 ? "aujourd'hui" : daysUntil > 0 ? `dans ${daysUntil} jours` : `dépassé de ${Math.abs(daysUntil)} jours`}`,
+            type: 'RENTAL_TITRATION',
+            status: daysUntil < 0 ? 'OVERDUE' : daysUntil === 0 ? 'IN_PROGRESS' : 'TODO',
+            priority: daysUntil < 0 ? 'URGENT' : daysUntil <= 7 ? 'HIGH' : 'MEDIUM',
+            startDate: rental.startDate,
+            dueDate: rental.titrationReminderDate,
+            assignedTo: responsibleUser ? {
+              id: responsibleUser.id,
+              firstName: responsibleUser.firstName,
+              lastName: responsibleUser.lastName,
+              email: responsibleUser.email,
+              role: responsibleUser.role
+            } : undefined,
+            client: rental.patient ? {
+              id: rental.patient.id,
+              name: `${rental.patient.firstName} ${rental.patient.lastName}`,
+              type: 'patient',
+              telephone: rental.patient.telephone,
+              patientCode: rental.patient.patientCode ?? undefined
+            } : undefined,
+            relatedData: {
+              deviceName: rental.medicalDevice.name,
+              rentalId: rental.id,
+              rentalCode: rental.rentalCode ?? undefined
+            },
+            actionUrl: rental.patient ? (session.user.role === 'ADMIN' ? `/roles/admin/renseignement/patient/${rental.patient.id}` : `/roles/employee/renseignement/patient/${rental.patient.id}`) : (session.user.role === 'ADMIN' ? `/roles/admin/location` : `/roles/employee/location`),
+            actionLabel: 'Voir la location',
+            canComplete: true,
+            createdAt: rental.createdAt,
+            updatedAt: rental.updatedAt
+          });
+        }
+
+        // Appointment Date (RENDEZ-VOUS)
+        if (rental.appointmentDate && rental.appointmentDate >= start && rental.appointmentDate <= end) {
+          const daysUntil = Math.floor((rental.appointmentDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+
+          tasks.push({
+            id: `rental-appointment-${rental.id}`,
+            title: `RDV Location - ${rental.medicalDevice.name}`,
+            description: `Rendez-vous pour la location ${daysUntil === 0 ? "aujourd'hui" : daysUntil > 0 ? `dans ${daysUntil} jours` : `dépassé de ${Math.abs(daysUntil)} jours`}`,
+            type: 'RENTAL_APPOINTMENT',
+            status: daysUntil < 0 ? 'OVERDUE' : daysUntil === 0 ? 'IN_PROGRESS' : 'TODO',
+            priority: daysUntil < 0 ? 'HIGH' : daysUntil <= 3 ? 'HIGH' : daysUntil <= 7 ? 'MEDIUM' : 'LOW',
+            startDate: rental.startDate,
+            dueDate: rental.appointmentDate,
+            assignedTo: responsibleUser ? {
+              id: responsibleUser.id,
+              firstName: responsibleUser.firstName,
+              lastName: responsibleUser.lastName,
+              email: responsibleUser.email,
+              role: responsibleUser.role
+            } : undefined,
+            client: rental.patient ? {
+              id: rental.patient.id,
+              name: `${rental.patient.firstName} ${rental.patient.lastName}`,
+              type: 'patient',
+              telephone: rental.patient.telephone,
+              patientCode: rental.patient.patientCode ?? undefined
+            } : undefined,
+            relatedData: {
+              deviceName: rental.medicalDevice.name,
+              rentalId: rental.id,
+              rentalCode: rental.rentalCode ?? undefined
+            },
+            actionUrl: rental.patient ? (session.user.role === 'ADMIN' ? `/roles/admin/renseignement/patient/${rental.patient.id}` : `/roles/employee/renseignement/patient/${rental.patient.id}`) : (session.user.role === 'ADMIN' ? `/roles/admin/location` : `/roles/employee/location`),
+            actionLabel: 'Voir la location',
+            canComplete: true,
+            createdAt: rental.createdAt,
+            updatedAt: rental.updatedAt
+          });
+        }
+      });
+    }
+
+    // 9. Fetch Payment Period End Dates (FIN PÉRIODE)
+    if (filter === 'all' || filter === 'payments' || filter === 'PAYMENT_PERIOD_END' || type === 'PAYMENT_PERIOD_END') {
+      const paymentsWithPeriodEnd = await prisma.payment.findMany({
+        where: {
+          periodEndDate: { gte: start, lte: end },
+          status: { not: 'CANCELLED' },
+          ...(currentUserId && {
+            OR: [
+              {
+                patient: {
+                  OR: [
+                    { technicianId: currentUserId },
+                    { userId: currentUserId }
+                  ]
+                }
+              },
+              {
+                company: {
+                  OR: [
+                    { technicianId: currentUserId },
+                    { userId: currentUserId }
+                  ]
+                }
+              }
+            ]
+          })
+        },
+        include: {
+          patient: {
+            include: {
+              technician: true
+            }
+          },
+          company: {
+            include: {
+              technician: true
+            }
+          },
+          rental: {
+            include: { medicalDevice: true }
+          }
+        }
+      });
+
+      paymentsWithPeriodEnd.forEach(payment => {
+        if (!payment.periodEndDate) return;
+
+        const daysUntil = Math.floor((payment.periodEndDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+
+        // Determine responsible user (technician assigned to patient/company)
+        const responsibleUser = payment.patient?.technician || payment.company?.technician;
+
+        tasks.push({
+          id: `payment-period-end-${payment.id}`,
+          title: `Fin Période - Paiement ${payment.paymentCode || 'N/A'}`,
+          description: `Fin de période de paiement ${daysUntil === 0 ? "aujourd'hui" : daysUntil > 0 ? `dans ${daysUntil} jours` : `terminée il y a ${Math.abs(daysUntil)} jours`}`,
+          type: 'PAYMENT_PERIOD_END',
+          status: daysUntil < -30 ? 'COMPLETED' : daysUntil < 0 ? 'OVERDUE' : daysUntil <= 7 ? 'IN_PROGRESS' : 'TODO',
+          priority: daysUntil < 0 ? 'HIGH' : daysUntil <= 7 ? 'MEDIUM' : 'LOW',
+          startDate: payment.periodStartDate || payment.createdAt,
+          endDate: payment.periodEndDate,
+          dueDate: payment.periodEndDate,
+          assignedTo: responsibleUser ? {
+            id: responsibleUser.id,
+            firstName: responsibleUser.firstName,
+            lastName: responsibleUser.lastName,
+            email: responsibleUser.email,
+            role: responsibleUser.role
+          } : undefined,
+          client: payment.patient ? {
+            id: payment.patient.id,
+            name: `${payment.patient.firstName} ${payment.patient.lastName}`,
+            type: 'patient',
+            telephone: payment.patient.telephone,
+            patientCode: payment.patient.patientCode ?? undefined
+          } : payment.company ? {
+            id: payment.company.id,
+            name: payment.company.companyName,
+            type: 'company',
+            telephone: payment.company.telephone
+          } : undefined,
+          relatedData: {
+            amount: Number(payment.amount),
+            paymentId: payment.id,
+            paymentCode: payment.paymentCode ?? undefined,
+            deviceName: payment.rental?.medicalDevice?.name,
+            rentalCode: payment.rental?.rentalCode ?? undefined
+          },
+          actionUrl: payment.patient ? (session.user.role === 'ADMIN' ? `/roles/admin/renseignement/patient/${payment.patient.id}` : `/roles/employee/renseignement/patient/${payment.patient.id}`) : payment.company ? (session.user.role === 'ADMIN' ? `/roles/admin/renseignement/company/${payment.company.id}` : `/roles/employee/renseignement/company/${payment.company.id}`) : (session.user.role === 'ADMIN' ? `/roles/admin/location` : `/roles/employee/location`),
+          actionLabel: 'Voir le paiement',
+          canComplete: true,
+          createdAt: payment.createdAt,
+          updatedAt: payment.updatedAt
         });
       });
     }
@@ -558,7 +984,13 @@ export default async function handler(
         RENTAL_EXPIRING: tasks.filter(t => t.type === 'RENTAL_EXPIRING').length,
         PAYMENT_DUE: tasks.filter(t => t.type === 'PAYMENT_DUE').length,
         APPOINTMENT_REMINDER: tasks.filter(t => t.type === 'APPOINTMENT_REMINDER').length,
-        CNAM_RENEWAL: tasks.filter(t => t.type === 'CNAM_RENEWAL').length
+        CNAM_RENEWAL: tasks.filter(t => t.type === 'CNAM_RENEWAL').length,
+        SALE_RAPPEL_2YEARS: tasks.filter(t => t.type === 'SALE_RAPPEL_2YEARS').length,
+        SALE_RAPPEL_7YEARS: tasks.filter(t => t.type === 'SALE_RAPPEL_7YEARS').length,
+        RENTAL_ALERT: tasks.filter(t => t.type === 'RENTAL_ALERT').length,
+        RENTAL_TITRATION: tasks.filter(t => t.type === 'RENTAL_TITRATION').length,
+        RENTAL_APPOINTMENT: tasks.filter(t => t.type === 'RENTAL_APPOINTMENT').length,
+        PAYMENT_PERIOD_END: tasks.filter(t => t.type === 'PAYMENT_PERIOD_END').length
       }
     };
 

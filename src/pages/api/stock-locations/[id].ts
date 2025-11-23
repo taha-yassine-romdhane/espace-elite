@@ -75,7 +75,7 @@ export default async function handler(
             incomingTransfers: { take: 1 }
           }
         });
-        
+
         // Prevent deletion if location has associated items
         if (
           (locationWithItems?.stocks && locationWithItems.stocks.length > 0) ||

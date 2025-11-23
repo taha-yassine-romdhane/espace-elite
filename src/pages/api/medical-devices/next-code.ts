@@ -18,73 +18,41 @@ export default async function handler(
   }
 
   try {
-    // Check if requesting diagnostic device code via query parameter
-    const { type } = req.query;
-    const isDiagnostic = type === 'DIAGNOSTIC_DEVICE';
+    // Get device type from query parameter (MEDICAL_DEVICE or DIAGNOSTIC_DEVICE)
+    const deviceType = req.query.type as string;
 
-    if (isDiagnostic) {
-      // Generate APP-DIAG-XX for diagnostic devices
-      const lastDiagDevice = await prisma.medicalDevice.findFirst({
-        where: {
-          deviceCode: {
-            startsWith: 'APP-DIAG-'
-          }
-        },
-        orderBy: {
-          deviceCode: 'desc'
-        },
-        select: {
-          deviceCode: true
+    // Determine prefix based on device type
+    const prefix = deviceType === 'DIAGNOSTIC_DEVICE' ? 'DIAG' : 'APP';
+
+    // Get the highest device code to generate the next one
+    const lastDevice = await prisma.medicalDevice.findFirst({
+      where: {
+        deviceCode: {
+          startsWith: prefix
         }
-      });
-
-      let nextCodeNumber = 1;
-
-      if (lastDiagDevice?.deviceCode) {
-        // Extract number from code like "APP-DIAG-05" -> 5
-        const currentNumber = parseInt(lastDiagDevice.deviceCode.replace('APP-DIAG-', ''));
-        if (!isNaN(currentNumber)) {
-          nextCodeNumber = currentNumber + 1;
-        }
+      },
+      orderBy: {
+        deviceCode: 'desc'
+      },
+      select: {
+        deviceCode: true
       }
+    });
 
-      // Format with leading zeros (APP-DIAG-01, APP-DIAG-02, etc.)
-      const nextCode = `APP-DIAG-${nextCodeNumber.toString().padStart(2, '0')}`;
-      return res.status(200).json({ nextCode });
+    let nextCodeNumber = 1;
 
-    } else {
-      // Generate APP#### for regular medical devices
-      const lastDevice = await prisma.medicalDevice.findFirst({
-        where: {
-          deviceCode: {
-            startsWith: 'APP',
-            not: {
-              startsWith: 'APP-DIAG-'
-            }
-          }
-        },
-        orderBy: {
-          deviceCode: 'desc'
-        },
-        select: {
-          deviceCode: true
-        }
-      });
-
-      let nextCodeNumber = 1;
-
-      if (lastDevice?.deviceCode) {
-        // Extract number from code like "APP0211" -> 211
-        const currentNumber = parseInt(lastDevice.deviceCode.replace('APP', ''));
-        if (!isNaN(currentNumber)) {
-          nextCodeNumber = currentNumber + 1;
-        }
+    if (lastDevice?.deviceCode) {
+      // Extract number from code like "APP0211" or "DIAG0003" -> 211 or 3
+      const currentNumber = parseInt(lastDevice.deviceCode.replace(prefix, ''));
+      if (!isNaN(currentNumber)) {
+        nextCodeNumber = currentNumber + 1;
       }
-
-      // Format with leading zeros (APP0001, APP0002, etc.)
-      const nextCode = `APP${nextCodeNumber.toString().padStart(4, '0')}`;
-      return res.status(200).json({ nextCode });
     }
+
+    // Format with leading zeros (APP0001, APP0002, DIAG0001, DIAG0002, etc.)
+    const nextCode = `${prefix}${nextCodeNumber.toString().padStart(4, '0')}`;
+
+    return res.status(200).json({ nextCode });
 
   } catch (error) {
     console.error('Error generating next device code:', error);

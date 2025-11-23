@@ -8,3 +8,9 @@ services:
     network_mode: "host"
     env_file:
       - .env
+    volumes:
+      - espace-elite-files:/var/espace-elite-files
+
+volumes:
+  espace-elite-files:
+    driver: local

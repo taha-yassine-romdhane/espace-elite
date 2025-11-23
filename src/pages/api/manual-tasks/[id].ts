@@ -71,7 +71,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(404).json({ error: 'Task not found' });
       }
 
-      const { taskType, patientId, assignedToId, adminNotes, employeeNotes, status } = req.body;
+      const { taskType, patientId, assignedToId, priority, adminNotes, employeeNotes, status } = req.body;
 
       // Admin can update everything, Employee can only update their assigned tasks' status and notes
       if (userRole === 'ADMIN') {
@@ -81,6 +81,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             ...(taskType && { taskType }),
             ...(patientId && { patientId }),
             ...(assignedToId && { assignedToId }),
+            ...(priority && { priority }),
             ...(adminNotes !== undefined && { adminNotes }),
             ...(status && {
               status,

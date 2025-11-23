@@ -31,13 +31,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const patients = await prisma.patient.findMany({
       where: { doctorId: doctor.id },
       include: {
-        rentals: {
-          where: { status: 'ACTIVE' },
-          include: {
-            medicalDevice: true
-          },
-          take: 3
-        },
         diagnostics: {
           orderBy: { createdAt: 'desc' },
           take: 3,
@@ -78,12 +71,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       imc: patient.imc,
       createdAt: patient.createdAt.toISOString(),
       updatedAt: patient.updatedAt.toISOString(),
-      medicalDevices: patient.rentals.map(rental => ({
-        id: rental.medicalDevice.id,
-        name: rental.medicalDevice.name,
-        type: rental.medicalDevice.type,
-        status: rental.medicalDevice.status
-      })),
       diagnostics: patient.diagnostics.map(diagnostic => ({
         id: diagnostic.id,
         diagnosticDate: diagnostic.diagnosticDate.toISOString(),

@@ -62,7 +62,7 @@ export default function EmployeeDashboard() {
       title: "Tâches",
       description: "Voir et gérer vos tâches",
       icon: <Clipboard className="h-8 w-8" />,
-      path: "/roles/employee/tasks/modern",
+      path: "/roles/employee/manual-tasks",
       color: "bg-green-500",
       hoverColor: "hover:bg-green-600"
     },
@@ -176,7 +176,7 @@ export default function EmployeeDashboard() {
             </button>
 
             <button
-              onClick={() => router.push('/roles/employee/rentals')}
+              onClick={() => router.push('/roles/employee/location')}
               className="flex flex-col items-center p-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors group"
             >
               <div className="p-3 bg-green-700 text-white rounded-lg group-hover:scale-110 transition-transform">
@@ -186,7 +186,7 @@ export default function EmployeeDashboard() {
             </button>
 
             <button
-              onClick={() => router.push('/roles/employee/tasks/modern')}
+              onClick={() => router.push('/roles/employee/manual-tasks')}
               className="flex flex-col items-center p-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors group"
             >
               <div className="p-3 bg-green-800 text-white rounded-lg group-hover:scale-110 transition-transform">

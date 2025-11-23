@@ -70,7 +70,7 @@ export default function CNAMBonsExcelTable() {
   const [clientSales, setClientSales] = useState<any[]>([]);
   const [newBon, setNewBon] = useState({
     saleId: '',
-    bonType: 'CPAP',
+    bonType: '',
     status: 'EN_ATTENTE_APPROBATION',
     cnamMonthlyRate: 0,
     deviceMonthlyRate: 0,
@@ -110,11 +110,11 @@ export default function CNAMBonsExcelTable() {
     },
   });
 
-  // Fetch CNAM nomenclature (fixed rates)
+  // Fetch CNAM nomenclature (fixed rates) - ACHAT category only for sales
   const { data: cnamNomenclature } = useQuery({
-    queryKey: ['cnam-nomenclature'],
+    queryKey: ['cnam-nomenclature', 'ACHAT'],
     queryFn: async () => {
-      const response = await fetch('/api/cnam-nomenclature');
+      const response = await fetch('/api/cnam-nomenclature?isActive=true&category=ACHAT');
       if (!response.ok) throw new Error('Failed to fetch CNAM nomenclature');
       return response.json();
     },
@@ -150,6 +150,45 @@ export default function CNAMBonsExcelTable() {
         // Also extract CNAM bons from sales (CNAMBonRental with category ACHAT)
         if (sale.cnamBons && Array.isArray(sale.cnamBons)) {
           sale.cnamBons.forEach((bon: any) => {
+            // Only include ACHAT (sale) bonds, not LOCATION (rental) bonds
+            if (bon.category === 'ACHAT') {
+              combined.push({
+                id: bon.id,
+                dossierNumber: bon.bonNumber || bon.dossierNumber || 'N/A',
+                bonType: bon.bonType,
+                bondAmount: bon.bonAmount,
+                devicePrice: bon.devicePrice,
+                complementAmount: bon.complementAmount,
+                currentStep: bon.currentStep || (bon.status === 'TERMINE' ? 7 : bon.status === 'APPROUVE' ? 5 : 3),
+                totalSteps: 7,
+                status: bon.status,
+                notes: bon.notes,
+                patientId: bon.patientId,
+                patient: bon.patient,
+                saleId: bon.saleId,
+                sale: {
+                  id: sale.id,
+                  saleCode: sale.saleCode,
+                  invoiceNumber: sale.invoiceNumber,
+                },
+                createdAt: bon.createdAt,
+                updatedAt: bon.updatedAt,
+                source: 'cnam-bon-sale',
+              });
+            }
+          });
+        }
+      });
+    }
+
+    // Add standalone sale CNAM bons (category: ACHAT) if not already included
+    if (saleBonsData && Array.isArray(saleBonsData)) {
+      saleBonsData.forEach((bon: any) => {
+        // Only add if category is ACHAT (sale) not LOCATION (rental)
+        if (bon.category === 'ACHAT' || bon.bondCategory === 'ACHAT') {
+          // Check if this bond was already added from sale.cnamBons to avoid duplicates
+          const alreadyExists = combined.some(item => item.id === bon.id);
+          if (!alreadyExists) {
             combined.push({
               id: bon.id,
               dossierNumber: bon.bonNumber || bon.dossierNumber || 'N/A',
@@ -164,44 +203,12 @@ export default function CNAMBonsExcelTable() {
               patientId: bon.patientId,
               patient: bon.patient,
               saleId: bon.saleId,
-              sale: {
-                id: sale.id,
-                saleCode: sale.saleCode,
-                invoiceNumber: sale.invoiceNumber,
-              },
+              sale: bon.sale, // Include sale object from API response
               createdAt: bon.createdAt,
               updatedAt: bon.updatedAt,
               source: 'cnam-bon-sale',
             });
-          });
-        }
-      });
-    }
-
-    // Add standalone sale CNAM bons (category: ACHAT) if not already included
-    if (saleBonsData && Array.isArray(saleBonsData)) {
-      saleBonsData.forEach((bon: any) => {
-        // Only add if category is ACHAT (sale) not LOCATION (rental)
-        if (bon.category === 'ACHAT' || bon.bondCategory === 'ACHAT') {
-          combined.push({
-            id: bon.id,
-            dossierNumber: bon.bonNumber || bon.dossierNumber || 'N/A',
-            bonType: bon.bonType,
-            bondAmount: bon.bonAmount,
-            devicePrice: bon.devicePrice,
-            complementAmount: bon.complementAmount,
-            currentStep: bon.currentStep || (bon.status === 'TERMINE' ? 7 : bon.status === 'APPROUVE' ? 5 : 3),
-            totalSteps: 7,
-            status: bon.status,
-            notes: bon.notes,
-            patientId: bon.patientId,
-            patient: bon.patient,
-            saleId: bon.saleId,
-            sale: bon.sale, // Include sale object from API response
-            createdAt: bon.createdAt,
-            updatedAt: bon.updatedAt,
-            source: 'cnam-bon-sale',
-          });
+          }
         }
       });
     }
@@ -268,7 +275,7 @@ export default function CNAMBonsExcelTable() {
       setClientSales([]);
       setNewBon({
         saleId: '',
-        bonType: 'CPAP',
+        bonType: '',
         status: 'EN_ATTENTE_APPROBATION',
         cnamMonthlyRate: 0,
         deviceMonthlyRate: 0,
@@ -374,7 +381,7 @@ export default function CNAMBonsExcelTable() {
     setClientSales([]);
     setNewBon({
       saleId: '',
-      bonType: 'CPAP',
+      bonType: '',
       status: 'EN_ATTENTE_APPROBATION',
       cnamMonthlyRate: 0,
       deviceMonthlyRate: 0,
@@ -577,9 +584,9 @@ export default function CNAMBonsExcelTable() {
             <SelectItem value="REFUSE">Refusé</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={bonTypeFilter} onValueChange={setBonTypeFilter}>
+        <Select value={bonTypeFilter} onValueChange={setBonTypeFilter} defaultValue="all">
           <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filtrer par type" />
+            <SelectValue placeholder="Type de bon" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tous les types</SelectItem>

@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Textarea } from "@/components/ui/textarea";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check, X, Edit2, Plus, Trash2, Search, ChevronLeft, ChevronRight, ClipboardList, User, Phone } from "lucide-react";
+import { Check, X, Edit2, Plus, Trash2, Search, ChevronLeft, ChevronRight, ClipboardList, User, Phone, Calendar } from "lucide-react";
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import Link from 'next/link';
@@ -40,6 +41,7 @@ interface ManualTask {
     firstName: string;
     lastName: string;
   };
+  priority: 'LOW' | 'MEDIUM' | 'HIGH';
   adminNotes?: string;
   employeeNotes?: string;
   status: 'PENDING' | 'COMPLETED' | 'CANCELLED';
@@ -55,6 +57,12 @@ const TASK_TYPES = [
   { value: 'VENTE', label: 'Vente' },
   { value: 'MAINTENANCE', label: 'Maintenance' },
   { value: 'RECUPERATION', label: 'Récupération' }
+];
+
+const PRIORITIES = [
+  { value: 'LOW', label: 'Faible' },
+  { value: 'MEDIUM', label: 'Moyenne' },
+  { value: 'HIGH', label: 'Haute' }
 ];
 
 const STATUSES = ['PENDING', 'COMPLETED', 'CANCELLED'];
@@ -87,6 +95,24 @@ const getTaskTypeColor = (type: string): string => {
     RECUPERATION: 'bg-teal-100 text-teal-800 border-teal-200'
   };
   return colors[type] || 'bg-gray-100 text-gray-800 border-gray-200';
+};
+
+const getPriorityLabel = (priority: string): string => {
+  const labels: Record<string, string> = {
+    LOW: 'Faible',
+    MEDIUM: 'Moyenne',
+    HIGH: 'Haute'
+  };
+  return labels[priority] || priority;
+};
+
+const getPriorityColor = (priority: string): string => {
+  const colors: Record<string, string> = {
+    LOW: 'bg-gray-100 text-gray-700 border-gray-300',
+    MEDIUM: 'bg-blue-100 text-blue-700 border-blue-300',
+    HIGH: 'bg-red-100 text-red-700 border-red-300'
+  };
+  return colors[priority] || 'bg-gray-100 text-gray-800 border-gray-200';
 };
 
 interface PatientSelectionDialogProps {
@@ -185,10 +211,20 @@ export default function AdminManualTasksPage() {
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [newTask, setNewTask] = useState<Partial<ManualTask>>({
     taskType: 'CONSULTATION',
+    priority: 'MEDIUM',
     status: 'PENDING',
   });
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<ManualTask | null>(null);
+  const [appointmentDialogOpen, setAppointmentDialogOpen] = useState(false);
+  const [appointmentTask, setAppointmentTask] = useState<ManualTask | null>(null);
+  const [appointmentData, setAppointmentData] = useState({
+    scheduledDate: '',
+    location: '',
+    priority: 'NORMAL',
+    status: 'SCHEDULED',
+    notes: '',
+  });
 
   // Pagination & Filters
   const [currentPage, setCurrentPage] = useState(1);
@@ -196,6 +232,7 @@ export default function AdminManualTasksPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [typeFilter, setTypeFilter] = useState<string>('ALL');
+  const [priorityFilter, setPriorityFilter] = useState<string>('ALL');
 
   // Fetch manual tasks
   const { data: tasks = [] } = useQuery({
@@ -229,6 +266,9 @@ export default function AdminManualTasksPage() {
 
   // Apply filters
   const filteredTasks = tasks.filter((task: ManualTask) => {
+    // Hide completed tasks unless explicitly filtered
+    if (statusFilter === 'ALL' && task.status === 'COMPLETED') return false;
+
     if (searchTerm) {
       const search = searchTerm.toLowerCase();
       const patientName = task.patient ? `${task.patient.firstName} ${task.patient.lastName}`.toLowerCase() : '';
@@ -242,6 +282,7 @@ export default function AdminManualTasksPage() {
 
     if (statusFilter !== 'ALL' && task.status !== statusFilter) return false;
     if (typeFilter !== 'ALL' && task.taskType !== typeFilter) return false;
+    if (priorityFilter !== 'ALL' && task.priority !== priorityFilter) return false;
 
     return true;
   });
@@ -254,7 +295,7 @@ export default function AdminManualTasksPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, statusFilter, typeFilter]);
+  }, [searchTerm, statusFilter, typeFilter, priorityFilter]);
 
   // Create mutation
   const createMutation = useMutation({
@@ -315,6 +356,38 @@ export default function AdminManualTasksPage() {
     },
   });
 
+  // Create appointment mutation
+  const createAppointmentMutation = useMutation({
+    mutationFn: async (appointment: any) => {
+      const response = await fetch('/api/appointments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(appointment),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create appointment');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["manualTasks"] });
+      toast({ title: "Succès", description: "Rendez-vous créé avec succès" });
+      setAppointmentDialogOpen(false);
+      setAppointmentTask(null);
+      setAppointmentData({
+        scheduledDate: '',
+        location: '',
+        priority: 'NORMAL',
+        status: 'SCHEDULED',
+        notes: '',
+      });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erreur", description: error.message, variant: "destructive" });
+    },
+  });
+
   const handleEdit = (task: ManualTask) => {
     setEditingId(task.id);
     setEditedTask({ ...task });
@@ -360,6 +433,7 @@ export default function AdminManualTasksPage() {
     setIsAddingNew(false);
     setNewTask({
       taskType: 'CONSULTATION',
+      priority: 'MEDIUM',
       status: 'PENDING',
     });
   };
@@ -381,6 +455,46 @@ export default function AdminManualTasksPage() {
 
   const updateNewField = (field: keyof ManualTask, value: any) => {
     setNewTask(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleOpenAppointmentDialog = (task: ManualTask) => {
+    // Pre-fill the appointment with tomorrow's date
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(9, 0, 0, 0); // Set to 9:00 AM
+
+    setAppointmentTask(task);
+    setAppointmentData({
+      scheduledDate: tomorrow.toISOString().slice(0, 16), // Format for datetime-local input
+      location: '',
+      priority: 'NORMAL',
+      status: 'SCHEDULED',
+      notes: `Rendez-vous pour ${TASK_TYPES.find(t => t.value === task.taskType)?.label || task.taskType}`,
+    });
+    setAppointmentDialogOpen(true);
+  };
+
+  const handleCreateAppointment = () => {
+    if (!appointmentTask) return;
+
+    if (!appointmentData.scheduledDate || !appointmentData.location) {
+      toast({
+        title: "Erreur",
+        description: "Date et lieu sont requis",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    createAppointmentMutation.mutate({
+      patientId: appointmentTask.patientId,
+      appointmentType: appointmentTask.taskType,
+      scheduledDate: new Date(appointmentData.scheduledDate),
+      location: appointmentData.location,
+      priority: appointmentData.priority,
+      status: appointmentData.status,
+      notes: appointmentData.notes,
+    });
   };
 
   const renderCell = (task: ManualTask, field: keyof ManualTask, isEditing: boolean) => {
@@ -451,6 +565,23 @@ export default function AdminManualTasksPage() {
             />
           );
 
+        case 'priority':
+          return (
+            <Select
+              value={editedTask.priority}
+              onValueChange={(val) => updateEditedField('priority', val)}
+            >
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PRIORITIES.map(priority => (
+                  <SelectItem key={priority.value} value={priority.value}>{priority.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          );
+
         case 'status':
           return (
             <Select
@@ -508,6 +639,13 @@ export default function AdminManualTasksPage() {
           </span>
         );
 
+      case 'priority':
+        return (
+          <Badge variant="outline" className={`text-xs ${getPriorityColor(task.priority)}`}>
+            {getPriorityLabel(task.priority)}
+          </Badge>
+        );
+
       case 'status':
         return (
           <Badge className={`text-xs ${getStatusColor(task.status)}`}>
@@ -528,7 +666,7 @@ export default function AdminManualTasksPage() {
   };
 
   const renderNewRow = () => {
-    const selectedPatient = patients.find(p => p.id === newTask.patientId);
+    const selectedPatient = patients.find((p: Patient) => p.id === newTask.patientId);
 
     return (
       <tr className="bg-blue-50 border-b">
@@ -578,6 +716,21 @@ export default function AdminManualTasksPage() {
                 <SelectItem key={emp.id} value={emp.id}>
                   {emp.firstName} {emp.lastName}
                 </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </td>
+        <td className="px-2 py-2">
+          <Select
+            value={newTask.priority || 'MEDIUM'}
+            onValueChange={(val) => updateNewField('priority', val)}
+          >
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PRIORITIES.map(priority => (
+                <SelectItem key={priority.value} value={priority.value}>{priority.label}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -674,13 +827,26 @@ export default function AdminManualTasksPage() {
             </SelectContent>
           </Select>
 
-          {(statusFilter !== 'ALL' || typeFilter !== 'ALL' || searchTerm) && (
+          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+            <SelectTrigger className="w-[160px] h-9">
+              <SelectValue placeholder="Priorité" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Toutes priorités</SelectItem>
+              {PRIORITIES.map(priority => (
+                <SelectItem key={priority.value} value={priority.value}>{priority.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {(statusFilter !== 'ALL' || typeFilter !== 'ALL' || priorityFilter !== 'ALL' || searchTerm) && (
             <Button
               variant="ghost"
               size="sm"
               onClick={() => {
                 setStatusFilter('ALL');
                 setTypeFilter('ALL');
+                setPriorityFilter('ALL');
                 setSearchTerm('');
               }}
               className="h-9"
@@ -703,6 +869,7 @@ export default function AdminManualTasksPage() {
                 <th className="px-2 py-3 text-left font-medium text-xs">Patient</th>
                 <th className="px-2 py-3 text-left font-medium text-xs">Téléphone</th>
                 <th className="px-2 py-3 text-left font-medium text-xs">Employé</th>
+                <th className="px-2 py-3 text-left font-medium text-xs">Priorité</th>
                 <th className="px-2 py-3 text-left font-medium text-xs">Notes Admin</th>
                 <th className="px-2 py-3 text-left font-medium text-xs">Notes Employé</th>
                 <th className="px-2 py-3 text-left font-medium text-xs">Statut</th>
@@ -731,6 +898,7 @@ export default function AdminManualTasksPage() {
                       <span className="text-xs">{task.patient?.telephone || '-'}</span>
                     </td>
                     <td className="px-2 py-2">{renderCell(task, 'assignedToId', isEditing)}</td>
+                    <td className="px-2 py-2">{renderCell(task, 'priority', isEditing)}</td>
                     <td className="px-2 py-2">{renderCell(task, 'adminNotes', isEditing)}</td>
                     <td className="px-2 py-2">{renderCell(task, 'employeeNotes', isEditing)}</td>
                     <td className="px-2 py-2">{renderCell(task, 'status', isEditing)}</td>
@@ -747,6 +915,15 @@ export default function AdminManualTasksPage() {
                         </div>
                       ) : (
                         <div className="flex gap-1 justify-center">
+                          <Button
+                            onClick={() => handleOpenAppointmentDialog(task)}
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-blue-600 hover:bg-blue-50"
+                            title="Créer un rendez-vous"
+                          >
+                            <Calendar className="h-4 w-4" />
+                          </Button>
                           <Button onClick={() => handleEdit(task)} size="icon" variant="ghost" className="h-7 w-7">
                             <Edit2 className="h-4 w-4" />
                           </Button>
@@ -864,6 +1041,125 @@ export default function AdminManualTasksPage() {
               Supprimer définitivement
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Appointment Creation Dialog */}
+      <Dialog open={appointmentDialogOpen} onOpenChange={setAppointmentDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader className="pb-3">
+            <DialogTitle className="flex items-center gap-2 text-blue-600 text-base">
+              <Calendar className="h-4 w-4" />
+              Créer un Rendez-vous
+            </DialogTitle>
+          </DialogHeader>
+          {appointmentTask && (
+            <div className="space-y-3 py-2">
+              {/* Patient Info - Compact */}
+              <div className="bg-blue-50 p-2 rounded border border-blue-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <User className="h-3 w-3 text-blue-600" />
+                    <span className="text-xs font-medium text-blue-900">
+                      {appointmentTask.patient ? `${appointmentTask.patient.firstName} ${appointmentTask.patient.lastName}` : 'N/A'}
+                    </span>
+                  </div>
+                  <Badge variant="outline" className={`text-xs ${getTaskTypeColor(appointmentTask.taskType)}`}>
+                    {TASK_TYPES.find(t => t.value === appointmentTask.taskType)?.label || appointmentTask.taskType}
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Date and Location - Grid */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-700">Date et heure *</label>
+                  <Input
+                    type="datetime-local"
+                    value={appointmentData.scheduledDate}
+                    onChange={(e) => setAppointmentData({ ...appointmentData, scheduledDate: e.target.value })}
+                    className="text-xs h-8"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-700">Lieu *</label>
+                  <Input
+                    type="text"
+                    value={appointmentData.location}
+                    onChange={(e) => setAppointmentData({ ...appointmentData, location: e.target.value })}
+                    placeholder="Cabinet, Domicile..."
+                    className="text-xs h-8"
+                  />
+                </div>
+              </div>
+
+              {/* Priority and Status - Grid */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-700">Priorité</label>
+                  <Select
+                    value={appointmentData.priority}
+                    onValueChange={(value) => setAppointmentData({ ...appointmentData, priority: value })}
+                  >
+                    <SelectTrigger className="text-xs h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="LOW">Faible</SelectItem>
+                      <SelectItem value="NORMAL">Normale</SelectItem>
+                      <SelectItem value="HIGH">Élevée</SelectItem>
+                      <SelectItem value="URGENT">Urgente</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-700">Statut</label>
+                  <Select
+                    value={appointmentData.status}
+                    onValueChange={(value) => setAppointmentData({ ...appointmentData, status: value })}
+                  >
+                    <SelectTrigger className="text-xs h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="SCHEDULED">Planifié</SelectItem>
+                      <SelectItem value="CONFIRMED">Confirmé</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Notes - Compact */}
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-700">Notes</label>
+                <Textarea
+                  value={appointmentData.notes}
+                  onChange={(e) => setAppointmentData({ ...appointmentData, notes: e.target.value })}
+                  placeholder="Notes supplémentaires..."
+                  rows={2}
+                  className="text-xs resize-none"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2 pt-3">
+            <Button
+              variant="outline"
+              onClick={() => setAppointmentDialogOpen(false)}
+              disabled={createAppointmentMutation.isPending}
+              className="h-8 text-xs"
+            >
+              Annuler
+            </Button>
+            <Button
+              onClick={handleCreateAppointment}
+              disabled={createAppointmentMutation.isPending}
+              className="bg-blue-600 hover:bg-blue-700 h-8 text-xs"
+            >
+              <Calendar className="h-3 w-3 mr-1" />
+              {createAppointmentMutation.isPending ? "Création..." : "Créer"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

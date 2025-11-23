@@ -1,11 +1,9 @@
 import React from 'react';
-import { useRouter } from 'next/router';
 import { MedicalDevice, Diagnostic, DiagnosticResult } from '@prisma/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { ActivityIcon, CheckCircleIcon, ClockIcon, AlertCircleIcon, ExternalLink, Eye } from 'lucide-react';
+import { ActivityIcon, CheckCircleIcon, ClockIcon, AlertCircleIcon } from 'lucide-react';
 
 interface DiagnosticDeviceDetailsProps {
   device: MedicalDevice;
@@ -16,8 +14,6 @@ interface DiagnosticDeviceDetailsProps {
 }
 
 export const DiagnosticDeviceDetails: React.FC<DiagnosticDeviceDetailsProps> = ({ device, diagnostics }) => {
-  const router = useRouter();
-
   const getStatusBadge = (status: string) => {
     switch (status?.toUpperCase()) {
       case 'COMPLETED':
@@ -75,23 +71,15 @@ export const DiagnosticDeviceDetails: React.FC<DiagnosticDeviceDetailsProps> = (
   if (!diagnostics || diagnostics.length === 0) {
     return (
       <Card className="mb-6">
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader>
           <CardTitle className="text-lg font-semibold text-slate-900">Historique des diagnostics</CardTitle>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => router.push('/roles/admin/diagnostics')}
-          >
-            <Eye className="h-4 w-4 mr-2" />
-            Voir tous les diagnostics
-          </Button>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <ActivityIcon className="h-12 w-12 text-gray-400 mb-3" />
             <h3 className="text-lg font-medium text-gray-900">Aucun diagnostic enregistré</h3>
             <p className="text-gray-500 mt-1 max-w-md">
-              Cet appareil de diagnostic n'a pas encore été utilisé pour des examens.
+              Cet appareil de diagnostic n'a pas encore été utilisé pour des examens. 
               Les futurs diagnostics apparaîtront ici.
             </p>
           </div>
@@ -100,26 +88,15 @@ export const DiagnosticDeviceDetails: React.FC<DiagnosticDeviceDetailsProps> = (
     );
   }
 
-  const displayedDiagnosticsCount = Math.min(diagnostics.length, 10);
-  const additionalDiagnosticsCount = diagnostics.length - displayedDiagnosticsCount;
-
   return (
     <Card className="mb-6">
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader>
         <CardTitle className="text-lg font-semibold text-slate-900">
           Historique des diagnostics
           <Badge className="ml-2 bg-blue-100 text-blue-800 text-xs">
             {diagnostics.length} examen{diagnostics.length > 1 ? 's' : ''}
           </Badge>
         </CardTitle>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => router.push('/roles/admin/diagnostics')}
-        >
-          <Eye className="h-4 w-4 mr-2" />
-          Voir tous les diagnostics
-        </Button>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
@@ -135,7 +112,7 @@ export const DiagnosticDeviceDetails: React.FC<DiagnosticDeviceDetailsProps> = (
               </TableRow>
             </TableHeader>
             <TableBody>
-              {diagnostics.slice(0, displayedDiagnosticsCount).map((diagnostic) => (
+              {diagnostics.map((diagnostic) => (
                 <TableRow key={diagnostic.id} className="hover:bg-slate-50">
                   <TableCell className="font-medium">
                     {new Date(diagnostic.diagnosticDate).toLocaleDateString('fr-FR', {
@@ -175,17 +152,6 @@ export const DiagnosticDeviceDetails: React.FC<DiagnosticDeviceDetailsProps> = (
             </TableBody>
           </Table>
         </div>
-        {additionalDiagnosticsCount > 0 && (
-          <div className="mt-4 flex justify-center">
-            <Button
-              variant="outline"
-              onClick={() => router.push('/roles/admin/diagnostics')}
-            >
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Voir {additionalDiagnosticsCount} diagnostic{additionalDiagnosticsCount > 1 ? 's' : ''} supplémentaire{additionalDiagnosticsCount > 1 ? 's' : ''}
-            </Button>
-          </div>
-        )}
       </CardContent>
     </Card>
   );

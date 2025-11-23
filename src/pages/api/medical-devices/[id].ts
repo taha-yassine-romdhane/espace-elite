@@ -37,15 +37,16 @@ export default async function handler(
             purchasePrice: device.purchasePrice,
             sellingPrice: device.sellingPrice,
             rentalPrice: device.rentalPrice,
-            technicalSpecs: device.technicalSpecs,
-            description: device.description,
             stockLocation: device.stockLocation?.name || 'Non assigné',
             stockLocationId: device.stockLocationId,
             stockQuantity: device.stockQuantity,
             status: device.status,
+            technicalSpecs: device.technicalSpecs,
             configuration: device.configuration,
             warranty: device.warranty,
-            maintenanceInterval: device.maintenanceInterval
+            description: device.description,
+            maintenanceInterval: device.maintenanceInterval,
+            deviceCode: device.deviceCode
           });
         }
 
@@ -72,16 +73,21 @@ export default async function handler(
           brand: product.brand,
           model: product.model,
           serialNumber: product.serialNumber,
+          description: product.description,
+          partNumber: product.partNumber,
+          compatibleWith: product.compatibleWith,
+          minQuantity: product.minQuantity,
           purchasePrice: product.purchasePrice,
           sellingPrice: product.sellingPrice,
           warrantyExpiration: product.warrantyExpiration,
+          stocks: product.stocks, // Include full stocks array for edit form
+          // Backwards compatibility fields
           stockLocation: product.stocks[0]?.location.name || 'Non assigné',
           stockLocationId: product.stocks[0]?.location.id,
           stockQuantity: product.stocks.reduce((acc, stock) => acc + stock.quantity, 0),
           status: product.stocks[0]?.status || 'FOR_SALE'
         });
 
-      case 'PATCH':
       case 'PUT':
         try {
           console.log("Received PUT request for ID:", id);
@@ -95,6 +101,44 @@ export default async function handler(
             return res.status(400).json({ error: 'ID is required' });
           }
 
+          // Check if this is a simple update without type (e.g., just updating reservation status or stock location)
+          // If so, update the medical device directly
+          if (!type && (data.patientId || data.location || data.reservedUntil || data.stockLocationId)) {
+            try {
+              const updatedDevice = await prisma.medicalDevice.update({
+                where: { id: id as string },
+                data: {
+                  ...(data.patientId ? { patientId: data.patientId } : {}),
+                  ...(data.location ? { location: data.location } : {}),
+                  ...(data.status ? { status: data.status } : {}),
+                  ...(data.reservedUntil ? { reservedUntil: new Date(data.reservedUntil) } : {}),
+                  ...(data.stockLocationId ? {
+                    stockLocation: {
+                      connect: { id: data.stockLocationId }
+                    }
+                  } : {})
+                },
+                include: {
+                  stockLocation: true,
+                }
+              });
+
+              console.log('Device reservation updated successfully:', updatedDevice.id);
+
+              return res.status(200).json({
+                id: updatedDevice.id,
+                name: updatedDevice.name,
+                location: updatedDevice.location,
+                status: updatedDevice.status,
+                stockLocationId: updatedDevice.stockLocationId,
+                stockLocation: updatedDevice.stockLocation
+              });
+            } catch (error) {
+              console.error("Error updating device reservation:", error);
+              return res.status(500).json({ error: "Failed to update device reservation" });
+            }
+          }
+
           if (type === 'MEDICAL_DEVICE' || type === 'DIAGNOSTIC_DEVICE') {
             // With the schema refactoring, we no longer use DiagnosticParameter and ParameterValue models
             // diagnostic results are now tracked directly in the DiagnosticResult model
@@ -103,6 +147,86 @@ export default async function handler(
               // We don't need to create separate parameters anymore since we use DiagnosticResult
               // Just remove parameters from data to avoid errors
               delete data.parameters;
+            }
+
+            // Check if device exists and has no code - generate one
+            const existingDevice = await prisma.medicalDevice.findUnique({
+              where: { id: id as string }
+            });
+
+            if (!existingDevice) {
+              return res.status(404).json({ error: 'Device not found' });
+            }
+
+            let deviceCode = existingDevice.deviceCode;
+
+            // Check if device needs code generation or pattern correction
+            const needsCodeGeneration = !deviceCode;
+            const isDiagnosticDevice = existingDevice.type === 'DIAGNOSTIC_DEVICE' || type === 'DIAGNOSTIC_DEVICE';
+
+            // Check if pattern is incorrect
+            let needsPatternCorrection = false;
+            if (deviceCode && isDiagnosticDevice) {
+              // Diagnostic device should have APP-DIAG-XX pattern, not APPXXXX or other patterns
+              needsPatternCorrection = !deviceCode.match(/^APP-DIAG-\d{2}$/);
+            } else if (deviceCode && !isDiagnosticDevice) {
+              // Regular device should have APPXXXX pattern, not APP-DIAG-XX
+              needsPatternCorrection = deviceCode.startsWith('APP-DIAG-');
+            }
+
+            if (needsCodeGeneration || needsPatternCorrection) {
+              if (needsCodeGeneration) {
+                console.log('Device has no code, generating new code...');
+              } else {
+                console.log('Device has incorrect pattern, correcting code from:', deviceCode);
+              }
+
+              if (isDiagnosticDevice) {
+                // Generate APP-DIAG-01, APP-DIAG-02, etc. for diagnostic devices
+                const lastDiagDevice = await prisma.medicalDevice.findFirst({
+                  where: {
+                    deviceCode: {
+                      startsWith: 'APP-DIAG-'
+                    }
+                  },
+                  orderBy: {
+                    deviceCode: 'desc'
+                  }
+                });
+
+                deviceCode = 'APP-DIAG-01';
+                if (lastDiagDevice && lastDiagDevice.deviceCode) {
+                  const lastNumber = parseInt(lastDiagDevice.deviceCode.replace('APP-DIAG-', ''));
+                  if (!isNaN(lastNumber)) {
+                    deviceCode = `APP-DIAG-${String(lastNumber + 1).padStart(2, '0')}`;
+                  }
+                }
+              } else {
+                // Generate APP0001, APP0002, etc. for regular medical devices
+                const lastDevice = await prisma.medicalDevice.findFirst({
+                  where: {
+                    deviceCode: {
+                      startsWith: 'APP',
+                      not: {
+                        startsWith: 'APP-DIAG-'
+                      }
+                    }
+                  },
+                  orderBy: {
+                    deviceCode: 'desc'
+                  }
+                });
+
+                deviceCode = 'APP0001';
+                if (lastDevice && lastDevice.deviceCode) {
+                  const lastNumber = parseInt(lastDevice.deviceCode.replace('APP', ''));
+                  if (!isNaN(lastNumber)) {
+                    deviceCode = `APP${String(lastNumber + 1).padStart(4, '0')}`;
+                  }
+                }
+              }
+
+              console.log('Generated/Corrected device code:', deviceCode);
             }
 
             console.log('About to update device with ID:', id);
@@ -119,6 +243,7 @@ export default async function handler(
               const updatedDevice = await prisma.medicalDevice.update({
                 where: { id: id as string },
                 data: {
+                  deviceCode: deviceCode, // Set the generated or existing code
                   name: data.name,
                   brand: data.brand,
                   model: data.model,
@@ -126,12 +251,22 @@ export default async function handler(
                   purchasePrice: data.purchasePrice ? parseFloat(data.purchasePrice) : null,
                   sellingPrice: data.sellingPrice ? parseFloat(data.sellingPrice) : null,
                   rentalPrice: data.rentalPrice ? parseFloat(data.rentalPrice) : null,
-                  technicalSpecs: data.technicalSpecs,
-                  description: data.description,
-                  warranty: data.warranty,
-                  maintenanceInterval: data.maintenanceInterval,
-                  configuration: data.configuration,
                   status: data.status || 'ACTIVE',
+                  // Optional fields from schema
+                  technicalSpecs: data.technicalSpecs || null,
+                  configuration: data.configuration || null,
+                  warranty: data.warranty || null,
+                  description: data.description || null,
+                  maintenanceInterval: data.maintenanceInterval || null,
+                  // Handle patient assignment and reservation
+                  ...(data.patientId ? {
+                    patientId: data.patientId,
+                    location: data.location || 'PATIENT_HOME'
+                  } : {}),
+                  // Handle reservation date if provided
+                  ...(data.reservedUntil ? {
+                    reservedUntil: new Date(data.reservedUntil)
+                  } : {}),
                   ...(data.stockLocationId ? {
                     stockLocation: {
                       connect: {
@@ -161,67 +296,106 @@ export default async function handler(
                 serialNumber: updatedDevice.serialNumber,
                 purchasePrice: updatedDevice.purchasePrice,
                 sellingPrice: updatedDevice.sellingPrice,
-                technicalSpecs: updatedDevice.technicalSpecs,
-                description: updatedDevice.description,
+                rentalPrice: updatedDevice.rentalPrice,
                 stockLocation: updatedDevice.stockLocation?.name || 'Non assigné',
                 stockLocationId: updatedDevice.stockLocationId,
                 stockQuantity: updatedDevice.stockQuantity,
                 status: updatedDevice.status,
-                configuration: updatedDevice.configuration
+                technicalSpecs: updatedDevice.technicalSpecs,
+                configuration: updatedDevice.configuration,
+                warranty: updatedDevice.warranty,
+                description: updatedDevice.description,
+                maintenanceInterval: updatedDevice.maintenanceInterval,
+                deviceCode: updatedDevice.deviceCode
               });
             } catch (updateError) {
               console.error('Error updating device:', updateError);
               return res.status(500).json({ error: 'Failed to update device' });
             }
           } else {
-            // Update product
+            // Update product (accessories/spare parts)
             try {
-              // Extract only valid Product model fields
-              const {
-                name,
-                brand,
-                model,
-                serialNumber,
-                description,
-                purchasePrice,
-                sellingPrice,
-                status,
-                minQuantity,
-                warrantyExpiration,
-                purchaseDate,
-                notes,
-                stockLocationId,
-                stockQuantity
-              } = data;
+              const { warrantyExpiration, purchasePrice, sellingPrice, status, stockLocationId, stockQuantity, stockEntries, description, minQuantity, ...productData } = data;
 
-              const updatePayload: any = {};
+              console.log('Updating product with description:', description);
 
-              // Only add fields that are provided
-              if (name !== undefined) updatePayload.name = name;
-              if (brand !== undefined) updatePayload.brand = brand;
-              if (model !== undefined) updatePayload.model = model;
-              if (serialNumber !== undefined) updatePayload.serialNumber = serialNumber;
-              if (description !== undefined) updatePayload.description = description;
-              if (notes !== undefined) updatePayload.notes = notes;
-              if (minQuantity !== undefined) updatePayload.minQuantity = minQuantity;
+              // First, get the existing product to check if it needs a code
+              const existingProduct = await prisma.product.findUnique({
+                where: { id: id as string }
+              });
 
-              if (purchasePrice !== undefined) {
+              if (!existingProduct) {
+                return res.status(404).json({ error: 'Product not found' });
+              }
+
+              let productCode = existingProduct.productCode;
+              const type = productData.type || existingProduct.type;
+
+              // Check if product needs code generation or pattern correction
+              const needsCodeGeneration = !productCode;
+              let needsPatternCorrection = false;
+
+              if (productCode && type) {
+                const expectedPrefix = type === 'ACCESSORY' ? 'ACC-' : type === 'SPARE_PART' ? 'PIEC-' : 'PRD-';
+                needsPatternCorrection = !productCode.startsWith(expectedPrefix);
+              }
+
+              if (needsCodeGeneration || needsPatternCorrection) {
+                if (needsCodeGeneration) {
+                  console.log('Product has no code, generating new code...');
+                } else {
+                  console.log('Product has incorrect pattern, correcting code from:', productCode);
+                }
+
+                const prefix = type === 'ACCESSORY' ? 'ACC-' : type === 'SPARE_PART' ? 'PIEC-' : 'PRD-';
+
+                const lastProduct = await prisma.product.findFirst({
+                  where: {
+                    type: type,
+                    productCode: {
+                      startsWith: prefix
+                    }
+                  },
+                  orderBy: {
+                    productCode: 'desc'
+                  }
+                });
+
+                productCode = `${prefix}001`;
+                if (lastProduct && lastProduct.productCode) {
+                  const lastNumber = parseInt(lastProduct.productCode.replace(prefix, ''));
+                  if (!isNaN(lastNumber)) {
+                    productCode = `${prefix}${String(lastNumber + 1).padStart(3, '0')}`;
+                  }
+                }
+
+                console.log('Generated/Corrected product code:', productCode);
+              }
+
+              const updatePayload: any = {
+                ...productData,
+                productCode: productCode, // Always set the productCode
+              };
+
+              if (description !== undefined) {
+                updatePayload.description = description;
+              }
+              if (minQuantity !== undefined) {
+                updatePayload.minQuantity = minQuantity ? parseInt(minQuantity.toString()) : null;
+              }
+              if (purchasePrice) {
                 updatePayload.purchasePrice = parseFloat(purchasePrice);
               }
-              if (sellingPrice !== undefined) {
+              if (sellingPrice) {
                 updatePayload.sellingPrice = parseFloat(sellingPrice);
               }
               if (warrantyExpiration) {
                 updatePayload.warrantyExpiration = new Date(warrantyExpiration);
               }
-              if (purchaseDate) {
-                updatePayload.purchaseDate = new Date(purchaseDate);
-              }
               if (status) {
                 updatePayload.status = status === 'FOR_SALE' ? 'ACTIVE' :
                                      status === 'VENDU' ? 'SOLD' :
-                                     status === 'HORS_SERVICE' ? 'RETIRED' :
-                                     status; // Keep the original status if it doesn't match
+                                     status === 'HORS_SERVICE' ? 'RETIRED' : 'ACTIVE';
               }
 
               const updatedProduct = await prisma.product.update({
@@ -236,7 +410,64 @@ export default async function handler(
                 }
               });
 
-              if (stockLocationId) {
+              // Handle multi-location stock updates
+              if (Array.isArray(stockEntries) && stockEntries.length > 0) {
+                // Delete existing stocks
+                await prisma.stock.deleteMany({
+                  where: { productId: id as string }
+                });
+
+                // Create new stocks based on stockEntries
+                const createdStocks = await Promise.all(
+                  stockEntries.map((entry: any) =>
+                    prisma.stock.create({
+                      data: {
+                        productId: id as string,
+                        locationId: entry.locationId,
+                        quantity: parseInt(entry.quantity.toString()),
+                        status: entry.status || 'FOR_SALE'
+                      },
+                      include: {
+                        location: true
+                      }
+                    })
+                  )
+                );
+
+                // Calculate total quantity
+                const totalQuantity = createdStocks.reduce((sum, stock) => sum + stock.quantity, 0);
+
+                return res.status(200).json({
+                  id: updatedProduct.id,
+                  name: updatedProduct.name,
+                  type: updatedProduct.type,
+                  brand: updatedProduct.brand,
+                  model: updatedProduct.model,
+                  serialNumber: updatedProduct.serialNumber,
+                  description: updatedProduct.description,
+                  partNumber: updatedProduct.partNumber,
+                  compatibleWith: updatedProduct.compatibleWith,
+                  minQuantity: updatedProduct.minQuantity,
+                  purchasePrice: updatedProduct.purchasePrice,
+                  sellingPrice: updatedProduct.sellingPrice,
+                  warrantyExpiration: updatedProduct.warrantyExpiration,
+                  stocks: createdStocks,
+                  locations: createdStocks.map(stock => ({
+                    id: stock.location.id,
+                    name: stock.location.name,
+                    quantity: stock.quantity,
+                    status: stock.status
+                  })),
+                  totalQuantity: totalQuantity,
+                  // Backwards compatibility
+                  stockLocation: createdStocks[0]?.location?.name || 'Non assigné',
+                  stockLocationId: createdStocks[0]?.location?.id,
+                  stockQuantity: createdStocks[0]?.quantity || 0,
+                  status: createdStocks[0]?.status || 'FOR_SALE'
+                });
+              }
+              // Fallback to old single-location format (backwards compatibility)
+              else if (stockLocationId) {
                 const existingStock = await prisma.stock.findFirst({
                   where: {
                     productId: id as string,
@@ -263,28 +494,81 @@ export default async function handler(
                     status: status || 'FOR_SALE'
                   }
                 });
+
+                // Fetch updated product with stocks
+                const productWithStocks = await prisma.product.findUnique({
+                  where: { id: id as string },
+                  include: {
+                    stocks: {
+                      include: {
+                        location: true
+                      }
+                    }
+                  }
+                });
+
+                // Map the status back to the frontend format
+                const mappedStatus = updatedProduct.status === 'ACTIVE' ? 'FOR_SALE' :
+                  updatedProduct.status === 'SOLD' ? 'VENDU' :
+                    updatedProduct.status === 'RETIRED' ? 'HORS_SERVICE' : 'FOR_SALE';
+
+                return res.status(200).json({
+                  id: updatedProduct.id,
+                  name: updatedProduct.name,
+                  type: updatedProduct.type,
+                  brand: updatedProduct.brand,
+                  model: updatedProduct.model,
+                  serialNumber: updatedProduct.serialNumber,
+                  description: updatedProduct.description,
+                  partNumber: updatedProduct.partNumber,
+                  compatibleWith: updatedProduct.compatibleWith,
+                  minQuantity: updatedProduct.minQuantity,
+                  purchasePrice: updatedProduct.purchasePrice,
+                  sellingPrice: updatedProduct.sellingPrice,
+                  warrantyExpiration: updatedProduct.warrantyExpiration,
+                  stockLocation: productWithStocks?.stocks[0]?.location?.name || 'Non assigné',
+                  stockLocationId: productWithStocks?.stocks[0]?.location?.id,
+                  stockQuantity: productWithStocks?.stocks[0]?.quantity || 0,
+                  status: mappedStatus
+                });
+              } else {
+                // No stock update needed, just return updated product info
+                const productWithStocks = await prisma.product.findUnique({
+                  where: { id: id as string },
+                  include: {
+                    stocks: {
+                      include: {
+                        location: true
+                      }
+                    }
+                  }
+                });
+
+                // Map the status back to the frontend format
+                const mappedStatus = updatedProduct.status === 'ACTIVE' ? 'FOR_SALE' :
+                  updatedProduct.status === 'SOLD' ? 'VENDU' :
+                    updatedProduct.status === 'RETIRED' ? 'HORS_SERVICE' : 'FOR_SALE';
+
+                return res.status(200).json({
+                  id: updatedProduct.id,
+                  name: updatedProduct.name,
+                  type: updatedProduct.type,
+                  brand: updatedProduct.brand,
+                  model: updatedProduct.model,
+                  serialNumber: updatedProduct.serialNumber,
+                  description: updatedProduct.description,
+                  partNumber: updatedProduct.partNumber,
+                  compatibleWith: updatedProduct.compatibleWith,
+                  minQuantity: updatedProduct.minQuantity,
+                  purchasePrice: updatedProduct.purchasePrice,
+                  sellingPrice: updatedProduct.sellingPrice,
+                  warrantyExpiration: updatedProduct.warrantyExpiration,
+                  stockLocation: productWithStocks?.stocks[0]?.location?.name || 'Non assigné',
+                  stockLocationId: productWithStocks?.stocks[0]?.location?.id,
+                  stockQuantity: productWithStocks?.stocks[0]?.quantity || 0,
+                  status: mappedStatus
+                });
               }
-
-              // Map the status back to the frontend format
-              const mappedStatus = updatedProduct.status === 'ACTIVE' ? 'FOR_SALE' :
-                updatedProduct.status === 'SOLD' ? 'VENDU' :
-                  updatedProduct.status === 'RETIRED' ? 'HORS_SERVICE' : 'FOR_SALE';
-
-              return res.status(200).json({
-                id: updatedProduct.id,
-                name: updatedProduct.name,
-                type: updatedProduct.type,
-                brand: updatedProduct.brand,
-                model: updatedProduct.model,
-                serialNumber: updatedProduct.serialNumber,
-                purchasePrice: updatedProduct.purchasePrice,
-                sellingPrice: updatedProduct.sellingPrice,
-                warrantyExpiration: updatedProduct.warrantyExpiration,
-                stockLocation: updatedProduct.stocks[0]?.location?.name || 'Non assigné',
-                stockLocationId: updatedProduct.stocks[0]?.location?.id,
-                stockQuantity: updatedProduct.stocks[0]?.quantity || 0,
-                status: mappedStatus
-              });
             } catch (error) {
               console.error("Product update error:", error);
               return res.status(500).json({ error: "Failed to update product" });
@@ -362,7 +646,7 @@ export default async function handler(
         }
 
       default:
-        res.setHeader('Allow', ['GET', 'PUT', 'PATCH', 'DELETE']);
+        res.setHeader('Allow', ['GET', 'PUT', 'DELETE']);
         return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
     }
   } catch (error) {

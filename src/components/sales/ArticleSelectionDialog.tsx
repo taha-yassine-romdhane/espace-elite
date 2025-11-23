@@ -15,15 +15,19 @@ interface ArticleSelectionDialogProps {
     name: string;
     code?: string;
     serialNumber?: string;
+    brand?: string;
+    model?: string;
     unitPrice: number;
     parameters?: any;
   }) => void;
+  employeeStockLocationId?: string; // Optional: filter by employee's stock location
 }
 
 export default function ArticleSelectionDialog({
   open,
   onClose,
   onSelect,
+  employeeStockLocationId,
 }: ArticleSelectionDialogProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'product' | 'medical-device' | 'accessory' | 'spare-part' | 'diagnostic'>('medical-device');
@@ -88,18 +92,32 @@ export default function ArticleSelectionDialog({
   // Filter products
   const filteredProducts = useMemo(() => {
     if (!products) return [];
+    let filtered = products;
+
+    // Filter by employee stock location if provided
+    if (employeeStockLocationId) {
+      filtered = filtered.filter((p: any) => p.stockLocationId === employeeStockLocationId);
+    }
+
     const searchLower = searchTerm.toLowerCase();
-    return products.filter((p: any) =>
+    return filtered.filter((p: any) =>
       p.name?.toLowerCase().includes(searchLower) ||
       p.productCode?.toLowerCase().includes(searchLower)
     );
-  }, [products, searchTerm]);
+  }, [products, searchTerm, employeeStockLocationId]);
 
   // Filter medical devices (exclude diagnostic devices as they have their own tab)
   const filteredDevices = useMemo(() => {
     if (!medicalDevices) return [];
+    let filtered = medicalDevices;
+
+    // Filter by employee stock location if provided
+    if (employeeStockLocationId) {
+      filtered = filtered.filter((d: any) => d.stockLocationId === employeeStockLocationId);
+    }
+
     const searchLower = searchTerm.toLowerCase();
-    return medicalDevices.filter((d: any) => {
+    return filtered.filter((d: any) => {
       // Exclude diagnostic devices from medical devices tab
       if (d.type === 'DIAGNOSTIC_DEVICE') return false;
       return (
@@ -107,39 +125,66 @@ export default function ArticleSelectionDialog({
         d.serialNumber?.toLowerCase().includes(searchLower)
       );
     });
-  }, [medicalDevices, searchTerm]);
+  }, [medicalDevices, searchTerm, employeeStockLocationId]);
 
   // Filter accessories
   const filteredAccessories = useMemo(() => {
     if (!accessories) return [];
+    let filtered = accessories;
+
+    // Filter by employee stock location if provided
+    if (employeeStockLocationId) {
+      filtered = filtered.filter((a: any) => a.stockLocationId === employeeStockLocationId);
+    }
+
     const searchLower = searchTerm.toLowerCase();
-    return accessories.filter((a: any) =>
+    return filtered.filter((a: any) =>
       a.name?.toLowerCase().includes(searchLower) ||
+      a.productCode?.toLowerCase().includes(searchLower) ||
+      a.brand?.toLowerCase().includes(searchLower) ||
+      a.model?.toLowerCase().includes(searchLower) ||
       a.serialNumber?.toLowerCase().includes(searchLower)
     );
-  }, [accessories, searchTerm]);
+  }, [accessories, searchTerm, employeeStockLocationId]);
 
   // Filter spare parts
   const filteredSpareParts = useMemo(() => {
     if (!spareParts) return [];
+    let filtered = spareParts;
+
+    // Filter by employee stock location if provided
+    if (employeeStockLocationId) {
+      filtered = filtered.filter((s: any) => s.stockLocationId === employeeStockLocationId);
+    }
+
     const searchLower = searchTerm.toLowerCase();
-    return spareParts.filter((s: any) =>
+    return filtered.filter((s: any) =>
       s.name?.toLowerCase().includes(searchLower) ||
+      s.productCode?.toLowerCase().includes(searchLower) ||
+      s.brand?.toLowerCase().includes(searchLower) ||
+      s.model?.toLowerCase().includes(searchLower) ||
       s.serialNumber?.toLowerCase().includes(searchLower)
     );
-  }, [spareParts, searchTerm]);
+  }, [spareParts, searchTerm, employeeStockLocationId]);
 
   // Filter diagnostic devices
   const filteredDiagnostics = useMemo(() => {
     if (!diagnosticDevices) return [];
+    let filtered = diagnosticDevices;
+
+    // Filter by employee stock location if provided
+    if (employeeStockLocationId) {
+      filtered = filtered.filter((d: any) => d.stockLocationId === employeeStockLocationId);
+    }
+
     const searchLower = searchTerm.toLowerCase();
-    const filtered = diagnosticDevices.filter((d: any) =>
+    filtered = filtered.filter((d: any) =>
       d.name?.toLowerCase().includes(searchLower) ||
       d.serialNumber?.toLowerCase().includes(searchLower)
     );
     console.log('Filtered diagnostics:', filtered.length, 'out of', diagnosticDevices.length);
     return filtered;
-  }, [diagnosticDevices, searchTerm]);
+  }, [diagnosticDevices, searchTerm, employeeStockLocationId]);
 
   const handleProductSelect = (product: any) => {
     onSelect({
@@ -147,6 +192,8 @@ export default function ArticleSelectionDialog({
       id: product.id,
       name: product.name,
       code: product.productCode,
+      brand: product.brand,
+      model: product.model,
       unitPrice: product.sellingPrice || 0,
     });
     handleClose();
@@ -161,6 +208,8 @@ export default function ArticleSelectionDialog({
       name: device.name,
       code: device.deviceCode,
       serialNumber: device.serialNumber,
+      brand: device.brand,
+      model: device.model,
       unitPrice: device.sellingPrice || 0,
     });
     handleClose();
@@ -173,6 +222,8 @@ export default function ArticleSelectionDialog({
       name: accessory.name,
       code: accessory.productCode,
       serialNumber: accessory.serialNumber,
+      brand: accessory.brand,
+      model: accessory.model,
       unitPrice: accessory.sellingPrice || 0,
     });
     handleClose();
@@ -185,6 +236,8 @@ export default function ArticleSelectionDialog({
       name: sparePart.name,
       code: sparePart.productCode,
       serialNumber: sparePart.serialNumber,
+      brand: sparePart.brand,
+      model: sparePart.model,
       unitPrice: sparePart.sellingPrice || 0,
     });
     handleClose();
@@ -199,6 +252,8 @@ export default function ArticleSelectionDialog({
       name: diagnostic.name,
       code: diagnostic.deviceCode,
       serialNumber: diagnostic.serialNumber,
+      brand: diagnostic.brand,
+      model: diagnostic.model,
       unitPrice: diagnostic.sellingPrice || 0,
     });
     handleClose();
@@ -222,7 +277,7 @@ export default function ArticleSelectionDialog({
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
-                placeholder="Rechercher par nom, code ou numéro de série..."
+                placeholder="Rechercher par nom, code, marque, modèle ou numéro de série..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -349,26 +404,43 @@ export default function ArticleSelectionDialog({
                         className="flex items-center justify-between p-4 hover:bg-gray-50 cursor-pointer border-b last:border-0"
                         onClick={() => handleAccessorySelect(accessory)}
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 flex-1">
                           <Puzzle className="h-5 w-5 text-green-500" />
-                          <div>
+                          <div className="flex-1">
                             <div className="font-medium">{accessory.name}</div>
                             <div className="text-sm text-gray-500">
-                              Code: {accessory.productCode} {accessory.serialNumber ? `• N° Série: ${accessory.serialNumber}` : ''}
+                              Code: {accessory.productCode}
+                              {accessory.brand && ` • Marque: ${accessory.brand}`}
+                              {accessory.model && ` • Modèle: ${accessory.model}`}
                             </div>
                             {accessory.type && (
                               <Badge variant="outline" className="mt-1 text-xs bg-green-50 text-green-700 border-green-200">
                                 {accessory.type}
                               </Badge>
                             )}
+                            {/* Stock locations */}
+                            {accessory.stocks && accessory.stocks.length > 0 && (
+                              <div className="mt-2 space-y-1">
+                                <div className="text-xs font-semibold text-gray-700">Stock par emplacement:</div>
+                                {accessory.stocks.map((stock: any) => (
+                                  <div key={stock.id} className="text-xs text-gray-600 flex items-center gap-2">
+                                    <span className="inline-block w-2 h-2 rounded-full bg-green-500"></span>
+                                    <span className="font-medium">{stock.location?.name || 'N/A'}:</span>
+                                    <span className={stock.quantity > 0 ? 'text-green-600 font-semibold' : 'text-red-600'}>
+                                      {stock.quantity} unité{stock.quantity > 1 ? 's' : ''}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
-                        <div className="text-right">
+                        <div className="text-right ml-4">
                           <div className="font-semibold text-green-700">
                             {parseFloat(accessory.sellingPrice || 0).toFixed(2)} TND
                           </div>
-                          <div className="text-xs text-gray-500">
-                            {accessory.status || 'Disponible'}
+                          <div className="text-xs text-gray-500 mt-1">
+                            Total: {accessory.stockQuantity || 0} unité{(accessory.stockQuantity || 0) > 1 ? 's' : ''}
                           </div>
                         </div>
                       </div>
@@ -391,26 +463,43 @@ export default function ArticleSelectionDialog({
                         className="flex items-center justify-between p-4 hover:bg-gray-50 cursor-pointer border-b last:border-0"
                         onClick={() => handleSparePartSelect(sparePart)}
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 flex-1">
                           <Cog className="h-5 w-5 text-orange-500" />
-                          <div>
+                          <div className="flex-1">
                             <div className="font-medium">{sparePart.name}</div>
                             <div className="text-sm text-gray-500">
-                              Code: {sparePart.productCode} {sparePart.serialNumber ? `• N° Série: ${sparePart.serialNumber}` : ''}
+                              Code: {sparePart.productCode}
+                              {sparePart.brand && ` • Marque: ${sparePart.brand}`}
+                              {sparePart.model && ` • Modèle: ${sparePart.model}`}
                             </div>
                             {sparePart.type && (
                               <Badge variant="outline" className="mt-1 text-xs bg-orange-50 text-orange-700 border-orange-200">
                                 {sparePart.type}
                               </Badge>
                             )}
+                            {/* Stock locations */}
+                            {sparePart.stocks && sparePart.stocks.length > 0 && (
+                              <div className="mt-2 space-y-1">
+                                <div className="text-xs font-semibold text-gray-700">Stock par emplacement:</div>
+                                {sparePart.stocks.map((stock: any) => (
+                                  <div key={stock.id} className="text-xs text-gray-600 flex items-center gap-2">
+                                    <span className="inline-block w-2 h-2 rounded-full bg-orange-500"></span>
+                                    <span className="font-medium">{stock.location?.name || 'N/A'}:</span>
+                                    <span className={stock.quantity > 0 ? 'text-green-600 font-semibold' : 'text-red-600'}>
+                                      {stock.quantity} unité{stock.quantity > 1 ? 's' : ''}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
-                        <div className="text-right">
+                        <div className="text-right ml-4">
                           <div className="font-semibold text-orange-700">
                             {parseFloat(sparePart.sellingPrice || 0).toFixed(2)} TND
                           </div>
-                          <div className="text-xs text-gray-500">
-                            {sparePart.status || 'Disponible'}
+                          <div className="text-xs text-gray-500 mt-1">
+                            Total: {sparePart.stockQuantity || 0} unité{(sparePart.stockQuantity || 0) > 1 ? 's' : ''}
                           </div>
                         </div>
                       </div>

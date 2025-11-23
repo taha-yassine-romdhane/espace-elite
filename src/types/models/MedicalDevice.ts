@@ -27,7 +27,10 @@ export interface MedicalDevice {
   stockLocation?: StockLocation;
   stockQuantity: number;
   status: DeviceStatus;
+  availableForRent: boolean;
+  requiresMaintenance: boolean;
   installationDate?: Date;
+  reservedUntil?: Date;
   location?: string;
 
   deviceParameters?: MedicalDeviceParametre[];

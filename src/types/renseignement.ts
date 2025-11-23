@@ -38,19 +38,19 @@ export interface Renseignement {
   matriculeFiscale?: string;
   phoneDescription?: string;
   addressDescription?: string;
+  isActive?: boolean;
   createdAt: string;
-
-  // New relations
-  rentals?: any[];
-  sales?: any[];
-  diagnostics?: any[];
-  appointments?: any[];
-  payments?: any[];
-  cnamBonRentals?: any[];
-  cnamDossiers?: any[];
-  deviceParameters?: any[];
-  notifications?: any[];
-  PatientHistory?: any[];
+  rentals?: Array<{ id: string; rentalCode?: string }>;
+  sales?: Array<{ id: string; saleCode?: string }>;
+  diagnostics?: Array<{ id: string; diagnosticCode?: string }>;
+  appointments?: Array<{ id: string; appointmentCode?: string }>;
+  tasks?: Array<{ id: string; taskCode?: string }>;
+  payments?: Array<{ id: string; paymentCode?: string }>;
+  cnamBonRentals?: Array<{ id: string; bonNumber?: string }>;
+  cnamDossiers?: Array<{ id: string; dossierNumber?: string }>;
+  deviceParameters?: Array<{ id: string }>;
+  notifications?: Array<{ id: string }>;
+  PatientHistory?: Array<{ id: string }>;
 }
 
 export interface UploadedFile {
@@ -83,6 +83,7 @@ export interface RenseignementFormData {
   addressCoordinates?: string;
   nomSociete?: string;
   matriculeFiscale?: string;
+  isActive?: boolean;
   images?: File[];
   files?: File[];
   existingFiles?: UploadedFile[];

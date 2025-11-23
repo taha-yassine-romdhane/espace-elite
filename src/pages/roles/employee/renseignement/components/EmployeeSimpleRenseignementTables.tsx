@@ -89,12 +89,14 @@ export default function EmployeeSimpleRenseignementTables({
     setShowPatientDeletionDialog(true);
   };
 
-  const handleConfirmDelete = async () => {
-    if (patientToDelete) {
-      await onDelete([patientToDelete.id]);
-      setShowPatientDeletionDialog(false);
-      setPatientToDelete(null);
-    }
+  const handleConfirmDelete = () => {
+    // The PatientDeletionDialog handles the actual deletion
+    // This callback is called after successful deletion
+    // Just close the dialog and reset state
+    setShowPatientDeletionDialog(false);
+    setPatientToDelete(null);
+    // Optionally trigger a data refresh in parent
+    window.location.reload();
   };
 
   // Handle company deletion
@@ -277,14 +279,11 @@ export default function EmployeeSimpleRenseignementTables({
               <table className="w-full border-collapse">
                 <thead className="bg-slate-50 sticky top-0 z-10">
                   <tr className="border-b border-slate-200">
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-slate-700 border-r border-slate-200 min-w-[100px]">Code</th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-slate-700 border-r border-slate-200 min-w-[200px]">Nom Complet</th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-slate-700 border-r border-slate-200 min-w-[120px]">Téléphone 1</th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-slate-700 border-r border-slate-200 min-w-[120px]">Téléphone 2</th>
+                    <th className="px-3 py-3 text-left text-xs font-semibold text-slate-700 border-r border-slate-200 min-w-[200px] sticky left-0 bg-slate-50 shadow-[2px_0_4px_rgba(0,0,0,0.05)] z-20">Nom Complet</th>
+                    <th className="px-3 py-3 text-left text-xs font-semibold text-slate-700 border-r border-slate-200 min-w-[120px]">Téléphones</th>
                     <th className="px-3 py-3 text-left text-xs font-semibold text-slate-700 border-r border-slate-200 min-w-[120px]">CIN</th>
                     <th className="px-3 py-3 text-left text-xs font-semibold text-slate-700 border-r border-slate-200 min-w-[120px]">CNAM ID</th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-slate-700 border-r border-slate-200 min-w-[130px]">Gouvernorat</th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-slate-700 border-r border-slate-200 min-w-[130px]">Délégation</th>
+                    <th className="px-3 py-3 text-left text-xs font-semibold text-slate-700 border-r border-slate-200 min-w-[130px]">Localisation</th>
                     <th className="px-3 py-3 text-left text-xs font-semibold text-slate-700 border-r border-slate-200 min-w-[200px]">Adresse</th>
                     <th className="px-3 py-3 text-left text-xs font-semibold text-slate-700 border-r border-slate-200 min-w-[140px]">Médecin</th>
                     <th className="px-3 py-3 text-left text-xs font-semibold text-slate-700 border-r border-slate-200 min-w-[140px]">Technicien</th>
@@ -310,22 +309,60 @@ export default function EmployeeSimpleRenseignementTables({
                       key={patient.id}
                       className={`border-b border-slate-100 hover:bg-green-50/50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}
                     >
-                      <td className="px-3 py-2.5 text-xs border-r border-slate-100">
-                        {patient.patientCode ? (
-                          <Badge variant="outline" className="text-xs font-medium">{patient.patientCode}</Badge>
-                        ) : '-'}
+                      <td className="px-3 py-2.5 border-r border-slate-100 sticky left-0 bg-inherit shadow-[2px_0_4px_rgba(0,0,0,0.05)] z-10">
+                        <div className="flex flex-col gap-1">
+                          <a
+                            href={`/roles/employee/renseignement/patient/${patient.id}`}
+                            className="text-sm font-medium text-green-700 hover:text-green-900 hover:underline cursor-pointer"
+                          >
+                            {patient.nom}
+                          </a>
+                          <div className="flex items-center gap-2">
+                            {patient.patientCode && (
+                              <span className="text-xs text-gray-500 font-mono">{patient.patientCode}</span>
+                            )}
+                            {patient.isActive === true ? (
+                              <Badge className="bg-green-100 text-green-700 border-green-300 text-xs px-1.5 py-0">
+                                Actif
+                              </Badge>
+                            ) : patient.isActive === false ? (
+                              <Badge className="bg-red-100 text-red-700 border-red-300 text-xs px-1.5 py-0">
+                                Inactif
+                              </Badge>
+                            ) : null}
+                          </div>
+                        </div>
                       </td>
-                      <td className="px-3 py-2.5 text-sm font-medium text-slate-900 border-r border-slate-100">{patient.nom}</td>
-                      <td className="px-3 py-2.5 text-xs text-slate-600 border-r border-slate-100">{patient.telephone || '-'}</td>
-                      <td className="px-3 py-2.5 text-xs text-slate-600 border-r border-slate-100">{patient.telephoneSecondaire || '-'}</td>
+                      <td className="px-3 py-2.5 border-r border-slate-100">
+                        <div className="flex flex-col gap-1">
+                          <div className="text-xs whitespace-nowrap">
+                            <span className="text-slate-500 font-medium">Tél 1: </span>
+                            <span className="text-slate-700">{patient.telephone || '-'}</span>
+                          </div>
+                          <div className="text-xs whitespace-nowrap">
+                            <span className="text-slate-500 font-medium">Tél 2: </span>
+                            <span className="text-slate-700">{patient.telephoneSecondaire || '-'}</span>
+                          </div>
+                        </div>
+                      </td>
                       <td className="px-3 py-2.5 text-xs text-slate-600 border-r border-slate-100">{patient.cin || '-'}</td>
                       <td className="px-3 py-2.5 text-xs border-r border-slate-100">
                         {patient.identifiantCNAM ? (
                           <Badge variant="secondary" className="text-xs font-normal">{patient.identifiantCNAM}</Badge>
                         ) : '-'}
                       </td>
-                      <td className="px-3 py-2.5 text-xs text-slate-600 border-r border-slate-100">{patient.governorate || '-'}</td>
-                      <td className="px-3 py-2.5 text-xs text-slate-600 border-r border-slate-100">{patient.delegation || '-'}</td>
+                      <td className="px-3 py-2.5 border-r border-slate-100">
+                        <div className="flex flex-col gap-1">
+                          <div className="text-xs whitespace-nowrap">
+                            <span className="text-slate-500 font-medium">Gouv: </span>
+                            <span className="text-slate-700">{patient.governorate || '-'}</span>
+                          </div>
+                          <div className="text-xs whitespace-nowrap">
+                            <span className="text-slate-500 font-medium">Délég: </span>
+                            <span className="text-slate-700">{patient.delegation || '-'}</span>
+                          </div>
+                        </div>
+                      </td>
                       <td className="px-3 py-2.5 text-xs text-slate-600 border-r border-slate-100 max-w-[200px]">
                         <div className="truncate" title={patient.detailedAddress || patient.adresse}>
                           {patient.detailedAddress || patient.adresse || '-'}
@@ -371,7 +408,7 @@ export default function EmployeeSimpleRenseignementTables({
                             {patient.rentals.map((rental: any) => (
                               <a
                                 key={rental.id}
-                                href={`/roles/employee/rentals?rental=${rental.id}`}
+                                href={`/roles/employee/location?rental=${rental.id}`}
                                 className="inline-block"
                               >
                                 <Badge

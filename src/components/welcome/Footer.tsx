@@ -41,13 +41,13 @@ const Footer: React.FC = () => {
               <div className="flex items-center space-x-3">
                 <Stethoscope className="w-8 h-8 text-purple-300" />
                 <div className="text-white/80">
-                  <div className="text-sm font-bold">Elite Medical Services</div>
+                  <div className="text-sm font-bold">Elite medicale Services</div>
                   <div className="text-xs text-purple-300">Medical Partner</div>
                 </div>
               </div>
             </div>
             <p className="text-gray-300 leading-relaxed mb-6">
-              Partenariat stratégique entre cubix. et Elite Medical Services pour développer 
+              Partenariat stratégique entre cubix. et Elite medicale Services pour développer
               la solution de référence en Tunisie pour la gestion des appareils médicaux.
             </p>
             
@@ -115,7 +115,7 @@ const Footer: React.FC = () => {
               </div>
               <div className="flex items-center space-x-3">
                 <Mail className="w-5 h-5 text-purple-400 flex-shrink-0" />
-                <span className="text-gray-300">contact@espace-elite.tn</span>
+                <span className="text-gray-300">contact@elite-medicale.tn</span>
               </div>
             </div>
 
@@ -148,7 +148,7 @@ const Footer: React.FC = () => {
             <div className="flex items-center space-x-2">
               <Heart className="h-4 w-4 text-red-400" />
               <span className="text-gray-400">
-                © {currentYear} cubix. × Elite Medical Services. Tous droits réservés. Fait avec passion à Tunis.
+                © {currentYear} cubix. × Elite medicale Services. Tous droits réservés. Fait avec passion à Tunis.
               </span>
             </div>
             
@@ -173,6 +173,14 @@ const Footer: React.FC = () => {
             <p className="text-xs text-gray-500">
               Solution certifiée pour la gestion médicale • Hébergement sécurisé en Tunisie • Conformité RGPD garantie
             </p>
+            <div className="mt-2 flex items-center justify-center gap-2">
+              <span className="px-3 py-1 text-xs font-semibold bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-full">
+                Version BETA
+              </span>
+              <span className="text-xs text-gray-500">
+                v1.0.0-beta
+              </span>
+            </div>
           </div>
         </div>
       </div>

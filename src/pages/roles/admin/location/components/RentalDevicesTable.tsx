@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/router';
+import { translateDeviceType } from '@/utils/enumTranslations';
 import {
   Table,
   TableBody,
@@ -209,7 +210,7 @@ export default function RentalDevicesTable() {
     setIsUpdatingLocation(true);
     try {
       const response = await fetch(`/api/medical-devices/${selectedDevice.medicalDevice.id}`, {
-        method: 'PATCH',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           stockLocationId: selectedStockLocation,
@@ -444,7 +445,7 @@ export default function RentalDevicesTable() {
                     </TableCell>
                     <TableCell>
                       <Badge variant="secondary" className="text-xs">
-                        {device.medicalDevice.type}
+                        {translateDeviceType(device.medicalDevice.type)}
                       </Badge>
                     </TableCell>
                     <TableCell className="font-mono text-xs">

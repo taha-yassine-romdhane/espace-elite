@@ -7,6 +7,13 @@ interface DeviceHeaderProps {
   device: MedicalDevice & {
     stockLocation?: { name: string } | null;
     Rental?: Array<{ status: string }>;
+    saleItems?: Array<{
+      sale: {
+        saleCode: string | null;
+        patient?: { firstName: string; lastName: string; patientCode: string } | null;
+        company?: { companyName: string; companyCode: string } | null;
+      };
+    }>;
   };
 }
 
@@ -14,20 +21,21 @@ export const DeviceHeader: React.FC<DeviceHeaderProps> = ({ device }) => {
   // Determine actual device status based on active rentals
   const hasActiveRental = device.Rental?.some(rental => rental.status === 'ACTIVE');
   const actualStatus = hasActiveRental ? 'RESERVED' : device.status;
+
   const getStatusColor = (status: string) => {
     switch (status.toUpperCase()) {
       case 'ACTIVE':
-        return 'bg-green-100 text-green-800';
+        return 'bg-green-100 text-green-800 border border-green-200';
       case 'MAINTENANCE':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-orange-100 text-orange-800 border border-orange-200';
       case 'RETIRED':
-        return 'bg-red-100 text-red-800';
+        return 'bg-red-100 text-red-800 border border-red-200';
       case 'RESERVED':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-blue-100 text-blue-800 border border-blue-200';
       case 'SOLD':
-        return 'bg-purple-100 text-purple-800';
+        return 'bg-emerald-100 text-emerald-800 border border-emerald-300 font-semibold';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-100 text-gray-800 border border-gray-200';
     }
   };
 
@@ -60,77 +68,57 @@ export const DeviceHeader: React.FC<DeviceHeaderProps> = ({ device }) => {
   };
 
   return (
-    <Card className="mb-6">
-      <CardHeader className="pb-2">
-        <div className="flex justify-between items-start">
-          <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
-              <CardTitle className="text-2xl font-bold">{device.name}</CardTitle>
-              {device.deviceCode && (
-                <Badge variant="outline" className="font-mono text-sm bg-blue-50 text-blue-700 border-blue-200">
-                  {device.deviceCode}
-                </Badge>
-              )}
-            </div>
-            <p className="text-gray-500">
-              {device.brand} / {device.model} {device.serialNumber && `• SN: ${device.serialNumber}`}
-            </p>
+    <Card>
+      <CardContent className="p-4">
+        <div className="flex justify-between items-start mb-3">
+          <div className="flex items-center gap-2">
+            <Badge className={`${getStatusColor(actualStatus)} text-xs font-medium px-2 py-1`}>
+              {getStatusLabel(actualStatus)}
+            </Badge>
+            <span className="text-xs text-gray-500">•</span>
+            <span className="text-xs text-gray-600">{getDeviceTypeLabel(device.type)}</span>
           </div>
-          <Badge className={getStatusColor(actualStatus)}>
-            {getStatusLabel(actualStatus)}
-          </Badge>
         </div>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {device.deviceCode && (
+
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-x-4 gap-y-2 text-sm">
+          <div>
+            <span className="text-gray-500 text-xs">Marque/Modèle:</span>
+            <p className="font-medium">{device.brand} {device.model}</p>
+          </div>
+
+          {device.serialNumber && (
             <div>
-              <h3 className="text-sm font-medium text-gray-500">Code Appareil</h3>
-              <p className="font-mono font-semibold text-blue-700">{device.deviceCode}</p>
+              <span className="text-gray-500 text-xs">N° Série:</span>
+              <p className="font-mono font-medium text-xs">{device.serialNumber}</p>
             </div>
           )}
+
           <div>
-            <h3 className="text-sm font-medium text-gray-500">Type</h3>
-            <p>{getDeviceTypeLabel(device.type)}</p>
+            <span className="text-gray-500 text-xs">Prix de vente:</span>
+            <p className="font-semibold text-green-700">{device.sellingPrice ? `${device.sellingPrice} DT` : '—'}</p>
           </div>
+
           <div>
-            <h3 className="text-sm font-medium text-gray-500">Prix de vente</h3>
-            <p className="font-semibold">{device.sellingPrice ? `${device.sellingPrice} DT` : 'Non défini'}</p>
+            <span className="text-gray-500 text-xs">Prix location:</span>
+            <p className="font-semibold text-blue-700">{device.rentalPrice ? `${device.rentalPrice} DT/mois` : '—'}</p>
           </div>
+
           <div>
-            <h3 className="text-sm font-medium text-gray-500">Prix de location</h3>
-            <p className="font-semibold">{device.rentalPrice ? `${device.rentalPrice} DT/mois` : 'Non défini'}</p>
+            <span className="text-gray-500 text-xs">Stock:</span>
+            <p className="text-xs">{device.stockLocation?.name || <span className="text-orange-600 italic">Non assigné</span>}</p>
           </div>
-          <div>
-            <h3 className="text-sm font-medium text-gray-500">Emplacement Stock</h3>
-            <p>{device.stockLocation?.name || <span className="text-orange-600 italic">Non assigné</span>}</p>
-          </div>
-          {device.purchaseDate && (
+
+          {device.technicalSpecs && (
             <div>
-              <h3 className="text-sm font-medium text-gray-500">Date d'achat</h3>
-              <p>{new Date(device.purchaseDate).toLocaleDateString('fr-FR')}</p>
-            </div>
-          )}
-          {device.warrantyExpiration && (
-            <div>
-              <h3 className="text-sm font-medium text-gray-500">Garantie expire le</h3>
-              <p className={new Date(device.warrantyExpiration) < new Date() ? 'text-red-600 font-semibold' : ''}>
-                {new Date(device.warrantyExpiration).toLocaleDateString('fr-FR')}
-                {new Date(device.warrantyExpiration) < new Date() && ' (Expirée)'}
-              </p>
+              <span className="text-gray-500 text-xs">Compteur:</span>
+              <p className="font-semibold">{device.technicalSpecs}h</p>
             </div>
           )}
         </div>
+
         {device.description && (
-          <div className="mt-4">
-            <h3 className="text-sm font-medium text-gray-500">Description</h3>
-            <p className="mt-1">{device.description}</p>
-          </div>
-        )}
-        {device.technicalSpecs && (
-          <div className="mt-4">
-            <h3 className="text-sm font-medium text-gray-500">Compteur (heures de fonctionnement)</h3>
-            <p className="mt-1 font-semibold text-lg">{device.technicalSpecs} heures</p>
+          <div className="mt-3 pt-3 border-t border-gray-100">
+            <p className="text-sm text-gray-700">{device.description}</p>
           </div>
         )}
       </CardContent>

@@ -290,7 +290,7 @@ export function RentalDetailsDialog({ isOpen, onClose, rental }: RentalDetailsDi
           )}
 
           {/* CNAM Information if exists */}
-          {rental.cnamBons && rental.cnamBons.length > 0 && (
+          {rental.cnamBonds && rental.cnamBonds.length > 0 && (
             <>
               <Separator />
               <div>
@@ -299,10 +299,10 @@ export function RentalDetailsDialog({ isOpen, onClose, rental }: RentalDetailsDi
                   Prises en Charge CNAM
                 </h3>
                 <div className="space-y-2">
-                  {rental.cnamBons.map((bond: any, index: number) => (
+                  {rental.cnamBonds.map((bond: any, index: number) => (
                     <div key={index} className="bg-blue-50 p-3 rounded-lg">
                       <div className="flex justify-between">
-                        <span className="font-medium">PEC #{bond.bonNumber}</span>
+                        <span className="font-medium">PEC #{bond.bondNumber}</span>
                         <Badge className="bg-blue-100 text-blue-800">
                           {bond.totalAmount} TND
                         </Badge>

@@ -1,66 +1,63 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
-import { prisma } from '@/lib/prisma';
+import { NextApiRequest, NextApiResponse } from 'next';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '../auth/[...nextauth]';
+import prisma from '@/lib/db';
+import { CNAMBonCategory } from '@prisma/client';
 
-/**
- * API endpoint to generate the next unique CNAM bond number
- * Format: BL-YYYY-XXXX (e.g., BL-2025-0001)
- * Query params: category (optional) - filter by LOCATION or ACHAT
- */
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  const session = await getServerSession(req, res, authOptions);
+
+  if (!session) {
+    return res.status(401).json({ error: 'Non autorisé' });
+  }
+
   if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    return res.status(405).json({ error: 'Méthode non autorisée' });
   }
 
   try {
     const { category } = req.query;
-    const currentYear = new Date().getFullYear();
-    const prefix = `BL-${currentYear}-`;
 
-    // Build where clause - filter by category if provided
-    const where: any = {
-      bonNumber: {
-        startsWith: prefix,
-      },
-    };
-
-    // Filter by category (LOCATION for rentals, ACHAT for sales)
-    if (category) {
-      where.category = category as string;
+    // Validate category
+    if (!category || (category !== 'LOCATION' && category !== 'ACHAT')) {
+      return res.status(400).json({ error: 'Catégorie invalide. Doit être LOCATION ou ACHAT' });
     }
 
-    // Find the latest bond number for current year (and category if specified)
+    // Get current year
+    const currentYear = new Date().getFullYear();
+
+    // Define prefix based on category
+    const prefix = category === 'LOCATION' ? 'BL' : 'BA';
+
+    // Get the latest bond number for this category and year
     const latestBond = await prisma.cNAMBonRental.findFirst({
-      where,
+      where: {
+        category: category as CNAMBonCategory,
+        bonNumber: {
+          startsWith: `${prefix}-${currentYear}-`,
+        },
+      },
       orderBy: {
         bonNumber: 'desc',
-      },
-      select: {
-        bonNumber: true,
       },
     });
 
     let nextNumber = 1;
 
-    if (latestBond?.bonNumber) {
-      // Extract the numeric part (e.g., "BL-2025-001" -> "001")
-      const parts = latestBond.bonNumber.split('-');
-      const lastNumber = parseInt(parts[parts.length - 1], 10);
-
-      if (!isNaN(lastNumber)) {
-        nextNumber = lastNumber + 1;
+    if (latestBond && latestBond.bonNumber) {
+      // Extract the number from the bond number (format: BL-2025-0001)
+      const match = latestBond.bonNumber.match(/-(\d+)$/);
+      if (match) {
+        nextNumber = parseInt(match[1], 10) + 1;
       }
     }
 
-    // Format with leading zeros (e.g., 1 -> "0001")
-    const formattedNumber = String(nextNumber).padStart(4, '0');
-    const newBondNumber = `${prefix}${formattedNumber}`;
+    // Format the new bond number with leading zeros (4 digits)
+    const bonNumber = `${prefix}-${currentYear}-${nextNumber.toString().padStart(4, '0')}`;
 
-    return res.status(200).json({ bonNumber: newBondNumber });
+    return res.status(200).json({ bonNumber });
   } catch (error) {
-    console.error('Error generating bond number:', error);
-    return res.status(500).json({ error: 'Failed to generate bond number' });
+    console.error('Error generating next bond number:', error);
+    return res.status(500).json({ error: 'Erreur lors de la génération du numéro de bond' });
   }
 }

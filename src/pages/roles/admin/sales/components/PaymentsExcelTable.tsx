@@ -292,7 +292,7 @@ export default function PaymentsExcelTable() {
       // Search filter
       const searchLower = searchTerm.toLowerCase();
       const clientName = payment.sale?.patient
-        ? `${payment.sale.patient.firstName} ${payment.sale.patient.lastName}`
+        ? `${payment.sale?.patient?.firstName} ${payment.sale?.patient?.lastName}`
         : payment.sale?.company?.companyName || '';
 
       const matchesSearch =
@@ -450,6 +450,10 @@ export default function PaymentsExcelTable() {
             reference: paymentData.referenceNumber,
             bank: paymentData.bankName,
           }),
+          ...(paymentData.method === 'BANK_TRANSFER' && {
+            reference: paymentData.referenceNumber,
+            bank: paymentData.bankName,
+          }),
           ...(paymentData.method === 'TRAITE' && {
             traiteNumber: paymentData.referenceNumber,
             bank: paymentData.bankName,
@@ -464,7 +468,7 @@ export default function PaymentsExcelTable() {
             cnamBonId: paymentData.cnamBonId,
           }),
           // For CASH or any other method, add reference if provided
-          ...(paymentData.referenceNumber && !['CHEQUE', 'VIREMENT', 'TRAITE', 'MANDAT', 'CNAM'].includes(paymentData.method) && {
+          ...(paymentData.referenceNumber && !['CHEQUE', 'VIREMENT', 'BANK_TRANSFER', 'TRAITE', 'MANDAT', 'CNAM'].includes(paymentData.method) && {
             reference: paymentData.referenceNumber,
           }),
         }),
@@ -614,6 +618,7 @@ export default function PaymentsExcelTable() {
       CASH: { label: 'Espèces', className: 'bg-emerald-100 text-emerald-700' },
       CHEQUE: { label: 'Chèque', className: 'bg-blue-100 text-blue-700' },
       VIREMENT: { label: 'Virement', className: 'bg-purple-100 text-purple-700' },
+      BANK_TRANSFER: { label: 'Virement Bancaire', className: 'bg-cyan-100 text-cyan-700' },
       CNAM: { label: 'CNAM', className: 'bg-red-100 text-red-700' },
       TRAITE: { label: 'Traite', className: 'bg-amber-100 text-amber-700' },
       MANDAT: { label: 'Mandat', className: 'bg-indigo-100 text-indigo-700' },
@@ -778,6 +783,7 @@ export default function PaymentsExcelTable() {
                 <SelectItem value="CASH">Espèces</SelectItem>
                 <SelectItem value="CHEQUE">Chèque</SelectItem>
                 <SelectItem value="VIREMENT">Virement</SelectItem>
+                <SelectItem value="BANK_TRANSFER">Virement Bancaire</SelectItem>
                 <SelectItem value="CNAM">CNAM</SelectItem>
                 <SelectItem value="TRAITE">Traite</SelectItem>
                 <SelectItem value="MANDAT">Mandat</SelectItem>
@@ -1074,6 +1080,7 @@ export default function PaymentsExcelTable() {
                         <SelectItem value="CASH">Espèces</SelectItem>
                         <SelectItem value="CHEQUE">Chèque</SelectItem>
                         <SelectItem value="VIREMENT">Virement</SelectItem>
+                        <SelectItem value="BANK_TRANSFER">Virement Bancaire</SelectItem>
                         <SelectItem value="CNAM">CNAM</SelectItem>
                         <SelectItem value="TRAITE">Traite</SelectItem>
                         <SelectItem value="MANDAT">Mandat</SelectItem>
@@ -1215,7 +1222,7 @@ export default function PaymentsExcelTable() {
                 const isEditing = editingId === payment.id;
                 const currentData = isEditing ? editedData : payment;
                 const clientName = payment.sale?.patient
-                  ? `${payment.sale.patient.firstName} ${payment.sale.patient.lastName}`
+                  ? `${payment.sale?.patient?.firstName} ${payment.sale?.patient?.lastName}`
                   : payment.sale?.company?.companyName || 'N/A';
 
                 return (
@@ -1260,17 +1267,17 @@ export default function PaymentsExcelTable() {
                         <div className="flex flex-col gap-1">
                           <div
                             className="flex items-center gap-2 text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-colors"
-                            onClick={() => router.push(`/roles/admin/renseignement/patient/${payment.sale.patient.id}`)}
+                            onClick={() => router.push(`/roles/admin/renseignement/patient/${payment.sale?.patient?.id}`)}
                           >
                             <User className="h-4 w-4" />
                             <span>{clientName}</span>
                           </div>
-                          {payment.sale.patient.patientCode && (
+                          {payment.sale?.patient?.patientCode && (
                             <div
                               className="text-xs text-slate-500 font-mono cursor-pointer hover:text-blue-600 transition-colors ml-6"
-                              onClick={() => router.push(`/roles/admin/renseignement/patient/${payment.sale.patient.id}`)}
+                              onClick={() => router.push(`/roles/admin/renseignement/patient/${payment.sale?.patient?.id}`)}
                             >
-                              {payment.sale.patient.patientCode}
+                              {payment.sale?.patient?.patientCode}
                             </div>
                           )}
                         </div>
@@ -1312,6 +1319,7 @@ export default function PaymentsExcelTable() {
                             <SelectItem value="CASH">Espèces</SelectItem>
                             <SelectItem value="CHEQUE">Chèque</SelectItem>
                             <SelectItem value="VIREMENT">Virement</SelectItem>
+                            <SelectItem value="BANK_TRANSFER">Virement Bancaire</SelectItem>
                             <SelectItem value="CNAM">CNAM</SelectItem>
                             <SelectItem value="TRAITE">Traite</SelectItem>
                             <SelectItem value="MANDAT">Mandat</SelectItem>

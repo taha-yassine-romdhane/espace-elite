@@ -15,10 +15,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
 import { toast } from '@/components/ui/use-toast';
-import { Building, Plus, Pencil, Trash2, MapPin, Search, Filter, Download, BarChart3, AlertTriangle, CheckCircle, Wrench, Package, Hospital, Settings, Phone, Mail, User, Calendar, Loader2, ClipboardList, DollarSign, Check, X } from 'lucide-react';
+import { Building, Plus, Pencil, Trash2, MapPin, Search, Filter, Download, BarChart3, AlertTriangle, CheckCircle, Wrench, Package, Hospital, Settings, Phone, Mail, User, Calendar, Loader2 } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,89 +44,27 @@ type Location = {
   };
 };
 
-type RepairLog = {
-  id: string;
-  repairCode?: string;
-  repairCost: number;
-  locationId: string;
-  repairDate: Date;
-  notes?: string;
-  technicianId?: string;
-  medicalDeviceId: string;
-  createdAt: Date;
-  location: {
-    name: string;
-    type: string;
-  };
-  medicalDevice: {
-    deviceCode?: string;
-    name: string;
-    type: string;
-  };
-  technician?: {
-    user: {
-      firstName: string;
-      lastName: string;
-    };
-  } | null;
-  spareParts: {
-    id: string;
-    quantity: number;
-    product: {
-      productCode?: string;
-      name: string;
-      sellingPrice?: number;
-    };
-  }[];
-};
-
 function RepairLocations() {
   const [locations, setLocations] = useState<Location[]>([]);
-  const [repairLogs, setRepairLogs] = useState<RepairLog[]>([]);
-  const [medicalDevices, setMedicalDevices] = useState<any[]>([]);
-  const [employees, setEmployees] = useState<any[]>([]);
-  const [spareParts, setSpareParts] = useState<any[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [repairSearchTerm, setRepairSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
-  const [locationFilterForRepairs, setLocationFilterForRepairs] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingRepairs, setIsLoadingRepairs] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  const [activeTab, setActiveTab] = useState('locations');
   const [formData, setFormData] = useState({
     name: '',
     address: '',
     type: 'Atelier',
   });
 
-  // Repair form state
-  const [isAddingRepair, setIsAddingRepair] = useState(false);
-  const [editingRepairId, setEditingRepairId] = useState<string | null>(null);
-  const [selectedSpareParts, setSelectedSpareParts] = useState<{ id: string; name: string; quantity: number; purchasePrice: number }[]>([]);
-  const [repairFormData, setRepairFormData] = useState({
-    medicalDeviceId: '',
-    locationId: '',
-    technicianId: '',
-    repairDate: new Date().toISOString().split('T')[0],
-    repairCost: 0,
-    additionalCost: 0,
-    notes: ''
-  });
-
   const locationTypes = ['Atelier', 'Fournisseur', 'Centre de Service', 'Autre'];
 
   useEffect(() => {
     fetchLocations();
-    fetchRepairLogs();
-    fetchMedicalDevices();
-    fetchEmployees();
-    fetchSpareParts();
   }, []);
 
   const fetchLocations = async () => {
@@ -146,57 +82,6 @@ function RepairLocations() {
       });
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const fetchRepairLogs = async () => {
-    setIsLoadingRepairs(true);
-    try {
-      const response = await fetch('/api/repair-logs');
-      if (!response.ok) throw new Error('Failed to fetch repair logs');
-      const data = await response.json();
-      setRepairLogs(data);
-    } catch {
-      toast({
-        title: 'Erreur',
-        description: 'Impossible de charger l\'historique des réparations',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoadingRepairs(false);
-    }
-  };
-
-  const fetchMedicalDevices = async () => {
-    try {
-      const response = await fetch('/api/medical-devices');
-      if (!response.ok) throw new Error('Failed to fetch medical devices');
-      const data = await response.json();
-      setMedicalDevices(data);
-    } catch (error) {
-      console.error('Error fetching medical devices:', error);
-    }
-  };
-
-  const fetchEmployees = async () => {
-    try {
-      const response = await fetch('/api/users/employees');
-      if (!response.ok) throw new Error('Failed to fetch employees');
-      const data = await response.json();
-      setEmployees(data);
-    } catch (error) {
-      console.error('Error fetching employees:', error);
-    }
-  };
-
-  const fetchSpareParts = async () => {
-    try {
-      const response = await fetch('/api/products?type=SPARE_PART');
-      if (!response.ok) throw new Error('Failed to fetch spare parts');
-      const data = await response.json();
-      setSpareParts(data);
-    } catch (error) {
-      console.error('Error fetching spare parts:', error);
     }
   };
 
@@ -343,22 +228,12 @@ function RepairLocations() {
     setIsDeleteDialogOpen(true);
   };
 
-  // Filter and search logic for locations
+  // Filter and search logic
   const filteredLocations = locations.filter(location => {
     const matchesSearch = location.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          (location.address && location.address.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesType = typeFilter === 'all' || location.type === typeFilter;
     return matchesSearch && matchesType;
-  });
-
-  // Filter and search logic for repair logs
-  const filteredRepairLogs = repairLogs.filter(repair => {
-    const matchesSearch = repair.repairCode?.toLowerCase().includes(repairSearchTerm.toLowerCase()) ||
-                         repair.medicalDevice.name.toLowerCase().includes(repairSearchTerm.toLowerCase()) ||
-                         repair.medicalDevice.deviceCode?.toLowerCase().includes(repairSearchTerm.toLowerCase()) ||
-                         repair.notes?.toLowerCase().includes(repairSearchTerm.toLowerCase());
-    const matchesLocation = locationFilterForRepairs === 'all' || repair.locationId === locationFilterForRepairs;
-    return matchesSearch && matchesLocation;
   });
 
   // Statistics
@@ -368,8 +243,7 @@ function RepairLocations() {
       acc[type] = locations.filter(loc => loc.type === type).length;
       return acc;
     }, {} as Record<string, number>),
-    totalRepairs: repairLogs.length,
-    totalRepairCost: repairLogs.reduce((acc, repair) => acc + Number(repair.repairCost), 0)
+    totalRepairs: locations.reduce((acc, loc) => acc + (loc.repairs?.length || 0), 0)
   };
 
   const getTypeIcon = (type: string) => {
@@ -575,20 +449,6 @@ function RepairLocations() {
         </Card>
       </div>
 
-      {/* Tabs for Locations and Repair History */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="locations" className="flex items-center gap-2">
-            <Building className="h-4 w-4" />
-            Réparateurs ({locations.length})
-          </TabsTrigger>
-          <TabsTrigger value="repairs" className="flex items-center gap-2">
-            <ClipboardList className="h-4 w-4" />
-            Historique des Réparations ({repairLogs.length})
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="locations" className="space-y-6">
       {/* Search and Filters */}
       <Card className="mb-6">
         <CardHeader>
@@ -847,362 +707,6 @@ function RepairLocations() {
           )}
         </CardContent>
       </Card>
-        </TabsContent>
-
-        <TabsContent value="repairs" className="space-y-6">
-          {/* Add Repair Button */}
-          <div className="flex justify-end">
-            <Button
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
-              onClick={() => setIsAddingRepair(!isAddingRepair)}
-            >
-              <Plus className="h-4 w-4" />
-              {isAddingRepair ? 'Annuler' : 'Ajouter une réparation'}
-            </Button>
-          </div>
-
-          {/* Repair Logs Search and Filters */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Filter className="h-5 w-5" />
-                Recherche et Filtres
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="repair-search">Rechercher</Label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                    <Input
-                      id="repair-search"
-                      placeholder="Code, appareil, notes..."
-                      value={repairSearchTerm}
-                      onChange={(e) => setRepairSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="location-filter">Filtrer par réparateur</Label>
-                  <Select value={locationFilterForRepairs} onValueChange={setLocationFilterForRepairs}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Tous les réparateurs" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Tous les réparateurs</SelectItem>
-                      {locations.map((location) => (
-                        <SelectItem key={location.id} value={location.id}>
-                          {location.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              {(repairSearchTerm || locationFilterForRepairs !== 'all') && (
-                <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
-                  <span>
-                    {filteredRepairLogs.length} résultat{filteredRepairLogs.length !== 1 ? 's' : ''} trouvé{filteredRepairLogs.length !== 1 ? 's' : ''}
-                    {filteredRepairLogs.length !== repairLogs.length && ` sur ${repairLogs.length} total`}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setRepairSearchTerm('');
-                      setLocationFilterForRepairs('all');
-                    }}
-                  >
-                    Réinitialiser
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Repair Logs Table */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 justify-between">
-                <div className="flex items-center gap-2">
-                  <ClipboardList className="h-5 w-5" />
-                  Historique des Réparations ({filteredRepairLogs.length})
-                </div>
-                <Button variant="outline" size="sm" className="flex items-center gap-2">
-                  <Download className="h-4 w-4" />
-                  Exporter
-                </Button>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isLoadingRepairs ? (
-                <div className="text-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                  <p className="text-gray-600">Chargement des réparations...</p>
-                </div>
-              ) : filteredRepairLogs.length === 0 && !isAddingRepair ? (
-                <div className="text-center py-8">
-                  <Wrench className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    {repairSearchTerm || locationFilterForRepairs !== 'all' ? 'Aucun résultat' : 'Aucune réparation'}
-                  </h3>
-                  <p className="text-gray-600">
-                    {repairSearchTerm || locationFilterForRepairs !== 'all'
-                      ? 'Aucune réparation ne correspond à vos critères de recherche.'
-                      : 'Aucune réparation enregistrée pour le moment.'
-                    }
-                  </p>
-                </div>
-              ) : (
-                <div className="rounded-lg border overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="whitespace-nowrap">Date</TableHead>
-                        <TableHead className="whitespace-nowrap">Appareil</TableHead>
-                        <TableHead className="whitespace-nowrap">Réparateur</TableHead>
-                        <TableHead className="whitespace-nowrap">Technicien</TableHead>
-                        <TableHead className="whitespace-nowrap">Pièces Utilisées</TableHead>
-                        <TableHead className="whitespace-nowrap">Coût (DT)</TableHead>
-                        <TableHead className="whitespace-nowrap">Notes</TableHead>
-                        <TableHead className="whitespace-nowrap w-32">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {isAddingRepair && (
-                        <TableRow className="bg-blue-50 border-b-2 border-blue-200">
-                          <TableCell>
-                            <Input
-                              type="date"
-                              value={repairFormData.repairDate}
-                              onChange={(e) => setRepairFormData({ ...repairFormData, repairDate: e.target.value })}
-                              className="h-8 text-xs"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Select
-                              value={repairFormData.medicalDeviceId}
-                              onValueChange={(value) => setRepairFormData({ ...repairFormData, medicalDeviceId: value })}
-                            >
-                              <SelectTrigger className="h-8 text-xs w-48">
-                                <SelectValue placeholder="Sélectionner..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {medicalDevices.map((device: any) => (
-                                  <SelectItem key={device.id} value={device.id}>
-                                    {device.name} ({device.deviceCode || 'N/A'})
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                          <TableCell>
-                            <Select
-                              value={repairFormData.locationId}
-                              onValueChange={(value) => setRepairFormData({ ...repairFormData, locationId: value })}
-                            >
-                              <SelectTrigger className="h-8 text-xs w-40">
-                                <SelectValue placeholder="Lieu..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {locations.map((location) => (
-                                  <SelectItem key={location.id} value={location.id}>
-                                    {location.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                          <TableCell>
-                            <Select
-                              value={repairFormData.technicianId}
-                              onValueChange={(value) => setRepairFormData({ ...repairFormData, technicianId: value })}
-                            >
-                              <SelectTrigger className="h-8 text-xs w-40">
-                                <SelectValue placeholder="Technicien..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {employees.map((emp: any) => (
-                                  <SelectItem key={emp.id} value={emp.id}>
-                                    {emp.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 text-xs"
-                              onClick={() => {
-                                // TODO: Open spare parts selector dialog
-                                toast({
-                                  title: 'Info',
-                                  description: 'Sélecteur de pièces à implémenter',
-                                });
-                              }}
-                            >
-                              + Pièces ({selectedSpareParts.length})
-                            </Button>
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              placeholder="0.00"
-                              value={repairFormData.repairCost || ''}
-                              onChange={(e) => setRepairFormData({ ...repairFormData, repairCost: parseFloat(e.target.value) || 0 })}
-                              className="h-8 text-xs w-24"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Textarea
-                              placeholder="Notes..."
-                              value={repairFormData.notes}
-                              onChange={(e) => setRepairFormData({ ...repairFormData, notes: e.target.value })}
-                              className="h-8 text-xs min-h-[32px] resize-none"
-                              rows={1}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-1">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-8 w-8 p-0 text-green-600 hover:bg-green-50"
-                                onClick={async () => {
-                                  // TODO: Implement save
-                                  toast({
-                                    title: 'Info',
-                                    description: 'Fonction de sauvegarde à implémenter',
-                                  });
-                                }}
-                              >
-                                <Check className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-8 w-8 p-0 text-red-600 hover:bg-red-50"
-                                onClick={() => {
-                                  setIsAddingRepair(false);
-                                  setRepairFormData({
-                                    medicalDeviceId: '',
-                                    locationId: '',
-                                    technicianId: '',
-                                    repairDate: new Date().toISOString().split('T')[0],
-                                    repairCost: 0,
-                                    additionalCost: 0,
-                                    notes: ''
-                                  });
-                                  setSelectedSpareParts([]);
-                                }}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      )}
-                      {filteredRepairLogs.map((repair) => (
-                        <TableRow key={repair.id} className="hover:bg-gray-50">
-                          <TableCell className="whitespace-nowrap text-sm">
-                            {new Date(repair.repairDate).toLocaleDateString('fr-FR')}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex flex-col">
-                              <span className="font-medium text-sm text-blue-900">
-                                {repair.medicalDevice.name}
-                              </span>
-                              <span className="text-xs text-gray-500 font-mono">
-                                {repair.medicalDevice.deviceCode || 'N/A'}
-                              </span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              {getTypeIcon(repair.location.type)}
-                              <span className="text-sm">{repair.location.name}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-sm">
-                            {repair.technician
-                              ? `${repair.technician.user.firstName} ${repair.technician.user.lastName}`
-                              : <span className="text-gray-400 italic">Non assigné</span>
-                            }
-                          </TableCell>
-                          <TableCell>
-                            {repair.spareParts.length > 0 ? (
-                              <div className="flex flex-col gap-1">
-                                {repair.spareParts.map((part) => (
-                                  <div key={part.id} className="flex items-center gap-1 text-xs">
-                                    <Badge variant="secondary" className="text-xs">
-                                      {part.quantity}x
-                                    </Badge>
-                                    <span className="text-blue-900">{part.product.name}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-gray-400 text-sm italic">Aucune</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="whitespace-nowrap">
-                            <div className="flex items-center gap-1 font-medium text-blue-900">
-                              <DollarSign className="h-3 w-3" />
-                              {Number(repair.repairCost).toFixed(2)} DT
-                            </div>
-                          </TableCell>
-                          <TableCell className="max-w-xs">
-                            <span className="text-sm text-gray-600 line-clamp-2">
-                              {repair.notes || <span className="italic text-gray-400">Aucune note</span>}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-1">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600"
-                                title="Modifier"
-                                onClick={() => {
-                                  toast({
-                                    title: 'Info',
-                                    description: 'Fonction de modification à implémenter',
-                                  });
-                                }}
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
-                                title="Supprimer"
-                                onClick={() => {
-                                  toast({
-                                    title: 'Info',
-                                    description: 'Fonction de suppression à implémenter',
-                                  });
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
     </div>
   );
 }

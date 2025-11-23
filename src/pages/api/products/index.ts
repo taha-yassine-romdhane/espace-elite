@@ -6,7 +6,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     // CREATE product
     if (req.method === 'POST') {
-      const { name, model, brand, serialNumber, type, purchasePrice, sellingPrice, stockLocationId, quantity = 1, status, minQuantity, description } = req.body;
+      const { name, model, brand, serialNumber, type, purchasePrice, sellingPrice, stockLocationId, quantity = 1, productCode } = req.body;
 
       if (!name || !model || !brand || !type) {
         return res.status(400).json({ error: 'Missing required fields' });
@@ -18,12 +18,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           model,
           brand,
           serialNumber,
+          productCode,
           type,
           purchasePrice: purchasePrice ? Number(purchasePrice) : null,
           sellingPrice: sellingPrice ? Number(sellingPrice) : null,
-          status: status || 'ACTIVE',
-          minQuantity: minQuantity ? Number(minQuantity) : undefined,
-          description: description || undefined,
           // Create the initial stock entry if stockLocationId is provided
           stocks: stockLocationId ? {
             create: {
@@ -51,13 +49,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // GET products
     if (req.method === 'GET') {
       const type = req.query.type as string;
-      
+      const assignedToMe = req.query.assignedToMe === 'true';
+      const inStock = req.query.inStock === 'true';
+
+      // Get user's stock location if assignedToMe is true
+      let userStockLocationId: string | undefined;
+      if (assignedToMe) {
+        const { getServerSession } = await import('next-auth/next');
+        const { authOptions } = await import('@/pages/api/auth/[...nextauth]');
+        const session = await getServerSession(req, res, authOptions);
+
+        if (session?.user?.id) {
+          const user = await prisma.user.findUnique({
+            where: { id: session.user.id },
+            include: { stockLocation: true }
+          });
+          userStockLocationId = user?.stockLocation?.id;
+        }
+      }
+
       const products = await prisma.product.findMany({
         where: type ? {
           type: { equals: type as ProductType }
         } : {},
         include: {
           stocks: {
+            where: {
+              status: 'FOR_SALE',
+              // Filter by user's stock location if assignedToMe is true
+              ...(userStockLocationId ? { locationId: userStockLocationId } : {})
+            },
             include: {
               location: true
             }
@@ -70,6 +91,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const transformedProducts = products.map(product => {
         const primaryStock = product.stocks?.[0];
+        const totalQuantity = product.stocks?.reduce((total, stock) => total + stock.quantity, 0) || 0;
 
         return {
           id: product.id,
@@ -77,47 +99,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           brand: product.brand,
           model: product.model,
           serialNumber: product.serialNumber,
+          productCode: product.productCode,
           type: product.type,
           purchasePrice: product.purchasePrice,
           sellingPrice: product.sellingPrice,
+          price: product.sellingPrice, // Add alias for compatibility
           warrantyExpiration: product.warrantyExpiration,
           createdAt: product.createdAt,
           stockLocation: primaryStock?.location || null,
           stockLocationId: primaryStock?.locationId || null,
-          stockQuantity: product.stocks?.reduce((total, stock) => total + stock.quantity, 0) || 0,
-          stocks: product.stocks, // Include full stocks array for export
-          status: product.status || 'ACTIVE', // Use the product's status field directly
-          minQuantity: product.minQuantity,
-          description: product.description
+          quantity: totalQuantity, // Quantity in user's stock (if filtered)
+          stockQuantity: totalQuantity,
+          totalQuantity: totalQuantity,
+          stocks: product.stocks, // Include full stocks array
+          status: product.status || 'ACTIVE'
         };
       });
 
-      return res.status(200).json(transformedProducts);
+      // Filter out products with no stock if inStock is true
+      const filteredProducts = inStock
+        ? transformedProducts.filter(p => p.quantity > 0)
+        : transformedProducts;
+
+      return res.status(200).json(filteredProducts);
     }
 
     // UPDATE product
     if (req.method === 'PUT') {
-      const { id, name, model, brand, serialNumber, purchasePrice, sellingPrice, stockLocationId, quantity = 1, status, minQuantity, description } = req.body;
+      const { id, name, model, brand, serialNumber, purchasePrice, sellingPrice, stockLocationId, quantity = 1 } = req.body;
 
       if (!id || !name || !model || !brand) {
         return res.status(400).json({ error: 'Missing required fields' });
       }
 
       // First update the product
-      await prisma.product.update({
-        where: { id },
-        data: {
-          name,
-          model,
-          brand,
-          serialNumber,
-          purchasePrice: purchasePrice ? Number(purchasePrice) : null,
-          sellingPrice: sellingPrice ? Number(sellingPrice) : null,
-          status: status || undefined,
-          minQuantity: minQuantity ? Number(minQuantity) : undefined,
-          description: description || undefined
-        }
-      });
 
       // Then handle stock location update if provided
       if (stockLocationId) {

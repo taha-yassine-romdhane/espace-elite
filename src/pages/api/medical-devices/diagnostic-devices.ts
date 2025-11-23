@@ -15,21 +15,50 @@ export default async function handler(
 
   if (req.method === 'GET') {
     try {
+      const { myLocation, status } = req.query;
+
+      // Build where clause
+      const whereClause: any = {
+        type: 'DIAGNOSTIC_DEVICE',
+      };
+
+      // Filter by user's stock location if requested
+      if (myLocation === 'true') {
+        const user = await prisma.user.findUnique({
+          where: { id: session.user.id },
+          select: {
+            stockLocation: {
+              select: { id: true }
+            }
+          }
+        });
+
+        if (user?.stockLocation?.id) {
+          whereClause.stockLocationId = user.stockLocation.id;
+        }
+      }
+
+      // Filter by status if provided
+      if (status) {
+        whereClause.status = status;
+      }
+
       const devices = await prisma.medicalDevice.findMany({
-        where: {
-          type: 'DIAGNOSTIC_DEVICE',
-        },
+        where: whereClause,
         select: {
           id: true,
           name: true,
           brand: true,
           model: true,
+          status: true,
+          stockLocationId: true,
         },
         orderBy: {
           name: 'asc',
         },
       });
-      return res.status(200).json({ devices });
+
+      return res.status(200).json(devices);
     } catch (error) {
       console.error('Error fetching diagnostic devices:', error);
       return res.status(500).json({ error: 'Error fetching diagnostic devices' });

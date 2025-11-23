@@ -35,9 +35,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(404).json({ error: 'Device not found in source location' });
     }
 
-    // Check if device is available for transfer
-    // Note: Device assignment is now tracked through Rentals, not direct relations
-    // For now, we allow transfers (this could be enhanced to check active rentals)
+    // Check if device is available for transfer (not reserved or sold)
+    if (device.status === 'RESERVED' || device.status === 'SOLD') {
+      return res.status(400).json({ error: 'Device is currently reserved or sold' });
+    }
 
     // Create a transfer record
     const transfer = await prisma.$transaction(async (tx) => {

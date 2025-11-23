@@ -127,6 +127,14 @@ export default async function handler(
                 email: true,
               },
             },
+            assignedTo: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
             patient: {
               select: {
                 id: true,
@@ -148,11 +156,13 @@ export default async function handler(
                 telephone: true,
               },
             },
-            payment: {
+            payments: {
               include: {
                 paymentDetails: true // Include payment details
               }
             },
+            cnamBons: true,
+            cnamDossiers: true,
             items: {
               include: {
                 product: true,
@@ -178,30 +188,30 @@ export default async function handler(
           }
         });
 
-        console.log(`[SALE-API] Sale found with ID: ${id}, payment ID: ${sale.paymentId || 'none'}`);
+        console.log(`[SALE-API] Sale found with ID: ${id}, payments count: ${sale.payments?.length || additionalPayments.length}`);
 
         // Log the raw sale data for debugging
         console.log(`[SALE-API] Raw sale data:`, {
           id: sale.id,
           status: sale.status,
-          paymentId: sale.paymentId,
-          hasPayment: !!sale.payment,
-          paymentMethod: sale.payment?.method,
-          paymentDetailsCount: sale.payment?.paymentDetails?.length || 0,
-          hasPaymentNotes: !!sale.payment?.notes
+          paymentsCount: sale.payments?.length || 0,
+          additionalPaymentsCount: additionalPayments.length
         });
-        
-        // If payment has notes, try to parse and log them
-        if (sale.payment?.notes) {
-          try {
-            const notesData = JSON.parse(sale.payment.notes);
-            console.log(`[SALE-API] Payment notes contains:`, {
-              hasPaymentsArray: !!notesData.payments,
-              paymentsCount: notesData.payments?.length || 0,
-              paymentTypes: notesData.payments?.map((p: { type?: string }) => p.type).join(', ') || 'none'
-            });
-          } catch (error) {
-            console.log(`[SALE-API] Error parsing payment notes:`, error);
+
+        // If any payment has notes, try to parse and log them
+        const allPayments = [...(sale.payments || []), ...additionalPayments];
+        for (const payment of allPayments) {
+          if (payment.notes) {
+            try {
+              const notesData = JSON.parse(payment.notes);
+              console.log(`[SALE-API] Payment ${payment.id} notes contains:`, {
+                hasPaymentsArray: !!notesData.payments,
+                paymentsCount: notesData.payments?.length || 0,
+                paymentTypes: notesData.payments?.map((p: { type?: string }) => p.type).join(', ') || 'none'
+              });
+            } catch (error) {
+              console.log(`[SALE-API] Error parsing payment notes:`, error);
+            }
           }
         }
         
@@ -254,9 +264,8 @@ export default async function handler(
             : (sale.company ? sale.company.companyName : 'Client inconnu'),
           
           clientType: sale.patient ? 'PATIENT' : (sale.company ? 'COMPANY' : null),
-          
+
           // Payment information with details - handle multiple payments
-          paymentId: sale.paymentId,
           payment: getAggregatedPaymentData(sale, additionalPayments),
           
           // Items in the sale
@@ -340,17 +349,22 @@ export default async function handler(
             // Only update these if they are provided
             patientId: updateData.patientId || undefined,
             companyId: updateData.companyId || undefined,
+            // Update assignedToId if provided
+            assignedToId: updateData.assignedToId !== undefined ? updateData.assignedToId : undefined,
             // Don't allow updating the processedBy user
           },
           include: {
             processedBy: true,
+            assignedTo: true,
             patient: true,
             company: true,
-            payment: {
+            payments: {
               include: {
                 paymentDetails: true
               }
             },
+            cnamBons: true,
+            cnamDossiers: true,
             items: {
               include: {
                 product: true,

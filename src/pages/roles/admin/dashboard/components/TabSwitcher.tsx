@@ -22,7 +22,7 @@ export function TabSwitcher({ activeTab, onTabChange }: TabSwitcherProps) {
         onClick={() => onTabChange("manual-tasks")}
       >
         <ClipboardCheck className="h-4 w-4 mr-2" />
-        Tâches Manuelles
+        Saisie les Tâches
       </Button>
 
       <Button

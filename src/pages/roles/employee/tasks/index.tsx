@@ -6,8 +6,8 @@ function TasksPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Redirect to the modern tasks page
-    router.replace('/roles/employee/tasks/modern');
+    // Redirect to the manual tasks page
+    router.replace('/roles/employee/manual-tasks');
   }, [router]);
 
   return (

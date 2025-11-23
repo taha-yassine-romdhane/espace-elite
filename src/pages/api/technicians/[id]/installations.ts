@@ -31,60 +31,52 @@ export default async function handler(
         return res.status(404).json({ error: 'Technician not found' });
       }
 
-      // Get all medical devices installed by this technician through rentals
-      const installations = await prisma.medicalDevice.findMany({
+      // Get all rentals (installations) by this technician
+      // We'll use the Rental model which tracks device installations to patients
+      const installations = await prisma.rental.findMany({
         where: {
-          Rental: {
-            some: {
-              patient: {
-                technicianId: technician.userId
-              }
-            }
+          patient: {
+            technicianId: technician.userId
           }
         },
         include: {
-          Rental: {
-            where: {
-              patient: {
-                technicianId: technician.userId
-              }
-            },
+          medicalDevice: {
             include: {
-              patient: {
+              deviceParameters: {
                 select: {
                   id: true,
-                  firstName: true,
-                  lastName: true,
-                  doctorId: true,
-                  doctor: {
-                    include: {
-                      user: {
-                        select: {
-                          firstName: true,
-                          lastName: true
-                        }
-                      }
+                  deviceType: true,
+                  pressionRampe: true,
+                  dureeRampe: true,
+                  pression: true,
+                  ipap: true,
+                  epap: true,
+                  debit: true
+                }
+              }
+            }
+          },
+          patient: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              doctorId: true,
+              doctor: {
+                include: {
+                  user: {
+                    select: {
+                      firstName: true,
+                      lastName: true
                     }
                   }
                 }
               }
             }
-          },
-          deviceParameters: {
-            select: {
-              id: true,
-              deviceType: true,
-              pressionRampe: true,
-              dureeRampe: true,
-              pression: true,
-              ipap: true,
-              epap: true,
-              debit: true
-            }
           }
         },
         orderBy: {
-          createdAt: 'desc'
+          startDate: 'desc'
         }
       });
 
@@ -101,38 +93,36 @@ export default async function handler(
       };
       
       // Transform the data to match our expected interface
-      const formattedInstallations = installations.map(device => ({
-        id: device.id,
-        medicalDeviceId: device.id,
+      const formattedInstallations = installations.map(rental => ({
+        id: rental.id,
+        medicalDeviceId: rental.medicalDeviceId,
         medicalDevice: {
-          id: device.id,
-          name: device.name,
-          type: device.type,
-          brand: device.brand || '',
-          model: device.model || ''
+          id: rental.medicalDevice.id,
+          name: rental.medicalDevice.name,
+          type: rental.medicalDevice.type,
+          brand: rental.medicalDevice.brand || '',
+          model: rental.medicalDevice.model || ''
         },
-        patientId: device.Rental[0]?.patientId || '',
-        patient: device.Rental[0]?.patient
-          ? {
-              id: device.Rental[0].patient.id,
-              firstName: device.Rental[0].patient.firstName,
-              lastName: device.Rental[0].patient.lastName
-            }
-          : { id: '', firstName: 'N/A', lastName: '' },
-        installationDate: device.Rental[0]?.startDate?.toISOString() || device.createdAt.toISOString(),
-        parameters: (device.deviceParameters || []).map((param: DeviceParameter) => ({
+        patientId: rental.patientId,
+        patient: {
+          id: rental.patient.id,
+          firstName: rental.patient.firstName,
+          lastName: rental.patient.lastName
+        },
+        installationDate: rental.startDate.toISOString(),
+        parameters: (rental.medicalDevice.deviceParameters || []).map((param: DeviceParameter) => ({
           id: param.id,
           title: param.deviceType || '',
           value: param.pression || param.ipap || param.debit || param.pressionRampe || '',
           unit: param.deviceType === 'Concentrateur O²' || param.deviceType === 'Bouteil O²' ? 'L/min' : 'cmH₂O'
         })),
-        doctorId: device.Rental[0]?.patient?.doctorId || '',
-        doctor: device.Rental[0]?.patient?.doctor
+        doctorId: rental.patient.doctorId || '',
+        doctor: rental.patient.doctor
           ? {
-              id: device.Rental[0].patient.doctor.id,
+              id: rental.patient.doctor.id,
               user: {
-                firstName: device.Rental[0].patient.doctor.user.firstName,
-                lastName: device.Rental[0].patient.doctor.user.lastName
+                firstName: rental.patient.doctor.user.firstName,
+                lastName: rental.patient.doctor.user.lastName
               }
             }
           : undefined

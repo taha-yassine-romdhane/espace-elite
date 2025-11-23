@@ -1,6 +1,8 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { IncomingForm } from 'formidable';
-import fs from 'fs';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/pages/api/auth/[...nextauth]';
+import formidable, { File as FormidableFile } from 'formidable';
+import fs from 'fs/promises';
 import path from 'path';
 
 export const config = {
@@ -9,59 +11,85 @@ export const config = {
   },
 };
 
-const parseForm = async (
-  req: NextApiRequest,
-  uploadDir: string
-): Promise<{ fields: any; files: any }> => {
-  return new Promise((resolve, reject) => {
-    const form = new IncomingForm({
-      uploadDir,
-      keepExtensions: true,
-      maxFileSize: 5 * 1024 * 1024, // 5MB
-    });
-
-    form.parse(req, (err, fields, files) => {
-      if (err) reject(err);
-      else resolve({ fields, files });
-    });
-  });
-};
-
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // Check authentication
+  const session = await getServerSession(req, res, authOptions);
+  if (!session) {
+    return res.status(401).json({ error: 'Vous devez être connecté pour télécharger des fichiers' });
+  }
+
   if (req.method !== 'POST') {
-    res.status(405).json({ error: 'Method not allowed' });
-    return;
+    return res.status(405).json({ error: 'Méthode non autorisée' });
   }
 
   try {
-    // Create uploads directory if it doesn't exist
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
+    // Parse the multipart form data
+    const form = formidable({
+      multiples: true,
+      maxFileSize: 16 * 1024 * 1024, // 16MB max file size
+      keepExtensions: true,
+    });
+
+    const [fields, files] = await new Promise<[formidable.Fields, formidable.Files]>((resolve, reject) => {
+      form.parse(req, (err, fields, files) => {
+        if (err) reject(err);
+        else resolve([fields, files]);
+      });
+    });
+
+    // Get the uploaded file(s)
+    const uploadedFiles = Array.isArray(files.file) ? files.file : [files.file];
+
+    if (!uploadedFiles || uploadedFiles.length === 0) {
+      return res.status(400).json({ error: 'Aucun fichier téléchargé' });
     }
 
-    const { files } = await parseForm(req, uploadDir);
-    const file = files.file?.[0];
+    const uploadedFileData = [];
 
-    if (!file) {
-      res.status(400).json({ error: 'No file uploaded' });
-      return;
+    for (const file of uploadedFiles) {
+      if (!file) continue;
+
+      // Generate unique filename
+      const timestamp = Date.now();
+      const originalName = (file as FormidableFile).originalFilename || 'file';
+      const ext = path.extname(originalName);
+      const basename = path.basename(originalName, ext);
+      const uniqueName = `${timestamp}-${basename}${ext}`;
+
+      // Define paths - use environment variable for VPS or default to public/imports
+      const uploadsDir = process.env.FILE_STORAGE_PATH
+        ? path.join(process.env.FILE_STORAGE_PATH, 'imports')
+        : path.join(process.cwd(), 'public', 'imports');
+
+      const filePath = path.join(uploadsDir, uniqueName);
+
+      // Ensure the imports directory exists
+      await fs.mkdir(uploadsDir, { recursive: true });
+
+      // Move file from temp location to imports folder
+      await fs.copyFile((file as FormidableFile).filepath, filePath);
+
+      // Delete temp file
+      await fs.unlink((file as FormidableFile).filepath);
+
+      // Construct the file URL
+      const fileUrl = `/imports/${uniqueName}`;
+
+      uploadedFileData.push({
+        url: fileUrl,
+        name: originalName,
+        size: (file as FormidableFile).size,
+        type: (file as FormidableFile).mimetype || 'application/octet-stream',
+        key: uniqueName,
+      });
     }
 
-    // Generate unique filename
-    const timestamp = Date.now();
-    const ext = path.extname(file.originalFilename || '');
-    const newFilename = `${timestamp}${ext}`;
-    const newPath = path.join(uploadDir, newFilename);
-
-    // Move file to final location
-    fs.renameSync(file.filepath, newPath);
-
-    // Return the URL path
-    const fileUrl = `/uploads/${newFilename}`;
-    res.status(200).json({ url: fileUrl });
+    return res.status(200).json({
+      success: true,
+      files: uploadedFileData,
+    });
   } catch (error) {
-    console.error('Server error:', error);
-    res.status(500).json({ error: 'Server error' });
+    console.error('Error uploading file:', error);
+    return res.status(500).json({ error: 'Erreur lors du téléchargement du fichier' });
   }
 }

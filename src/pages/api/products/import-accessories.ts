@@ -27,80 +27,48 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     for (let i = 0; i < accessories.length; i++) {
       const accessory = accessories[i];
-      
+
       try {
-        // Check if product with same name already exists
-        const existingProduct = await prisma.product.findFirst({
-          where: {
+        // Create the product first (without stockLocation)
+        const product = await prisma.product.create({
+          data: {
             name: accessory.name,
             type: 'ACCESSORY',
+            brand: accessory.brand,
+            model: accessory.model,
+            purchasePrice: accessory.purchasePrice,
+            sellingPrice: accessory.sellingPrice,
+            warrantyExpiration: accessory.warrantyExpiration,
+            status: 'ACTIVE', // Products use ProductStatus enum
           },
         });
 
-        let product;
-
-        if (existingProduct) {
-          // Product exists, just add or update stock for this location
-          product = existingProduct;
-
-          if (accessory.stockLocationId && accessory.stockQuantity > 0) {
-            // Check if stock entry exists for this location
-            const existingStock = await prisma.stock.findUnique({
-              where: {
-                locationId_productId: {
-                  locationId: accessory.stockLocationId,
-                  productId: product.id,
-                },
-              },
-            });
-
-            if (existingStock) {
-              // Update existing stock quantity
-              await prisma.stock.update({
-                where: { id: existingStock.id },
-                data: {
-                  quantity: existingStock.quantity + accessory.stockQuantity,
-                  status: accessory.status || existingStock.status,
-                },
-              });
-            } else {
-              // Create new stock entry for this location
-              await prisma.stock.create({
+        // Handle multi-location stock entries
+        if (accessory.stockEntries && Array.isArray(accessory.stockEntries) && accessory.stockEntries.length > 0) {
+          // Create multiple stock entries (one per location)
+          await Promise.all(
+            accessory.stockEntries.map((entry: any) =>
+              prisma.stock.create({
                 data: {
                   productId: product.id,
-                  locationId: accessory.stockLocationId,
-                  quantity: accessory.stockQuantity,
-                  status: accessory.status || 'FOR_SALE',
+                  locationId: entry.locationId,
+                  quantity: parseInt(entry.quantity.toString()),
+                  status: entry.status || 'FOR_SALE',
                 },
-              });
-            }
-          }
-        } else {
-          // Create new product
-          product = await prisma.product.create({
+              })
+            )
+          );
+        }
+        // Backwards compatibility: single location format
+        else if (accessory.stockLocationId && accessory.stockQuantity > 0) {
+          await prisma.stock.create({
             data: {
-              name: accessory.name,
-              type: 'ACCESSORY',
-              brand: accessory.brand,
-              model: accessory.model,
-              purchasePrice: accessory.purchasePrice,
-              sellingPrice: accessory.sellingPrice,
-              warrantyExpiration: accessory.warrantyExpiration,
-              status: 'ACTIVE', // Products use ProductStatus enum
+              productId: product.id,
+              locationId: accessory.stockLocationId,
+              quantity: accessory.stockQuantity,
+              status: accessory.status || 'FOR_SALE',
             },
           });
-
-          // Create stock entry if stockLocationId is provided
-          if (accessory.stockLocationId && accessory.stockQuantity > 0) {
-            await prisma.stock.create({
-              data: {
-                productId: product.id,
-                locationId: accessory.stockLocationId,
-                quantity: accessory.stockQuantity,
-                status: accessory.status || 'FOR_SALE',
-              },
-            });
-          }
         }
 
         imported++;

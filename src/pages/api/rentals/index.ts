@@ -74,18 +74,20 @@ export default async function handler(
       case 'GET':
         // Build query filters
         const where: any = {};
-        
+
         // Filter by createdById if provided (for employee role)
         if (req.query.createdById) {
           where.createdById = req.query.createdById;
         }
-        
-        // Filter by role if employee
-        if (req.query.role === 'employee' && session.user?.id) {
-          // For employee role, only show rentals they created
-          // Since createdById might not exist yet in DB, we handle this carefully
-          where.createdById = session.user.id;
+
+        // Filter by role - if employee, only show rentals they created or are assigned to
+        if (session.user.role === 'EMPLOYEE') {
+          where.OR = [
+            { createdById: session.user.id },
+            { assignedToId: session.user.id }
+          ];
         }
+        // ADMIN and DOCTOR can see all rentals (no additional filter)
         
         // Fetch all rentals with enhanced related data including new relations
         const rentals = await prisma.rental.findMany({
@@ -186,11 +188,11 @@ export default async function handler(
           
           // Calculate total amount from payments
           const totalAmount = rental.payments?.length > 0
-            ? rental.payments.reduce((sum, payment) => sum + Number(payment.amount), 0)
+            ? rental.payments.reduce((sum: number, payment: any) => sum + Number(payment.amount), 0)
             : 0;
           
           // Extract relational data instead of metadata
-          const accessories = rental.accessories?.map(acc =>  ({
+          const accessories = rental.accessories?.map((acc: any) =>  ({
             id: acc.id,
             productId: acc.productId,
             quantity: acc.quantity,
@@ -230,7 +232,7 @@ export default async function handler(
             status: status,
             notes: rental.notes || null,
             // Include CNAM bons with enhanced data
-            cnamBons: rental.cnamBons?.map(bond => ({
+            cnamBons: rental.cnamBons?.map((bond: any) => ({
               id: bond.id,
               bonNumber: bond.bonNumber,
               bonType: bond.bonType,
@@ -253,7 +255,7 @@ export default async function handler(
               internalNotes: rental.configuration.internalNotes,
             } : null,
             accessories: accessories,
-            gaps: rental.gaps?.map(gap => ({
+            gaps: rental.gaps?.map((gap: any) => ({
               id: gap.id,
               gapType: gap.gapType,
               startDate: gap.startDate,
@@ -266,9 +268,9 @@ export default async function handler(
             // Financial summary
             financialSummary: {
               totalAmount: totalAmount,
-              paidAmount: rental.payments?.filter(p => p.status === 'PAID').reduce((sum, p) => sum + Number(p.amount), 0) || 0,
-              pendingAmount: rental.payments?.filter(p => p.status === 'PENDING').reduce((sum, p) => sum + Number(p.amount), 0) || 0,
-              cnamAmount: rental.cnamBons?.reduce((sum, bond) => sum + Number(bond.bonAmount || 0), 0) || 0,
+              paidAmount: rental.payments?.filter((p: any) => p.status === 'PAID').reduce((sum: number, p: any) => sum + Number(p.amount), 0) || 0,
+              pendingAmount: rental.payments?.filter((p: any) => p.status === 'PENDING').reduce((sum: number, p: any) => sum + Number(p.amount), 0) || 0,
+              cnamAmount: rental.cnamBons?.reduce((sum: number, bond: any) => sum + Number(bond.bonAmount || 0), 0) || 0,
             },
             createdAt: rental.createdAt,
             updatedAt: rental.updatedAt,

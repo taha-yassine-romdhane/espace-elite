@@ -76,15 +76,15 @@ export default async function handler(
       case 'PAYMENT_DUE':
         const paymentId = taskId.replace('payment-', '');
 
-        // Mark payment as completed
+        // Mark payment as paid
         await prisma.payment.update({
           where: { id: paymentId },
-          data: { status: 'COMPLETED' }
+          data: { status: 'PAID' }
         });
 
         return res.status(200).json({
           success: true,
-          message: 'Payment marked as completed'
+          message: 'Payment marked as paid'
         });
 
       case 'APPOINTMENT_REMINDER':

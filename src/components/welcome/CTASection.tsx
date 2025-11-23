@@ -30,7 +30,7 @@ const CTASection: React.FC = () => {
 
           {/* Description */}
           <p className="text-xl md:text-2xl text-white/80 mb-12 max-w-4xl mx-auto leading-relaxed">
-            Rejoignez les 500+ professionnels qui font confiance à Espace Elite pour 
+            Rejoignez les 500+ professionnels qui font confiance à Espace Elite pour
             optimiser leur pratique et offrir des soins d'exception à leurs patients.
           </p>
 

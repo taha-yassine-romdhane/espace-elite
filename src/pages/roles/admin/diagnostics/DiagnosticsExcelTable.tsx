@@ -9,8 +9,11 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DatePicker } from '@/components/ui/date-picker';
 import { useToast } from '@/components/ui/use-toast';
-import { Edit2, Trash2, Check, X, Plus, Search, Stethoscope, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Edit2, Trash2, Check, X, Plus, Search, Stethoscope, ChevronLeft, ChevronRight, FileText, Upload, ShoppingCart } from 'lucide-react';
 import { PatientSelector } from '@/components/forms/components/PatientSelector';
+import { DiagnosticDeviceSelector } from '@/components/forms/components/DiagnosticDeviceSelector';
+import { FileUploader, type UploadedFile } from '@/components/ui/file-uploader';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 interface Diagnostic {
   id?: string;
@@ -45,6 +48,15 @@ interface Diagnostic {
   hasSale?: boolean;
   hasRental?: boolean;
   businessOutcome?: string;
+  // Files information
+  files?: Array<{
+    id: string;
+    url: string;
+    fileName: string;
+  }>;
+  _count?: {
+    files: number;
+  };
 }
 
 const STATUSES = ['PENDING', 'COMPLETED', 'CANCELLED'];
@@ -112,6 +124,12 @@ export default function DiagnosticsExcelTable() {
     diagnosticDate: new Date()
   });
 
+  // File upload state
+  const [fileDialogOpen, setFileDialogOpen] = useState(false);
+  const [currentDiagnosticId, setCurrentDiagnosticId] = useState<string | null>(null);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [isEditMode, setIsEditMode] = useState(false);
+
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
@@ -122,6 +140,7 @@ export default function DiagnosticsExcelTable() {
   const [filterDevice, setFilterDevice] = useState<string>('ALL');
   const [filterSeverity, setFilterSeverity] = useState<string>('ALL');
   const [filterEquipped, setFilterEquipped] = useState<string>('ALL');
+  const [filterHasFiles, setFilterHasFiles] = useState<string>('ALL');
   const [filterDateFrom, setFilterDateFrom] = useState<string>('');
   const [filterDateTo, setFilterDateTo] = useState<string>('');
 
@@ -149,7 +168,7 @@ export default function DiagnosticsExcelTable() {
   const { data: devicesData } = useQuery({
     queryKey: ['diagnostic-devices'],
     queryFn: async () => {
-      const response = await fetch('/api/medical-devices?type=DIAGNOSTIC_DEVICE');
+      const response = await fetch('/api/diagnostic-devices');
       if (!response.ok) throw new Error('Failed to fetch devices');
       return response.json();
     }
@@ -171,7 +190,7 @@ export default function DiagnosticsExcelTable() {
   // Extract arrays from API responses - handle different response formats
   const diagnostics = Array.isArray(diagnosticsData) ? diagnosticsData : (diagnosticsData?.diagnostics || []);
   const patients = Array.isArray(patientsData) ? patientsData : (patientsData?.patients || []);
-  const devices = Array.isArray(devicesData) ? devicesData : (devicesData?.devices || []);
+  const devices = Array.isArray(devicesData) ? devicesData : []; // New API returns array directly
   const users = Array.isArray(usersData) ? usersData : [];
 
   // Create mutation
@@ -194,7 +213,8 @@ export default function DiagnosticsExcelTable() {
           totalPrice: 0,
           notes: data.notes,
           patientInfo: null,
-          fileUrls: []
+          fileUrls: [],
+          result: data.result || null // Include IAH/ID values if provided
         })
       });
       if (!response.ok) throw new Error('Failed to create diagnostic');
@@ -337,6 +357,84 @@ export default function DiagnosticsExcelTable() {
     });
   };
 
+  // File upload handlers
+  const handleOpenFileDialog = (diagnosticId: string | null, isEdit: boolean = false) => {
+    setCurrentDiagnosticId(diagnosticId);
+    setIsEditMode(isEdit);
+    setUploadedFiles([]);
+    setFileDialogOpen(true);
+  };
+
+  const handleFileUploadComplete = (files: UploadedFile[]) => {
+    setUploadedFiles((prev) => [...prev, ...files]);
+    toast({
+      title: 'Succès',
+      description: `${files.length} fichier(s) téléchargé(s) avec succès`,
+    });
+  };
+
+  const handleFileUploadError = (error: Error) => {
+    toast({
+      title: 'Erreur de téléchargement',
+      description: error.message,
+      variant: 'destructive',
+    });
+  };
+
+  const handleSaveFiles = async () => {
+    if (!currentDiagnosticId || uploadedFiles.length === 0) {
+      toast({
+        title: 'Information',
+        description: 'Aucun fichier à enregistrer',
+        variant: 'default',
+      });
+      setFileDialogOpen(false);
+      return;
+    }
+
+    try {
+      // Create file records in database
+      const response = await fetch('/api/files', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          files: uploadedFiles.map((file) => ({
+            url: file.url,
+            type: file.type,
+            fileName: file.name,
+            fileSize: file.size,
+            category: 'POLYGRAPHIE',
+            diagnosticId: currentDiagnosticId,
+          })),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Erreur lors de l\'enregistrement des fichiers');
+      }
+
+      toast({
+        title: 'Succès',
+        description: 'Fichiers enregistrés avec succès',
+      });
+
+      setFileDialogOpen(false);
+      setUploadedFiles([]);
+      setCurrentDiagnosticId(null);
+      queryClient.invalidateQueries({ queryKey: ['diagnostics'] });
+    } catch (error) {
+      toast({
+        title: 'Erreur',
+        description: 'Erreur lors de l\'enregistrement des fichiers',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const removeUploadedFile = (index: number) => {
+    setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
   // Filter diagnostics
   const filteredDiagnostics = diagnostics.filter((diag: Diagnostic) => {
     // Search term filter
@@ -370,6 +468,13 @@ export default function DiagnosticsExcelTable() {
       const isEquipped = diag.hasSale || diag.hasRental;
       if (filterEquipped === 'EQUIPPED' && !isEquipped) return false;
       if (filterEquipped === 'NOT_EQUIPPED' && isEquipped) return false;
+    }
+
+    // Files filter
+    if (filterHasFiles !== 'ALL') {
+      const hasFiles = (diag._count?.files || 0) > 0 || (diag.files?.length || 0) > 0;
+      if (filterHasFiles === 'HAS_FILES' && !hasFiles) return false;
+      if (filterHasFiles === 'NO_FILES' && hasFiles) return false;
     }
 
     // Date from filter
@@ -433,21 +538,12 @@ export default function DiagnosticsExcelTable() {
 
         case 'medicalDeviceId':
           return (
-            <Select
+            <DiagnosticDeviceSelector
               value={editedDiagnostic.medicalDeviceId || ''}
-              onValueChange={(val) => updateEditedField('medicalDeviceId', val)}
-            >
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="Appareil" />
-              </SelectTrigger>
-              <SelectContent>
-                {devices.map((device: any) => (
-                  <SelectItem key={device.id} value={device.id}>
-                    {device.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              onChange={(val) => updateEditedField('medicalDeviceId', val)}
+              placeholder="Sélectionner"
+              className="h-8 text-xs"
+            />
           );
 
         case 'diagnosticDate':
@@ -577,6 +673,15 @@ export default function DiagnosticsExcelTable() {
             />
           );
 
+        case 'hasFiles':
+          // Read-only in edit mode
+          const editFilesCount = editedDiagnostic._count?.files || editedDiagnostic.files?.length || 0;
+          return (
+            <Badge variant="outline" className={`text-xs ${editFilesCount > 0 ? 'bg-green-100 text-green-800 border-green-300' : 'bg-gray-100 text-gray-600 border-gray-300'}`}>
+              {editFilesCount > 0 ? `${editFilesCount} fichier${editFilesCount > 1 ? 's' : ''}` : 'Aucun'}
+            </Badge>
+          );
+
         default:
           return <span className="text-xs">{String(value || '-')}</span>;
       }
@@ -697,6 +802,24 @@ export default function DiagnosticsExcelTable() {
       case 'notes':
         return <span className="text-xs truncate max-w-[200px] block">{diagnostic.notes || '-'}</span>;
 
+      case 'hasFiles':
+        const filesCount = diagnostic._count?.files || diagnostic.files?.length || 0;
+        return (
+          <Badge
+            variant="outline"
+            className={`text-xs ${filesCount > 0 ? 'bg-green-100 text-green-800 border-green-300' : 'bg-gray-100 text-gray-600 border-gray-300'}`}
+          >
+            {filesCount > 0 ? (
+              <span className="flex items-center gap-1">
+                <FileText className="h-3 w-3" />
+                {filesCount} fichier{filesCount > 1 ? 's' : ''}
+              </span>
+            ) : (
+              'Aucun'
+            )}
+          </Badge>
+        );
+
       default:
         return <span className="text-xs">{String(value || '-')}</span>;
     }
@@ -724,21 +847,12 @@ export default function DiagnosticsExcelTable() {
         <span className="text-xs text-gray-500 italic">Auto</span>
       </td>
       <td className="px-2 py-2">
-        <Select
+        <DiagnosticDeviceSelector
           value={newDiagnostic.medicalDeviceId || ''}
-          onValueChange={(val) => updateNewField('medicalDeviceId', val)}
-        >
-          <SelectTrigger className="h-8 text-xs">
-            <SelectValue placeholder="Sélectionner" />
-          </SelectTrigger>
-          <SelectContent>
-            {devices.map((device: any) => (
-              <SelectItem key={device.id} value={device.id}>
-                {device.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          onChange={(val) => updateNewField('medicalDeviceId', val)}
+          placeholder="Sélectionner"
+          className="h-8 text-xs"
+        />
       </td>
       <td className="px-2 py-2">
         <Input
@@ -793,8 +907,14 @@ export default function DiagnosticsExcelTable() {
         <Input
           type="number"
           step="0.1"
-          value={(newDiagnostic as any).iah || ''}
-          onChange={(e) => updateNewField('iah' as any, e.target.value ? parseFloat(e.target.value) : null)}
+          value={newDiagnostic.result?.iah || ''}
+          onChange={(e) => {
+            const newValue = e.target.value ? parseFloat(e.target.value) : null;
+            setNewDiagnostic(prev => ({
+              ...prev,
+              result: { ...prev.result, iah: newValue, idValue: prev.result?.idValue || null }
+            }));
+          }}
           placeholder="IAH"
           className="h-8 text-xs"
         />
@@ -803,15 +923,21 @@ export default function DiagnosticsExcelTable() {
         <Input
           type="number"
           step="0.1"
-          value={(newDiagnostic as any).idValue || ''}
-          onChange={(e) => updateNewField('idValue' as any, e.target.value ? parseFloat(e.target.value) : null)}
+          value={newDiagnostic.result?.idValue || ''}
+          onChange={(e) => {
+            const newValue = e.target.value ? parseFloat(e.target.value) : null;
+            setNewDiagnostic(prev => ({
+              ...prev,
+              result: { ...prev.result, iah: prev.result?.iah || null, idValue: newValue }
+            }));
+          }}
           placeholder="ID"
           className="h-8 text-xs"
         />
       </td>
       <td className="px-2 py-2">
         {(() => {
-          const newSeverity = getSeverity((newDiagnostic as any).iah, false, false);
+          const newSeverity = getSeverity(newDiagnostic.result?.iah, false, false);
           return (
             <Badge variant="outline" className={`text-xs ${newSeverity.color}`}>
               {newSeverity.label}
@@ -987,7 +1113,7 @@ export default function DiagnosticsExcelTable() {
       </div>
 
       {/* Filters */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2 p-3 bg-gray-50 rounded-lg border">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-9 gap-2 p-3 bg-gray-50 rounded-lg border">
         {/* Status Filter */}
         <div>
           <label className="text-[10px] font-medium text-gray-700 mb-0.5 block">Statut</label>
@@ -1072,6 +1198,21 @@ export default function DiagnosticsExcelTable() {
           </Select>
         </div>
 
+        {/* Files Filter */}
+        <div>
+          <label className="text-[10px] font-medium text-gray-700 mb-0.5 block">Rapport</label>
+          <Select value={filterHasFiles} onValueChange={setFilterHasFiles}>
+            <SelectTrigger className="h-7 text-[10px]">
+              <SelectValue placeholder="Tous" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Tous</SelectItem>
+              <SelectItem value="HAS_FILES">Avec rapport</SelectItem>
+              <SelectItem value="NO_FILES">Sans rapport</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         {/* Date From Filter */}
         <div>
           <label className="text-[10px] font-medium text-gray-700 mb-0.5 block">Date de</label>
@@ -1104,6 +1245,7 @@ export default function DiagnosticsExcelTable() {
               setFilterDevice('ALL');
               setFilterSeverity('ALL');
               setFilterEquipped('ALL');
+              setFilterHasFiles('ALL');
               setFilterDateFrom('');
               setFilterDateTo('');
             }}
@@ -1133,6 +1275,7 @@ export default function DiagnosticsExcelTable() {
                 <th className="px-2 py-3 text-left font-medium text-xs whitespace-nowrap">ID</th>
                 <th className="px-2 py-3 text-left font-medium text-xs whitespace-nowrap">Sévérité</th>
                 <th className="px-2 py-3 text-left font-medium text-xs whitespace-nowrap">Appareillé</th>
+                <th className="px-2 py-3 text-left font-medium text-xs whitespace-nowrap">Rapport</th>
                 <th className="px-2 py-3 text-left font-medium text-xs whitespace-nowrap">Notes</th>
                 <th className="px-2 py-3 text-center font-medium text-xs whitespace-nowrap sticky right-0 bg-gray-100 shadow-lg" style={{ minWidth: '100px' }}>Actions</th>
               </tr>
@@ -1167,23 +1310,38 @@ export default function DiagnosticsExcelTable() {
                       <td className="px-2 py-2">{renderCell(diagnostic, 'idValue', isEditing)}</td>
                       <td className="px-2 py-2">{renderCell(diagnostic, 'severity' as any, isEditing)}</td>
                       <td className="px-2 py-2">{renderCell(diagnostic, 'equipped' as any, isEditing)}</td>
+                      <td className="px-2 py-2">{renderCell(diagnostic, 'hasFiles' as any, isEditing)}</td>
                       <td className="px-2 py-2">{renderCell(diagnostic, 'notes', isEditing)}</td>
                       <td className={`px-2 py-2 sticky right-0 shadow-lg ${isEditing ? 'bg-yellow-50' : 'bg-white'}`}>
                         {isEditing ? (
                           <div className="flex gap-1 justify-center">
-                            <Button onClick={handleSave} size="icon" variant="ghost" className="h-7 w-7 text-green-600 hover:bg-green-50">
+                            <Button onClick={handleSave} size="icon" variant="ghost" className="h-7 w-7 text-green-600 hover:bg-green-50" title="Sauvegarder">
                               <Check className="h-4 w-4" />
                             </Button>
-                            <Button onClick={handleCancel} size="icon" variant="ghost" className="h-7 w-7 text-red-600 hover:bg-red-50">
+                            <Button onClick={handleCancel} size="icon" variant="ghost" className="h-7 w-7 text-red-600 hover:bg-red-50" title="Annuler">
                               <X className="h-4 w-4" />
+                            </Button>
+                            <Button onClick={() => diagnostic.id && handleOpenFileDialog(diagnostic.id, true)} size="icon" variant="ghost" className="h-7 w-7 text-blue-600 hover:bg-blue-50" title="Gérer les fichiers">
+                              <Upload className="h-4 w-4" />
                             </Button>
                           </div>
                         ) : (
                           <div className="flex gap-1 justify-center">
-                            <Button onClick={() => handleEdit(diagnostic)} size="icon" variant="ghost" className="h-7 w-7">
+                            <Button onClick={() => handleEdit(diagnostic)} size="icon" variant="ghost" className="h-7 w-7" title="Modifier">
                               <Edit2 className="h-4 w-4" />
                             </Button>
-                            <Button onClick={() => handleDelete(diagnostic)} size="icon" variant="ghost" className="h-7 w-7 text-red-600 hover:bg-red-50">
+                            <Button onClick={() => diagnostic.id && handleOpenFileDialog(diagnostic.id, false)} size="icon" variant="ghost" className="h-7 w-7 text-blue-600 hover:bg-blue-50" title="Gérer les fichiers">
+                              <Upload className="h-4 w-4" />
+                            </Button>
+                            {/* Show Vente button only for non-equipped patients */}
+                            {!diagnostic.hasSale && !diagnostic.hasRental && diagnostic.patient?.id && (
+                              <Link href={`/roles/admin/renseignement/patient/${diagnostic.patient.id}`}>
+                                <Button size="icon" variant="ghost" className="h-7 w-7 text-green-600 hover:bg-green-50" title="Créer une vente">
+                                  <ShoppingCart className="h-4 w-4" />
+                                </Button>
+                              </Link>
+                            )}
+                            <Button onClick={() => handleDelete(diagnostic)} size="icon" variant="ghost" className="h-7 w-7 text-red-600 hover:bg-red-50" title="Supprimer">
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
@@ -1197,6 +1355,92 @@ export default function DiagnosticsExcelTable() {
           </table>
         </div>
       </div>
+
+      {/* File Upload Dialog */}
+      <Dialog open={fileDialogOpen} onOpenChange={setFileDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-blue-600" />
+              Gérer les Documents de Polygraphie
+            </DialogTitle>
+            <DialogDescription>
+              Téléchargez et gérez les documents associés à ce diagnostic
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Uploaded Files Preview */}
+            {uploadedFiles.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold">Fichiers téléchargés ({uploadedFiles.length})</h3>
+                {uploadedFiles.map((file, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
+                  >
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <FileText className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                      <span className="text-sm text-gray-900 truncate">{file.name}</span>
+                      <span className="text-xs text-gray-500">
+                        ({Math.round(file.size / 1024)} KB)
+                      </span>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeUploadedFile(index)}
+                      className="flex-shrink-0 h-7 w-7 p-0"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* File Uploader */}
+            <div className="border-t pt-4">
+              <FileUploader
+                onUploadComplete={handleFileUploadComplete}
+                onUploadError={handleFileUploadError}
+                maxFiles={10}
+                maxSize={16 * 1024 * 1024}
+                accept={{
+                  'application/pdf': ['.pdf'],
+                  'image/*': ['.png', '.jpg', '.jpeg'],
+                  'application/msword': ['.doc'],
+                  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+                }}
+              />
+              <p className="text-xs text-gray-500 mt-2">
+                Formats acceptés: PDF, Images (PNG, JPG), Documents Word. Maximum 16MB par fichier.
+              </p>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end gap-2 pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setFileDialogOpen(false);
+                  setUploadedFiles([]);
+                }}
+              >
+                Annuler
+              </Button>
+              <Button
+                onClick={handleSaveFiles}
+                disabled={uploadedFiles.length === 0}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                Enregistrer les fichiers
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

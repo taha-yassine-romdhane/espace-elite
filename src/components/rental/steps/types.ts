@@ -12,8 +12,8 @@ export interface RentalPaymentPeriod {
 
 export interface CNAMBondLocation {
   id: string;
-  bonNumber: string;
-  bonType: 'MASQUE' | 'CPAP' | 'CONCENTRATEUR_OXYGENE' | 'VNI' | 'AUTRE';
+  bondNumber: string;
+  bondType: 'MASQUE' | 'CPAP' | 'CONCENTRATEUR_OXYGENE' | 'VNI' | 'AUTRE';
   productIds: string[];
   status: 'EN_ATTENTE_APPROBATION' | 'APPROUVE' | 'EN_COURS' | 'TERMINE' | 'REFUSE';
   dossierNumber?: string;
@@ -57,7 +57,7 @@ export interface RentalPaymentStepProps {
   existingRentalData?: ExistingRentalData; // Add existing rental import data
 }
 
-export interface CNAMBonType {
+export interface CNAMBondType {
   value: string;
   label: string;
 }
@@ -75,7 +75,7 @@ export interface GapReason {
 
 export interface PredefinedBond {
   id: string;
-  bonType: string;
+  bondType: string;
   label: string;
   coveredMonths: number;
   totalAmount: number;
@@ -105,7 +105,7 @@ export interface RentalAlert {
 
 export interface PaymentData {
   paymentPeriods: RentalPaymentPeriod[];
-  cnamBons: CNAMBondLocation[];
+  cnamBonds: CNAMBondLocation[];
   depositAmount: number;
   depositMethod: string;
   totalAmount: number;

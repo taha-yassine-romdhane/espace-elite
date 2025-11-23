@@ -36,10 +36,10 @@ export function GeneralSettings() {
 
   // Default settings
   const defaultSettings: GeneralSettingsFormValues = {
-    companyName: "Elite Santé",
+    companyName: "Elite medicale",
     companyAddress: "123 Rue de la Santé, Tunis, Tunisie",
     companyPhone: "+216 71 123 456",
-    companyEmail: "contact@elite-sante.tn",
+    companyEmail: "contact@elite-medicale.tn",
     companyLogo: "/logo.png",
   };
 

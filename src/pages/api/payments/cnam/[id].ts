@@ -280,7 +280,7 @@ async function updatePayment(
       const sale = await prisma.sale.findUnique({
         where: { id: existingPayment.saleId },
         include: {
-          payment: {
+          payments: {
             include: {
               paymentDetails: true
             }
@@ -288,12 +288,13 @@ async function updatePayment(
         }
       });
 
-      if (sale && sale.payment) {
+      if (sale && sale.payments && sale.payments.length > 0) {
         let hasPendingCNAMPayments = false;
-        
-        // APPROACH 1: Check PaymentDetail records for pending CNAM payments
-        if (sale.payment.paymentDetails && sale.payment.paymentDetails.length > 0) {
-          hasPendingCNAMPayments = sale.payment.paymentDetails.some(detail => {
+
+        // APPROACH 1: Check PaymentDetail records for pending CNAM payments across all payments
+        const allPaymentDetails = sale.payments.flatMap(p => p.paymentDetails || []);
+        if (allPaymentDetails.length > 0) {
+          hasPendingCNAMPayments = allPaymentDetails.some((detail: any) => {
             // Check if this is a CNAM payment
             const isCNAM = detail.method === 'CNAM';
             
@@ -315,17 +316,22 @@ async function updatePayment(
         }
         
         // APPROACH 2: Check legacy data in notes field
-        if (!hasPendingCNAMPayments && sale.payment.notes && typeof sale.payment.notes === 'string') {
-          try {
-            const notesData = JSON.parse(sale.payment.notes);
-            if (notesData.payments && Array.isArray(notesData.payments)) {
-              hasPendingCNAMPayments = notesData.payments.some((p: any) => 
-                (p.type === 'cnam' || p.cnamBonType) && 
-                (p.isPending === true || p.etatDossier === 'en_attente')
-              );
+        if (!hasPendingCNAMPayments) {
+          for (const payment of sale.payments) {
+            if (payment.notes && typeof payment.notes === 'string') {
+              try {
+                const notesData = JSON.parse(payment.notes);
+                if (notesData.payments && Array.isArray(notesData.payments)) {
+                  hasPendingCNAMPayments = notesData.payments.some((p: any) =>
+                    (p.type === 'cnam' || p.cnamBonType) &&
+                    (p.isPending === true || p.etatDossier === 'en_attente')
+                  );
+                  if (hasPendingCNAMPayments) break;
+                }
+              } catch (error) {
+                console.error('Error parsing payment notes:', error);
+              }
             }
-          } catch (error) {
-            console.error('Error parsing payment notes:', error);
           }
         }
 

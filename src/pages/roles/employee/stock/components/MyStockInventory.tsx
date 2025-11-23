@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/router';
 import {
   Table,
   TableBody,
@@ -19,7 +20,10 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Loader2, Package, AlertCircle } from 'lucide-react';
+import {
+  Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Loader2, Package, AlertCircle,
+  CheckCircle, Clock, Wrench, XCircle, DollarSign, ShoppingCart, Box, Hammer, AlertTriangle
+} from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 // Define product types enum to match the database
@@ -43,10 +47,27 @@ interface Stock {
     brand: string;
     type: string;
     serialNumber?: string;
+    deviceCode?: string;
   };
   quantity: number;
   status: string;
   isDevice?: boolean;
+  reservedPatient?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    patientCode: string;
+  };
+  soldInfo?: {
+    saleId: string;
+    saleCode: string;
+    patient: {
+      id: string;
+      firstName: string;
+      lastName: string;
+      patientCode: string;
+    } | null;
+  };
 }
 
 interface MyStockResponse {
@@ -73,42 +94,55 @@ interface MyStockResponse {
 
 export default function MyStockInventory() {
   const { data: session } = useSession();
-  
+  const router = useRouter();
+
   // State for filters and pagination
   const [selectedType, setSelectedType] = useState<string>('all');
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [confirmedSearchQuery, setConfirmedSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
-
-  // Debounce search query to avoid too many API calls
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
 
   // Reset pagination when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedType, debouncedSearchQuery]);
+  }, [selectedType, selectedStatus, confirmedSearchQuery]);
+
+  // Reset status filter when type changes
+  useEffect(() => {
+    setSelectedStatus('all');
+  }, [selectedType]);
+
+  // Handle search confirmation
+  const handleSearchConfirm = () => {
+    setConfirmedSearchQuery(searchQuery);
+  };
+
+  // Handle Enter key press
+  const handleSearchKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleSearchConfirm();
+    }
+  };
 
   // Fetch my stock inventory
   const { data: myStockData, isLoading } = useQuery<MyStockResponse>({
-    queryKey: ['myStockInventory', selectedType, debouncedSearchQuery, currentPage, itemsPerPage],
+    queryKey: ['myStockInventory', selectedType, selectedStatus, confirmedSearchQuery, currentPage, itemsPerPage],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (selectedType !== 'all') {
         params.append('productType', selectedType);
       }
-      if (debouncedSearchQuery) {
-        params.append('search', debouncedSearchQuery);
+      if (selectedStatus !== 'all') {
+        params.append('status', selectedStatus);
+      }
+      if (confirmedSearchQuery) {
+        params.append('search', confirmedSearchQuery);
       }
       params.append('page', currentPage.toString());
       params.append('limit', itemsPerPage.toString());
-      
+
       const response = await fetch(`/api/stock/my-inventory?${params}`);
       if (!response.ok) throw new Error('Failed to fetch my inventory');
       return response.json();
@@ -147,7 +181,7 @@ export default function MyStockInventory() {
   };
 
   // Get badge for stock status
-  const getStatusBadge = (status: string, isDevice: boolean = false) => {
+  const getStatusBadge = (status: string, isDevice: boolean = false, reservedPatient?: any, soldInfo?: any) => {
     if (isDevice) {
       switch (status) {
         case 'ACTIVE':
@@ -155,6 +189,19 @@ export default function MyStockInventory() {
             <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
               Actif
             </Badge>
+          );
+        case 'RESERVED':
+          return (
+            <div className="flex flex-col gap-1">
+              <Badge variant="default" className="bg-yellow-100 text-yellow-800 border-yellow-200">
+                Réservé
+              </Badge>
+              {reservedPatient && (
+                <span className="text-xs text-gray-600">
+                  Patient: {reservedPatient.firstName} {reservedPatient.lastName}
+                </span>
+              )}
+            </div>
           );
         case 'MAINTENANCE':
           return (
@@ -167,6 +214,29 @@ export default function MyStockInventory() {
             <Badge variant="destructive">
               Retiré
             </Badge>
+          );
+        case 'SOLD':
+          return (
+            <div className="flex flex-col gap-1">
+              <Badge variant="default" className="bg-blue-100 text-blue-800 border-blue-200">
+                Vendu
+              </Badge>
+              {soldInfo && (
+                <div className="text-xs text-gray-600 space-y-0.5">
+                  {soldInfo.patient && (
+                    <div>
+                      Patient: {soldInfo.patient.firstName} {soldInfo.patient.lastName}
+                      <span className="ml-1 text-gray-500">({soldInfo.patient.patientCode})</span>
+                    </div>
+                  )}
+                  {soldInfo.saleCode && (
+                    <div className="text-blue-700 font-medium">
+                      Vente: {soldInfo.saleCode}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           );
         default:
           return <Badge variant="outline">{status}</Badge>;
@@ -181,6 +251,8 @@ export default function MyStockInventory() {
           return <Badge variant="destructive">En réparation</Badge>;
         case 'OUT_OF_SERVICE':
           return <Badge variant="outline">Hors service</Badge>;
+        case 'SOLD':
+          return <Badge variant="default" className="bg-blue-100 text-blue-800 border-blue-200">Vendu</Badge>;
         default:
           return <Badge>{status}</Badge>;
       }
@@ -301,14 +373,110 @@ export default function MyStockInventory() {
           </Select>
         </div>
 
-        <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-          <Input
-            className="pl-8 border-green-200 focus:ring-green-500"
-            placeholder="Rechercher par nom, marque ou modèle..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+        <div className="w-full md:w-[280px]">
+          <Select
+            value={selectedStatus}
+            onValueChange={setSelectedStatus}
+            disabled={selectedType === 'all'}
+          >
+            <SelectTrigger className="border-green-200 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed">
+              <SelectValue placeholder={selectedType === 'all' ? 'Sélectionner un type d\'abord' : 'Tous les statuts'} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous les statuts</SelectItem>
+
+              {/* Medical Devices Statuses */}
+              {(selectedType === ProductType.MEDICAL_DEVICE || selectedType === ProductType.DIAGNOSTIC_DEVICE) && (
+                <>
+                  <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 bg-gray-50 mt-1">
+                    Statuts Appareils
+                  </div>
+                  <SelectItem value="ACTIVE">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <span>Actif</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="RESERVED">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-yellow-600" />
+                      <span>Réservé</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="MAINTENANCE">
+                    <div className="flex items-center gap-2">
+                      <Wrench className="h-4 w-4 text-blue-600" />
+                      <span>En Maintenance</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="RETIRED">
+                    <div className="flex items-center gap-2">
+                      <XCircle className="h-4 w-4 text-red-600" />
+                      <span>Retiré</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="SOLD">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4 text-blue-700" />
+                      <span>Vendu</span>
+                    </div>
+                  </SelectItem>
+                </>
+              )}
+
+              {/* Stock Items (Accessories/Spare Parts) Statuses */}
+              {(selectedType === ProductType.ACCESSORY || selectedType === ProductType.SPARE_PART) && (
+                <>
+                  <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 bg-gray-50 mt-1">
+                    Statuts Stock
+                  </div>
+                  <SelectItem value="FOR_SALE">
+                    <div className="flex items-center gap-2">
+                      <ShoppingCart className="h-4 w-4 text-green-600" />
+                      <span>En vente</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="FOR_RENT">
+                    <div className="flex items-center gap-2">
+                      <Box className="h-4 w-4 text-blue-600" />
+                      <span>En location</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="IN_REPAIR">
+                    <div className="flex items-center gap-2">
+                      <Hammer className="h-4 w-4 text-orange-600" />
+                      <span>En réparation</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="OUT_OF_SERVICE">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 text-red-600" />
+                      <span>Hors service</span>
+                    </div>
+                  </SelectItem>
+                </>
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="relative flex-1 flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+            <Input
+              className="pl-8 border-green-200 focus:ring-green-500"
+              placeholder="Rechercher par nom, marque ou modèle..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyPress={handleSearchKeyPress}
+            />
+          </div>
+          <Button
+            onClick={handleSearchConfirm}
+            className="bg-green-600 hover:bg-green-700 text-white"
+          >
+            Rechercher
+          </Button>
         </div>
 
         <div className="w-full md:w-auto">
@@ -337,27 +505,54 @@ export default function MyStockInventory() {
               <TableHead>Produit</TableHead>
               <TableHead>Marque</TableHead>
               <TableHead>Modèle</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Quantité</TableHead>
+              <TableHead>N° Série / Quantité</TableHead>
               <TableHead>Statut</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {myStockData.items.map((item) => (
               <TableRow key={item.id}>
-                <TableCell className="font-medium">{item.product.name}</TableCell>
+                <TableCell className="font-medium">
+                  <div className="flex flex-col">
+                    <button
+                      onClick={() => {
+                        const typeRoutes: Record<string, string> = {
+                          MEDICAL_DEVICE: 'medical-device',
+                          DIAGNOSTIC_DEVICE: 'diagnostic-device',
+                          ACCESSORY: 'accessory',
+                          SPARE_PART: 'spare-part',
+                        };
+                        const route = typeRoutes[item.product.type];
+                        if (route) {
+                          router.push(`/roles/employee/appareils/${route}/${item.product.id}`);
+                        }
+                      }}
+                      className="text-left hover:text-green-600 hover:underline transition-colors"
+                    >
+                      {item.product.name}
+                    </button>
+                    {item.product.deviceCode && (
+                      <span className="text-xs text-gray-500">{item.product.deviceCode}</span>
+                    )}
+                  </div>
+                </TableCell>
                 <TableCell>{item.product.brand || '-'}</TableCell>
                 <TableCell>{item.product.model || '-'}</TableCell>
-                <TableCell>{getTypeBadge(item.product.type)}</TableCell>
-                <TableCell className="font-semibold">{item.quantity}</TableCell>
+                <TableCell className="font-semibold">
+                  {item.isDevice ? (
+                    <span className="text-blue-700">{item.product.serialNumber || '-'}</span>
+                  ) : (
+                    <span className="text-green-700">Qté: {item.quantity}</span>
+                  )}
+                </TableCell>
                 <TableCell>
-                  {getStatusBadge(item.status, item.isDevice)}
+                  {getStatusBadge(item.status, item.isDevice, item.reservedPatient, item.soldInfo)}
                 </TableCell>
               </TableRow>
             ))}
             {(!myStockData.items || myStockData.items.length === 0) && (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8">
+                <TableCell colSpan={5} className="text-center py-8">
                   <div className="flex flex-col items-center">
                     <Package className="h-12 w-12 text-gray-400 mb-2" />
                     <span className="text-gray-500">Aucun produit trouvé dans votre stock</span>

@@ -8,6 +8,9 @@ services:
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
       - NEXTAUTH_URL=${NEXTAUTH_URL}
       - NODE_ENV=production
+      - FILE_STORAGE_PATH=/var/espace-elite-files
+    volumes:
+      - espace-elite-files:/var/espace-elite-files
     restart: unless-stopped
     networks:
       - app-network
@@ -15,3 +18,7 @@ services:
 networks:
   app-network:
     driver: bridge
+
+volumes:
+  espace-elite-files:
+    driver: local

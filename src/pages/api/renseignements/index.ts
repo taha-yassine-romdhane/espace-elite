@@ -738,6 +738,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 actionType: true,
                 createdAt: true
               }
+            },
+            manualTasks: {
+              select: {
+                id: true,
+                taskCode: true,
+                taskType: true,
+                status: true,
+                priority: true
+              }
             }
           },
           orderBy: {
@@ -796,6 +805,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         generalNote: patient.generalNote || '',
         caisseAffiliation: patient.affiliation as Affiliation,
         beneficiaire: patient.beneficiaryType as BeneficiaryType,
+        isActive: patient.isActive,
         files: patient.files?.map((file: { id: string; url: string; type: string; createdAt: Date; }) => ({
           id: file.id,
           url: file.url,
@@ -812,6 +822,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         deviceParameters: patient.deviceParameters || [],
         notifications: patient.notifications || [],
         PatientHistory: patient.PatientHistory || [],
+        tasks: patient.manualTasks || [],
         createdAt: patient.createdAt
       }));
 

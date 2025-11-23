@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
-// Use the same Role import as in [...nextauth].ts
-import { Role } from "@prisma/client";
+// Use the local Role enum instead of Prisma client (Edge runtime compatible)
+import { Role } from "@/types/enums";
 
 export async function middleware(req: NextRequest) {
  // console.log('Middleware - Request path:', req.nextUrl.pathname);
