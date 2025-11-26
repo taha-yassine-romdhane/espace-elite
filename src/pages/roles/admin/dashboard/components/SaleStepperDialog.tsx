@@ -20,7 +20,67 @@ import { Textarea } from "@/components/ui/textarea";
 interface StepperDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  action:  "vente" | null ;
+  action: "vente" | null;
+}
+
+interface ClientDetails {
+  id: string;
+  type: "patient" | "societe";
+  firstName?: string;
+  lastName?: string;
+  nomComplet?: string;
+  nomSociete?: string;
+  telephone?: string;
+  address?: string;
+  cin?: string;
+  matriculeFiscale?: string;
+}
+
+interface SelectedProduct {
+  id: string;
+  name: string;
+  type: string;
+  sellingPrice?: number | string;
+  rentalPrice?: number | string;
+  quantity?: number | string;
+  brand?: string;
+  model?: string;
+  serialNumber?: string;
+  stockQuantity?: number;
+  warranty?: string | null;
+  parameters?: Record<string, string | number | boolean | null | undefined>;
+}
+
+// Type for products from ProductDialog and forms which may have optional/null fields
+interface ProductDialogItem {
+  id?: string;
+  name: string;
+  type: string;
+  sellingPrice?: number | string | null;
+  quantity?: number;
+  serialNumber?: string | null;
+  warranty?: string | null;
+  parameters?: Record<string, unknown> | null;
+  status?: string;
+  // Additional fields that may come from forms
+  brand?: string | null;
+  model?: string | null;
+  purchasePrice?: number | null;
+  stockQuantity?: number;
+  destination?: string;
+  stockLocations?: unknown[];
+  [key: string]: unknown; // Allow additional fields from forms
+}
+
+interface PaymentItem {
+  type: string;
+  amount: number | string;
+  chequeNumber?: string;
+  reference?: string;
+  metadata?: {
+    groupName?: string;
+    products?: SelectedProduct[];
+  };
 }
 
 const steps = [
@@ -37,10 +97,10 @@ export function SaleStepperDialog({ isOpen, onClose, action }: StepperDialogProp
   // Client Selection State
   const [clientType, setClientType] = useState<"patient" | "societe" | null>(null);
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
-  const [clientDetails, setClientDetails] = useState<any | null>(null);
+  const [clientDetails, setClientDetails] = useState<ClientDetails | null>(null);
 
   // Product Selection State
-  const [selectedProducts, setSelectedProducts] = useState<any[]>([]);
+  const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>([]);
   const [productDialogOpen, setProductDialogOpen] = useState(false);
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
   const [currentProductType, setCurrentProductType] = useState<
@@ -53,10 +113,10 @@ export function SaleStepperDialog({ isOpen, onClose, action }: StepperDialogProp
   const calculateTotalPrice = useCallback(() => {
     return selectedProducts.reduce((total, product) => {
       // Ensure price and quantity are valid numbers
-      const price = typeof product.sellingPrice === 'number' ? product.sellingPrice : 
-                   (parseFloat(product.sellingPrice) || 0);
-      const quantity = typeof product.quantity === 'number' ? product.quantity : 
-                      (parseInt(product.quantity) || 1);
+      const price = typeof product.sellingPrice === 'number' ? product.sellingPrice :
+                   (parseFloat(String(product.sellingPrice)) || 0);
+      const quantity = typeof product.quantity === 'number' ? product.quantity :
+                       (parseInt(String(product.quantity)) || 1);
       return total + (price * quantity);
     }, 0);
   }, [selectedProducts]);
@@ -120,24 +180,30 @@ export function SaleStepperDialog({ isOpen, onClose, action }: StepperDialogProp
   };
 
   // Product Selection Handlers
-  const handleProductSelect = (products: any) => {
+  const handleProductSelect = (products: ProductDialogItem | ProductDialogItem[]) => {
     // Handle both single product and array of products
     const productsArray = Array.isArray(products) ? products : [products];
-    
+
+    // Convert to SelectedProduct format with required fields
+    const convertedProducts: SelectedProduct[] = productsArray.map(product => ({
+      id: product.id || `temp-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+      name: product.name,
+      type: product.type,
+      sellingPrice: product.sellingPrice ?? 0,
+      quantity: product.quantity || 1,
+      serialNumber: product.serialNumber ?? undefined,
+      warranty: product.warranty,
+      parameters: product.parameters ? (product.parameters as Record<string, string | number | boolean | null | undefined>) : undefined,
+    }));
+
     // Filter out duplicates and add new products
-    const newProducts = productsArray.filter(product => 
+    const newProducts = convertedProducts.filter(product =>
       !selectedProducts.some(selected => selected.id === product.id)
     );
-    
+
     if (newProducts.length > 0) {
-      // Add quantity property and append to selected products
-      const productsWithQuantity = newProducts.map(product => ({
-        ...product,
-        quantity: 1
-      }));
-      
-      setSelectedProducts(prev => [...prev, ...productsWithQuantity]);
-      
+      setSelectedProducts(prev => [...prev, ...newProducts]);
+
       toast({
         title: "Produits ajoutés",
         description: `${newProducts.length} produit(s) ajouté(s) avec succès.`
@@ -158,7 +224,7 @@ export function SaleStepperDialog({ isOpen, onClose, action }: StepperDialogProp
     setSelectedProducts(selectedProducts.filter((_, i) => i !== index));
   };
 
-  const handleUpdateProduct = (index: number, updatedProduct: any) => {
+  const handleUpdateProduct = (index: number, updatedProduct: SelectedProduct) => {
     const newProducts = [...selectedProducts];
     newProducts[index] = updatedProduct;
     setSelectedProducts(newProducts);
@@ -201,14 +267,14 @@ export function SaleStepperDialog({ isOpen, onClose, action }: StepperDialogProp
   };
 
   // Payment completion state
-  const [paymentData, setPaymentData] = useState<any>(null);
+  const [paymentData, setPaymentData] = useState<PaymentItem[] | null>(null);
   const [isFinalizingSale, setIsFinalizingsale] = useState(false);
 
   // Handle payment completion - now advances to recap step
-  const handlePaymentComplete = async (paymentData: any) => {
+  const handlePaymentComplete = async (newPaymentData: PaymentItem[]) => {
     try {
       // Store payment data for the recap step
-      setPaymentData(paymentData);
+      setPaymentData(newPaymentData);
       
       // Advance to recap step
       setCurrentStep(4);
@@ -217,11 +283,12 @@ export function SaleStepperDialog({ isOpen, onClose, action }: StepperDialogProp
         title: "Paiement configuré",
         description: "Vérifiez le récapitulatif avant de finaliser la vente.",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error processing payment:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
       toast({
         title: "Erreur",
-        description: `Une erreur est survenue: ${error.message || 'Erreur inconnue'}`,
+        description: `Une erreur est survenue: ${errorMessage}`,
         variant: "destructive",
       });
     }
@@ -254,17 +321,21 @@ export function SaleStepperDialog({ isOpen, onClose, action }: StepperDialogProp
         patientId: clientType === 'patient' ? clientDetails?.id : null,
         companyId: clientType === 'societe' ? clientDetails?.id : null,
         payment: paymentDetails,
-        items: selectedProducts.map(product => ({
-          quantity: product.quantity || 1,
-          unitPrice: product.sellingPrice || 0,
-          discount: 0,
-          itemTotal: (product.quantity || 1) * (product.sellingPrice || 0),
-          serialNumber: product.serialNumber,
-          warranty: product.warranty,
-          parameters: product.parameters || null, // Include device configuration parameters
-          productId: product.type === 'ACCESSORY' || product.type === 'SPARE_PART' ? product.id : null,
-          medicalDeviceId: product.type === 'MEDICAL_DEVICE' ? product.id : null,
-        }))
+        items: selectedProducts.map(product => {
+          const unitPrice = typeof product.sellingPrice === 'number' ? product.sellingPrice : (parseFloat(String(product.sellingPrice)) || 0);
+          const qty = typeof product.quantity === 'number' ? product.quantity : (parseInt(String(product.quantity)) || 1);
+          return {
+            quantity: qty,
+            unitPrice: unitPrice,
+            discount: 0,
+            itemTotal: qty * unitPrice,
+            serialNumber: product.serialNumber,
+            warranty: product.warranty,
+            parameters: product.parameters || null,
+            productId: product.type === 'ACCESSORY' || product.type === 'SPARE_PART' ? product.id : null,
+            medicalDeviceId: product.type === 'MEDICAL_DEVICE' ? product.id : null,
+          };
+        })
       };
       
       // Send the data to the API
@@ -281,8 +352,8 @@ export function SaleStepperDialog({ isOpen, onClose, action }: StepperDialogProp
         throw new Error(errorData.error || 'Failed to create sale');
       }
       
-      const result = await response.json();
-      
+      await response.json();
+
       // Show success message
       toast({
         title: "Vente créée avec succès",
@@ -291,11 +362,12 @@ export function SaleStepperDialog({ isOpen, onClose, action }: StepperDialogProp
       
       // Close the dialog
       handleClose();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating sale:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
       toast({
         title: "Erreur",
-        description: `Une erreur est survenue: ${error.message || 'Erreur inconnue'}`,
+        description: `Une erreur est survenue: ${errorMessage}`,
         variant: "destructive",
       });
     } finally {
@@ -406,7 +478,7 @@ export function SaleStepperDialog({ isOpen, onClose, action }: StepperDialogProp
               setCurrentProductType(null);
             }}
             type={currentProductType}
-            onSelect={handleProductSelect}
+            onSelect={(products) => handleProductSelect(products as ProductDialogItem[])}
           />
         )}
 

@@ -1,11 +1,10 @@
-import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Plus, 
-  ChevronRight, 
+import {
+  Plus,
+  ChevronRight,
   ChevronLeft,
   Stethoscope,
   Puzzle,
@@ -20,20 +19,25 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/use-toast";
 
-// Function to safely format prices
-const formatPrice = (price: any, quantity: any = 1): string => {
-  const numericPrice = typeof price === 'number' ? price : parseFloat(price) || 0;
-  const numericQuantity = typeof quantity === 'number' ? quantity : parseInt(quantity) || 1;
-  return (numericPrice * numericQuantity).toFixed(2);
-};
+interface CompanyProduct {
+  id: string;
+  name: string;
+  type: string;
+  brand?: string;
+  model?: string;
+  serialNumber?: string;
+  sellingPrice?: number | string;
+  quantity?: number | string;
+  stockQuantity?: number;
+}
 
 interface CompanyProductSelectionProps {
-  selectedProducts: any[];
+  selectedProducts: CompanyProduct[];
   onSelectProduct: (type: "medical-device" | "accessory" | "spare-part" | "diagnostic") => void;
   onCreateProduct: (type: "medical-device" | "accessory" | "spare-part" | "diagnostic") => void;
   onRemoveProduct: (index: number) => void;
   onUpdateProductQuantity?: (index: number, quantity: number) => void;
-  onUpdateProduct?: (index: number, updatedProduct: any) => void;
+  onUpdateProduct?: (index: number, updatedProduct: CompanyProduct) => void;
   onBack: () => void;
   onNext: () => void;
   isRental?: boolean;
@@ -113,14 +117,14 @@ const GroupedProductCard = ({
   onUpdateProduct,
 }: {
   groupName: string;
-  products: any[];
+  products: CompanyProduct[];
   onRemove: (index: number) => void;
   onQuantityChange?: (index: number, quantity: number) => void;
-  onUpdateProduct?: (index: number, updatedProduct: any) => void;
+  onUpdateProduct?: (index: number, updatedProduct: CompanyProduct) => void;
 }) => {
   const totalPrice = products.reduce((total, product) => {
-    const price = parseFloat(product.sellingPrice) || 0;
-    const quantity = parseInt(product.quantity) || 1;
+    const price = typeof product.sellingPrice === 'number' ? product.sellingPrice : (parseFloat(String(product.sellingPrice)) || 0);
+    const quantity = typeof product.quantity === 'number' ? product.quantity : (parseInt(String(product.quantity)) || 1);
     return total + (price * quantity);
   }, 0);
 
@@ -136,7 +140,7 @@ const GroupedProductCard = ({
   };
   
   // Handle price change for individual products
-  const handlePriceChange = (product: any, newPrice: string) => {
+  const handlePriceChange = (product: CompanyProduct, newPrice: string) => {
     if (!onUpdateProduct) return;
     
     // Find the index within the products array passed to this component
@@ -219,20 +223,21 @@ const ProductCard = ({
   onQuantityChange,
   onUpdateProduct,
 }: {
-  product: any;
+  product: CompanyProduct;
   index: number;
   onRemove: () => void;
   onQuantityChange?: (index: number, quantity: number) => void;
-  onUpdateProduct?: (index: number, updatedProduct: any) => void;
+  onUpdateProduct?: (index: number, updatedProduct: CompanyProduct) => void;
 }) => {
   const isStockable = product.type === "ACCESSORY" || product.type === "SPARE_PART";
 
   const handleQuantityInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!onQuantityChange) return;
     let newQuantity = parseInt(e.target.value) || 1;
+    const maxStock = product.stockQuantity ?? 999;
     if (isStockable) {
-      if (newQuantity > product.stockQuantity) {
-        newQuantity = product.stockQuantity;
+      if (newQuantity > maxStock) {
+        newQuantity = maxStock;
       }
       if (newQuantity < 1) {
         newQuantity = 1;
@@ -278,8 +283,11 @@ const ProductCard = ({
               size="icon"
               variant="outline"
               className="h-7 w-7"
-              onClick={() => onQuantityChange(index, (product.quantity || 1) - 1)}
-              disabled={(product.quantity || 1) <= 1}
+              onClick={() => {
+                const currentQty = typeof product.quantity === 'number' ? product.quantity : (parseInt(String(product.quantity)) || 1);
+                onQuantityChange(index, currentQty - 1);
+              }}
+              disabled={(typeof product.quantity === 'number' ? product.quantity : (parseInt(String(product.quantity)) || 1)) <= 1}
             >
               <Minus className="h-4 w-4" />
             </Button>
@@ -287,20 +295,23 @@ const ProductCard = ({
               <Input
                 type="number"
                 className="h-full w-12 text-center border-none focus-visible:ring-0 p-0"
-                value={product.quantity || 1}
+                value={typeof product.quantity === 'number' ? product.quantity : (parseInt(String(product.quantity)) || 1)}
                 onChange={handleQuantityInputChange}
                 min="1"
               />
               <span className="pr-2 text-sm text-gray-400">
-                / {product.stockQuantity}
+                / {product.stockQuantity ?? 0}
               </span>
             </div>
             <Button
               size="icon"
               variant="outline"
               className="h-7 w-7"
-              onClick={() => onQuantityChange(index, (product.quantity || 1) + 1)}
-              disabled={(product.quantity || 1) >= product.stockQuantity}
+              onClick={() => {
+                const currentQty = typeof product.quantity === 'number' ? product.quantity : (parseInt(String(product.quantity)) || 1);
+                onQuantityChange(index, currentQty + 1);
+              }}
+              disabled={(typeof product.quantity === 'number' ? product.quantity : (parseInt(String(product.quantity)) || 1)) >= (product.stockQuantity ?? 0)}
             >
               <Plus className="h-4 w-4" />
             </Button>
@@ -338,22 +349,7 @@ export const CompanyProductSelection = ({
   onUpdateProduct = () => {},
   onBack = () => {},
   onNext = () => {},
-  isRental = false,
 }: CompanyProductSelectionProps) => {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedDevices, setSelectedDevices] = useState<Set<string>>(new Set());
-  
-  // Track selected devices by serial number for visual indication
-  useEffect(() => {
-    const deviceSerials = new Set<string>();
-    selectedProducts.forEach(product => {
-      if (product.serialNumber) {
-        deviceSerials.add(product.serialNumber);
-      }
-    });
-    setSelectedDevices(deviceSerials);
-  }, [selectedProducts]);
-  
   const productTypes = [
     { 
       id: "medical-device", 
@@ -398,10 +394,10 @@ export const CompanyProductSelection = ({
   };
   
   const totalPrice = (selectedProducts || []).reduce((total, product) => {
-    const price = typeof product.sellingPrice === 'number' ? product.sellingPrice : 
-                   parseFloat(product.sellingPrice) || 0;
-    const quantity = typeof product.quantity === 'number' ? product.quantity : 
-                     parseInt(product.quantity) || 1;
+    const price = typeof product.sellingPrice === 'number' ? product.sellingPrice :
+                   (parseFloat(String(product.sellingPrice)) || 0);
+    const quantity = typeof product.quantity === 'number' ? product.quantity :
+                     (parseInt(String(product.quantity)) || 1);
     return total + (price * quantity);
   }, 0);
 
@@ -420,11 +416,11 @@ export const CompanyProductSelection = ({
           });
           
           return (
-            <ProductTypeButton 
-              key={type.id} 
-              type={type} 
-              onSelect={() => onSelectProduct(type.id as any)}
-              onCreateNew={() => onCreateProduct(type.id as any)}
+            <ProductTypeButton
+              key={type.id}
+              type={type}
+              onSelect={() => onSelectProduct(type.id as "medical-device" | "accessory" | "spare-part" | "diagnostic")}
+              onCreateNew={() => onCreateProduct(type.id as "medical-device" | "accessory" | "spare-part" | "diagnostic")}
               isSelected={hasSelectedProducts}
             />
           );
@@ -460,7 +456,7 @@ export const CompanyProductSelection = ({
                 );
                 
                 // Group device products by category, brand and model
-                const groupedDevices: Record<string, any[]> = {};
+                const groupedDevices: Record<string, CompanyProduct[]> = {};
                 
                 deviceProducts.forEach(product => {
                   const groupKey = `${product.name}-${product.brand}-${product.model}`;
@@ -499,7 +495,7 @@ export const CompanyProductSelection = ({
                     ))}
                     
                     {/* Render accessories and spare parts with original style */}
-                    {nonDeviceProducts.map((product, index) => {
+                    {nonDeviceProducts.map((product) => {
                       const originalIndex = selectedProducts.indexOf(product);
                       return (
                         <ProductCard

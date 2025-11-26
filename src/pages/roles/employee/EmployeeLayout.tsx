@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useSession, signOut } from 'next-auth/react';
 import EmployeeNavbar from './EmployeeNavbar';
@@ -12,6 +12,17 @@ const EmployeeLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =
   const handleSignOut = () => {
     signOut().then(() => router.push('/welcome'));
   };
+
+  // Add dashboard-layout class to body for overflow control
+  useEffect(() => {
+    document.body.classList.add('dashboard-layout');
+    document.documentElement.classList.add('dashboard-layout');
+
+    return () => {
+      document.body.classList.remove('dashboard-layout');
+      document.documentElement.classList.remove('dashboard-layout');
+    };
+  }, []);
 
   return (
     <div className="flex h-screen bg-gray-100 employee-theme">

@@ -767,22 +767,42 @@ export default function ModernTasksPage() {
       end: addDays(weekStart, 6)
     });
 
+    // Time slots from 8:00 to 18:00
+    const timeSlots = Array.from({ length: 11 }, (_, i) => i + 8);
+
+    // Group tasks by day and hour
+    const getTasksForSlot = (day: Date, hour: number) => {
+      return tasks.filter(task => {
+        const taskDate = new Date(task.dueDate || task.startDate);
+        return taskDate.toDateString() === day.toDateString() &&
+               taskDate.getHours() === hour;
+      });
+    };
+
+    // Get all-day tasks (tasks without specific time or outside business hours)
+    const getAllDayTasks = (day: Date) => {
+      return tasks.filter(task => {
+        const taskDate = new Date(task.dueDate || task.startDate);
+        if (taskDate.toDateString() !== day.toDateString()) return false;
+        const hour = taskDate.getHours();
+        return hour < 8 || hour > 18;
+      });
+    };
+
     return (
       <div className="bg-white rounded-lg border overflow-hidden">
-        <div className="grid grid-cols-7 gap-0">
+        {/* Header with days */}
+        <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b sticky top-0 bg-white z-10">
+          <div className="p-2 border-r bg-gray-50"></div>
           {weekDays.map((day, index) => {
-            const dayTasks = tasks.filter(task => {
-              const taskDate = new Date(task.dueDate || task.startDate);
-              return taskDate.toDateString() === day.toDateString();
-            });
-
             const isToday = day.toDateString() === new Date().toDateString();
+            const allDayTasks = getAllDayTasks(day);
 
             return (
               <div
                 key={index}
                 className={cn(
-                  "min-h-[400px] p-3 border-r cursor-pointer hover:bg-gray-50 transition-colors",
+                  "p-2 border-r text-center cursor-pointer hover:bg-gray-50",
                   isToday && "bg-blue-50"
                 )}
                 onClick={() => {
@@ -790,40 +810,95 @@ export default function ModernTasksPage() {
                   setViewMode('day');
                 }}
               >
-                <div className="text-center mb-3">
-                  <div className="text-xs font-medium text-gray-500 uppercase">
-                    {format(day, 'EEEE', { locale: fr })}
-                  </div>
-                  <div className={cn(
-                    "text-2xl font-bold mt-1",
-                    isToday && "text-blue-600"
-                  )}>
-                    {format(day, 'd')}
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    {format(day, 'MMMM yyyy', { locale: fr })}
-                  </div>
+                <div className="text-xs font-medium text-gray-500 uppercase">
+                  {format(day, 'EEE', { locale: fr })}
                 </div>
-
-                <div className="space-y-2">
-                  {dayTasks.length > 0 ? (
-                    <>
-                      {dayTasks.slice(0, 8).map(task => renderTaskCard(task, true))}
-                      {dayTasks.length > 8 && (
-                        <div className="text-xs text-center text-gray-500 p-2 bg-gray-50 rounded">
-                          +{dayTasks.length - 8} autres tâches
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div className="text-xs text-center text-gray-400 py-4">
-                      Aucune tâche
-                    </div>
-                  )}
+                <div className={cn(
+                  "text-lg font-bold",
+                  isToday && "text-blue-600"
+                )}>
+                  {format(day, 'd')}
                 </div>
+                {/* All-day tasks indicator */}
+                {allDayTasks.length > 0 && (
+                  <div className="mt-1">
+                    <Badge variant="outline" className="text-[10px] px-1 py-0">
+                      {allDayTasks.length} tâche(s)
+                    </Badge>
+                  </div>
+                )}
               </div>
             );
           })}
+        </div>
+
+        {/* Time slots grid */}
+        <div className="max-h-[600px] overflow-y-auto">
+          {timeSlots.map(hour => (
+            <div key={hour} className="grid grid-cols-[60px_repeat(7,1fr)] border-b min-h-[60px]">
+              {/* Time label */}
+              <div className="p-1 border-r bg-gray-50 text-xs text-gray-500 text-right pr-2 pt-1">
+                {hour.toString().padStart(2, '0')}:00
+              </div>
+
+              {/* Day cells for this hour */}
+              {weekDays.map((day, dayIndex) => {
+                const slotTasks = getTasksForSlot(day, hour);
+                const isToday = day.toDateString() === new Date().toDateString();
+                const isCurrentHour = isToday && new Date().getHours() === hour;
+
+                return (
+                  <div
+                    key={dayIndex}
+                    className={cn(
+                      "p-1 border-r min-h-[60px] hover:bg-gray-50 transition-colors relative",
+                      isToday && "bg-blue-50/30",
+                      isCurrentHour && "bg-blue-100/50 ring-1 ring-blue-300 ring-inset"
+                    )}
+                  >
+                    {slotTasks.length > 0 ? (
+                      <div className="space-y-1">
+                        {slotTasks.slice(0, 2).map(task => {
+                          const config = taskTypeConfig[task.type];
+                          const Icon = config.icon;
+                          return (
+                            <div
+                              key={task.id}
+                              className={cn(
+                                "p-1 rounded text-[10px] cursor-pointer hover:shadow-sm transition-all border",
+                                config.bgColor,
+                                config.borderColor,
+                                task.status === 'OVERDUE' && "ring-1 ring-red-300"
+                              )}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleTaskAction(task);
+                              }}
+                            >
+                              <div className="flex items-center gap-1">
+                                <Icon className={cn("h-2.5 w-2.5 flex-shrink-0", config.color)} />
+                                <span className="truncate font-medium">{task.title}</span>
+                              </div>
+                              {task.client && (
+                                <div className="text-[9px] text-gray-500 truncate pl-3.5">
+                                  {task.client.name}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                        {slotTasks.length > 2 && (
+                          <div className="text-[10px] text-center text-gray-500">
+                            +{slotTasks.length - 2}
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
         </div>
       </div>
     );

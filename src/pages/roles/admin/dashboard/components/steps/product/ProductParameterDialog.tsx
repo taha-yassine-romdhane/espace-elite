@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Settings } from "lucide-react";
 import {
   ParametreCPAPForm,
@@ -10,12 +9,28 @@ import {
   ParametreVIForm
 } from "@/components/MedicaleDevicesParametreForms";
 
+interface DeviceParameters {
+  [key: string]: string | number | boolean | null | undefined;
+}
+
+interface ProductForConfig {
+  id: string;
+  name?: string;
+  type?: string;
+  deviceType?: string;
+  parameters?: DeviceParameters;
+  configuration?: DeviceParameters;
+  device?: {
+    type?: string;
+  };
+}
+
 interface ProductParameterDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  product: any;
-  onSaveParameters: (productId: string, parameters: any) => void;
-  initialParameters?: any;
+  product: ProductForConfig | null;
+  onSaveParameters: (productId: string, parameters: DeviceParameters) => void;
+  initialParameters?: DeviceParameters;
 }
 
 export default function ProductParameterDialog({
@@ -25,7 +40,7 @@ export default function ProductParameterDialog({
   onSaveParameters,
   initialParameters
 }: ProductParameterDialogProps) {
-  const [parameters, setParameters] = useState<any>(initialParameters || product?.parameters || {});
+  const [parameters, setParameters] = useState<DeviceParameters>(initialParameters || product?.parameters || {});
 
   useEffect(() => {
     // Update parameters when product changes or initialParameters are provided
@@ -42,7 +57,7 @@ export default function ProductParameterDialog({
     }
   }, [product, initialParameters]);
 
-  const handleSubmit = (values: any) => {
+  const handleSubmit = (values: DeviceParameters) => {
     if (product?.id) {
       onSaveParameters(product.id, values);
       onClose();
@@ -82,7 +97,7 @@ export default function ProductParameterDialog({
     // If we couldn't match a type, show a debug message with the product info
     return (
       <div className="p-6 text-center space-y-4">
-        <p className="text-gray-500">Aucun paramètre disponible pour ce type d'appareil.</p>
+        <p className="text-gray-500">Aucun paramètre disponible pour ce type d&apos;appareil.</p>
         <div className="text-xs text-left bg-gray-50 p-3 rounded border">
           <p className="font-semibold">Détails du produit (debug):</p>
           <pre className="whitespace-pre-wrap overflow-auto max-h-40">

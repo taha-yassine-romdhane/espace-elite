@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -25,6 +25,15 @@ export const ExcelTable: React.FC<ExcelTableProps> = ({ columns, data, title, su
   const router = useRouter();
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
+  const prevDataLengthRef = useRef(data.length);
+
+  // Reset to page 1 when data length changes (filtering applied)
+  useEffect(() => {
+    if (data.length !== prevDataLengthRef.current) {
+      setCurrentPage(1);
+      prevDataLengthRef.current = data.length;
+    }
+  }, [data.length]);
 
   // Pagination logic
   const totalPages = Math.ceil(data.length / itemsPerPage);

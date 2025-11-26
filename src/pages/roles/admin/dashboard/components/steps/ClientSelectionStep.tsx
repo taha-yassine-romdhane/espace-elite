@@ -133,15 +133,10 @@ export function ClientSelectionStep({
 
   const handleSocieteFileChange = (files: File[] | ExistingFile[]) => {
     if (files && files.length > 0) {
-      // Type guard to check if we're dealing with File[] or ExistingFile[]
-      const isExistingFile = (file: any): file is ExistingFile => {
-        return 'url' in file;
-      };
-
       // Set the first file as the image regardless of type
-      setSocieteFormData(prev => ({ 
-        ...prev, 
-        img: files[0] 
+      setSocieteFormData(prev => ({
+        ...prev,
+        img: files[0]
       }));
     }
   };
@@ -162,7 +157,7 @@ export function ClientSelectionStep({
     onClientSelect(clientId);
   };
   
-  const handleCreateSuccess = async (formData: any) => {
+  const handleCreateSuccess = async (formData: Record<string, unknown>) => {
     try {
       // Create FormData object as the API expects multipart form data
       const apiFormData = new FormData();
@@ -376,7 +371,7 @@ export function ClientSelectionStep({
   }, [existingRentalData, onExistingRentalDataChange]);
 
   // Handle existing rental data changes
-  const handleExistingRentalDataChange = (field: keyof ExistingRentalData, value: any) => {
+  const handleExistingRentalDataChange = (field: keyof ExistingRentalData, value: ExistingRentalData[keyof ExistingRentalData]) => {
     setExistingRentalData(prev => ({
       ...prev,
       [field]: value
@@ -455,13 +450,13 @@ export function ClientSelectionStep({
               <Checkbox
                 id="existing-rental"
                 checked={existingRentalData.isExistingRental}
-                onCheckedChange={(checked) => 
-                  handleExistingRentalDataChange('isExistingRental', checked)
+                onCheckedChange={(checked) =>
+                  handleExistingRentalDataChange('isExistingRental', checked === true)
                 }
               />
               <Label htmlFor="existing-rental" className="text-base font-semibold text-[#1e3a8a] flex items-center gap-2">
                 <Import className="h-5 w-5" />
-                Il s'agit d'une location existante
+                Il s&apos;agit d&apos;une location existante
               </Label>
             </div>
             
@@ -515,8 +510,8 @@ export function ClientSelectionStep({
                     <Checkbox
                       id="has-active-cnam"
                       checked={existingRentalData.hasActiveCnam}
-                      onCheckedChange={(checked) => 
-                        handleExistingRentalDataChange('hasActiveCnam', checked)
+                      onCheckedChange={(checked) =>
+                        handleExistingRentalDataChange('hasActiveCnam', checked === true)
                       }
                     />
                     <Label htmlFor="has-active-cnam" className="flex items-center gap-2">
@@ -528,7 +523,7 @@ export function ClientSelectionStep({
                   {existingRentalData.hasActiveCnam && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 ml-6">
                       <div className="space-y-2">
-                        <Label>Date d'expiration CNAM</Label>
+                        <Label>Date d&apos;expiration CNAM</Label>
                         <Popover>
                           <PopoverTrigger asChild>
                             <Button variant="outline" className="w-full justify-start">

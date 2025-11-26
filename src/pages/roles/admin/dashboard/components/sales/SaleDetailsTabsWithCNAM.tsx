@@ -6,11 +6,33 @@ import SaleDetailsCNAMTab from './SaleDetailsCNAMTab';
 
 import SaleInvoice from '@/components/sales/SaleInvoice';
 
+interface SaleData {
+  id: string;
+  saleCode?: string;
+  invoiceNumber?: string;
+  saleDate: string;
+  totalAmount: number;
+  discount?: number;
+  finalAmount: number;
+  status: string;
+  notes?: string;
+  patient?: { firstName: string; lastName: string };
+  company?: { companyName: string };
+  items?: Array<{
+    id: string;
+    quantity: number;
+    unitPrice: number;
+    itemTotal: number;
+    product?: { name: string };
+    medicalDevice?: { name: string };
+  }>;
+}
+
 interface SaleDetailsTabsWithCNAMProps {
   saleId: string;
   isReadOnly?: boolean;
   children: React.ReactNode;
-  sale?: any; // Add sale prop for invoice rendering
+  sale?: SaleData;
 }
 
 /**

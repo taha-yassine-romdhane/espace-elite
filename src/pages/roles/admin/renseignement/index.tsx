@@ -898,14 +898,14 @@ export default function RenseignementPage() {
 
       {isOpen && (
         <div className="fixed inset-0 flex items-center justify-center z-50">
-          {/* Modal backdrop with blur effect */}
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsOpen(false)}></div>
+          {/* Modal backdrop - no click to close, only X button */}
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm"></div>
 
-          {/* Modal container */}
-          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col m-4">
-            {/* Modal header */}
-            <div className="flex justify-between items-center border-b border-gray-200 p-4 bg-gray-50">
-              <h3 className="text-lg font-medium">
+          {/* Modal container - optimized for tablet */}
+          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col m-2">
+            {/* Modal header - compact */}
+            <div className="flex justify-between items-center border-b border-gray-200 px-4 py-2 bg-gray-50">
+              <h3 className="text-base font-medium">
                 {isEdit
                   ? `Modifier ${formData.type === 'Patient' ? 'un patient' : 'une société'}`
                   : `Ajouter ${formData.type === 'Patient' ? 'un patient' : 'une société'}`
@@ -913,7 +913,7 @@ export default function RenseignementPage() {
               </h3>
               <button
                 onClick={() => setIsOpen(false)}
-                className="text-gray-500 hover:text-gray-700 focus:outline-none"
+                className="text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded-full p-1 focus:outline-none transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>

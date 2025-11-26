@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 import { CheckCircle2, Circle, Building2, User, Activity, ShoppingCart, CreditCard, FileCheck, Clock } from "lucide-react";
-import { toNumber, formatPrice, formatCurrency, calculatePaymentsTotal, calculateRemainingAmount, isFullyPaid } from "@/utils/priceUtils";
+import { toNumber, formatCurrency, calculatePaymentsTotal, calculateRemainingAmount, isFullyPaid } from "@/utils/priceUtils";
 import StepperErrorBoundary from "@/components/StepperErrorBoundary";
 
 interface ClientDetails {
@@ -23,6 +23,41 @@ interface Step {
   description: string;
 }
 
+interface SelectedProduct {
+  id: string;
+  name: string;
+  type: string;
+  sellingPrice?: number | string;
+  rentalPrice?: number | string;
+  quantity?: number | string;
+  brand?: string;
+  model?: string;
+  serialNumber?: string;
+  stockQuantity?: number;
+  warranty?: string | null;
+  parameters?: Record<string, string | number | boolean | null | undefined>;
+}
+
+interface PaymentCnamInfo {
+  bonType?: string;
+  productAllocations?: Record<string, number>;
+}
+
+interface PaymentMetadata {
+  groupName?: string;
+  products?: SelectedProduct[];
+}
+
+interface PaymentItem {
+  type: string;
+  amount: number | string;
+  chequeNumber?: string;
+  reference?: string;
+  cnamInfo?: PaymentCnamInfo;
+  productAllocations?: Record<string, number>;
+  metadata?: PaymentMetadata;
+}
+
 interface SaleStepperSidebarProps {
   steps: ReadonlyArray<Step> | readonly {
     id: number;
@@ -31,9 +66,9 @@ interface SaleStepperSidebarProps {
   }[];
   currentStep: number;
   clientDetails: ClientDetails | null;
-  selectedProducts: any[];
+  selectedProducts: SelectedProduct[];
   totalPrice?: number;
-  paymentData?: any;
+  paymentData?: PaymentItem[] | null;
 }
 
 export function SaleStepperSidebar({ 
@@ -151,7 +186,7 @@ export function SaleStepperSidebar({
               Paiements ({paymentData.length})
             </div>
             <div className="p-3 space-y-2 max-h-40 overflow-y-auto">
-              {paymentData.map((payment: any, index: number) => {
+              {paymentData.map((payment: PaymentItem, index: number) => {
                 const getPaymentIcon = (type: string) => {
                   switch (type) {
                     case 'especes': return <CreditCard className="h-4 w-4 text-green-600" />;
@@ -208,7 +243,7 @@ export function SaleStepperSidebar({
                     {/* Product allocation breakdown */}
                     {payment.metadata?.products && payment.metadata.products.length > 0 && (
                       <div className="space-y-1">
-                        {payment.metadata.products.map((product: any, prodIndex: number) => {
+                        {payment.metadata.products.map((product: SelectedProduct | null, prodIndex: number) => {
                           if (!product) return null;
                           
                           // Calculate allocated amount for this product
@@ -220,15 +255,16 @@ export function SaleStepperSidebar({
                             allocatedAmount = payment.cnamInfo.productAllocations[product.id];
                           } else {
                             // Fallback to proportional calculation
-                            const totalProductsValue = payment.metadata.products.reduce((sum: number, p: any) => 
+                            const products = payment.metadata?.products ?? [];
+                            const totalProductsValue = products.reduce((sum: number, p: SelectedProduct | null) =>
                               sum + (p ? (toNumber(p.sellingPrice) * toNumber(p.quantity || 1)) : 0), 0
                             );
                             const productValue = toNumber(product.sellingPrice) * toNumber(product.quantity || 1);
                             const paymentAmount = toNumber(payment.amount);
-                            
-                            allocatedAmount = totalProductsValue > 0 
+
+                            allocatedAmount = totalProductsValue > 0
                               ? (productValue / totalProductsValue) * paymentAmount
-                              : paymentAmount / payment.metadata.products.length;
+                              : paymentAmount / (products.length || 1);
                           }
                           
                           return (

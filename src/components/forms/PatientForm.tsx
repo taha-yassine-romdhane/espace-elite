@@ -12,7 +12,6 @@ import InsuranceDetailsBlock from './patientSections/InsuranceDetailsBlock';
 import BiometricsBlock from './patientSections/BiometricsBlock';
 import AdditionalInfoBlock from './patientSections/AdditionalInfoBlock';
 import ResponsiblePersonBlock from './patientSections/ResponsiblePersonBlock';
-import FileUpload from './components/FileUpload';
 import { Doctor } from '@/types/models/Doctor';
 import { Technician } from '@/types/models/Technician';
 import { PatientFormProps } from '@/types/forms/PatientFormProps';
@@ -490,88 +489,66 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {/* Hidden inputs to pass files data - multiple approaches for reliability */}
-      <input 
-        type="hidden" 
-        name="existingFilesData" 
-        value={JSON.stringify(existingFiles)} 
-      />
-      <input 
-        type="hidden" 
-        name="existingFiles" 
-        value={JSON.stringify(existingFiles)} 
-      />
-      {/* Backup field */}
-      <input 
-        type="hidden" 
-        name="_uploadedFiles" 
-        value={JSON.stringify(existingFiles)} 
-      />
+    <form onSubmit={handleSubmit} className="space-y-2">
+      {/* Hidden inputs to pass files data */}
+      <input type="hidden" name="existingFilesData" value={JSON.stringify(existingFiles)} />
+      <input type="hidden" name="existingFiles" value={JSON.stringify(existingFiles)} />
+      <input type="hidden" name="_uploadedFiles" value={JSON.stringify(existingFiles)} />
+
       <div className="bg-white rounded-lg">
-        <div className="p-5">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="p-3">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             {/* Left Column */}
-            <div className="space-y-6">
-              <PersonalInfoBlock 
-                form={form} 
-                onInputChange={onInputChange} 
+            <div className="space-y-3">
+              <PersonalInfoBlock
+                form={form}
+                onInputChange={onInputChange}
                 validationErrors={validationErrors}
                 onPatientSelect={handlePatientSelect}
               />
-                <InsuranceDetailsBlock 
-                form={form} 
-                onInputChange={onInputChange} 
+              <InsuranceDetailsBlock
+                form={form}
+                onInputChange={onInputChange}
               />
             </div>
 
             {/* Right Column */}
-            <div className="space-y-6">
-              <AdditionalInfoBlock 
-                form={form} 
-                onInputChange={onInputChange} 
-              />
-              
-            
-              
-              <ResponsiblePersonBlock 
-                form={form} 
-                doctors={doctors} 
-                technicians={technicians} 
+            <div className="space-y-3">
+              <AdditionalInfoBlock
+                form={form}
                 onInputChange={onInputChange}
               />
-              
-              <BiometricsBlock 
-                form={form} 
-                onInputChange={onInputChange} 
+
+              <ResponsiblePersonBlock
+                form={form}
+                doctors={doctors}
+                technicians={technicians}
+                onInputChange={onInputChange}
               />
 
-              {/* File Upload Section */}
-              <FileUpload 
-                form={form} 
-                existingFiles={existingFiles as any}
-                onFileChange={setExistingFiles}
-                onRemoveExistingFile={handleRemoveFile}
-                maxFiles={10}
-                maxFileSize={16}
+              <BiometricsBlock
+                form={form}
+                onInputChange={onInputChange}
               />
             </div>
           </div>
         </div>
 
-        <div className="p-4 bg-gray-50 border-t border-gray-200 flex justify-between">
+        <div className="p-3 bg-gray-50 border-t border-gray-200 flex justify-between">
           <Button
             type="button"
             variant="outline"
+            size="sm"
             onClick={onBack}
           >
             Retour
           </Button>
           <Button
             type="submit"
+            size="sm"
             disabled={isLoading}
           >
-            {isLoading ? 
+            {isLoading ?
               <div className="flex items-center">
                 <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>

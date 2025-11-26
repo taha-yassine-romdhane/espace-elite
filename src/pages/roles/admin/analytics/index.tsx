@@ -1,11 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Users, Stethoscope, Package, Download } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RefreshCw, Users, Stethoscope, Package, Download, Search, Calendar, TrendingUp, PieChart } from "lucide-react";
 import { ExcelTable } from '@/components/analytics/ExcelTable';
+import AdminLayout from '../AdminLayout';
+import * as XLSX from 'xlsx';
+import { NextPageWithLayout } from '@/pages/_app';
 
 interface DetailedAnalytics {
   employees: any[];
@@ -18,12 +22,21 @@ interface DetailedAnalytics {
   };
 }
 
-const AnalyticsPage: React.FC = () => {
+const AnalyticsPage: NextPageWithLayout = () => {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [analyticsData, setAnalyticsData] = useState<DetailedAnalytics | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('employees');
+
+  // Search states for each tab
+  const [employeeSearch, setEmployeeSearch] = useState('');
+  const [patientSearch, setPatientSearch] = useState('');
+  const [deviceSearch, setDeviceSearch] = useState('');
+
+  // Date range filters
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   const fetchAnalyticsData = async () => {
     setLoading(true);
@@ -57,11 +70,94 @@ const AnalyticsPage: React.FC = () => {
     return Number(value).toLocaleString('fr-TN');
   };
 
+  // Enum translation function - converts raw enum values to French
+  const formatEnum = (value: string | null | undefined): string => {
+    if (!value) return '-';
+
+    const translations: Record<string, string> = {
+      // Device Status
+      'ACTIVE': 'Actif',
+      'AVAILABLE': 'Disponible',
+      'RENTED': 'En location',
+      'SOLD': 'Vendu',
+      'MAINTENANCE': 'En maintenance',
+      'RESERVED': 'Réservé',
+      'OUT_OF_SERVICE': 'Hors service',
+      'PENDING': 'En attente',
+
+      // Device Destination
+      'RENTAL': 'Location',
+      'SALE': 'Vente',
+      'RENTAL_OR_SALE': 'Location ou Vente',
+
+      // Employee Roles
+      'ADMIN': 'Administrateur',
+      'EMPLOYEE': 'Employé',
+      'TECHNICIEN': 'Technicien',
+      'SUPERVISEUR': 'Superviseur',
+      'MANAGER': 'Manager',
+
+      // Patient Affiliation
+      'CNAM': 'CNAM',
+      'ASSURE_SOCIAL': 'Assuré Social',
+      'PRIVE': 'Privé',
+      'MEDICAL_DEVICE': 'Appareil Médical',
+      'NON_ASSURE': 'Non Assuré',
+
+      // Beneficiary Types
+      'PRINCIPAL': 'Principal',
+      'CONJOINT': 'Conjoint',
+      'ENFANT': 'Enfant',
+      'PARENT': 'Parent',
+      'AUTRE': 'Autre',
+
+      // Payment Status
+      'PAID': 'Payé',
+      'UNPAID': 'Non payé',
+      'PARTIAL': 'Partiel',
+      'OVERDUE': 'En retard',
+
+      // Appointment/Diagnostic Status
+      'COMPLETED': 'Terminé',
+      'CANCELLED': 'Annulé',
+      'SCHEDULED': 'Planifié',
+      'IN_PROGRESS': 'En cours',
+      'CONFIRMED': 'Confirmé',
+
+      // Device Types
+      'CONCENTRATOR': 'Concentrateur',
+      'CPAP': 'CPAP',
+      'BIPAP': 'BiPAP',
+      'VENTILATOR': 'Ventilateur',
+      'OXYGEN_CYLINDER': 'Bouteille O2',
+      'NEBULIZER': 'Nébuliseur',
+      'SUCTION': 'Aspirateur',
+      'HOSPITAL_BED': 'Lit médicalisé',
+      'WHEELCHAIR': 'Fauteuil roulant',
+      'WALKER': 'Déambulateur',
+      'MATTRESS': 'Matelas',
+      'OTHER': 'Autre',
+
+      // Gender
+      'MALE': 'Homme',
+      'FEMALE': 'Femme',
+
+      // Yes/No
+      'YES': 'Oui',
+      'NO': 'Non',
+      'TRUE': 'Oui',
+      'FALSE': 'Non'
+    };
+
+    // Return translated value or format the raw value nicely
+    return translations[value.toUpperCase()] || value.replace(/_/g, ' ').toLowerCase().replace(/^\w/, c => c.toUpperCase());
+  };
+
   // Employee columns
   const employeeColumns = [
     { key: 'fullName', label: 'Nom Complet', width: '200px', align: 'left' as const },
     { key: 'email', label: 'Email', width: '200px', align: 'left' as const },
-    { key: 'role', label: 'Rôle', width: '100px', align: 'center' as const },
+    { key: 'role', label: 'Rôle', width: '100px', align: 'center' as const, format: formatEnum },
     { key: 'telephone', label: 'Téléphone', width: '120px', align: 'center' as const },
     { key: 'totalPatients', label: 'Patients', width: '100px', align: 'right' as const, format: formatNumber },
     { key: 'totalRentals', label: 'Total Locations', width: '120px', align: 'right' as const, format: formatNumber },
@@ -110,8 +206,8 @@ const AnalyticsPage: React.FC = () => {
     },
     { key: 'patientCode', label: 'Code Patient', width: '120px', align: 'center' as const },
     { key: 'telephone', label: 'Téléphone', width: '120px', align: 'center' as const },
-    { key: 'affiliation', label: 'Affiliation', width: '100px', align: 'center' as const },
-    { key: 'beneficiaryType', label: 'Type Bénéficiaire', width: '150px', align: 'center' as const },
+    { key: 'affiliation', label: 'Affiliation', width: '100px', align: 'center' as const, format: formatEnum },
+    { key: 'beneficiaryType', label: 'Type Bénéficiaire', width: '150px', align: 'center' as const, format: formatEnum },
     { key: 'cnamId', label: 'CNAM ID', width: '120px', align: 'center' as const },
     { key: 'age', label: 'Âge', width: '80px', align: 'right' as const },
     { key: 'totalRentals', label: 'Total Locations', width: '120px', align: 'right' as const, format: formatNumber },
@@ -164,12 +260,12 @@ const AnalyticsPage: React.FC = () => {
       )
     },
     { key: 'deviceCode', label: 'Code', width: '120px', align: 'center' as const },
-    { key: 'type', label: 'Type', width: '150px', align: 'left' as const },
+    { key: 'type', label: 'Type', width: '150px', align: 'left' as const, format: formatEnum },
     { key: 'brand', label: 'Marque', width: '120px', align: 'left' as const },
     { key: 'model', label: 'Modèle', width: '120px', align: 'left' as const },
     { key: 'serialNumber', label: 'N° Série', width: '150px', align: 'center' as const },
-    { key: 'status', label: 'Statut', width: '100px', align: 'center' as const },
-    { key: 'destination', label: 'Destination', width: '120px', align: 'center' as const },
+    { key: 'status', label: 'Statut', width: '100px', align: 'center' as const, format: formatEnum },
+    { key: 'destination', label: 'Destination', width: '120px', align: 'center' as const, format: formatEnum },
     { key: 'stockLocation', label: 'Emplacement', width: '150px', align: 'left' as const },
     { key: 'purchasePrice', label: 'Prix Achat', width: '120px', align: 'right' as const, format: formatCurrency },
     { key: 'sellingPrice', label: 'Prix Vente', width: '120px', align: 'right' as const, format: formatCurrency },
@@ -189,6 +285,231 @@ const AnalyticsPage: React.FC = () => {
     { key: 'roi', label: 'ROI', width: '100px', align: 'right' as const },
     { key: 'createdAt', label: 'Date Création', width: '120px', align: 'center' as const }
   ];
+
+  // Filter data based on search terms and date range
+  const filteredEmployees = useMemo(() => {
+    if (!analyticsData) return [];
+    let data = analyticsData.employees;
+
+    if (employeeSearch) {
+      const searchLower = employeeSearch.toLowerCase();
+      data = data.filter(e =>
+        e.fullName?.toLowerCase().includes(searchLower) ||
+        e.email?.toLowerCase().includes(searchLower) ||
+        e.telephone?.toLowerCase().includes(searchLower) ||
+        e.role?.toLowerCase().includes(searchLower)
+      );
+    }
+
+    if (dateFrom || dateTo) {
+      data = data.filter(e => {
+        // createdAt is in format "YYYY-MM-DD", compare as strings for accuracy
+        const createdAtStr = e.createdAt || '';
+        if (dateFrom && createdAtStr < dateFrom) return false;
+        if (dateTo && createdAtStr > dateTo) return false;
+        return true;
+      });
+    }
+
+    return data;
+  }, [analyticsData, employeeSearch, dateFrom, dateTo]);
+
+  const filteredPatients = useMemo(() => {
+    if (!analyticsData) return [];
+    let data = analyticsData.patients;
+
+    if (patientSearch) {
+      const searchLower = patientSearch.toLowerCase();
+      data = data.filter(p =>
+        p.fullName?.toLowerCase().includes(searchLower) ||
+        p.patientCode?.toLowerCase().includes(searchLower) ||
+        p.telephone?.toLowerCase().includes(searchLower) ||
+        p.cnamId?.toLowerCase().includes(searchLower) ||
+        p.governorate?.toLowerCase().includes(searchLower) ||
+        p.delegation?.toLowerCase().includes(searchLower)
+      );
+    }
+
+    if (dateFrom || dateTo) {
+      data = data.filter(p => {
+        // createdAt is in format "YYYY-MM-DD", compare as strings for accuracy
+        const createdAtStr = p.createdAt || '';
+        if (dateFrom && createdAtStr < dateFrom) return false;
+        if (dateTo && createdAtStr > dateTo) return false;
+        return true;
+      });
+    }
+
+    return data;
+  }, [analyticsData, patientSearch, dateFrom, dateTo]);
+
+  const filteredDevices = useMemo(() => {
+    if (!analyticsData) return [];
+    let data = analyticsData.devices;
+
+    if (deviceSearch) {
+      const searchLower = deviceSearch.toLowerCase();
+      data = data.filter(d =>
+        d.name?.toLowerCase().includes(searchLower) ||
+        d.deviceCode?.toLowerCase().includes(searchLower) ||
+        d.type?.toLowerCase().includes(searchLower) ||
+        d.brand?.toLowerCase().includes(searchLower) ||
+        d.model?.toLowerCase().includes(searchLower) ||
+        d.serialNumber?.toLowerCase().includes(searchLower) ||
+        d.stockLocation?.toLowerCase().includes(searchLower)
+      );
+    }
+
+    if (dateFrom || dateTo) {
+      data = data.filter(d => {
+        // createdAt is in format "YYYY-MM-DD", compare as strings for accuracy
+        const createdAtStr = d.createdAt || '';
+        if (dateFrom && createdAtStr < dateFrom) return false;
+        if (dateTo && createdAtStr > dateTo) return false;
+        return true;
+      });
+    }
+
+    return data;
+  }, [analyticsData, deviceSearch, dateFrom, dateTo]);
+
+  // Excel export function
+  const exportToExcel = () => {
+    if (!analyticsData) return;
+
+    const wb = XLSX.utils.book_new();
+
+    // Employees sheet
+    const employeesForExport = filteredEmployees.map(e => ({
+      'Nom Complet': e.fullName,
+      'Email': e.email,
+      'Rôle': formatEnum(e.role),
+      'Téléphone': e.telephone,
+      'Patients': e.totalPatients,
+      'Total Locations': e.totalRentals,
+      'Locations Actives': e.activeRentals,
+      'Locations Terminées': e.completedRentals,
+      'Ventes': e.totalSales,
+      'Revenu Location (TND)': e.rentalRevenue,
+      'Revenu Vente (TND)': e.salesRevenue,
+      'Revenu Total (TND)': e.totalRevenue,
+      'RDV Total': e.totalAppointments,
+      'RDV Terminés': e.completedAppointments,
+      'Diagnostics Total': e.totalDiagnostics,
+      'Diagnostics Terminés': e.completedDiagnostics,
+      'Score Performance': e.performanceScore,
+      'Date Création': e.createdAt
+    }));
+    const wsEmployees = XLSX.utils.json_to_sheet(employeesForExport);
+    XLSX.utils.book_append_sheet(wb, wsEmployees, 'Employés');
+
+    // Patients sheet
+    const patientsForExport = filteredPatients.map(p => ({
+      'Nom Complet': p.fullName,
+      'Code Patient': p.patientCode,
+      'Téléphone': p.telephone,
+      'Affiliation': formatEnum(p.affiliation),
+      'Type Bénéficiaire': formatEnum(p.beneficiaryType),
+      'CNAM ID': p.cnamId,
+      'Âge': p.age,
+      'Total Locations': p.totalRentals,
+      'Locations Actives': p.activeRentals,
+      'Achats': p.totalSales,
+      'Total Payé (TND)': p.totalPaid,
+      'En Attente (TND)': p.totalPending,
+      'Montant Ventes (TND)': p.salesTotal,
+      'Bons CNAM': p.cnamBons,
+      'Montant CNAM (TND)': p.cnamTotal,
+      'Diagnostics Total': p.totalDiagnostics,
+      'RDV Total': p.totalAppointments,
+      'Score Activité': p.activityScore,
+      'Gouvernorat': p.governorate,
+      'Délégation': p.delegation,
+      'Date Création': p.createdAt
+    }));
+    const wsPatients = XLSX.utils.json_to_sheet(patientsForExport);
+    XLSX.utils.book_append_sheet(wb, wsPatients, 'Patients');
+
+    // Devices sheet
+    const devicesForExport = filteredDevices.map(d => ({
+      'Nom': d.name,
+      'Code': d.deviceCode,
+      'Type': formatEnum(d.type),
+      'Marque': d.brand,
+      'Modèle': d.model,
+      'N° Série': d.serialNumber,
+      'Statut': formatEnum(d.status),
+      'Destination': formatEnum(d.destination),
+      'Emplacement': d.stockLocation,
+      'Prix Achat (TND)': d.purchasePrice,
+      'Prix Vente (TND)': d.sellingPrice,
+      'Prix Location (TND)': d.rentalPrice,
+      'Total Locations': d.totalRentals,
+      'Locations Actives': d.activeRentals,
+      'Revenu Location (TND)': d.rentalRevenue,
+      'Ventes': d.salesCount,
+      'Revenu Vente (TND)': d.salesRevenue,
+      'Revenu Total (TND)': d.totalRevenue,
+      'Réparations': d.repairCount,
+      'Coût Réparations (TND)': d.repairCost,
+      'Taux Utilisation': d.utilizationRate,
+      'Rentabilité (TND)': d.profitability,
+      'ROI': d.roi,
+      'Date Création': d.createdAt
+    }));
+    const wsDevices = XLSX.utils.json_to_sheet(devicesForExport);
+    XLSX.utils.book_append_sheet(wb, wsDevices, 'Appareils');
+
+    // Generate filename with current date
+    const today = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(wb, `analytics_${today}.xlsx`);
+  };
+
+  // Calculate chart data
+  const revenueByCategory = useMemo(() => {
+    if (!analyticsData) return { rental: 0, sales: 0 };
+    const rental = filteredDevices.reduce((sum, d) => sum + Number(d.rentalRevenue || 0), 0);
+    const sales = filteredDevices.reduce((sum, d) => sum + Number(d.salesRevenue || 0), 0);
+    return { rental, sales };
+  }, [analyticsData, filteredDevices]);
+
+  const deviceStatusDistribution = useMemo(() => {
+    if (!analyticsData) return {};
+    const distribution: Record<string, number> = {};
+    filteredDevices.forEach(d => {
+      distribution[d.status] = (distribution[d.status] || 0) + 1;
+    });
+    return distribution;
+  }, [analyticsData, filteredDevices]);
+
+  // Sales by year distribution
+  const salesByYear = useMemo(() => {
+    if (!analyticsData) return {};
+    const distribution: Record<string, { count: number; revenue: number }> = {};
+
+    filteredDevices.forEach(d => {
+      // Only count devices that have sales (using lastSaleDate for the year)
+      if (Number(d.salesCount) > 0 && d.lastSaleDate) {
+        const saleDate = new Date(d.lastSaleDate);
+        const year = saleDate.getFullYear().toString();
+
+        if (!distribution[year]) {
+          distribution[year] = { count: 0, revenue: 0 };
+        }
+        distribution[year].count += Number(d.salesCount) || 1;
+        distribution[year].revenue += Number(d.salesRevenue) || 0;
+      }
+    });
+
+    // Sort by year descending
+    const sortedYears = Object.keys(distribution).sort((a, b) => Number(b) - Number(a));
+    const sortedDistribution: Record<string, { count: number; revenue: number }> = {};
+    sortedYears.forEach(year => {
+      sortedDistribution[year] = distribution[year];
+    });
+
+    return sortedDistribution;
+  }, [analyticsData, filteredDevices]);
 
   if (loading) {
     return (
@@ -217,6 +538,28 @@ const AnalyticsPage: React.FC = () => {
 
   const { employees, patients, devices, summary } = analyticsData;
 
+  // Status color mapping
+  const statusColors: Record<string, string> = {
+    'ACTIVE': '#22c55e',
+    'AVAILABLE': '#3b82f6',
+    'RENTED': '#f59e0b',
+    'SOLD': '#8b5cf6',
+    'MAINTENANCE': '#ef4444',
+    'RESERVED': '#06b6d4'
+  };
+
+  // Year colors for sales chart
+  const yearColors: string[] = [
+    '#8b5cf6', // Purple - current/recent year
+    '#3b82f6', // Blue
+    '#06b6d4', // Cyan
+    '#22c55e', // Green
+    '#f59e0b', // Amber
+    '#ef4444', // Red
+    '#ec4899', // Pink
+    '#6366f1', // Indigo
+  ];
+
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
@@ -232,11 +575,167 @@ const AnalyticsPage: React.FC = () => {
             <RefreshCw className="h-4 w-4 mr-2" />
             Actualiser
           </Button>
-          <Button variant="outline" size="sm">
+          <Button onClick={exportToExcel} variant="outline" size="sm">
             <Download className="h-4 w-4 mr-2" />
             Exporter Excel
           </Button>
         </div>
+      </div>
+
+      {/* Date Range Filters */}
+      <Card className="p-4">
+        <div className="flex flex-wrap items-end gap-4">
+          <div className="flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium">Filtrer par date de création:</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="dateFrom" className="text-sm text-muted-foreground">Du</Label>
+            <Input
+              id="dateFrom"
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="w-40"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="dateTo" className="text-sm text-muted-foreground">Au</Label>
+            <Input
+              id="dateTo"
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="w-40"
+            />
+          </div>
+          {(dateFrom || dateTo) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setDateFrom('');
+                setDateTo('');
+              }}
+            >
+              Réinitialiser
+            </Button>
+          )}
+        </div>
+      </Card>
+
+      {/* Charts Section */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Revenue Distribution Chart */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Répartition des Revenus</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                  <span className="text-sm">Location</span>
+                </div>
+                <span className="font-medium">{formatCurrency(revenueByCategory.rental)}</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+                <div
+                  className="bg-blue-500 h-4 transition-all duration-500"
+                  style={{
+                    width: `${revenueByCategory.rental + revenueByCategory.sales > 0
+                      ? (revenueByCategory.rental / (revenueByCategory.rental + revenueByCategory.sales)) * 100
+                      : 0}%`
+                  }}
+                ></div>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                  <span className="text-sm">Vente</span>
+                </div>
+                <span className="font-medium">{formatCurrency(revenueByCategory.sales)}</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+                <div
+                  className="bg-green-500 h-4 transition-all duration-500"
+                  style={{
+                    width: `${revenueByCategory.rental + revenueByCategory.sales > 0
+                      ? (revenueByCategory.sales / (revenueByCategory.rental + revenueByCategory.sales)) * 100
+                      : 0}%`
+                  }}
+                ></div>
+              </div>
+              <div className="pt-2 border-t">
+                <div className="flex items-center justify-between font-semibold">
+                  <span>Total</span>
+                  <span className="text-green-700">{formatCurrency(revenueByCategory.rental + revenueByCategory.sales)}</span>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Sales by Year Distribution */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Ventes par Année</CardTitle>
+            <PieChart className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {Object.entries(salesByYear).map(([year, data], index) => {
+                const totalRevenue = Object.values(salesByYear).reduce((a, b) => a + b.revenue, 0);
+                const percentage = totalRevenue > 0 ? ((data.revenue / totalRevenue) * 100).toFixed(1) : 0;
+                const color = yearColors[index % yearColors.length];
+                return (
+                  <div key={year} className="space-y-1">
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: color }}
+                        ></div>
+                        <span className="font-medium">{year}</span>
+                        <span className="text-xs text-muted-foreground">({data.count} ventes)</span>
+                      </div>
+                      <span className="font-medium">{formatCurrency(data.revenue)}</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                      <div
+                        className="h-2 transition-all duration-500"
+                        style={{
+                          width: `${percentage}%`,
+                          backgroundColor: color
+                        }}
+                      ></div>
+                    </div>
+                    <div className="text-xs text-right text-muted-foreground">{percentage}% du total</div>
+                  </div>
+                );
+              })}
+              {Object.keys(salesByYear).length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">Aucune vente enregistrée</p>
+              )}
+              {Object.keys(salesByYear).length > 0 && (
+                <div className="pt-2 border-t">
+                  <div className="flex items-center justify-between font-semibold">
+                    <span>Total Ventes</span>
+                    <span className="text-purple-700">
+                      {formatCurrency(Object.values(salesByYear).reduce((a, b) => a + b.revenue, 0))}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm text-muted-foreground mt-1">
+                    <span>Nombre total</span>
+                    <span>{Object.values(salesByYear).reduce((a, b) => a + b.count, 0)} ventes</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Summary Cards */}
@@ -333,85 +832,130 @@ const AnalyticsPage: React.FC = () => {
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="employees" className="flex items-center gap-2">
                 <Users className="h-4 w-4" />
-                Employés ({employees.length})
+                Employés ({filteredEmployees.length})
               </TabsTrigger>
               <TabsTrigger value="patients" className="flex items-center gap-2">
                 <Stethoscope className="h-4 w-4" />
-                Patients ({patients.length})
+                Patients ({filteredPatients.length})
               </TabsTrigger>
               <TabsTrigger value="devices" className="flex items-center gap-2">
                 <Package className="h-4 w-4" />
-                Appareils ({devices.length})
+                Appareils ({filteredDevices.length})
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="employees" className="mt-6">
+            <TabsContent value="employees" className="mt-6 space-y-4">
+              {/* Search Bar for Employees */}
+              <div className="flex items-center gap-2">
+                <Search className="h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Rechercher par nom, email, téléphone, rôle..."
+                  value={employeeSearch}
+                  onChange={(e) => setEmployeeSearch(e.target.value)}
+                  className="max-w-md"
+                />
+                {employeeSearch && (
+                  <Button variant="ghost" size="sm" onClick={() => setEmployeeSearch('')}>
+                    Effacer
+                  </Button>
+                )}
+              </div>
               <ExcelTable
                 title="Statistiques des Employés"
                 columns={employeeColumns}
-                data={employees}
+                data={filteredEmployees}
                 summary={{
                   fullName: 'TOTAL',
-                  totalPatients: summary.employees.totalPatients,
-                  totalRentals: summary.employees.totalRentals,
-                  totalSales: summary.employees.totalSales,
-                  rentalRevenue: employees.reduce((sum, e) => sum + Number(e.rentalRevenue), 0).toFixed(2),
-                  salesRevenue: employees.reduce((sum, e) => sum + Number(e.salesRevenue), 0).toFixed(2),
-                  totalRevenue: summary.employees.totalRevenue,
-                  completedAppointments: employees.reduce((sum, e) => sum + e.completedAppointments, 0),
-                  totalAppointments: employees.reduce((sum, e) => sum + e.totalAppointments, 0),
-                  completedDiagnostics: employees.reduce((sum, e) => sum + e.completedDiagnostics, 0),
-                  totalDiagnostics: employees.reduce((sum, e) => sum + e.totalDiagnostics, 0),
-                  devicesInStock: employees.reduce((sum, e) => sum + e.devicesInStock, 0),
-                  activeDevices: employees.reduce((sum, e) => sum + e.activeDevices, 0)
+                  totalPatients: filteredEmployees.reduce((sum, e) => sum + e.totalPatients, 0),
+                  totalRentals: filteredEmployees.reduce((sum, e) => sum + e.totalRentals, 0),
+                  totalSales: filteredEmployees.reduce((sum, e) => sum + e.totalSales, 0),
+                  rentalRevenue: filteredEmployees.reduce((sum, e) => sum + Number(e.rentalRevenue), 0).toFixed(2),
+                  salesRevenue: filteredEmployees.reduce((sum, e) => sum + Number(e.salesRevenue), 0).toFixed(2),
+                  totalRevenue: filteredEmployees.reduce((sum, e) => sum + Number(e.totalRevenue), 0).toFixed(2),
+                  completedAppointments: filteredEmployees.reduce((sum, e) => sum + e.completedAppointments, 0),
+                  totalAppointments: filteredEmployees.reduce((sum, e) => sum + e.totalAppointments, 0),
+                  completedDiagnostics: filteredEmployees.reduce((sum, e) => sum + e.completedDiagnostics, 0),
+                  totalDiagnostics: filteredEmployees.reduce((sum, e) => sum + e.totalDiagnostics, 0),
+                  devicesInStock: filteredEmployees.reduce((sum, e) => sum + e.devicesInStock, 0),
+                  activeDevices: filteredEmployees.reduce((sum, e) => sum + e.activeDevices, 0)
                 }}
               />
             </TabsContent>
 
-            <TabsContent value="patients" className="mt-6">
+            <TabsContent value="patients" className="mt-6 space-y-4">
+              {/* Search Bar for Patients */}
+              <div className="flex items-center gap-2">
+                <Search className="h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Rechercher par nom, code, téléphone, CNAM, gouvernorat..."
+                  value={patientSearch}
+                  onChange={(e) => setPatientSearch(e.target.value)}
+                  className="max-w-md"
+                />
+                {patientSearch && (
+                  <Button variant="ghost" size="sm" onClick={() => setPatientSearch('')}>
+                    Effacer
+                  </Button>
+                )}
+              </div>
               <ExcelTable
                 title="Statistiques des Patients"
                 columns={patientColumns}
-                data={patients}
+                data={filteredPatients}
                 summary={{
                   fullName: 'TOTAL',
-                  totalRentals: patients.reduce((sum, p) => sum + p.totalRentals, 0),
-                  activeRentals: summary.patients.activeRentals,
-                  completedRentals: patients.reduce((sum, p) => sum + p.completedRentals, 0),
-                  totalSales: patients.reduce((sum, p) => sum + p.totalSales, 0),
-                  totalPayments: patients.reduce((sum, p) => sum + p.totalPayments, 0),
-                  totalPaid: summary.patients.totalRevenue,
-                  totalPending: patients.reduce((sum, p) => sum + Number(p.totalPending), 0).toFixed(2),
-                  salesTotal: patients.reduce((sum, p) => sum + Number(p.salesTotal), 0).toFixed(2),
-                  cnamBons: summary.patients.totalCnamBons,
-                  cnamTotal: summary.patients.totalCnamAmount,
-                  totalDiagnostics: patients.reduce((sum, p) => sum + p.totalDiagnostics, 0),
-                  completedDiagnostics: patients.reduce((sum, p) => sum + p.completedDiagnostics, 0),
-                  pendingDiagnostics: patients.reduce((sum, p) => sum + p.pendingDiagnostics, 0),
-                  totalAppointments: patients.reduce((sum, p) => sum + p.totalAppointments, 0),
-                  completedAppointments: patients.reduce((sum, p) => sum + p.completedAppointments, 0),
-                  upcomingAppointments: patients.reduce((sum, p) => sum + p.upcomingAppointments, 0)
+                  totalRentals: filteredPatients.reduce((sum, p) => sum + p.totalRentals, 0),
+                  activeRentals: filteredPatients.reduce((sum, p) => sum + p.activeRentals, 0),
+                  completedRentals: filteredPatients.reduce((sum, p) => sum + p.completedRentals, 0),
+                  totalSales: filteredPatients.reduce((sum, p) => sum + p.totalSales, 0),
+                  totalPayments: filteredPatients.reduce((sum, p) => sum + p.totalPayments, 0),
+                  totalPaid: filteredPatients.reduce((sum, p) => sum + Number(p.totalPaid), 0).toFixed(2),
+                  totalPending: filteredPatients.reduce((sum, p) => sum + Number(p.totalPending), 0).toFixed(2),
+                  salesTotal: filteredPatients.reduce((sum, p) => sum + Number(p.salesTotal), 0).toFixed(2),
+                  cnamBons: filteredPatients.reduce((sum, p) => sum + p.cnamBons, 0),
+                  cnamTotal: filteredPatients.reduce((sum, p) => sum + Number(p.cnamTotal), 0).toFixed(2),
+                  totalDiagnostics: filteredPatients.reduce((sum, p) => sum + p.totalDiagnostics, 0),
+                  completedDiagnostics: filteredPatients.reduce((sum, p) => sum + p.completedDiagnostics, 0),
+                  pendingDiagnostics: filteredPatients.reduce((sum, p) => sum + p.pendingDiagnostics, 0),
+                  totalAppointments: filteredPatients.reduce((sum, p) => sum + p.totalAppointments, 0),
+                  completedAppointments: filteredPatients.reduce((sum, p) => sum + p.completedAppointments, 0),
+                  upcomingAppointments: filteredPatients.reduce((sum, p) => sum + p.upcomingAppointments, 0)
                 }}
               />
             </TabsContent>
 
-            <TabsContent value="devices" className="mt-6">
+            <TabsContent value="devices" className="mt-6 space-y-4">
+              {/* Search Bar for Devices */}
+              <div className="flex items-center gap-2">
+                <Search className="h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Rechercher par nom, code, type, marque, modèle, N° série..."
+                  value={deviceSearch}
+                  onChange={(e) => setDeviceSearch(e.target.value)}
+                  className="max-w-md"
+                />
+                {deviceSearch && (
+                  <Button variant="ghost" size="sm" onClick={() => setDeviceSearch('')}>
+                    Effacer
+                  </Button>
+                )}
+              </div>
               <ExcelTable
                 title="Statistiques des Appareils Médicaux"
                 columns={deviceColumns}
-                data={devices}
+                data={filteredDevices}
                 summary={{
                   name: 'TOTAL',
-                  totalRentals: devices.reduce((sum, d) => sum + d.totalRentals, 0),
-                  activeRentals: summary.devices.activeRentals,
-                  completedRentals: devices.reduce((sum, d) => sum + d.completedRentals, 0),
-                  rentalRevenue: devices.reduce((sum, d) => sum + Number(d.rentalRevenue), 0).toFixed(2),
-                  salesCount: devices.reduce((sum, d) => sum + d.salesCount, 0),
-                  salesRevenue: devices.reduce((sum, d) => sum + Number(d.salesRevenue), 0).toFixed(2),
-                  totalRevenue: summary.devices.totalRevenue,
-                  repairCount: devices.reduce((sum, d) => sum + d.repairCount, 0),
-                  repairCost: summary.devices.totalRepairCost,
-                  profitability: summary.devices.totalProfitability
+                  totalRentals: filteredDevices.reduce((sum, d) => sum + d.totalRentals, 0),
+                  activeRentals: filteredDevices.reduce((sum, d) => sum + d.activeRentals, 0),
+                  completedRentals: filteredDevices.reduce((sum, d) => sum + d.completedRentals, 0),
+                  rentalRevenue: filteredDevices.reduce((sum, d) => sum + Number(d.rentalRevenue), 0).toFixed(2),
+                  salesCount: filteredDevices.reduce((sum, d) => sum + d.salesCount, 0),
+                  salesRevenue: filteredDevices.reduce((sum, d) => sum + Number(d.salesRevenue), 0).toFixed(2),
+                  totalRevenue: filteredDevices.reduce((sum, d) => sum + Number(d.totalRevenue), 0).toFixed(2),
+                  repairCount: filteredDevices.reduce((sum, d) => sum + d.repairCount, 0),
+                  repairCost: filteredDevices.reduce((sum, d) => sum + Number(d.repairCost), 0).toFixed(2),
+                  profitability: filteredDevices.reduce((sum, d) => sum + Number(d.profitability), 0).toFixed(2)
                 }}
               />
             </TabsContent>
@@ -420,6 +964,11 @@ const AnalyticsPage: React.FC = () => {
       </Card>
     </div>
   );
+};
+
+// Add AdminLayout wrapper
+AnalyticsPage.getLayout = function getLayout(page: React.ReactElement) {
+  return <AdminLayout>{page}</AdminLayout>;
 };
 
 export default AnalyticsPage;

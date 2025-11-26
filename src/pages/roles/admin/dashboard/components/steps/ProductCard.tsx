@@ -1,16 +1,29 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { 
-  Activity, 
-  Sliders, 
-  X, 
-  CircleAlert, 
-  CheckCircle2 
+import {
+  Activity,
+  Sliders,
+  X,
+  CircleAlert,
+  CheckCircle2
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+
+interface ProductItem {
+  id: string;
+  name?: string;
+  brand?: string | null;
+  model?: string | null;
+  serialNumber?: string | null;
+  type?: string;
+  status?: string | null;
+  sellingPrice?: number | string | null;
+  stockLocation?: { name: string } | null;
+  resultDueDate?: string | Date | null;
+  reservedUntil?: string | Date | null;
+}
 
 interface ProductCardProps {
-  product: any;
+  product: ProductItem;
   index: number;
   onRemove: (index: number) => void;
   onConfigure: (index: number) => void;
@@ -18,7 +31,7 @@ interface ProductCardProps {
 
 export function ProductCard({ product, index, onRemove, onConfigure }: ProductCardProps) {
   // Helper function to determine if parameters are configured
-  const isParametersConfigured = (product: any) => {
+  const isParametersConfigured = (product: ProductItem) => {
     // In the new simplified approach, we only check for the resultDueDate directly on the product
     // or from the MedicalDevice.reservedUntil field
     return product?.resultDueDate || product?.reservedUntil;

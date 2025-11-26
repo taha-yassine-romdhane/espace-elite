@@ -15,13 +15,41 @@ import { DiagnosticProductDialog } from "./DiagnosticProductDialog";
 import { ParameterConfigurationDialog } from "./ParameterConfigurationDialog";
 import { ProductCard } from "../ProductCard";
 
+interface DiagnosticProduct {
+  id: string;
+  name: string;
+  brand?: string | null;
+  model?: string | null;
+  serialNumber?: string | null;
+  type?: string;
+  status?: string | null;
+  sellingPrice?: number | string | null;
+  reservedUntil?: string | Date | null;
+  stockLocation?: { name: string } | null;
+  resultDueDate?: string;
+}
+
+interface DiagnosticDevice {
+  id: string;
+  name: string;
+  type: string;
+  brand?: string;
+  model?: string;
+  serialNumber?: string;
+  status?: string;
+}
+
+interface DeviceParameters {
+  [key: string]: string | number | boolean | null | undefined;
+}
+
 interface DiagnosticProductStepProps {
   onBack: () => void;
   onNext: () => void;
-  selectedProducts?: any[];
+  selectedProducts?: DiagnosticProduct[];
   onRemoveProduct: (index: number) => void;
-  onSelectProduct: (product: any) => void;
-  onUpdateProductParameters?: (productIndex: number, parameters: any) => void;
+  onSelectProduct: (product: DiagnosticProduct) => void;
+  onUpdateProductParameters?: (productIndex: number, parameters: DeviceParameters) => void;
   patientId?: string;
   resultDueDate?: Date;
   onResultDueDateChange?: (date: Date | undefined) => void;
@@ -63,7 +91,7 @@ export function NewDiagnosticProductStep({
       }
       const data = await response.json();
       // Additional filter to ensure only DIAGNOSTIC_DEVICE types are included
-      return data.filter((device: any) => device.type === "DIAGNOSTIC_DEVICE");
+      return data.filter((device: DiagnosticDevice) => device.type === "DIAGNOSTIC_DEVICE");
     },
   });
 

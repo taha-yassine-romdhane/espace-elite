@@ -2,9 +2,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Plus, 
-  ChevronRight, 
+import {
+  ChevronRight,
   ChevronLeft,
   Stethoscope,
   Puzzle,
@@ -17,12 +16,27 @@ import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/use-toast";
 import ProductParameterDialog from "./ProductParameterDialog";
 
+interface DeviceParameters {
+  [key: string]: string | number | boolean | null | undefined;
+}
+
+interface ProductSelection {
+  id: string;
+  name: string;
+  type: string;
+  brand?: string;
+  model?: string;
+  sellingPrice?: number | string;
+  rentalPrice?: number | string;
+  parameters?: DeviceParameters;
+}
+
 interface PatientProductSelectionProps {
-  selectedProducts: any[];
+  selectedProducts: ProductSelection[];
   onSelectProduct: (type: "medical-device" | "accessory") => void;
   onCreateProduct: (type: "medical-device" | "accessory") => void;
   onRemoveProduct: (index: number) => void;
-  onUpdateProduct?: (index: number, updatedProduct: any) => void;
+  onUpdateProduct?: (index: number, updatedProduct: ProductSelection) => void;
   onBack: () => void;
   onNext: () => void;
   isRental?: boolean;
@@ -100,7 +114,7 @@ const ProductCard = ({
   onUpdatePrice,
   isRental = false
 }: {
-  product: any;
+  product: ProductSelection;
   onRemove: () => void;
   onConfigure?: () => void;
   onUpdatePrice?: (price: number) => void;
@@ -114,12 +128,13 @@ const ProductCard = ({
   
   // Get the appropriate price field based on rental vs sale
   const priceField = isRental ? 'rentalPrice' : 'sellingPrice';
-  const currentPrice = typeof product[priceField] === 'number' ? 
-    product[priceField] : 
-    parseFloat(product[priceField]) || 0;
+  const priceValue = product[priceField];
+  const currentPrice = typeof priceValue === 'number' ?
+    priceValue :
+    (parseFloat(String(priceValue)) || 0);
   
   // Function to format parameters for display
-  const formatParameters = (params: any) => {
+  const formatParameters = (params: DeviceParameters | undefined) => {
     if (!params) return [];
     
     const formattedParams = [];
@@ -241,7 +256,6 @@ export function PatientProductSelection({
   onNext,
   isRental = false
 }: PatientProductSelectionProps) {
-  const [searchTerm, setSearchTerm] = useState("");
   const [parameterDialogOpen, setParameterDialogOpen] = useState(false);
   const [selectedProductIndex, setSelectedProductIndex] = useState<number | null>(null);
   
@@ -273,7 +287,7 @@ export function PatientProductSelection({
   };
   
   // Handle saving parameters for a product
-  const handleSaveParameters = (productId: string, parameters: any) => {
+  const handleSaveParameters = (productId: string, parameters: DeviceParameters) => {
     // Find the product index in the selected products array
     const selectedProductIndex = selectedProducts.findIndex(p => p.id === productId);
     
@@ -302,8 +316,9 @@ export function PatientProductSelection({
   // Calculate total price - ensure it's always a number
   const totalPrice = (selectedProducts || []).reduce((total, product) => {
     const priceField = isRental ? 'rentalPrice' : 'sellingPrice';
-    const price = typeof product[priceField] === 'number' ? product[priceField] : 
-                  parseFloat(product[priceField]) || 0;
+    const priceValue = product[priceField];
+    const price = typeof priceValue === 'number' ? priceValue :
+                  (parseFloat(String(priceValue)) || 0);
     return total + price;
   }, 0);
 

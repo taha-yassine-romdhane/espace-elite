@@ -1,23 +1,24 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { 
-  Form, 
-  FormControl, 
-  FormField, 
-  FormItem, 
-  FormLabel, 
-  FormMessage 
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage
 } from "@/components/ui/form";
 import { toast } from "@/components/ui/use-toast";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Separator } from "@/components/ui/separator";
-import { Save, Building } from "lucide-react";
+import { Save, Building, Upload, X, Image as ImageIcon } from "lucide-react";
+import Image from "next/image";
 
 // Form validation schema
 const generalSettingsSchema = z.object({
@@ -33,6 +34,9 @@ type GeneralSettingsFormValues = z.infer<typeof generalSettingsSchema>;
 export function GeneralSettings() {
   const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(false);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
 
   // Default settings
   const defaultSettings: GeneralSettingsFormValues = {
@@ -44,51 +48,43 @@ export function GeneralSettings() {
   };
 
   // Fetch settings
-  const { data: settings } = useQuery({
+  const { data: settings, isError, error, isLoading: isLoadingSettings } = useQuery({
     queryKey: ["general-settings"],
     queryFn: async () => {
-      try {
-        const response = await fetch("/api/settings/general");
-        if (!response.ok) {
-          // If the API doesn't exist yet, use default settings
-          return defaultSettings;
-        }
-        return await response.json();
-      } catch {
-        // If there's an error, use default settings
-        return defaultSettings;
+      const response = await fetch("/api/settings/general");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to fetch settings');
       }
+      return await response.json();
     },
+    retry: 1,
   });
 
   // Form setup
   const form = useForm<GeneralSettingsFormValues>({
     resolver: zodResolver(generalSettingsSchema),
-    defaultValues: settings || defaultSettings,
+    defaultValues: defaultSettings,
     values: settings || defaultSettings,
   });
 
   // Update settings mutation
   const updateSettingsMutation = useMutation({
     mutationFn: async (data: GeneralSettingsFormValues) => {
-      try {
-        const response = await fetch("/api/settings/general", {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(data),
-        });
-        
-        if (!response.ok) {
-          throw new Error("Failed to update settings");
-        }
-        
-        return await response.json();
-      } catch  {
-        // If the API doesn't exist yet, just simulate success
-        return data;
+      const response = await fetch("/api/settings/general", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to update settings");
       }
+
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["general-settings"] });
@@ -97,10 +93,10 @@ export function GeneralSettings() {
         description: "Les paramètres généraux ont été mis à jour avec succès",
       });
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast({
         title: "Erreur",
-        description: "Une erreur est survenue lors de la mise à jour des paramètres",
+        description: error.message || "Une erreur est survenue lors de la mise à jour des paramètres",
         variant: "destructive",
       });
     },
@@ -115,6 +111,167 @@ export function GeneralSettings() {
       setIsLoading(false);
     }
   };
+
+  // Handle logo file upload
+  const handleLogoUpload = useCallback(async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Erreur",
+        description: "Le fichier doit être une image",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "Erreur",
+        description: "La taille du fichier ne doit pas dépasser 5MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploadingLogo(true);
+
+    try {
+      // Create FormData for file upload
+      const formData = new FormData();
+      formData.append('file', file);
+
+      // Upload to public upload API (for logos only)
+      const response = await fetch('/api/upload-public', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const data = await response.json();
+
+      // Extract the URL from the response (API returns {success: true, files: [{url: "..."}]})
+      const logoUrl = data.files && data.files.length > 0 ? data.files[0].url : null;
+
+      if (!logoUrl) {
+        throw new Error('No URL returned from upload');
+      }
+
+      // Update form value
+      form.setValue('companyLogo', logoUrl);
+      setLogoPreview(logoUrl);
+
+      toast({
+        title: "Succès",
+        description: "Logo téléchargé avec succès",
+      });
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Erreur lors du téléchargement du logo",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  }, [form]);
+
+  // Drag and drop handlers
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      handleLogoUpload(files[0]);
+    }
+  }, [handleLogoUpload]);
+
+  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      handleLogoUpload(files[0]);
+    }
+  }, [handleLogoUpload]);
+
+  const currentLogo = logoPreview || form.watch('companyLogo');
+
+  // Show loading state
+  if (isLoadingSettings) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center">
+              <Building className="h-5 w-5 mr-2 text-blue-600" />
+              <CardTitle>Informations de l&apos;entreprise</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center space-y-3">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="text-sm text-gray-500">Chargement des paramètres...</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (isError) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center">
+              <Building className="h-5 w-5 mr-2 text-blue-600" />
+              <CardTitle>Informations de l&apos;entreprise</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col items-center justify-center py-12 space-y-4">
+              <X className="h-12 w-12 text-red-500" />
+              <div className="text-center">
+                <p className="text-sm font-medium text-gray-900">Erreur de chargement</p>
+                <p className="text-sm text-gray-500 mt-1">
+                  {error instanceof Error ? error.message : 'Une erreur est survenue'}
+                </p>
+              </div>
+              <Button
+                onClick={() => window.location.reload()}
+                variant="outline"
+              >
+                Réessayer
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -173,10 +330,90 @@ export function GeneralSettings() {
                     control={form.control}
                     name="companyLogo"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Logo URL</FormLabel>
+                      <FormItem className="col-span-1 md:col-span-2">
+                        <FormLabel>Logo de l&apos;entreprise</FormLabel>
                         <FormControl>
-                          <Input {...field} />
+                          <div className="space-y-4">
+                            {/* Current Logo Display */}
+                            {currentLogo && (
+                              <div className="flex items-center justify-center p-6 border-2 border-gray-200 rounded-lg bg-gray-50">
+                                <div className="relative w-48 h-48">
+                                  <Image
+                                    key={currentLogo}
+                                    src={currentLogo}
+                                    alt="Company Logo"
+                                    fill
+                                    className="object-contain"
+                                    unoptimized={currentLogo.startsWith('/uploads-public/') || currentLogo.startsWith('/imports/')}
+                                    onError={(e) => {
+                                      console.error('Image load error:', currentLogo);
+                                      toast({
+                                        title: "Erreur",
+                                        description: "Impossible de charger le logo",
+                                        variant: "destructive",
+                                      });
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Drag & Drop Upload Zone */}
+                            <div
+                              onDragEnter={handleDragEnter}
+                              onDragLeave={handleDragLeave}
+                              onDragOver={handleDragOver}
+                              onDrop={handleDrop}
+                              className={`
+                                relative border-2 border-dashed rounded-lg p-8 transition-all
+                                ${isDragging
+                                  ? 'border-blue-500 bg-blue-50'
+                                  : 'border-gray-300 bg-white hover:border-blue-400 hover:bg-blue-50/30'
+                                }
+                                ${isUploadingLogo ? 'opacity-50 pointer-events-none' : 'cursor-pointer'}
+                              `}
+                            >
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handleFileInput}
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                disabled={isUploadingLogo}
+                              />
+                              <div className="flex flex-col items-center justify-center space-y-3 text-center">
+                                <div className={`w-16 h-16 rounded-full flex items-center justify-center ${
+                                  isDragging ? 'bg-blue-100' : 'bg-gray-100'
+                                }`}>
+                                  {isUploadingLogo ? (
+                                    <div className="animate-spin">
+                                      <Upload className="h-8 w-8 text-blue-600" />
+                                    </div>
+                                  ) : (
+                                    <Upload className={`h-8 w-8 ${isDragging ? 'text-blue-600' : 'text-gray-400'}`} />
+                                  )}
+                                </div>
+                                <div>
+                                  <p className="text-sm font-medium text-gray-700">
+                                    {isUploadingLogo
+                                      ? 'Téléchargement en cours...'
+                                      : isDragging
+                                      ? 'Déposez le fichier ici'
+                                      : 'Glissez-déposez votre logo ici'}
+                                  </p>
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    ou cliquez pour sélectionner un fichier
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-2 text-xs text-gray-500">
+                                  <ImageIcon className="h-4 w-4" />
+                                  <span>PNG, JPG, SVG jusqu&apos;à 5MB</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Hidden input to store the logo URL */}
+                            <Input type="hidden" {...field} />
+                          </div>
                         </FormControl>
                         <FormMessage />
                       </FormItem>

@@ -2,8 +2,8 @@ import { User, Phone, Calendar, MapPin, FileText, Activity } from "lucide-react"
 
 interface PatientInfoCardProps {
   patient: {
-    firstName: string;
-    lastName: string;
+    firstName?: string;
+    lastName?: string;
     telephone?: string;
     dateOfBirth?: string | Date;
     address?: string;

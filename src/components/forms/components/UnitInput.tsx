@@ -32,26 +32,25 @@ export default function UnitInput({
 }: UnitInputProps) {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    
-    // Only allow valid values within range if min and max are provided
-    if (!value || !min || !max || (parseFloat(value) >= min && parseFloat(value) <= max)) {
-      form.setValue(name, value);
-      
-      // Call custom onChange if provided
-      if (onChange) {
-        onChange(e);
-      }
-      
-      // Update parent component if needed
-      if (onParentChange) {
-        onParentChange(e);
-      }
+
+    // Allow empty value or any numeric input while typing
+    // Validation will be done on blur or submit
+    form.setValue(name, value);
+
+    // Call custom onChange if provided
+    if (onChange) {
+      onChange(e);
+    }
+
+    // Update parent component if needed
+    if (onParentChange) {
+      onParentChange(e);
     }
   };
-  
+
   return (
     <div className={className}>
-      <label className="block text-sm font-medium text-gray-700">{label}</label>
+      {label && <label className="block text-sm font-medium text-gray-700">{label}</label>}
       <div className="relative">
         <input
           type="number"

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { useSession, signOut } from 'next-auth/react';
+import { useQuery } from '@tanstack/react-query';
 import {
     LayoutDashboard,
     Users,
@@ -26,10 +27,24 @@ type MenuItem = {
 
 const DoctorSidebar: React.FC = () => {
     const router = useRouter();
-    const { } = useSession();
+    const { data: session } = useSession();
     const [isExpanded, setIsExpanded] = useState(false);
     const [isNavigating, setIsNavigating] = useState(false);
     const [lastNavigationTime, setLastNavigationTime] = useState(0);
+
+    // Fetch company logo from settings
+    const { data: settings } = useQuery({
+        queryKey: ['general-settings'],
+        queryFn: async () => {
+            const response = await fetch('/api/settings/general');
+            if (!response.ok) return null;
+            return response.json();
+        },
+        enabled: !!session?.user,
+        staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    });
+
+    const companyLogo = settings?.companyLogo;
 
     // Default menu items with unique IDs for doctor dashboard
     const defaultMenuItems: MenuItem[] = [
@@ -103,25 +118,40 @@ const DoctorSidebar: React.FC = () => {
             {/* Header with Logo and Toggle Button */}
             <div className="p-4 border-b border-red-100 flex justify-between items-center">
                 {isExpanded ? (
-                    <div className="flex-1 flex justify-center">
-                        <Image
-                            src="/logo_No_BG.png"
-                            alt="Elite medicale Logo"
-                            width={150}
-                            height={60}
-                            priority
-                            className="object-contain h-auto"
-                        />
+                    <div className="flex-1 flex justify-center items-center min-h-[60px]">
+                        {companyLogo ? (
+                            <Image
+                                src={companyLogo}
+                                alt="Logo de l'entreprise"
+                                width={150}
+                                height={60}
+                                priority
+                                className="object-contain h-auto"
+                                unoptimized={companyLogo.startsWith('/uploads-public/') || companyLogo.startsWith('/imports/')}
+                            />
+                        ) : (
+                            <div className="text-center text-xs text-gray-400 italic px-2">
+                                Logo non téléchargé
+                            </div>
+                        )}
                     </div>
                 ) : (
                     <div className="w-10 h-10 flex items-center justify-center mx-auto">
-                        <Image
-                            src="/logo_No_BG.png"
-                            alt="Elite medicale Icon"
-                            width={40}
-                            height={40}
-                            priority
-                        />
+                        {companyLogo ? (
+                            <Image
+                                src={companyLogo}
+                                alt="Logo"
+                                width={40}
+                                height={40}
+                                priority
+                                className="object-contain"
+                                unoptimized={companyLogo.startsWith('/uploads-public/') || companyLogo.startsWith('/imports/')}
+                            />
+                        ) : (
+                            <div className="text-[10px] text-gray-400 italic text-center leading-tight">
+                                Logo
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

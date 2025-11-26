@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -8,11 +8,32 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, MapPin, Stethoscope, Puzzle, Cog, Activity, CheckCircle2, XCircle, AlertCircle, HeartPulse, Package, Wrench, Filter, ShoppingCart, Grid3x3, List, Euro } from "lucide-react";
+import { Search, MapPin, Stethoscope, HeartPulse, Package, Wrench, Filter, ShoppingCart, Grid3x3, List } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 import { getDeviceStatusInfo } from "@/utils/statusUtils";
 import { DeviceStatus, ProductType } from "@prisma/client";
+
+interface ProductItem {
+  id: string;
+  name: string;
+  type: string;
+  brand?: string | null;
+  model?: string | null;
+  serialNumber?: string | null;
+  sellingPrice?: number | string | null;
+  stockQuantity?: number;
+  status?: string | null;
+  stockLocationId?: string | null;
+  stockLocation?: { id: string; name: string } | null;
+  stock?: { locationId: string } | null;
+}
+
+interface StockLocation {
+  id: string;
+  name: string;
+  type?: string;
+}
 
 const getIconForType = (type: ProductType) => {
   switch (type) {
@@ -33,7 +54,7 @@ interface ProductDialogProps {
   isOpen: boolean;
   onClose: () => void;
   type: "medical-device" | "accessory" | "spare-part" | "diagnostic";
-  onSelect: (product: any) => void;
+  onSelect: (products: ProductItem[]) => void;
 }
 
 export function ProductDialog({ isOpen, onClose, type, onSelect }: ProductDialogProps) {
@@ -43,8 +64,7 @@ export function ProductDialog({ isOpen, onClose, type, onSelect }: ProductDialog
   const [selectedName, setSelectedName] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<DeviceStatus | 'all'>('all');
   const [priceRange, setPriceRange] = useState<{ min: string; max: string }>({ min: "", max: "" });
-  const [selectedProducts, setSelectedProducts] = useState<any[]>([]);
-  const [showSelectedOnly, setShowSelectedOnly] = useState(false);
+  const [selectedProducts, setSelectedProducts] = useState<ProductItem[]>([]);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   // Fetch stock locations
@@ -76,7 +96,7 @@ export function ProductDialog({ isOpen, onClose, type, onSelect }: ProductDialog
         data = await response.json();
         
         // Ensure we only get true medical devices, not products with the same name
-        data = data.filter((item: any) => 
+        data = data.filter((item: ProductItem) =>
           // Explicitly check the type is MEDICAL_DEVICE and the source is the medicalDevice table
           item.type === "MEDICAL_DEVICE" &&
           // We can check for properties that only exist on medical devices
@@ -92,7 +112,7 @@ export function ProductDialog({ isOpen, onClose, type, onSelect }: ProductDialog
         data = await response.json();
         
         // Ensure we only get true diagnostic devices
-        data = data.filter((item: any) => 
+        data = data.filter((item: ProductItem) =>
           item.type === "DIAGNOSTIC_DEVICE" &&
           "technicalSpecs" in item
         );
@@ -128,7 +148,7 @@ export function ProductDialog({ isOpen, onClose, type, onSelect }: ProductDialog
   });
 
   // Enhanced filtering logic
-  const filteredProducts = products?.filter((product: any) => {
+  const filteredProducts = products?.filter((product: ProductItem) => {
     // Search query matching
     const searchFields = [
       product.name,
@@ -157,29 +177,26 @@ export function ProductDialog({ isOpen, onClose, type, onSelect }: ProductDialog
 
     // Status filtering
     const statusMatch = statusFilter === 'all' || product.status === statusFilter;
-    
+
     // Price range filtering
-    const price = parseFloat(product.sellingPrice) || 0;
+    const price = typeof product.sellingPrice === 'number' ? product.sellingPrice : (parseFloat(String(product.sellingPrice)) || 0);
     const minPrice = priceRange.min ? parseFloat(priceRange.min) : 0;
     const maxPrice = priceRange.max ? parseFloat(priceRange.max) : Infinity;
     const priceMatch = price >= minPrice && price <= maxPrice;
-    
-    // Show selected only filter
-    const selectionMatch = !showSelectedOnly || selectedProducts.some(p => p.id === product.id);
 
-    return searchMatch && locationMatch && brandMatch && nameMatch && statusMatch && priceMatch && selectionMatch;
+    return searchMatch && locationMatch && brandMatch && nameMatch && statusMatch && priceMatch;
   });
   
   // Get unique brands for filtering
-  const availableBrands = products ? 
-    [...new Set(products.map((p: any) => p.brand).filter(Boolean))] : [];
-    
+  const availableBrands = products ?
+    [...new Set(products.map((p: ProductItem) => p.brand).filter(Boolean))] : [];
+
   // Get unique names for filtering
-  const availableNames = products ? 
-    [...new Set(products.map((p: any) => p.name).filter(Boolean))] : [];
-    
+  const availableNames = products ?
+    [...new Set(products.map((p: ProductItem) => p.name).filter(Boolean))] : [];
+
   // Handle product selection
-  const handleProductToggle = (product: any) => {
+  const handleProductToggle = (product: ProductItem) => {
     setSelectedProducts(prev => {
       const isSelected = prev.some(p => p.id === product.id);
       if (isSelected) {
@@ -232,23 +249,23 @@ export function ProductDialog({ isOpen, onClose, type, onSelect }: ProductDialog
     }
   };
 
-  const getStockLocationName = (product: any) => {
+  const getStockLocationName = (product: ProductItem) => {
     if (!product) return "Non assigné";
-    
+
     // If the product has a stockLocation object with a name, use it
     if (product.stockLocation?.name) {
       return product.stockLocation.name;
     }
-    
+
     // If we have a stockLocationId but no stockLocation object,
     // try to find the location name from our stockLocations list
     if (product.stockLocationId && stockLocations) {
-      const location = stockLocations.find(
-        (loc: any) => loc.id === product.stockLocationId
+      const location = (stockLocations as StockLocation[]).find(
+        (loc: StockLocation) => loc.id === product.stockLocationId
       );
       if (location) return location.name;
     }
-    
+
     return "Non assigné";
   };
 
@@ -294,7 +311,7 @@ export function ProductDialog({ isOpen, onClose, type, onSelect }: ProductDialog
             
             {/* View Mode Toggle */}
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-blue-700">Mode d'affichage</span>
+              <span className="text-sm font-medium text-blue-700">Mode d&apos;affichage</span>
               <div className="flex gap-1 bg-white rounded-lg border border-blue-300 p-1">
                 <Button
                   size="sm"
@@ -338,7 +355,7 @@ export function ProductDialog({ isOpen, onClose, type, onSelect }: ProductDialog
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Tous les stocks</SelectItem>
-                    {stockLocations?.map((location: any) => (
+                    {(stockLocations as StockLocation[] | undefined)?.map((location: StockLocation) => (
                       <SelectItem key={location.id} value={location.id}>
                         {location.name}
                       </SelectItem>
@@ -435,7 +452,7 @@ export function ProductDialog({ isOpen, onClose, type, onSelect }: ProductDialog
                   <p className="text-gray-500 font-medium">Aucun produit trouvé</p>
                 </div>
               ) : (
-              filteredProducts?.map((product: any) => {
+              filteredProducts?.map((product: ProductItem) => {
                 const isSelected = selectedProducts.some(p => p.id === product.id);
                 const isStockable = product.type === 'ACCESSORY' || product.type === 'SPARE_PART';
                 
@@ -495,16 +512,16 @@ export function ProductDialog({ isOpen, onClose, type, onSelect }: ProductDialog
                               {product.sellingPrice} DT
                             </span>
                             {isStockable && (
-                              <Badge 
-                                variant="outline" 
+                              <Badge
+                                variant="outline"
                                 className={cn(
                                   "text-xs px-1 py-0 h-5",
-                                  product.stockQuantity > 0 
+                                  (product.stockQuantity ?? 0) > 0
                                     ? "bg-blue-50 text-blue-700 border-blue-200"
                                     : "bg-red-50 text-red-700 border-red-200"
                                 )}
                               >
-                                Stock: {product.stockQuantity || 0}
+                                Stock: {product.stockQuantity ?? 0}
                               </Badge>
                             )}
                           </div>

@@ -82,6 +82,11 @@ export function RentalArticleSelectionDialog({
   });
 
   const filteredAccessories = accessories.filter((acc: any) => {
+    // Filter out items with 0 or undefined stock
+    if (!acc.stockQuantity || acc.stockQuantity <= 0) {
+      return false;
+    }
+
     const searchLower = searchTerm.toLowerCase();
     return (
       acc.productCode?.toLowerCase().includes(searchLower) ||

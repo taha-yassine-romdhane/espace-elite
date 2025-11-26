@@ -17,6 +17,8 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
     ],
+    // Allow local images from imports directory
+    unoptimized: process.env.NODE_ENV === 'development',
   },
   // Optional: Add transpilePackages if using Prisma
   transpilePackages: ['@prisma/client'],

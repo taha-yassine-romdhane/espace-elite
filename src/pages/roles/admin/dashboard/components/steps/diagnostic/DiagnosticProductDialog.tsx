@@ -1,16 +1,28 @@
 import { Card } from "@/components/ui/card";
-import { 
+import {
   Activity,
   Search
 } from "lucide-react";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
+interface DiagnosticProduct {
+  id: string;
+  name: string;
+  brand?: string | null;
+  model?: string | null;
+  serialNumber?: string | null;
+  status?: string | null;
+  sellingPrice?: number | string | null;
+  reservedUntil?: string | Date | null;
+  stockLocation?: { name: string } | null;
+}
+
 interface DiagnosticProductDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelect: (product: any) => void;
-  products?: any[];
+  onSelect: (product: DiagnosticProduct) => void;
+  products?: DiagnosticProduct[];
   isLoading: boolean;
 }
 

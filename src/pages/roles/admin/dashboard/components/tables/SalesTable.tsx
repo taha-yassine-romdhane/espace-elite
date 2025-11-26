@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
+import { format } from "date-fns";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { format, isAfter, isBefore, parseISO } from "date-fns";
-import { fr } from "date-fns/locale";
 import {
   Table,
   TableBody,
@@ -30,21 +29,15 @@ import {
   FileText,
   Receipt,
   Package,
-  Banknote,
   ShoppingCart,
   Trash2,
   Loader2,
   Search,
   CreditCard,
-  Euro,
-  Filter,
   SortAsc,
   SortDesc,
-  Eye,
-  Edit,
   AlertTriangle,
 } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 // Define proper types for better type safety
 interface ProcessedBy {
@@ -75,7 +68,7 @@ interface DeviceConfiguration {
   ipap?: string;
   debit?: string;
   mode?: string;
-  [key: string]: any;
+  [key: string]: string | number | boolean | undefined;
 }
 
 interface Product {
@@ -136,7 +129,7 @@ interface SalesTableProps {
   onEdit?: (id: string) => void;
 }
 
-const SalesTable = React.memo(({ onViewDetails, onEdit }: SalesTableProps) => {
+const SalesTable = React.memo(({ onViewDetails }: SalesTableProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -183,7 +176,7 @@ const SalesTable = React.memo(({ onViewDetails, onEdit }: SalesTableProps) => {
   // Helper functions to get unique values for filters
   const getUniqueValues = (key: string): string[] => {
     if (!salesOperations) return [];
-    const values: (string | null)[] = salesOperations.map((sale: any) => {
+    const values: (string | null)[] = salesOperations.map((sale: Sale) => {
       switch (key) {
         case 'status':
           return sale.status;
@@ -199,9 +192,8 @@ const SalesTable = React.memo(({ onViewDetails, onEdit }: SalesTableProps) => {
     return [...new Set(filteredValues)];
   };
 
-  const uniqueStatuses = getUniqueValues('status');
-  const uniquePaymentStatuses = getUniqueValues('paymentStatus');
-  const uniqueProcessedBy = getUniqueValues('processedBy');
+  // Note: getUniqueValues is available for potential future use in filter dropdowns
+  void getUniqueValues;
 
   // Delete sale mutation
   const deleteSale = useMutation({
@@ -253,12 +245,6 @@ const SalesTable = React.memo(({ onViewDetails, onEdit }: SalesTableProps) => {
   const handleCancelDelete = () => {
     setSaleToDelete(null);
     setIsDeleteDialogOpen(false);
-  };
-
-  // Function to format date
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return "-";
-    return format(new Date(dateString), "PPP", { locale: fr });
   };
 
   // Format date function for simple display
@@ -388,7 +374,7 @@ const SalesTable = React.memo(({ onViewDetails, onEdit }: SalesTableProps) => {
       averageAmount: 0
     };
     
-    filteredSales.forEach((sale: any) => {
+    filteredSales.forEach((sale: Sale) => {
       switch (sale.status) {
         case 'COMPLETED':
           stats.completed++;
@@ -417,11 +403,11 @@ const SalesTable = React.memo(({ onViewDetails, onEdit }: SalesTableProps) => {
 
     // Apply search filter
     if (searchTerm.trim()) {
-      filtered = filtered.filter((sale: any) => {
-        const clientName = sale.patient 
+      filtered = filtered.filter((sale: Sale) => {
+        const clientName = sale.patient
           ? `${sale.patient.firstName} ${sale.patient.lastName}`
           : sale.company?.companyName || "";
-        
+
         return (
           clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
           sale.saleCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -437,32 +423,32 @@ const SalesTable = React.memo(({ onViewDetails, onEdit }: SalesTableProps) => {
 
     // Apply status filter
     if (statusFilter !== "all") {
-      filtered = filtered.filter((sale: any) => sale.status === statusFilter);
+      filtered = filtered.filter((sale: Sale) => sale.status === statusFilter);
     }
 
     // Apply client type filter
     if (clientTypeFilter !== "all") {
       if (clientTypeFilter === "patient") {
-        filtered = filtered.filter((sale: any) => sale.patient);
+        filtered = filtered.filter((sale: Sale) => sale.patient);
       } else if (clientTypeFilter === "company") {
-        filtered = filtered.filter((sale: any) => sale.company);
+        filtered = filtered.filter((sale: Sale) => sale.company);
       }
     }
 
     // Apply payment status filter
     if (paymentStatusFilter !== "all") {
-      filtered = filtered.filter((sale: any) => sale.payment?.status === paymentStatusFilter);
+      filtered = filtered.filter((sale: Sale) => sale.payment?.status === paymentStatusFilter);
     }
 
     // Apply date filter
     if (dateFilter !== "all") {
       const today = new Date();
       const filterDate = new Date();
-      
+
       switch (dateFilter) {
         case "today":
           filterDate.setHours(0, 0, 0, 0);
-          filtered = filtered.filter((sale: any) => {
+          filtered = filtered.filter((sale: Sale) => {
             const saleDate = new Date(sale.saleDate);
             saleDate.setHours(0, 0, 0, 0);
             return saleDate.getTime() === filterDate.getTime();
@@ -470,22 +456,22 @@ const SalesTable = React.memo(({ onViewDetails, onEdit }: SalesTableProps) => {
           break;
         case "week":
           filterDate.setDate(today.getDate() - 7);
-          filtered = filtered.filter((sale: any) => new Date(sale.saleDate) >= filterDate);
+          filtered = filtered.filter((sale: Sale) => new Date(sale.saleDate) >= filterDate);
           break;
         case "month":
           filterDate.setMonth(today.getMonth() - 1);
-          filtered = filtered.filter((sale: any) => new Date(sale.saleDate) >= filterDate);
+          filtered = filtered.filter((sale: Sale) => new Date(sale.saleDate) >= filterDate);
           break;
         case "year":
           filterDate.setFullYear(today.getFullYear() - 1);
-          filtered = filtered.filter((sale: any) => new Date(sale.saleDate) >= filterDate);
+          filtered = filtered.filter((sale: Sale) => new Date(sale.saleDate) >= filterDate);
           break;
       }
     }
 
     // Apply amount range filter
     if (amountRangeFilter !== "all") {
-      filtered = filtered.filter((sale: any) => {
+      filtered = filtered.filter((sale: Sale) => {
         const amount = Number(sale.finalAmount) || 0;
         switch (amountRangeFilter) {
           case "0-100":
@@ -503,7 +489,7 @@ const SalesTable = React.memo(({ onViewDetails, onEdit }: SalesTableProps) => {
     }
 
     // Apply sorting
-    filtered.sort((a: any, b: any) => {
+    filtered.sort((a: Sale, b: Sale) => {
       let aValue, bValue;
       
       switch (sortBy) {
@@ -529,12 +515,15 @@ const SalesTable = React.memo(({ onViewDetails, onEdit }: SalesTableProps) => {
       }
 
       if (typeof aValue === 'string' && typeof bValue === 'string') {
-        return sortOrder === "asc" 
+        return sortOrder === "asc"
           ? aValue.localeCompare(bValue)
           : bValue.localeCompare(aValue);
       }
-      
-      return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
+
+      // Ensure numeric comparison for non-string values
+      const aNum = typeof aValue === 'number' ? aValue : 0;
+      const bNum = typeof bValue === 'number' ? bValue : 0;
+      return sortOrder === "asc" ? aNum - bNum : bNum - aNum;
     });
 
     setFilteredSales(filtered);
@@ -639,7 +628,7 @@ const SalesTable = React.memo(({ onViewDetails, onEdit }: SalesTableProps) => {
               className="px-4 py-3 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-[#1e3a8a] bg-white text-sm shadow-sm hover:shadow-md transition-all duration-200"
             >
               <option value="all">Toutes les dates</option>
-              <option value="today">Aujourd'hui</option>
+              <option value="today">Aujourd&apos;hui</option>
               <option value="week">Cette semaine</option>
               <option value="month">Ce mois</option>
               <option value="year">Cette année</option>
@@ -751,8 +740,8 @@ const SalesTable = React.memo(({ onViewDetails, onEdit }: SalesTableProps) => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {currentSales.map((sale: any, index: number) => {
-                  const clientName = sale.patient 
+                {currentSales.map((sale: Sale, index: number) => {
+                  const clientName = sale.patient
                     ? `${sale.patient.firstName} ${sale.patient.lastName}`
                     : sale.company
                       ? sale.company.companyName
@@ -934,7 +923,7 @@ const SalesTable = React.memo(({ onViewDetails, onEdit }: SalesTableProps) => {
                                       Paiement mixte
                                     </div>
                                     <div className="flex flex-wrap gap-1">
-                                      {paymentDetails.slice(0, 2).map((detail: any, index: number) => (
+                                      {paymentDetails.slice(0, 2).map((detail: PaymentDetail, index: number) => (
                                         <div key={index} className="text-xs text-slate-600">
                                           {formatPaymentMethod(detail.method)}
                                         </div>

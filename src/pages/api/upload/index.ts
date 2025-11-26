@@ -56,24 +56,45 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const basename = path.basename(originalName, ext);
       const uniqueName = `${timestamp}-${basename}${ext}`;
 
-      // Define paths - use environment variable for VPS or default to public/imports
-      const uploadsDir = process.env.FILE_STORAGE_PATH
+      // Define paths - use private-storage/imports (SECURE - not web-accessible)
+      const uploadsDir = process.env.NODE_ENV === 'production' && process.env.FILE_STORAGE_PATH
         ? path.join(process.env.FILE_STORAGE_PATH, 'imports')
-        : path.join(process.cwd(), 'public', 'imports');
+        : path.join(process.cwd(), 'private-storage', 'imports');
 
       const filePath = path.join(uploadsDir, uniqueName);
+
+      console.log('Upload details:', {
+        originalName,
+        uniqueName,
+        uploadsDir,
+        filePath,
+        tempPath: (file as FormidableFile).filepath,
+      });
 
       // Ensure the imports directory exists
       await fs.mkdir(uploadsDir, { recursive: true });
 
       // Move file from temp location to imports folder
-      await fs.copyFile((file as FormidableFile).filepath, filePath);
+      try {
+        await fs.copyFile((file as FormidableFile).filepath, filePath);
+        console.log('File copied successfully to:', filePath);
 
-      // Delete temp file
-      await fs.unlink((file as FormidableFile).filepath);
+        // Verify the file exists
+        const fileExists = await fs.access(filePath).then(() => true).catch(() => false);
+        if (!fileExists) {
+          throw new Error('File was not saved successfully');
+        }
 
-      // Construct the file URL
-      const fileUrl = `/imports/${uniqueName}`;
+        // Delete temp file
+        await fs.unlink((file as FormidableFile).filepath);
+        console.log('Temp file deleted');
+      } catch (error) {
+        console.error('Error saving file:', error);
+        throw new Error(`Failed to save file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+
+      // Construct the file URL - use secure API endpoint
+      const fileUrl = `/api/files/imports/${uniqueName}`;
 
       uploadedFileData.push({
         url: fileUrl,

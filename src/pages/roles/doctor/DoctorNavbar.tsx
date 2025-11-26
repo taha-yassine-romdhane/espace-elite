@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/router';
+import { useQuery } from '@tanstack/react-query';
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
     User,
@@ -53,6 +54,20 @@ const DoctorNavbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded 
     const [isLoading, setIsLoading] = useState(false);
     const profileRef = useRef<HTMLDivElement>(null);
     const notificationsRef = useRef<HTMLDivElement>(null);
+
+    // Fetch company settings for company name
+    const { data: settings } = useQuery({
+        queryKey: ['general-settings'],
+        queryFn: async () => {
+            const response = await fetch('/api/settings/general');
+            if (!response.ok) return null;
+            return response.json();
+        },
+        enabled: !!session?.user,
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const companyName = settings?.companyName || "Elite Médicale";
 
     // Update time every minute and fetch notifications
     useEffect(() => {
@@ -145,7 +160,7 @@ const DoctorNavbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded 
             '/roles/doctor/help': 'Aide & Support',
             '/roles/doctor/settings': 'Paramètres',
         };
-        return titleMap[path] || 'Espace Médecin';
+        return titleMap[path] || companyName;
     };
 
     // Get notification icon based on type
@@ -218,7 +233,7 @@ const DoctorNavbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded 
                                 {getPageTitle()}
                             </h1>
                             <div className="text-xs text-gray-500 flex items-center space-x-1">
-                                <span>Espace Médecin</span>
+                                <span>{companyName}</span>
                                 <span>•</span>
                                 <span className="font-medium">{currentTime ? formatTime(currentTime) : '--:--'}</span>
                             </div>

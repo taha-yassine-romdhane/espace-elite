@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Plus, User, Search, UserPlus, Loader2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import PatientForm from '@/components/forms/PatientForm';
+import { BeneficiaryType } from '@prisma/client';
 
 interface Client {
   id: string;
@@ -32,30 +33,52 @@ export function AppointmentClientSelectionStep({
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
   
-  // Form state for patient creation
-  const [patientFormData, setPatientFormData] = useState({
+  interface PatientFormData {
+    nomComplet?: string;
+    telephonePrincipale?: string;
+    telephoneSecondaire?: string;
+    adresseComplete?: string;
+    cin?: string;
+    identifiantCNAM?: string;
+    technicienResponsable?: string;
+    antecedant?: string;
+    taille?: string;
+    poids?: string;
+    medecin?: string;
+    dateNaissance?: string;
+    beneficiaire?: BeneficiaryType;
+    caisseAffiliation?: 'CNSS' | 'CNRPS';
+    cnam?: boolean;
+    descriptionNom?: string;
+    descriptionTelephone?: string;
+    descriptionAdresse?: string;
+    adresseCoordinates?: { lat: number; lng: number };
+    files?: File[];
+    existingFiles?: { url: string; type: string }[];
+  }
+
+  const initialFormData: PatientFormData = {
     nomComplet: '',
     telephonePrincipale: '',
     telephoneSecondaire: '',
-    governorate: '',
-    delegation: '',
-    detailedAddress: '',
+    adresseComplete: '',
     cin: '',
     identifiantCNAM: '',
     technicienResponsable: '',
-    superviseur: '',
     antecedant: '',
     taille: '',
     poids: '',
     medecin: '',
     dateNaissance: '',
-    beneficiaire: null as any,
-    caisseAffiliation: 'CNSS' as any,
+    beneficiaire: undefined,
+    caisseAffiliation: 'CNSS',
     cnam: false,
-    generalNote: '',
-    files: [] as File[],
-    existingFiles: [] as any[]
-  });
+    files: [],
+    existingFiles: []
+  };
+
+  // Form state for patient creation
+  const [patientFormData, setPatientFormData] = useState<PatientFormData>(initialFormData);
   
 
   // Fetch patients only for appointments
@@ -72,8 +95,16 @@ export function AppointmentClientSelectionStep({
     },
   });
 
+  interface RawPatient {
+    id: string;
+    name?: string;
+    firstName?: string;
+    lastName?: string;
+    telephone?: string;
+  }
+
   // Format patients for appointment selection
-  const formatPatients = (rawPatients: any[]): Client[] => {
+  const formatPatients = (rawPatients: RawPatient[]): Client[] => {
     if (!rawPatients) {
       return [];
     }
@@ -193,29 +224,7 @@ export function AppointmentClientSelectionStep({
       onClientSelect(formattedPatient);
       
       // Reset form and close dialog
-      setPatientFormData({
-        nomComplet: '',
-        telephonePrincipale: '',
-        telephoneSecondaire: '',
-        governorate: '',
-        delegation: '',
-        detailedAddress: '',
-        cin: '',
-        identifiantCNAM: '',
-        technicienResponsable: '',
-        superviseur: '',
-        antecedant: '',
-        taille: '',
-        poids: '',
-        medecin: '',
-        dateNaissance: '',
-        beneficiaire: null as any,
-        caisseAffiliation: 'CNSS' as any,
-        cnam: false,
-        generalNote: '',
-        files: [] as File[],
-        existingFiles: [] as any[]
-      });
+      setPatientFormData(initialFormData);
       setIsCreateFormOpen(false);
       
       toast({

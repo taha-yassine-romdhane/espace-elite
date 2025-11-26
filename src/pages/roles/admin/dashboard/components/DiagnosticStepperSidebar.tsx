@@ -8,6 +8,16 @@ interface Step {
   description: string;
 }
 
+interface ClientDetails {
+  id: string;
+  firstName?: string;
+  lastName?: string;
+  telephone?: string;
+  address?: string;
+  dateOfBirth?: string;
+  cin?: string;
+}
+
 interface StepperSidebarProps {
   steps: ReadonlyArray<Step> | readonly {
     id: number;
@@ -15,8 +25,7 @@ interface StepperSidebarProps {
     description: string;
   }[];
   currentStep: number;
-   
-  clientDetails: any | null;
+  clientDetails: ClientDetails | null;
   totalPrice?: string;
 }
 

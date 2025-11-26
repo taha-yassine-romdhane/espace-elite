@@ -111,8 +111,10 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - public folder assets (images, etc.)
-     * - api routes - VERY IMPORTANT to avoid breaking auth
+     * - api/auth (authentication routes)
+     * - api/settings/general (public company info)
+     * - api/upload-public (public logo uploads)
      */
-    '/((?!_next/static|_next/image|favicon.ico|\\.jpg|\\.png|\\.svg|\\.ico|api/auth).*)',
+    '/((?!_next/static|_next/image|favicon.ico|\\.jpg|\\.png|\\.svg|\\.ico|api/auth|api/settings/general|api/upload-public).*)',
   ],
 };

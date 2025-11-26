@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Calendar, User, MapPin, Clock, ChevronRight, ChevronLeft, Search, Phone } from "lucide-react";
+import { Calendar, User, MapPin, Clock, ChevronRight, ChevronLeft, Search, Phone, UserCheck } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -29,6 +29,7 @@ interface Patient {
 interface CreateAppointmentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  isAdmin?: boolean; // Allow admin to assign to employees
 }
 
 const APPOINTMENT_TYPES = [
@@ -47,7 +48,7 @@ const PRIORITIES = [
   { value: 'URGENT', label: 'Urgent' }
 ];
 
-export function CreateAppointmentDialog({ open, onOpenChange }: CreateAppointmentDialogProps) {
+export function CreateAppointmentDialog({ open, onOpenChange, isAdmin = false }: CreateAppointmentDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: session } = useSession();
@@ -55,6 +56,7 @@ export function CreateAppointmentDialog({ open, onOpenChange }: CreateAppointmen
   const [step, setStep] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
   const [appointmentData, setAppointmentData] = useState({
     appointmentType: 'CONSULTATION',
     scheduledDate: '',
@@ -64,11 +66,14 @@ export function CreateAppointmentDialog({ open, onOpenChange }: CreateAppointmen
     status: 'SCHEDULED'
   });
 
-  // Fetch patients (only assigned to this employee)
+  // Fetch patients (all for admin, only assigned for employee)
   const { data: patientsData, isLoading: loadingPatients } = useQuery({
-    queryKey: ["patients", "assignedToMe"],
+    queryKey: ["patients", isAdmin ? "all" : "assignedToMe"],
     queryFn: async () => {
-      const response = await fetch("/api/renseignements/patients?assignedToMe=true");
+      const url = isAdmin
+        ? "/api/renseignements/patients"
+        : "/api/renseignements/patients?assignedToMe=true";
+      const response = await fetch(url);
       if (!response.ok) throw new Error("Failed to fetch patients");
       const data = await response.json();
       return data.patients || [];
@@ -77,6 +82,19 @@ export function CreateAppointmentDialog({ open, onOpenChange }: CreateAppointmen
   });
 
   const patients: Patient[] = patientsData || [];
+
+  // Fetch employees (only for admin)
+  const { data: employeesData } = useQuery({
+    queryKey: ["employees"],
+    queryFn: async () => {
+      const response = await fetch("/api/users/employees-stats");
+      if (!response.ok) throw new Error("Failed to fetch employees");
+      return response.json();
+    },
+    enabled: open && isAdmin,
+  });
+
+  const employees = employeesData || [];
 
   // Filter patients based on search
   const filteredPatients = patients.filter(patient => {
@@ -116,6 +134,7 @@ export function CreateAppointmentDialog({ open, onOpenChange }: CreateAppointmen
     setStep(1);
     setSelectedPatient(null);
     setSearchQuery('');
+    setSelectedEmployeeId('');
     setAppointmentData({
       appointmentType: 'CONSULTATION',
       scheduledDate: '',
@@ -147,6 +166,11 @@ export function CreateAppointmentDialog({ open, onOpenChange }: CreateAppointmen
       return;
     }
 
+    if (isAdmin && !selectedEmployeeId) {
+      toast({ title: "Erreur", description: "Veuillez assigner un employé", variant: "destructive" });
+      return;
+    }
+
     const payload = {
       patientId: selectedPatient.id,
       appointmentType: appointmentData.appointmentType,
@@ -155,7 +179,7 @@ export function CreateAppointmentDialog({ open, onOpenChange }: CreateAppointmen
       notes: appointmentData.notes,
       priority: appointmentData.priority,
       status: appointmentData.status,
-      assignedToId: session?.user?.id
+      assignedToId: isAdmin ? selectedEmployeeId : session?.user?.id
     };
 
     await createMutation.mutateAsync(payload);
@@ -343,6 +367,31 @@ export function CreateAppointmentDialog({ open, onOpenChange }: CreateAppointmen
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Employee Assignment (Admin Only) */}
+              {isAdmin && (
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-sm font-medium flex items-center gap-2">
+                    <UserCheck className="h-4 w-4 text-blue-600" />
+                    Assigner à un employé <span className="text-red-500">*</span>
+                  </label>
+                  <Select
+                    value={selectedEmployeeId}
+                    onValueChange={setSelectedEmployeeId}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionner un employé" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {employees.map((emp: any) => (
+                        <SelectItem key={emp.id} value={emp.id}>
+                          {emp.firstName} {emp.lastName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
 
             {/* Notes - Full Width Textarea */}

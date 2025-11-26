@@ -1,3 +1,8 @@
+// ============================================
+// Central Types Export - Synchronized with Prisma
+// Last sync: 2025-01-25
+// ============================================
+
 // Export all enums
 export * from './enums';
 
@@ -27,3 +32,5 @@ export * from './models/Diagnostic';
 export * from './models/Doctor';
 export * from './models/Notification';
 export * from './models/AuthState';
+export * from './models/Sale';
+export * from './models/SaleItem';

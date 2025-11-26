@@ -23,15 +23,22 @@
 body {
   color: rgb(var(--foreground-rgb));
   background: rgb(var(--background-rgb));
-  overflow: hidden;
 }
 
 html {
-  overflow: hidden;
   height: 100%;
 }
 
-#__next {
+/* Apply overflow hidden only to dashboard pages, not public pages */
+body.dashboard-layout {
+  overflow: hidden;
+}
+
+html.dashboard-layout {
+  overflow: hidden;
+}
+
+body.dashboard-layout #__next {
   height: 100%;
   overflow: hidden;
 }

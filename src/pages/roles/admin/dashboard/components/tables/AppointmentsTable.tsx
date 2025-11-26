@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { format } from "date-fns";
-import { fr } from "date-fns/locale";
 import {
   Table,
   TableBody,
@@ -38,7 +36,6 @@ import {
   Building2,
   MapPin,
   Trash2,
-  Loader2,
   Search,
   AlertTriangle,
   CheckCircle2,
@@ -52,8 +49,38 @@ import {
   Package,
   Wrench,
   RotateCcw,
-  ClipboardCheck,
 } from "lucide-react";
+
+interface AppointmentPatient {
+  id: string;
+  firstName: string;
+  lastName: string;
+}
+
+interface AppointmentCompany {
+  id: string;
+  companyName: string;
+}
+
+interface AppointmentAssignee {
+  id: string;
+  firstName: string;
+  lastName: string;
+}
+
+interface Appointment {
+  id: string;
+  appointmentCode?: string;
+  appointmentType?: string;
+  scheduledDate: string;
+  location?: string;
+  status: string;
+  priority: string;
+  notes?: string;
+  patient?: AppointmentPatient;
+  company?: AppointmentCompany;
+  assignedTo?: AppointmentAssignee;
+}
 
 interface AppointmentsTableProps {
   onViewDetails?: (id: string) => void;
@@ -64,7 +91,7 @@ export function AppointmentsTable({ onViewDetails }: AppointmentsTableProps) {
   const queryClient = useQueryClient();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [appointmentToDelete, setAppointmentToDelete] = useState<string | null>(null);
-  const [filteredAppointments, setFilteredAppointments] = useState<any[]>([]);
+  const [filteredAppointments, setFilteredAppointments] = useState<Appointment[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<string>("all");
@@ -318,16 +345,16 @@ export function AppointmentsTable({ onViewDetails }: AppointmentsTableProps) {
 
     // Apply search filter
     if (searchTerm.trim()) {
-      filtered = filtered.filter((appointment: any) => {
-        const clientName = appointment.patient 
+      filtered = filtered.filter((appointment: Appointment) => {
+        const clientName = appointment.patient
           ? `${appointment.patient.firstName} ${appointment.patient.lastName}`
           : appointment.company?.companyName || "";
-        
+
         const appointmentTypeLabel = getAppointmentTypeDisplay(appointment.appointmentType || '').label;
-        const assignedToName = appointment.assignedTo 
+        const assignedToName = appointment.assignedTo
           ? `${appointment.assignedTo.firstName} ${appointment.assignedTo.lastName}`
           : '';
-        
+
         return (
           clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
           appointment.appointmentCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -342,23 +369,23 @@ export function AppointmentsTable({ onViewDetails }: AppointmentsTableProps) {
 
     // Apply status filter
     if (statusFilter !== "all") {
-      filtered = filtered.filter((appointment: any) => appointment.status === statusFilter);
+      filtered = filtered.filter((appointment: Appointment) => appointment.status === statusFilter);
     }
 
     // Apply type filter
     if (typeFilter !== "all") {
-      filtered = filtered.filter((appointment: any) => appointment.appointmentType === typeFilter);
+      filtered = filtered.filter((appointment: Appointment) => appointment.appointmentType === typeFilter);
     }
 
     // Apply date filter
     if (dateFilter !== "all") {
       const today = new Date();
       const filterDate = new Date();
-      
+
       switch (dateFilter) {
         case "today":
           filterDate.setHours(0, 0, 0, 0);
-          filtered = filtered.filter((appointment: any) => {
+          filtered = filtered.filter((appointment: Appointment) => {
             const appointmentDate = new Date(appointment.scheduledDate);
             appointmentDate.setHours(0, 0, 0, 0);
             return appointmentDate.getTime() === filterDate.getTime();
@@ -366,11 +393,11 @@ export function AppointmentsTable({ onViewDetails }: AppointmentsTableProps) {
           break;
         case "week":
           filterDate.setDate(today.getDate() - 7);
-          filtered = filtered.filter((appointment: any) => new Date(appointment.scheduledDate) >= filterDate);
+          filtered = filtered.filter((appointment: Appointment) => new Date(appointment.scheduledDate) >= filterDate);
           break;
         case "month":
           filterDate.setMonth(today.getMonth() - 1);
-          filtered = filtered.filter((appointment: any) => new Date(appointment.scheduledDate) >= filterDate);
+          filtered = filtered.filter((appointment: Appointment) => new Date(appointment.scheduledDate) >= filterDate);
           break;
       }
     }
@@ -442,7 +469,7 @@ export function AppointmentsTable({ onViewDetails }: AppointmentsTableProps) {
                 className="w-full px-4 py-3 pr-10 bg-white border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-[#1e3a8a] text-sm shadow-sm hover:shadow-md transition-all duration-200 appearance-none cursor-pointer"
               >
                 <option value="all">Toutes les dates</option>
-                <option value="today">Aujourd'hui</option>
+                <option value="today">Aujourd&apos;hui</option>
                 <option value="week">Cette semaine</option>
                 <option value="month">Ce mois</option>
               </select>
@@ -508,7 +535,7 @@ export function AppointmentsTable({ onViewDetails }: AppointmentsTableProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {currentAppointments.map((appointment: any, index: number) => {
+                {currentAppointments.map((appointment: Appointment, index: number) => {
                   const clientName = appointment.patient 
                     ? `${appointment.patient.firstName} ${appointment.patient.lastName}`
                     : appointment.company?.companyName || "Client inconnu";
@@ -612,7 +639,7 @@ export function AppointmentsTable({ onViewDetails }: AppointmentsTableProps) {
                           </div>
                         ) : (
                           <div className="text-xs text-gray-400 italic">
-                            <span className="hidden sm:inline flex items-center gap-1">
+                            <span className="hidden sm:inline items-center gap-1">
                               <User className="h-3 w-3" />
                               Non assigné
                             </span>

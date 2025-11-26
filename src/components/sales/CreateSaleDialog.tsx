@@ -899,7 +899,7 @@ export function CreateSaleDialog({ open, onOpenChange }: CreateSaleDialogProps) 
                   <Package className="h-4 w-4 text-blue-600" />
                   Articles ({articles.length})
                 </h3>
-                <div className="border rounded-lg divide-y max-h-48 overflow-y-auto">
+                <div className="border rounded-lg divide-y max-h-64 overflow-y-auto">
                   {articles.map((article, index) => (
                     <div key={article.id} className="p-3 bg-white hover:bg-gray-50">
                       <div className="flex items-center justify-between">
@@ -908,11 +908,74 @@ export function CreateSaleDialog({ open, onOpenChange }: CreateSaleDialogProps) 
                             {article.code || `#${index + 1}`}
                           </Badge>
                           <span className="text-sm font-medium">{article.name}</span>
+                          {article.serialNumber && (
+                            <span className="text-xs text-gray-500 font-mono">SN: {article.serialNumber}</span>
+                          )}
                         </div>
                         <span className="text-sm font-bold text-green-600">
                           {article.itemTotal.toFixed(2)} DT
                         </span>
                       </div>
+                      {/* Device Parameters Summary */}
+                      {article.parameters && Object.keys(article.parameters).length > 0 && (
+                        <div className="mt-2 p-2 bg-purple-50 border border-purple-200 rounded text-xs">
+                          <div className="flex items-center gap-1 mb-1">
+                            <Settings className="h-3 w-3 text-purple-600" />
+                            <span className="font-medium text-purple-800">
+                              Configuration {article.parameters.deviceType || 'Appareil'}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-gray-700">
+                            {/* CPAP Parameters */}
+                            {article.parameters.pression && (
+                              <div>Pression: <span className="font-medium">{article.parameters.pression} cmH2O</span></div>
+                            )}
+                            {article.parameters.pressionRampe && (
+                              <div>P. Rampe: <span className="font-medium">{article.parameters.pressionRampe} cmH2O</span></div>
+                            )}
+                            {article.parameters.dureeRampe && (
+                              <div>Durée Rampe: <span className="font-medium">{article.parameters.dureeRampe} min</span></div>
+                            )}
+                            {article.parameters.epr && (
+                              <div>EPR: <span className="font-medium">Niveau {article.parameters.epr}</span></div>
+                            )}
+                            {article.parameters.autoPression && (
+                              <div>Auto-Pression: <span className="font-medium text-green-600">Oui</span></div>
+                            )}
+                            {article.parameters.autoRampe && (
+                              <div>Auto-Rampe: <span className="font-medium text-green-600">Oui</span></div>
+                            )}
+                            {/* VNI Parameters */}
+                            {article.parameters.ipap && (
+                              <div>IPAP: <span className="font-medium">{article.parameters.ipap} cmH2O</span></div>
+                            )}
+                            {article.parameters.epap && (
+                              <div>EPAP: <span className="font-medium">{article.parameters.epap} cmH2O</span></div>
+                            )}
+                            {article.parameters.aid && (
+                              <div>AI/D: <span className="font-medium">{article.parameters.aid}</span></div>
+                            )}
+                            {article.parameters.mode && (
+                              <div>Mode: <span className="font-medium">{article.parameters.mode}</span></div>
+                            )}
+                            {article.parameters.frequenceRespiratoire && (
+                              <div>Fréq. Resp.: <span className="font-medium">{article.parameters.frequenceRespiratoire}/min</span></div>
+                            )}
+                            {article.parameters.volumeCourant && (
+                              <div>Vol. Courant: <span className="font-medium">{article.parameters.volumeCourant} mL</span></div>
+                            )}
+                            {/* Oxygen Parameters */}
+                            {article.parameters.debit && (
+                              <div>Débit O2: <span className="font-medium">{article.parameters.debit} L/min</span></div>
+                            )}
+                          </div>
+                          {article.parameters.notes && (
+                            <div className="mt-1 pt-1 border-t border-purple-200 text-gray-600">
+                              <span className="font-medium">Notes:</span> {article.parameters.notes}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

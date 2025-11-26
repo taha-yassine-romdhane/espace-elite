@@ -346,6 +346,8 @@ export default async function handler(
             notes: updateData.notes,
             discount: updateData.discount ? parseFloat(updateData.discount) : undefined,
             finalAmount: updateData.finalAmount ? parseFloat(updateData.finalAmount) : undefined,
+            // Update sale date if provided
+            saleDate: updateData.saleDate ? new Date(updateData.saleDate) : undefined,
             // Only update these if they are provided
             patientId: updateData.patientId || undefined,
             companyId: updateData.companyId || undefined,

@@ -1,6 +1,6 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { Calendar, Stethoscope, ShoppingCart, Building2, ClipboardCheck } from "lucide-react";
+import { Calendar, Stethoscope, ShoppingCart, Building2, ClipboardCheck, Package } from "lucide-react";
 
 interface TabSwitcherProps {
   activeTab: string;
@@ -83,6 +83,21 @@ export function TabSwitcher({ activeTab, onTabChange }: TabSwitcherProps) {
       >
         <Building2 className="h-4 w-4 mr-2" />
         Locations
+      </Button>
+
+      <Button
+        variant={activeTab === "active-rentals" ? "default" : "ghost"}
+        className={`${
+          activeTab === "active-rentals"
+            ? "bg-blue-100 text-[#1e3a8a] hover:bg-blue-200"
+            : "text-gray-600 hover:text-[#1e3a8a] hover:bg-gray-50"
+        } rounded-lg border-2 ${
+          activeTab === "active-rentals" ? "border-[#1e3a8a] shadow-sm" : "border-transparent"
+        } px-4 py-2 transition-all duration-200`}
+        onClick={() => onTabChange("active-rentals")}
+      >
+        <Package className="h-4 w-4 mr-2" />
+        Appareils Loués
       </Button>
     </div>
   );

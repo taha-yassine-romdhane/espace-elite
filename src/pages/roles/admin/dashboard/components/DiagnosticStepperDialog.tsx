@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ClientSelectionStep } from "./steps/ClientSelectionStep";
 import { NewDiagnosticProductStep } from "./steps/diagnostic/NewDiagnosticProductStep";
@@ -19,6 +19,54 @@ interface DiagnosticStepperDialogProps {
   onClose: () => void;
 }
 
+interface PatientDetails {
+  id: string;
+  firstName?: string;
+  lastName?: string;
+  telephone?: string;
+  address?: string;
+  dateOfBirth?: string;
+  cin?: string;
+  name?: string;
+  phone?: string;
+  email?: string;
+}
+
+interface DiagnosticProduct {
+  id: string;
+  name: string;
+  brand?: string | null;
+  model?: string | null;
+  serialNumber?: string | null;
+  type?: string;
+  status?: string | null;
+  sellingPrice?: number | string | null;
+  reservedUntil?: string | Date | null;
+  stockLocation?: { name: string } | null;
+  resultDueDate?: string;
+}
+
+interface UploadedFile {
+  id?: string;
+  url: string;
+  name: string;
+  type: string;
+  size: number;
+  key?: string;
+}
+
+interface DiagnosticData {
+  clientId: string;
+  clientType: string;
+  medicalDeviceId: string;
+  products: DiagnosticProduct[];
+  followUpDate: Date | undefined;
+  totalPrice: number;
+  patientInfo: { name: string; phone: string; email: string } | null;
+  notes: string;
+  fileUrls: string[];
+}
+
 const steps = [
   { id: 1, name: "Type de Renseignement", description: "Sélectionner le patient" },
   { id: 2, name: "Ajout Équipement", description: "Sélectionner ou créer un équipement de diagnostic" },
@@ -36,12 +84,10 @@ export function DiagnosticStepperDialog({ isOpen, onClose }: DiagnosticStepperDi
 
   // Patient Selection State (diagnostics are only for patients)
   const [selectedPatient, setSelectedPatient] = useState<string | null>(null);
-  const [patients, setPatients] = useState<[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [manualPatientDetails, setManualPatientDetails] = useState<any>(null);
+  const [manualPatientDetails, setManualPatientDetails] = useState<PatientDetails | null>(null);
 
   // Product Selection State
-  const [selectedProducts, setSelectedProducts] = useState<any[]>([]);
+  const [selectedProducts, setSelectedProducts] = useState<DiagnosticProduct[]>([]);
   
   // Result Due Date State - for when results are expected
   const [resultDueDate, setResultDueDate] = useState<Date | undefined>(
@@ -58,10 +104,10 @@ export function DiagnosticStepperDialog({ isOpen, onClose }: DiagnosticStepperDi
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   
   // File upload state management
-  const [existingFiles, setExistingFiles] = useState<any[]>([]);
-  
+  const [existingFiles, setExistingFiles] = useState<UploadedFile[]>([]);
+
   // File upload handlers
-  const handleFileChange = (files: any[]) => {
+  const handleFileChange = (files: UploadedFile[]) => {
     setExistingFiles(files);
     form.setValue('existingFiles', files);
   };
@@ -91,32 +137,8 @@ export function DiagnosticStepperDialog({ isOpen, onClose }: DiagnosticStepperDi
   // Use manual details if available, otherwise use fetched details
   const patientDetails = manualPatientDetails || fetchedPatientDetails;
 
-  // Patient Selection Handlers
-  const fetchPatients = async () => {
-    setError(null);
-    try {
-      const response = await fetch('/api/renseignements/patients');
-      if (!response.ok) {
-        throw new Error("Failed to fetch patients");
-      }
-      const data = await response.json();
-      setPatients(data);
-    } catch (error) {
-      console.error("Error fetching patients:", error);
-      setError("Erreur lors du chargement des patients");
-      setPatients([]);
-    }
-  };
-
-  // Auto-fetch patients when dialog opens
-  useEffect(() => {
-    if (isOpen) {
-      fetchPatients();
-    }
-  }, [isOpen]);
-
   // Product Selection Handlers
-  const handleProductSelect = (product: any) => {
+  const handleProductSelect = (product: DiagnosticProduct) => {
     // Replace the entire array with just the new product (only one device allowed)
     setSelectedProducts([product]);
   };
@@ -128,7 +150,7 @@ export function DiagnosticStepperDialog({ isOpen, onClose }: DiagnosticStepperDi
 
   // Create diagnostic record mutation
   const { mutate: createDiagnostic } = useMutation({
-    mutationFn: async (diagnosticData: any) => {
+    mutationFn: async (diagnosticData: DiagnosticData) => {
       if (!diagnosticData.clientId || diagnosticData.products.length === 0) {
         throw new Error("Client and products are required");
       }
@@ -166,19 +188,19 @@ export function DiagnosticStepperDialog({ isOpen, onClose }: DiagnosticStepperDi
         }
         
         return data;
-      } catch (error) {
+      } catch {
         // If JSON parsing fails, try to get the text
         const textResponse = await responseClone.text();
         console.error('Error response:', textResponse);
-        
+
         if (!response.ok) {
           throw new Error("Failed to create diagnostic record");
         }
-        
+
         return { success: response.ok };
       }
     },
-    onSuccess: async (data) => {
+    onSuccess: async () => {
       
       // Invalidate relevant queries to refresh the diagnostics table
       await queryClient.invalidateQueries({
@@ -213,8 +235,6 @@ export function DiagnosticStepperDialog({ isOpen, onClose }: DiagnosticStepperDi
   const handleClose = () => {
     setCurrentStep(1);
     setSelectedPatient(null);
-    setPatients([]);
-    setError(null);
     setSelectedProducts([]);
     setFollowUpDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
     setSubmitError(null);
@@ -274,7 +294,7 @@ export function DiagnosticStepperDialog({ isOpen, onClose }: DiagnosticStepperDi
         products: selectedProducts.map(product => {
           return {
             id: product.id,
-            resultDueDate: resultDueDate ? resultDueDate.toISOString() : null,
+            resultDueDate: resultDueDate ? resultDueDate.toISOString() : undefined,
             type: product.type,
             name: product.name,
             sellingPrice: 0 // Diagnostics are free

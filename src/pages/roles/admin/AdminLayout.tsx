@@ -18,6 +18,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   // List of public paths that don't need authentication or sidebar
   const publicPaths = ['/welcome', '/auth/signin'];
 
+  // Add dashboard-layout class to body for overflow control
+  useEffect(() => {
+    document.body.classList.add('dashboard-layout');
+    document.documentElement.classList.add('dashboard-layout');
+
+    return () => {
+      document.body.classList.remove('dashboard-layout');
+      document.documentElement.classList.remove('dashboard-layout');
+    };
+  }, []);
+
   // Handle page transition loading states
   useEffect(() => {
     let loadingTimeout: NodeJS.Timeout;

@@ -1,12 +1,26 @@
 import PatientProductSelection from "./product/PatientProductSelection";
 import CompanyProductSelection from "./product/CompanyProductSelection";
 
+interface SelectedProduct {
+  id: string;
+  name: string;
+  type: string;
+  sellingPrice?: number | string;
+  rentalPrice?: number | string;
+  quantity?: number | string;
+  brand?: string;
+  model?: string;
+  serialNumber?: string;
+  stockQuantity?: number;
+  parameters?: Record<string, string | number | boolean | null | undefined>;
+}
+
 interface ProductSelectionStepProps {
   onSelectProduct: (type: "medical-device" | "accessory" | "spare-part" | "diagnostic") => void;
   onCreateProduct: (type: "medical-device" | "accessory" | "spare-part" | "diagnostic") => void;
-  selectedProducts?: any[];
+  selectedProducts?: SelectedProduct[];
   onRemoveProduct: (index: number) => void;
-  onUpdateProduct?: (index: number, updatedProduct: any) => void;
+  onUpdateProduct?: (index: number, updatedProduct: SelectedProduct) => void;
   onBack: () => void;
   onNext: () => void;
   clientType?: "patient" | "societe" | null;
@@ -71,7 +85,7 @@ export function ProductSelectionStep({
           </div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">Location non disponible pour les entreprises</h3>
           <p className="text-gray-600 mb-4">
-            Les locations d'équipements médicaux ne sont disponibles que pour les patients individuels.
+            Les locations d&apos;équipements médicaux ne sont disponibles que pour les patients individuels.
           </p>
           <button
             onClick={onBack}
@@ -118,7 +132,7 @@ export function ProductSelectionStep({
   return (
     <div className="flex items-center justify-center h-64">
       <p className="text-gray-500">
-        Veuillez d'abord sélectionner un type de client pour continuer.
+        Veuillez d&apos;abord sélectionner un type de client pour continuer.
       </p>
     </div>
   );

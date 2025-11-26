@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { format, isAfter, isBefore, parseISO } from "date-fns";
-import { fr } from "date-fns/locale";
 import {
   Table,
   TableBody,
@@ -24,19 +22,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  CalendarIcon,
-  AlertCircle,
   Stethoscope,
   User,
-  ClipboardList,
-  Settings,
   FileText,
   Clock,
-  FileCheck,
-  FilePlus2,
   Calendar,
-  Building2,
-  Phone,
   Trash2,
   Loader2,
   Search,
@@ -45,8 +35,6 @@ import {
   Activity,
   CheckCircle,
   XCircle,
-  AlertTriangle,
-  FileX,
 } from "lucide-react";
 import { calculateIAHSeverity, formatIAHValue } from "@/utils/diagnosticUtils";
 
@@ -108,21 +96,13 @@ interface Diagnostic {
   result?: DiagnosticResult;
 }
 
-interface DiagnosticGroup {
-  patient: Patient;
-  patientName: string;
-  diagnostics: Diagnostic[];
-  latestDate: string;
-  totalDiagnostics: number;
-}
-
 interface DiagnosticTableProps {
   onViewDetails?: (id: string) => void;
   onEnterResults?: (id: string) => void;
   onAddDocuments?: (id: string) => void;
 }
 
-const DiagnosticTable = React.memo(({ onViewDetails, onEnterResults, onAddDocuments }: DiagnosticTableProps) => {
+const DiagnosticTable = React.memo(({ onViewDetails }: DiagnosticTableProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -164,7 +144,7 @@ const DiagnosticTable = React.memo(({ onViewDetails, onEnterResults, onAddDocume
   const [diagnosticToDelete, setDiagnosticToDelete] = useState<string | null>(null);
   
   // Enhanced filtering states
-  const [filteredDiagnostics, setFilteredDiagnostics] = useState<any[]>([]);
+  const [filteredDiagnostics, setFilteredDiagnostics] = useState<Diagnostic[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [severityFilter, setSeverityFilter] = useState<string>("all");
   const [regionFilter, setRegionFilter] = useState<string>("all");
@@ -207,7 +187,7 @@ const DiagnosticTable = React.memo(({ onViewDetails, onEnterResults, onAddDocume
   // Helper functions to get unique values for filters
   const getUniqueValues = (key: string): string[] => {
     if (!diagnosticOperations) return [];
-    const values: (string | null)[] = diagnosticOperations.map((diagnostic: any) => {
+    const values: (string | null)[] = diagnosticOperations.map((diagnostic: Diagnostic) => {
       switch (key) {
         case 'region':
           return diagnostic.patient?.governorate as string | null;
@@ -229,12 +209,6 @@ const DiagnosticTable = React.memo(({ onViewDetails, onEnterResults, onAddDocume
   const uniqueTechnicians = getUniqueValues('technician');
   const uniqueSupervisors = getUniqueValues('supervisor');
 
-  // Function to format date
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return "-";
-    return format(new Date(dateString), "PPP", { locale: fr });
-  };
-
   // Format date function for simple display
   const formatSimpleDate = (dateString: string): string => {
     if (!dateString) return '';
@@ -250,15 +224,9 @@ const DiagnosticTable = React.memo(({ onViewDetails, onEnterResults, onAddDocume
       return dateString;
     }
   };
-  
-  // Function to format date with time
-  const formatDateTime = (dateString: string | null) => {
-    if (!dateString) return "-";
-    return format(new Date(dateString), "PPP 'à' HH:mm", { locale: fr });
-  };
-  
+
   // Function to calculate follow-up duration for non-appareillé devices
-  const calculateFollowUpDuration = (diagnostic: any) => {
+  const calculateFollowUpDuration = (diagnostic: Diagnostic) => {
     // Only show for non-appareillé devices
     const hasSale = diagnostic.hasSale;
     const hasRental = diagnostic.hasRental;
@@ -268,8 +236,9 @@ const DiagnosticTable = React.memo(({ onViewDetails, onEnterResults, onAddDocume
     let startDate: Date;
 
     // Use result date if available, otherwise installation date
-    if (diagnostic.result?.createdAt || diagnostic.result?.updatedAt) {
-      startDate = new Date(diagnostic.result.createdAt || diagnostic.result.updatedAt);
+    const resultDate = diagnostic.result?.createdAt || diagnostic.result?.updatedAt;
+    if (resultDate) {
+      startDate = new Date(resultDate);
     } else {
       startDate = new Date(diagnostic.date); // Installation date
     }
@@ -310,7 +279,7 @@ const DiagnosticTable = React.memo(({ onViewDetails, onEnterResults, onAddDocume
   };
 
   // Function to get business status - Only Appareillé ou Non Appareillé
-  const getStatusBadge = (diagnostic: any) => {
+  const getStatusBadge = (diagnostic: Diagnostic) => {
     // Simple logic: Has sale OR rental = Appareillé, otherwise Non appareillé
     const hasSale = diagnostic.hasSale;
     const hasRental = diagnostic.hasRental;
@@ -344,10 +313,10 @@ const DiagnosticTable = React.memo(({ onViewDetails, onEnterResults, onAddDocume
   const getSeverityStats = () => {
     const stats = { negative: 0, moderate: 0, severe: 0 };
     
-    filteredDiagnostics.forEach((diagnostic: any) => {
+    filteredDiagnostics.forEach((diagnostic: Diagnostic) => {
       if (diagnostic.result?.iah) {
         const severity = calculateIAHSeverity(diagnostic.result.iah);
-        stats[severity.level]++;
+        stats[severity.level as keyof typeof stats]++;
       }
     });
     
@@ -414,7 +383,7 @@ const DiagnosticTable = React.memo(({ onViewDetails, onEnterResults, onAddDocume
 
     // Apply search filter
     if (searchTerm.trim()) {
-      filtered = filtered.filter((diagnostic: any) =>
+      filtered = filtered.filter((diagnostic: Diagnostic) =>
         diagnostic.patientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         diagnostic.patient?.patientCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         diagnostic.patient?.telephone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -428,13 +397,13 @@ const DiagnosticTable = React.memo(({ onViewDetails, onEnterResults, onAddDocume
 
     // Apply region filter
     if (regionFilter !== "all") {
-      filtered = filtered.filter((diagnostic: any) => diagnostic.patient?.governorate === regionFilter);
+      filtered = filtered.filter((diagnostic: Diagnostic) => diagnostic.patient?.governorate === regionFilter);
     }
 
     // Apply technician filter
     if (technicianFilter !== "all") {
-      filtered = filtered.filter((diagnostic: any) => {
-        const technicianName = diagnostic.patient?.technician ? 
+      filtered = filtered.filter((diagnostic: Diagnostic) => {
+        const technicianName = diagnostic.patient?.technician ?
           `${diagnostic.patient.technician.firstName} ${diagnostic.patient.technician.lastName}`.trim() : null;
         return technicianName === technicianFilter;
       });
@@ -442,8 +411,8 @@ const DiagnosticTable = React.memo(({ onViewDetails, onEnterResults, onAddDocume
 
     // Apply supervisor filter
     if (supervisorFilter !== "all") {
-      filtered = filtered.filter((diagnostic: any) => {
-        const supervisorName = diagnostic.patient?.supervisor ? 
+      filtered = filtered.filter((diagnostic: Diagnostic) => {
+        const supervisorName = diagnostic.patient?.supervisor ?
           `${diagnostic.patient.supervisor.firstName} ${diagnostic.patient.supervisor.lastName}`.trim() : null;
         return supervisorName === supervisorFilter;
       });
@@ -453,11 +422,11 @@ const DiagnosticTable = React.memo(({ onViewDetails, onEnterResults, onAddDocume
     if (dateFilter !== "all") {
       const today = new Date();
       const filterDate = new Date();
-      
+
       switch (dateFilter) {
         case "today":
           filterDate.setHours(0, 0, 0, 0);
-          filtered = filtered.filter((diagnostic: any) => {
+          filtered = filtered.filter((diagnostic: Diagnostic) => {
             const diagDate = new Date(diagnostic.date);
             diagDate.setHours(0, 0, 0, 0);
             return diagDate.getTime() === filterDate.getTime();
@@ -465,22 +434,22 @@ const DiagnosticTable = React.memo(({ onViewDetails, onEnterResults, onAddDocume
           break;
         case "week":
           filterDate.setDate(today.getDate() - 7);
-          filtered = filtered.filter((diagnostic: any) => new Date(diagnostic.date) >= filterDate);
+          filtered = filtered.filter((diagnostic: Diagnostic) => new Date(diagnostic.date) >= filterDate);
           break;
         case "month":
           filterDate.setMonth(today.getMonth() - 1);
-          filtered = filtered.filter((diagnostic: any) => new Date(diagnostic.date) >= filterDate);
+          filtered = filtered.filter((diagnostic: Diagnostic) => new Date(diagnostic.date) >= filterDate);
           break;
         case "year":
           filterDate.setFullYear(today.getFullYear() - 1);
-          filtered = filtered.filter((diagnostic: any) => new Date(diagnostic.date) >= filterDate);
+          filtered = filtered.filter((diagnostic: Diagnostic) => new Date(diagnostic.date) >= filterDate);
           break;
       }
     }
 
     // Apply severity filter
     if (severityFilter !== "all") {
-      filtered = filtered.filter((diagnostic: any) => {
+      filtered = filtered.filter((diagnostic: Diagnostic) => {
         if (!diagnostic.result?.iah) return false;
         const severity = calculateIAHSeverity(diagnostic.result.iah);
         return severity.level === severityFilter;
@@ -510,7 +479,14 @@ const DiagnosticTable = React.memo(({ onViewDetails, onEnterResults, onAddDocume
   const groupedDiagnostics = useMemo(() => {
     if (viewMode !== "grouped") return null;
     
-    const groups = new Map<string, any>();
+    interface DiagnosticGroup {
+      patient: Patient;
+      patientName: string;
+      diagnostics: Diagnostic[];
+      latestDate: string;
+      totalDiagnostics: number;
+    }
+    const groups = new Map<string, DiagnosticGroup>();
     
     filteredDiagnostics.forEach((diagnostic) => {
       const patientId = diagnostic.patient?.id;
@@ -518,21 +494,23 @@ const DiagnosticTable = React.memo(({ onViewDetails, onEnterResults, onAddDocume
       
       if (!groups.has(patientId)) {
         groups.set(patientId, {
-          patient: diagnostic.patient,
+          patient: diagnostic.patient!,
           patientName: diagnostic.patientName,
           diagnostics: [],
           latestDate: diagnostic.date,
           totalDiagnostics: 0,
         });
       }
-      
+
       const group = groups.get(patientId);
-      group.diagnostics.push(diagnostic);
-      group.totalDiagnostics++;
-      
-      // Update latest date
-      if (new Date(diagnostic.date) > new Date(group.latestDate)) {
-        group.latestDate = diagnostic.date;
+      if (group) {
+        group.diagnostics.push(diagnostic);
+        group.totalDiagnostics++;
+
+        // Update latest date
+        if (new Date(diagnostic.date) > new Date(group.latestDate)) {
+          group.latestDate = diagnostic.date;
+        }
       }
     });
     
@@ -675,7 +653,7 @@ const DiagnosticTable = React.memo(({ onViewDetails, onEnterResults, onAddDocume
               className="px-4 py-3 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-[#1e3a8a] bg-white text-sm shadow-sm hover:shadow-md transition-all duration-200"
             >
               <option value="all">Toutes les dates</option>
-              <option value="today">Aujourd'hui</option>
+              <option value="today">Aujourd&apos;hui</option>
               <option value="week">Cette semaine</option>
               <option value="month">Ce mois</option>
               <option value="year">Cette année</option>
@@ -773,7 +751,7 @@ const DiagnosticTable = React.memo(({ onViewDetails, onEnterResults, onAddDocume
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {group.diagnostics.map((diagnostic: any, index: number) => (
+                        {group.diagnostics.map((diagnostic: Diagnostic) => (
                           <TableRow key={diagnostic.id} className="hover:bg-slate-50 transition-colors">
                             <TableCell>
                               <div className="flex items-start gap-2">
@@ -927,7 +905,7 @@ const DiagnosticTable = React.memo(({ onViewDetails, onEnterResults, onAddDocume
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {currentDiagnostics.map((operation: any, index: number) => {
+                {currentDiagnostics.map((operation: Diagnostic, index: number) => {
                   return (
                     <TableRow key={operation.id} className={`hover:bg-slate-50 transition-colors duration-150 ${index % 2 === 0 ? 'bg-white' : 'bg-slate-25'}`}>
                       <TableCell>
@@ -1169,7 +1147,7 @@ const DiagnosticTable = React.memo(({ onViewDetails, onEnterResults, onAddDocume
           <AlertDialogHeader>
             <AlertDialogTitle>Êtes-vous sûr de vouloir supprimer ce diagnostic?</AlertDialogTitle>
             <AlertDialogDescription>
-              Cette action est irréversible. Le diagnostic sera supprimé et le statut de l'appareil sera réinitialisé à ACTIF.
+              Cette action est irréversible. Le diagnostic sera supprimé et le statut de l&apos;appareil sera réinitialisé à ACTIF.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

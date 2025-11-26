@@ -117,8 +117,14 @@ export function MedicalDevicesExcelTable({
       if (!matchesSearch) return false;
     }
 
-    // Status filter
-    if (statusFilter !== 'ALL' && device.status !== statusFilter) return false;
+    // Status filter - exclude SOLD devices by default unless explicitly filtering for them
+    if (statusFilter === 'ALL') {
+      // When "ALL" is selected, exclude SOLD devices
+      if (device.status === 'SOLD') return false;
+    } else if (device.status !== statusFilter) {
+      // When a specific status is selected, only show that status
+      return false;
+    }
 
     // Destination filter
     if (destinationFilter !== 'ALL' && device.destination !== destinationFilter) return false;

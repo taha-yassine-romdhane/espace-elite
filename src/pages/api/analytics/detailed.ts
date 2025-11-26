@@ -344,13 +344,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return sum + rentalTotal;
       }, 0);
 
-      const salesCount = device.saleItems.filter(si =>
+      const completedSaleItems = device.saleItems.filter(si =>
         si.sale.status === 'COMPLETED' || si.sale.status === 'PENDING'
-      ).length;
+      );
+
+      const salesCount = completedSaleItems.length;
 
       const salesRevenue = device.saleItems.reduce((sum, si) =>
         sum + Number(si.itemTotal), 0
       );
+
+      // Get the last sale date from completed sales
+      const lastSaleDate = completedSaleItems.length > 0
+        ? completedSaleItems
+            .filter(si => si.sale.saleDate)
+            .map(si => new Date(si.sale.saleDate!).getTime())
+            .sort((a, b) => b - a)[0]
+        : null;
 
       const totalRevenue = rentalRevenue + salesRevenue;
 
@@ -389,6 +399,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         rentalRevenue: rentalRevenue.toFixed(2),
         salesCount,
         salesRevenue: salesRevenue.toFixed(2),
+        lastSaleDate: lastSaleDate ? new Date(lastSaleDate).toISOString().split('T')[0] : null,
         totalRevenue: totalRevenue.toFixed(2),
         repairCount,
         repairCost: repairCost.toFixed(2),

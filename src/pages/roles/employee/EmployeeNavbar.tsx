@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/router';
+import { useQuery } from '@tanstack/react-query';
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
     User,
@@ -29,7 +30,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/components/ui/use-toast";
 
 interface NavbarProps {
@@ -67,19 +67,38 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
     const profileRef = useRef<HTMLDivElement>(null);
     const notificationsRef = useRef<HTMLDivElement>(null);
 
+    // Fetch company settings for company name
+    const { data: settings } = useQuery({
+        queryKey: ['general-settings'],
+        queryFn: async () => {
+            const response = await fetch('/api/settings/general');
+            if (!response.ok) return null;
+            return response.json();
+        },
+        enabled: !!session?.user,
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const companyName = settings?.companyName || "Elite Médicale";
+
     // Quick patient creation dialog
     const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
     const [patientName, setPatientName] = useState('');
     const [patientPhone, setPatientPhone] = useState('');
+    const [isVerifying, setIsVerifying] = useState(false);
+    const [similarPatients, setSimilarPatients] = useState<any[]>([]);
+    const [showSimilarPatients, setShowSimilarPatients] = useState(false);
 
     // Quick doctor creation dialog
     const [isQuickDoctorCreateOpen, setIsQuickDoctorCreateOpen] = useState(false);
     const [isCreatingDoctor, setIsCreatingDoctor] = useState(false);
     const [doctorFirstName, setDoctorFirstName] = useState('');
     const [doctorLastName, setDoctorLastName] = useState('');
-    const [checkDoctorExists, setCheckDoctorExists] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [isVerifyingDoctor, setIsVerifyingDoctor] = useState(false);
+    const [similarDoctors, setSimilarDoctors] = useState<any[]>([]);
+    const [showSimilarDoctors, setShowSimilarDoctors] = useState(false);
 
     // Update time every minute and fetch notifications
     useEffect(() => {
@@ -160,7 +179,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
     // Get current page title based on route
     const getPageTitle = () => {
         const path = router.pathname;
-        
+
         if (path.includes('/dashboard')) return 'Tableau de Bord';
         if (path.includes('/renseignement')) return 'Renseignement';
         if (path.includes('/diagnostics')) return 'Diagnostique';
@@ -170,8 +189,8 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
         if (path.includes('/stock')) return 'Stock';
         if (path.includes('/notifications')) return 'Notifications';
         if (path.includes('/history')) return 'Historique';
-        
-        return 'Elite medicale';
+
+        return companyName;
     };
     
     // Get notification icon based on type
@@ -243,6 +262,150 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
         ? generateDoctorPassword(doctorFirstName, doctorLastName)
         : '';
 
+    // Verify similar patients
+    const handleVerifyPatient = async () => {
+        if (!patientName.trim()) {
+            toast({
+                title: "Erreur",
+                description: "Veuillez entrer un nom de patient",
+                variant: "destructive"
+            });
+            return;
+        }
+
+        try {
+            setIsVerifying(true);
+            const response = await axios.get('/api/patients', {
+                params: { search: patientName.trim() }
+            });
+
+            const patients = response.data || [];
+            const nameParts = patientName.trim().toLowerCase().split(' ');
+
+            // Filter patients with similar names
+            const similar = patients.filter((patient: any) => {
+                const fullName = `${patient.firstName || ''} ${patient.lastName || ''}`.toLowerCase();
+                return nameParts.some(part => fullName.includes(part) && part.length > 2);
+            });
+
+            setSimilarPatients(similar);
+            setShowSimilarPatients(true);
+
+            if (similar.length === 0) {
+                toast({
+                    title: "Vérification",
+                    description: "Aucun patient similaire trouvé",
+                });
+            }
+        } catch (error) {
+            console.error('Error verifying patient:', error);
+            toast({
+                title: "Erreur",
+                description: "Erreur lors de la vérification",
+                variant: "destructive"
+            });
+        } finally {
+            setIsVerifying(false);
+        }
+    };
+
+    // Verify similar doctors
+    const handleVerifyDoctor = async () => {
+        if (!doctorFirstName.trim() && !doctorLastName.trim()) {
+            toast({
+                title: "Erreur",
+                description: "Veuillez entrer un prénom ou un nom de docteur",
+                variant: "destructive"
+            });
+            return;
+        }
+
+        try {
+            setIsVerifyingDoctor(true);
+            const response = await axios.get('/api/users/list', {
+                params: { role: 'DOCTOR' }
+            });
+
+            const doctors = response.data.users || [];
+            const searchFirstName = doctorFirstName.trim().toLowerCase();
+            const searchLastName = doctorLastName.trim().toLowerCase();
+
+            // Filter doctors with similar names
+            const similar = doctors.filter((doctor: any) => {
+                const docFirstName = (doctor.firstName || '').toLowerCase().trim();
+                const docLastName = (doctor.lastName || '').toLowerCase().trim();
+                const docName = (doctor.name || '').toLowerCase().trim();
+
+                // If doctor has no firstName/lastName, use name field split
+                let effectiveFirstName = docFirstName;
+                let effectiveLastName = docLastName;
+
+                if (!docFirstName && !docLastName && docName) {
+                    const nameParts = docName.split(' ');
+                    effectiveFirstName = nameParts[0] || '';
+                    effectiveLastName = nameParts.slice(1).join(' ') || '';
+                }
+
+                let firstNameMatch = false;
+                let lastNameMatch = false;
+
+                // Check first name match (if provided and at least 3 chars)
+                if (searchFirstName && searchFirstName.length >= 3 && effectiveFirstName) {
+                    if (effectiveFirstName === searchFirstName ||
+                        effectiveFirstName.startsWith(searchFirstName) ||
+                        (effectiveFirstName.length >= 3 && searchFirstName.startsWith(effectiveFirstName))) {
+                        firstNameMatch = true;
+                    }
+                }
+
+                // Check last name match (if provided and at least 3 chars)
+                if (searchLastName && searchLastName.length >= 3 && effectiveLastName) {
+                    if (effectiveLastName === searchLastName ||
+                        effectiveLastName.startsWith(searchLastName) ||
+                        (effectiveLastName.length >= 3 && searchLastName.startsWith(effectiveLastName))) {
+                        lastNameMatch = true;
+                    }
+                }
+
+                // If both provided, need at least one match
+                if (searchFirstName && searchLastName) {
+                    return firstNameMatch || lastNameMatch;
+                }
+
+                // If only first name provided
+                if (searchFirstName && !searchLastName) {
+                    return firstNameMatch;
+                }
+
+                // If only last name provided
+                if (searchLastName && !searchFirstName) {
+                    return lastNameMatch;
+                }
+
+                return false;
+            });
+
+            setSimilarDoctors(similar);
+            setShowSimilarDoctors(true);
+
+            if (similar.length === 0) {
+                toast({
+                    title: "Vérification",
+                    description: "Aucun docteur similaire trouvé. Vous pouvez créer ce docteur.",
+                });
+            }
+        } catch (error) {
+            console.error('Error verifying doctor:', error);
+            toast({
+                title: "Erreur",
+                description: "Erreur lors de la vérification",
+                variant: "destructive"
+            });
+        } finally {
+            setIsVerifyingDoctor(false);
+        }
+    };
+
     // Quick patient creation
     const handleQuickCreatePatient = async () => {
         if (!patientName.trim() || !patientPhone.trim()) {
@@ -275,6 +438,8 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
             // Reset form
             setPatientName('');
             setPatientPhone('');
+            setSimilarPatients([]);
+            setShowSimilarPatients(false);
             setIsQuickCreateOpen(false);
 
             // Optionally navigate to patient details
@@ -307,28 +472,6 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
         try {
             setIsCreatingDoctor(true);
 
-            // Check if doctor exists if checkbox is checked
-            if (checkDoctorExists) {
-                const checkResponse = await axios.get('/api/users/list', {
-                    params: { role: 'DOCTOR' }
-                });
-                const doctors = checkResponse.data.users || [];
-                const exists = doctors.some((doc: any) =>
-                    doc.firstName?.toLowerCase() === doctorFirstName.trim().toLowerCase() &&
-                    doc.lastName?.toLowerCase() === doctorLastName.trim().toLowerCase()
-                );
-
-                if (exists) {
-                    toast({
-                        title: "Erreur",
-                        description: "Un docteur avec ce nom existe déjà",
-                        variant: "destructive"
-                    });
-                    setIsCreatingDoctor(false);
-                    return;
-                }
-            }
-
             // Create doctor with generated email and password
             const response = await axios.post('/api/users', {
                 firstName: doctorFirstName.trim(),
@@ -347,7 +490,8 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
             // Reset form
             setDoctorFirstName('');
             setDoctorLastName('');
-            setCheckDoctorExists(false);
+            setSimilarDoctors([]);
+            setShowSimilarDoctors(false);
             setIsQuickDoctorCreateOpen(false);
         } catch (error: any) {
             console.error('Error creating doctor:', error);
@@ -634,14 +778,62 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
                     <div className="space-y-4 py-4">
                         <div className="space-y-2">
                             <Label htmlFor="quick-name">Nom Complet</Label>
-                            <Input
-                                id="quick-name"
-                                placeholder="Ex: Ahmed Ben Ali"
-                                value={patientName}
-                                onChange={(e) => setPatientName(e.target.value)}
-                                disabled={isCreating}
-                            />
+                            <div className="flex gap-2">
+                                <Input
+                                    id="quick-name"
+                                    placeholder="Ex: Ahmed Ben Ali"
+                                    value={patientName}
+                                    onChange={(e) => {
+                                        setPatientName(e.target.value);
+                                        setShowSimilarPatients(false);
+                                    }}
+                                    disabled={isCreating}
+                                    className="flex-1"
+                                />
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={handleVerifyPatient}
+                                    disabled={isVerifying || isCreating || !patientName.trim()}
+                                    className="shrink-0"
+                                >
+                                    {isVerifying ? 'Vérification...' : 'Vérifier'}
+                                </Button>
+                            </div>
                         </div>
+
+                        {/* Similar Patients Alert */}
+                        {showSimilarPatients && similarPatients.length > 0 && (
+                            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg space-y-2">
+                                <div className="flex items-center gap-2 text-yellow-800 font-medium text-sm">
+                                    <AlertCircle className="h-4 w-4" />
+                                    <span>Patients similaires trouvés ({similarPatients.length})</span>
+                                </div>
+                                <div className="max-h-32 overflow-y-auto space-y-1">
+                                    {similarPatients.map((patient) => (
+                                        <div key={patient.id} className="text-xs text-yellow-700 bg-yellow-100 p-2 rounded flex justify-between items-center">
+                                            <div>
+                                                <span className="font-medium">{patient.firstName} {patient.lastName}</span>
+                                                {patient.telephone && <span className="ml-2 text-yellow-600">• {patient.telephone}</span>}
+                                            </div>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-6 text-xs"
+                                                onClick={() => router.push(`/roles/employee/renseignement/patient/${patient.id}`)}
+                                            >
+                                                Voir
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </div>
+                                <p className="text-xs text-yellow-700">
+                                    ⚠️ Vérifiez que ce patient n'existe pas déjà avant de continuer
+                                </p>
+                            </div>
+                        )}
+
                         <div className="space-y-2">
                             <Label htmlFor="quick-phone">Téléphone</Label>
                             <Input
@@ -663,6 +855,8 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
                                 setIsQuickCreateOpen(false);
                                 setPatientName('');
                                 setPatientPhone('');
+                                setSimilarPatients([]);
+                                setShowSimilarPatients(false);
                             }}
                             disabled={isCreating}
                         >
@@ -696,7 +890,10 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
                                     id="doctor-firstname"
                                     placeholder="Ex: Ahmed"
                                     value={doctorFirstName}
-                                    onChange={(e) => setDoctorFirstName(e.target.value)}
+                                    onChange={(e) => {
+                                        setDoctorFirstName(e.target.value);
+                                        setShowSimilarDoctors(false);
+                                    }}
                                     disabled={isCreatingDoctor}
                                 />
                             </div>
@@ -706,26 +903,60 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
                                     id="doctor-lastname"
                                     placeholder="Ex: Ben Ali"
                                     value={doctorLastName}
-                                    onChange={(e) => setDoctorLastName(e.target.value)}
+                                    onChange={(e) => {
+                                        setDoctorLastName(e.target.value);
+                                        setShowSimilarDoctors(false);
+                                    }}
                                     disabled={isCreatingDoctor}
                                 />
                             </div>
                         </div>
 
-                        {/* Checkbox to verify if doctor exists */}
-                        <div className="flex items-center space-x-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                            <input
-                                type="checkbox"
-                                id="check-doctor-exists"
-                                checked={checkDoctorExists}
-                                onChange={(e) => setCheckDoctorExists(e.target.checked)}
-                                disabled={isCreatingDoctor}
-                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                            />
-                            <Label htmlFor="check-doctor-exists" className="cursor-pointer text-sm font-medium text-blue-900">
-                                Vérifier si le docteur existe déjà
-                            </Label>
-                        </div>
+                        {/* Verify button */}
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleVerifyDoctor}
+                            disabled={isVerifyingDoctor || isCreatingDoctor || (!doctorFirstName.trim() && !doctorLastName.trim())}
+                            className="w-full border-blue-300 text-blue-700 hover:bg-blue-50"
+                        >
+                            {isVerifyingDoctor ? 'Vérification...' : 'Vérifier si le docteur existe'}
+                        </Button>
+
+                        {/* Similar Doctors Alert */}
+                        {showSimilarDoctors && similarDoctors.length > 0 && (
+                            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg space-y-2">
+                                <div className="flex items-center gap-2 text-yellow-800 font-medium text-sm">
+                                    <AlertCircle className="h-4 w-4" />
+                                    <span>Docteurs similaires trouvés ({similarDoctors.length})</span>
+                                </div>
+                                <div className="max-h-32 overflow-y-auto space-y-1">
+                                    {similarDoctors.map((doctor) => (
+                                        <div key={doctor.id} className="text-xs text-yellow-700 bg-yellow-100 p-2 rounded flex justify-between items-center">
+                                            <div>
+                                                <span className="font-medium">
+                                                    {doctor.firstName || ''} {doctor.lastName || doctor.name || 'Sans nom'}
+                                                </span>
+                                                {doctor.email && <span className="ml-2 text-yellow-600">• {doctor.email}</span>}
+                                                {doctor.speciality && <span className="ml-2 text-yellow-600">• {doctor.speciality}</span>}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <p className="text-xs text-yellow-700">
+                                    ⚠️ Vérifiez que ce docteur n'existe pas déjà avant de continuer
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Success message when no similar doctors found */}
+                        {showSimilarDoctors && similarDoctors.length === 0 && (
+                            <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                                <div className="flex items-center gap-2 text-green-800 font-medium text-sm">
+                                    <span>✓ Aucun docteur similaire trouvé. Vous pouvez créer ce docteur.</span>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Generated Email (read-only) */}
                         <div className="space-y-2">
@@ -781,7 +1012,8 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
                                 setIsQuickDoctorCreateOpen(false);
                                 setDoctorFirstName('');
                                 setDoctorLastName('');
-                                setCheckDoctorExists(false);
+                                setSimilarDoctors([]);
+                                setShowSimilarDoctors(false);
                                 setShowPassword(false);
                             }}
                             disabled={isCreatingDoctor}
