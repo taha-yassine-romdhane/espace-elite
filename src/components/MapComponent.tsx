@@ -40,8 +40,18 @@ interface Patient {
   hasDiagnostics?: boolean;
 }
 
+interface CompanySettings {
+  companyName?: string;
+  companyAddress?: string;
+  companyPhone?: string;
+  companyEmail?: string;
+  companyLatitude?: number | null;
+  companyLongitude?: number | null;
+}
+
 interface MapProps {
   patients: Patient[];
+  companySettings?: CompanySettings;
 }
 
 // Memoized helper functions outside component
@@ -207,7 +217,7 @@ const createPopupContent = (patient: Patient): string => {
   `;
 };
 
-const MapComponent: React.FC<MapProps> = ({ patients }) => {
+const MapComponent: React.FC<MapProps> = ({ patients, companySettings }) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
@@ -301,32 +311,39 @@ const MapComponent: React.FC<MapProps> = ({ patients }) => {
     const markersLayer = L.layerGroup().addTo(map);
     markersLayerRef.current = markersLayer;
 
-    // Company HQ marker
-    const companyIcon = L.divIcon({
-      html: `
-        <div style="
-          width:44px;height:44px;background:#1e3a8a;border-radius:8px;
-          display:flex;align-items:center;justify-content:center;color:#fff;
-          box-shadow:0 4px 12px rgba(0,0,0,0.4);border:3px solid #fff;
-        ">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M3 21h18M4 21V7l8-4v18M20 21V11l-8-4"/>
-          </svg>
-        </div>
-      `,
-      className: 'company-hq',
-      iconSize: [44, 44],
-      iconAnchor: [22, 22],
-    });
+    // Company HQ marker (only show if coordinates are set)
+    const hqLat = companySettings?.companyLatitude;
+    const hqLng = companySettings?.companyLongitude;
+    const hqName = companySettings?.companyName || 'Siège';
+    const hqAddress = companySettings?.companyAddress || '';
 
-    L.marker([35.835287, 10.595304], { icon: companyIcon })
-      .bindPopup(`
-        <div style="padding:12px;font-family:system-ui,sans-serif;">
-          <h3 style="font-weight:700;font-size:15px;color:#1e3a8a;margin:0 0 8px;">Elite Medical Services</h3>
-          <p style="margin:0;font-size:12px;color:#64748b;">Rue Yasser Arafet, Immeuble Mahdi<br/>4054 Sahloul, Sousse</p>
-        </div>
-      `)
-      .addTo(map);
+    if (hqLat && hqLng) {
+      const companyIcon = L.divIcon({
+        html: `
+          <div style="
+            width:44px;height:44px;background:#1e3a8a;border-radius:8px;
+            display:flex;align-items:center;justify-content:center;color:#fff;
+            box-shadow:0 4px 12px rgba(0,0,0,0.4);border:3px solid #fff;
+          ">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 21h18M4 21V7l8-4v18M20 21V11l-8-4"/>
+            </svg>
+          </div>
+        `,
+        className: 'company-hq',
+        iconSize: [44, 44],
+        iconAnchor: [22, 22],
+      });
+
+      L.marker([hqLat, hqLng], { icon: companyIcon })
+        .bindPopup(`
+          <div style="padding:12px;font-family:system-ui,sans-serif;">
+            <h3 style="font-weight:700;font-size:15px;color:#1e3a8a;margin:0 0 8px;">${hqName}</h3>
+            <p style="margin:0;font-size:12px;color:#64748b;">${hqAddress.replace(/\n/g, '<br/>')}</p>
+          </div>
+        `)
+        .addTo(map);
+    }
 
     mapInstanceRef.current = map;
 

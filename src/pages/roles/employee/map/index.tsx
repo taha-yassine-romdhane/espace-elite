@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
+import { useQuery } from '@tanstack/react-query';
 import { MapPin, Users, Filter, Search } from 'lucide-react';
 import EmployeeLayout from '../EmployeeLayout';
 
@@ -62,6 +63,17 @@ const MapPreview: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [mapStyle, setMapStyle] = useState<'street' | 'satellite' | 'light'>('street');
+
+  // Fetch company settings
+  const { data: companySettings } = useQuery({
+    queryKey: ['general-settings'],
+    queryFn: async () => {
+      const response = await fetch('/api/settings/general');
+      if (!response.ok) throw new Error('Failed to fetch settings');
+      return response.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
   useEffect(() => {
     fetchPatients();
@@ -213,7 +225,7 @@ const MapPreview: React.FC = () => {
               </div>
             </div>
           ) : (
-            <MapComponent patients={filteredPatients} />
+            <MapComponent patients={filteredPatients} companySettings={companySettings} />
           )}
           
           {/* Enhanced Legend */}
@@ -234,7 +246,7 @@ const MapPreview: React.FC = () => {
                       <path d="M3 21h18M4 21V7l8-4v18M20 21V11l-8-4"/>
                     </svg>
                   </div>
-                  <span className="text-xs text-gray-700 font-medium">Siège Elite Medical</span>
+                  <span className="text-xs text-gray-700 font-medium">Siège {companySettings?.companyName || 'Entreprise'}</span>
                 </div>
               </div>
               

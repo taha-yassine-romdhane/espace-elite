@@ -120,6 +120,17 @@ const PatientPrintPage: NextPageWithLayout = () => {
     enabled: !!id
   });
 
+  // Fetch company settings
+  const { data: companySettings } = useQuery({
+    queryKey: ['general-settings'],
+    queryFn: async () => {
+      const response = await fetch('/api/settings/general');
+      if (!response.ok) throw new Error('Failed to fetch settings');
+      return response.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
   // Don't auto-trigger print - let user decide when to print
   // useEffect(() => {
   //   if (patient && !isLoading) {
@@ -793,7 +804,7 @@ const PatientPrintPage: NextPageWithLayout = () => {
       <div className="mb-8 pb-4 border-b-4 border-blue-500">
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-3xl font-bold text-blue-600 mb-2">Elite medicale</h1>
+            <h1 className="text-3xl font-bold text-blue-600 mb-2">{companySettings?.companyName || 'Entreprise'}</h1>
             <p className="text-gray-600">Rapport Patient</p>
           </div>
           <div className="text-right text-sm text-gray-600">
@@ -808,7 +819,7 @@ const PatientPrintPage: NextPageWithLayout = () => {
 
       {/* Footer */}
       <div className="mt-8 pt-4 border-t text-center text-sm text-gray-500">
-        <p>Document confidentiel - Elite medicale © {new Date().getFullYear()}</p>
+        <p>Document confidentiel - {companySettings?.companyName || 'Entreprise'} © {new Date().getFullYear()}</p>
       </div>
     </div>
   );

@@ -716,14 +716,16 @@ model SaleConfiguration {
 }
 
 model AppSettings {
-  id             String   @id @default(cuid())
-  companyName    String
-  companyAddress String
-  companyPhone   String
-  companyEmail   String
-  companyLogo    String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id               String   @id @default(cuid())
+  companyName      String
+  companyAddress   String
+  companyPhone     String
+  companyEmail     String
+  companyLogo      String?
+  companyLatitude  Float?   // HQ latitude for map marker
+  companyLongitude Float?   // HQ longitude for map marker
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
 model DatabaseBackup {

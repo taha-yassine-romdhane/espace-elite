@@ -67,7 +67,7 @@ const DoctorNavbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded 
         staleTime: 5 * 60 * 1000,
     });
 
-    const companyName = settings?.companyName || "Elite Médicale";
+    const companyName = settings?.companyName || "Entreprise";
 
     // Update time every minute and fetch notifications
     useEffect(() => {

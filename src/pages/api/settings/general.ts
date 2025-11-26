@@ -11,6 +11,8 @@ const updateSettingsSchema = z.object({
   companyPhone: z.string().min(8, "Le numéro de téléphone doit contenir au moins 8 caractères"),
   companyEmail: z.string().email("Email invalide"),
   companyLogo: z.string().optional(),
+  companyLatitude: z.number().min(-90).max(90).optional().nullable(),
+  companyLongitude: z.number().min(-180).max(180).optional().nullable(),
 });
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -24,11 +26,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // Create default settings if none exist
         settings = await prisma.appSettings.create({
           data: {
-            companyName: "Elite medicale",
-            companyAddress: "123 Rue de la Santé, Tunis, Tunisie",
-            companyPhone: "+216 71 123 456",
-            companyEmail: "contact@elite-medicale.tn",
+            companyName: "Nom de l'entreprise",
+            companyAddress: "Adresse de l'entreprise",
+            companyPhone: "+216 XX XXX XXX",
+            companyEmail: "contact@entreprise.tn",
             companyLogo: null, // No default logo - admin must upload via /uploads-public/
+            companyLatitude: null,
+            companyLongitude: null,
           }
         });
       }
@@ -65,7 +69,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         });
       }
 
-      const { companyName, companyAddress, companyPhone, companyEmail, companyLogo } = validationResult.data;
+      const { companyName, companyAddress, companyPhone, companyEmail, companyLogo, companyLatitude, companyLongitude } = validationResult.data;
 
       // Find the first settings record
       const existingSettings = await prisma.appSettings.findFirst();
@@ -82,6 +86,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             companyPhone,
             companyEmail,
             companyLogo: companyLogo || existingSettings.companyLogo,
+            companyLatitude: companyLatitude ?? existingSettings.companyLatitude,
+            companyLongitude: companyLongitude ?? existingSettings.companyLongitude,
           }
         });
       } else {
@@ -93,6 +99,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             companyPhone,
             companyEmail,
             companyLogo: companyLogo || null,
+            companyLatitude: companyLatitude ?? null,
+            companyLongitude: companyLongitude ?? null,
           }
         });
       }

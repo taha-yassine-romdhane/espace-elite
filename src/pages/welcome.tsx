@@ -41,7 +41,7 @@ export default function Welcome() {
   // Never use /imports/ or /api/files/ paths on public pages (those require auth)
   const rawLogo = settings?.companyLogo;
   const companyLogo = rawLogo?.startsWith('/uploads-public/') ? rawLogo : null;
-  const companyName = settings?.companyName || "Elite Médicale";
+  const companyName = settings?.companyName || "Entreprise";
 
   // Debug logging
   useEffect(() => {

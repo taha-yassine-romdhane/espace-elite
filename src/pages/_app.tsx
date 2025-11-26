@@ -7,7 +7,6 @@ import '@/styles/globals.css';
 import '@/styles/leaflet-override.css';
 import { NextPage } from 'next';
 import { ReactElement, ReactNode, useEffect, useState } from 'react';
-import SEO from '@/components/layout/SEO';
 import Head from 'next/head';
 import { Session } from 'next-auth';
 import { useRouter } from 'next/router';
@@ -110,7 +109,6 @@ export default function App({
           <link rel="icon" href="/health-icon.svg" type="image/svg+xml" />
           <meta name="theme-color" content="#1E88E5" />
         </Head>
-        <SEO />
         <NavigationEvents queryClient={queryClient} />
         {getLayout(<Component key={router.pathname} {...pageProps} />)}
         <Toaster />

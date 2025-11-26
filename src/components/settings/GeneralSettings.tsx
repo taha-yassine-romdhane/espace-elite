@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -17,8 +18,21 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Separator } from "@/components/ui/separator";
-import { Save, Building, Upload, X, Image as ImageIcon } from "lucide-react";
+import { Save, Building, Upload, X, Image as ImageIcon, MapPin } from "lucide-react";
 import Image from "next/image";
+
+// Dynamically import LocationPicker to avoid SSR issues with Leaflet
+const LocationPicker = dynamic(() => import('./LocationPicker'), {
+  ssr: false,
+  loading: () => (
+    <div className="h-[350px] bg-gray-100 rounded-lg flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-600 border-t-transparent mx-auto mb-2"></div>
+        <p className="text-sm text-gray-500">Chargement de la carte...</p>
+      </div>
+    </div>
+  ),
+});
 
 // Form validation schema
 const generalSettingsSchema = z.object({
@@ -27,6 +41,8 @@ const generalSettingsSchema = z.object({
   companyPhone: z.string().min(8, "Le numéro de téléphone doit contenir au moins 8 caractères"),
   companyEmail: z.string().email("Email invalide"),
   companyLogo: z.string().optional(),
+  companyLatitude: z.number().min(-90).max(90).optional().nullable(),
+  companyLongitude: z.number().min(-180).max(180).optional().nullable(),
 });
 
 type GeneralSettingsFormValues = z.infer<typeof generalSettingsSchema>;
@@ -40,11 +56,13 @@ export function GeneralSettings() {
 
   // Default settings
   const defaultSettings: GeneralSettingsFormValues = {
-    companyName: "Elite medicale",
-    companyAddress: "123 Rue de la Santé, Tunis, Tunisie",
-    companyPhone: "+216 71 123 456",
-    companyEmail: "contact@elite-medicale.tn",
-    companyLogo: "/logo.png",
+    companyName: "Nom de l'entreprise",
+    companyAddress: "Adresse de l'entreprise",
+    companyPhone: "+216 XX XXX XXX",
+    companyEmail: "contact@entreprise.tn",
+    companyLogo: "",
+    companyLatitude: null,
+    companyLongitude: null,
   };
 
   // Fetch settings
@@ -433,6 +451,26 @@ export function GeneralSettings() {
                         </FormItem>
                       )}
                     />
+                  </div>
+
+                  {/* HQ Location Picker for Map */}
+                  <div className="col-span-1 md:col-span-2">
+                    <Separator className="my-4" />
+                    <div className="flex items-center gap-2 mb-4">
+                      <MapPin className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm font-medium">Emplacement du siège (pour la carte)</span>
+                    </div>
+                    <LocationPicker
+                      latitude={form.watch('companyLatitude') ?? null}
+                      longitude={form.watch('companyLongitude') ?? null}
+                      onLocationChange={(lat, lng) => {
+                        form.setValue('companyLatitude', lat);
+                        form.setValue('companyLongitude', lng);
+                      }}
+                    />
+                    <p className="text-xs text-muted-foreground mt-3">
+                      Cet emplacement sera affiché comme marqueur du siège sur la carte des patients.
+                    </p>
                   </div>
                 </div>
               </div>
