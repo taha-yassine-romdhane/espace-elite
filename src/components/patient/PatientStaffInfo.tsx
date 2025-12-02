@@ -2,8 +2,27 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { UserCog, Stethoscope, UserCheck } from 'lucide-react';
 
+interface Staff {
+  id: string;
+  firstName?: string;
+  lastName?: string;
+}
+
+interface Medecin {
+  id: string;
+  nom?: string;
+  prenom?: string;
+}
+
+interface Patient {
+  id: string;
+  createdBy?: Staff;
+  assignedTo?: Staff;
+  medecin?: Medecin;
+}
+
 interface PatientStaffInfoProps {
-  patient: any;
+  patient: Patient;
 }
 
 export const PatientStaffInfo = ({ patient }: PatientStaffInfoProps) => {

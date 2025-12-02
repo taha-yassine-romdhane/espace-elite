@@ -8,8 +8,45 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { AddPaymentForm } from '@/components/employee/patient-details-forms/AddPaymentForm';
 
+interface PaymentDetail {
+  id?: string;
+  method: string;
+  amount: number;
+}
+
+interface ReceivedBy {
+  id: string;
+  firstName?: string;
+  lastName?: string;
+}
+
+interface RelatedRental {
+  id: string;
+  rentalCode?: string;
+}
+
+interface RelatedSale {
+  id: string;
+  saleCode?: string;
+}
+
+interface Payment {
+  id: string;
+  paymentCode?: string;
+  date: string;
+  amount: number;
+  method?: string;
+  status?: string;
+  reference?: string;
+  receiptNumber?: string;
+  paymentDetails?: PaymentDetail[];
+  receivedBy?: ReceivedBy;
+  rental?: RelatedRental;
+  sale?: RelatedSale;
+}
+
 interface PatientPaymentsProps {
-  payments: any[];
+  payments: Payment[];
   isLoading?: boolean;
   patientId?: string;
 }
@@ -120,7 +157,7 @@ export const PatientPayments = ({ payments = [], isLoading = false, patientId }:
     }
   };
 
-  const formatAmount = (amount: any) => {
+  const formatAmount = (amount: number | string | null | undefined) => {
     const num = Number(amount);
     return isNaN(num) ? '0.00' : num.toFixed(2);
   };
@@ -284,7 +321,7 @@ export const PatientPayments = ({ payments = [], isLoading = false, patientId }:
                       <div className="space-y-1">
                         {payment.paymentDetails && payment.paymentDetails.length > 0 ? (
                           <div className="space-y-1">
-                            {payment.paymentDetails.map((detail: any, idx: number) => (
+                            {payment.paymentDetails.map((detail: PaymentDetail, idx: number) => (
                               <div key={idx} className="text-xs bg-slate-50 rounded px-2 py-1">
                                 <div className="flex justify-between items-center">
                                   <span className="font-medium">{getMethodLabel(detail.method)}</span>
@@ -367,7 +404,7 @@ export const PatientPayments = ({ payments = [], isLoading = false, patientId }:
           <div className="flex flex-col items-center justify-center py-12 text-gray-500">
             <AlertCircle className="h-12 w-12 mb-4 opacity-50" />
             <p className="text-lg font-medium">Aucun paiement</p>
-            <p className="text-sm">Ce patient n'a pas encore effectué de paiement</p>
+            <p className="text-sm">Ce patient n&apos;a pas encore effectué de paiement</p>
           </div>
         )}
       </CardContent>

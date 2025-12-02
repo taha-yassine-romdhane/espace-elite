@@ -58,9 +58,10 @@ function PatientSelectionDialog({ patients, selectedPatientId, onSelect }: Patie
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const selectedPatient = patients.find(p => p.id === selectedPatientId);
+  const patientsList = Array.isArray(patients) ? patients : [];
+  const selectedPatient = patientsList.find(p => p.id === selectedPatientId);
 
-  const filteredPatients = patients.filter(patient => {
+  const filteredPatients = patientsList.filter(patient => {
     const searchLower = searchQuery.toLowerCase();
     const fullName = `${patient.firstName || ''} ${patient.lastName || ''}`.toLowerCase();
     const telephone = patient.telephone?.toLowerCase() || '';
@@ -162,14 +163,16 @@ export function CreateManualTaskDialog({ open, onOpenChange }: CreateManualTaskD
   });
 
   // Fetch patients
-  const { data: patients = [] } = useQuery({
+  const { data: patientsData = [] } = useQuery({
     queryKey: ["patients"],
     queryFn: async () => {
       const response = await fetch("/api/patients");
       if (!response.ok) throw new Error("Failed to fetch patients");
-      return response.json();
+      const data = await response.json();
+      return Array.isArray(data) ? data : (data.patients || []);
     },
   });
+  const patients = Array.isArray(patientsData) ? patientsData : [];
 
   // Create mutation
   const createMutation = useMutation({

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { useSession, signOut } from 'next-auth/react';
@@ -14,8 +14,15 @@ import {
     ChevronRight,
     Bell,
     FileText,
+    Menu,
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+} from "@/components/ui/sheet";
 
 type MenuItem = {
     id: string;
@@ -31,6 +38,19 @@ const DoctorSidebar: React.FC = () => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [isNavigating, setIsNavigating] = useState(false);
     const [lastNavigationTime, setLastNavigationTime] = useState(0);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
+
+    // Detect mobile screen
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 768);
+        };
+
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
 
     // Fetch company logo from settings
     const { data: settings } = useQuery({
@@ -108,9 +128,113 @@ const DoctorSidebar: React.FC = () => {
         }
 
         setLastNavigationTime(now);
+        setIsMobileMenuOpen(false); // Close mobile menu on navigation
         router.push(path);
     }, [isNavigating, lastNavigationTime, router]);
 
+    // Mobile Menu Content
+    const MobileMenuContent = () => (
+        <div className="flex flex-col h-full">
+            {/* Logo */}
+            <div className="p-4 border-b border-red-100 flex justify-center items-center">
+                {companyLogo ? (
+                    <Image
+                        src={companyLogo}
+                        alt="Logo de l'entreprise"
+                        width={120}
+                        height={48}
+                        priority
+                        className="object-contain h-auto"
+                        unoptimized={companyLogo.startsWith('/uploads-public/') || companyLogo.startsWith('/imports/')}
+                    />
+                ) : (
+                    <div className="text-center text-xs text-gray-400 italic">
+                        Logo non téléchargé
+                    </div>
+                )}
+            </div>
+
+            {/* Navigation */}
+            <nav className="flex-1 overflow-y-auto py-2">
+                <ul className="space-y-1 px-2">
+                    {defaultMenuItems.map((item) => (
+                        <li key={item.id}>
+                            <div
+                                onClick={() => handleNavigation(item.path, item.comingSoon)}
+                                className={cn(
+                                    "flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200",
+                                    item.comingSoon
+                                        ? "cursor-not-allowed opacity-60"
+                                        : "cursor-pointer",
+                                    !item.comingSoon && (router.pathname === item.path || router.asPath === item.path)
+                                        ? "bg-red-600 text-white shadow-md"
+                                        : item.comingSoon
+                                        ? "text-gray-500 bg-gray-50"
+                                        : "text-gray-700 hover:bg-red-50 hover:text-red-700"
+                                )}
+                            >
+                                <span className="mr-3">{item.icon}</span>
+                                <div className="flex items-center justify-between flex-1">
+                                    <span>{item.label}</span>
+                                    {item.comingSoon && (
+                                        <span className="ml-2 px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-700 rounded-full border border-yellow-200">
+                                            Bientôt
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        </li>
+                    ))}
+                </ul>
+            </nav>
+
+            {/* Footer */}
+            <div className="p-2 border-t border-red-100">
+                <button
+                    onClick={() => {
+                        if (!isNavigating) {
+                            setIsMobileMenuOpen(false);
+                            const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+                            signOut({ callbackUrl: `${baseUrl}/welcome` });
+                        }
+                    }}
+                    className="flex items-center w-full px-3 py-2.5 text-sm font-medium rounded-lg transition-colors text-gray-700 hover:bg-red-50 hover:text-red-700"
+                    disabled={isNavigating}
+                >
+                    <span className="mr-3"><Power size={20} /></span>
+                    <span>Déconnexion</span>
+                </button>
+            </div>
+        </div>
+    );
+
+    // Mobile View - Hamburger Button + Sheet
+    if (isMobile) {
+        return (
+            <>
+                {/* Fixed Mobile Menu Button */}
+                <button
+                    onClick={() => setIsMobileMenuOpen(true)}
+                    className="fixed top-4 left-4 z-[60] bg-red-600 text-white p-2.5 rounded-lg shadow-lg hover:bg-red-700 transition-colors"
+                    aria-label="Ouvrir le menu"
+                >
+                    <Menu size={24} />
+                </button>
+
+                {/* Mobile Sheet */}
+                <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+                    <SheetContent side="left" className="w-[280px] p-0 bg-white">
+                        <SheetHeader className="sr-only">
+                            <SheetTitle>Menu de navigation</SheetTitle>
+                        </SheetHeader>
+                        <MobileMenuContent />
+                    </SheetContent>
+                </Sheet>
+            </>
+        );
+    }
+
+    // Desktop View - Original Sidebar
     return (
         <div
             className={`flex flex-col h-full bg-white shadow-md transition-all duration-300 ${isExpanded ? 'w-64' : 'w-20'} relative border-r border-red-100`}

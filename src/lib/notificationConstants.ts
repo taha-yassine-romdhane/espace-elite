@@ -175,7 +175,6 @@ export function generateActionUrl(
       return `${baseUrl}/diagnostics`;
 
     case NOTIFICATION_TYPES.APPOINTMENT:
-      if (ids.appointmentId) return `${baseUrl}/appointments/${ids.appointmentId}`;
       if (ids.patientId) return `${baseUrl}/renseignement/patient/${ids.patientId}`;
       return `${baseUrl}/appointments`;
 

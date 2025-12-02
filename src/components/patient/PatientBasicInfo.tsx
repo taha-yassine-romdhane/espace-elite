@@ -2,8 +2,20 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { User, Calendar, Clipboard, IdCard, Building2 } from 'lucide-react';
 
+interface Patient {
+  id: string;
+  patientCode?: string;
+  nom: string;
+  prenom?: string;
+  dateNaissance?: string;
+  cin?: string;
+  sexe?: string;
+  profession?: string;
+  centreAffiliation?: string;
+}
+
 interface PatientBasicInfoProps {
-  patient: any;
+  patient: Patient;
 }
 
 export const PatientBasicInfo = ({ patient }: PatientBasicInfoProps) => {
@@ -98,7 +110,7 @@ export const PatientBasicInfo = ({ patient }: PatientBasicInfoProps) => {
         </div>
 
         <div>
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Caisse d'affiliation</p>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Caisse d&apos;affiliation</p>
           <div className="flex items-center gap-2">
             <Building2 className="h-4 w-4 text-blue-500" />
             <p className="text-base text-gray-900">

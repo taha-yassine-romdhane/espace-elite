@@ -11,7 +11,6 @@ import {
     ChevronLeft,
     ChevronRight,
     CalendarCheck,
-    ClipboardCheck,
     Database,
     Wrench,
     MapPin,
@@ -23,8 +22,16 @@ import {
     Stethoscope,
     ShoppingCart,
     ListTodo,
+    Menu,
+    X,
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+} from "@/components/ui/sheet";
 
 type MenuItem = {
     id: string;
@@ -39,6 +46,19 @@ const Sidebar: React.FC = () => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [isNavigating, setIsNavigating] = useState(false);
     const [lastNavigationTime, setLastNavigationTime] = useState(0);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
+
+    // Detect mobile screen
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 768);
+        };
+
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
 
     // Fetch unread message count
     const { data: unreadData } = useQuery({
@@ -77,7 +97,6 @@ const Sidebar: React.FC = () => {
         { id: 'calendar', icon: <CalendarCheck size={20} />, label: "Calendrier & Tâches", path: "/roles/admin/calendar" },
         { id: 'sales', icon: <ShoppingCart size={20} />, label: "Gestion des Ventes", path: "/roles/admin/sales" },
         { id: 'rentals', icon: <KeyRound size={20} />, label: "Gestion des Locations", path: "/roles/admin/location" },
-        { id: 'notifications', icon: <ClipboardCheck size={20} />, label: "Gestion des Notifications", path: "/roles/admin/notifications" },
         { id: 'chat', icon: <MessageCircle size={20} />, label: "Messages", path: "/roles/admin/chat" },
         { id: 'map', icon: <MapPin size={20} />, label: "Carte des Patients", path: "/roles/admin/map" },
         { id: 'appareils', icon: <BriefcaseMedical size={20} />, label: "Gestion des Produits", path: "/roles/admin/appareils" },
@@ -137,9 +156,115 @@ const Sidebar: React.FC = () => {
         }
 
         setLastNavigationTime(now);
+        setIsMobileMenuOpen(false); // Close mobile menu on navigation
         router.push(path);
     }, [isNavigating, lastNavigationTime, router]);
 
+    // Mobile Menu Content (shared between mobile button and sheet)
+    const MobileMenuContent = () => (
+        <div className="flex flex-col h-full">
+            {/* Logo */}
+            <div className="p-4 border-b border-gray-100 flex justify-center items-center">
+                {companyLogo ? (
+                    <Image
+                        src={companyLogo}
+                        alt="Logo de l'entreprise"
+                        width={120}
+                        height={48}
+                        priority
+                        className="object-contain h-auto"
+                        unoptimized={companyLogo.startsWith('/uploads-public/') || companyLogo.startsWith('/imports/')}
+                    />
+                ) : (
+                    <div className="text-center text-xs text-gray-400 italic">
+                        Logo non téléchargé
+                    </div>
+                )}
+            </div>
+
+            {/* Navigation */}
+            <nav className="flex-1 overflow-y-auto py-2">
+                <ul className="space-y-1 px-2">
+                    {defaultMenuItems.map((item) => (
+                        <li key={item.id}>
+                            <div
+                                onClick={() => handleNavigation(item.path)}
+                                className={cn(
+                                    "flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 cursor-pointer",
+                                    (router.pathname === item.path || router.asPath === item.path)
+                                        ? "bg-[#1e3a8a] text-white"
+                                        : "text-gray-700 hover:bg-gray-50 hover:text-[#1e3a8a]"
+                                )}
+                            >
+                                <span className="mr-3 relative">
+                                    {item.icon}
+                                    {item.id === 'chat' && unreadCount > 0 && (
+                                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-4 w-4 flex items-center justify-center">
+                                            {unreadCount > 9 ? '9+' : unreadCount}
+                                        </span>
+                                    )}
+                                </span>
+                                <span className="flex-1 flex items-center justify-between">
+                                    <span>{item.label}</span>
+                                    {item.id === 'chat' && unreadCount > 0 && (
+                                        <span className="bg-red-500 text-white text-xs font-bold rounded-full px-2 py-0.5 min-w-[20px] text-center">
+                                            {unreadCount > 99 ? '99+' : unreadCount}
+                                        </span>
+                                    )}
+                                </span>
+                            </div>
+                        </li>
+                    ))}
+                </ul>
+            </nav>
+
+            {/* Footer */}
+            <div className="p-2 border-t border-gray-100">
+                <button
+                    onClick={() => {
+                        if (!isNavigating) {
+                            setIsMobileMenuOpen(false);
+                            const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+                            signOut({ callbackUrl: `${baseUrl}/welcome` });
+                        }
+                    }}
+                    className="flex items-center w-full px-3 py-2.5 text-sm font-medium rounded-lg transition-colors text-gray-700 hover:bg-gray-50 hover:text-[#1e3a8a]"
+                    disabled={isNavigating}
+                >
+                    <span className="mr-3"><Power size={20} /></span>
+                    <span>Déconnexion</span>
+                </button>
+            </div>
+        </div>
+    );
+
+    // Mobile View - Hamburger Button + Sheet
+    if (isMobile) {
+        return (
+            <>
+                {/* Fixed Mobile Menu Button */}
+                <button
+                    onClick={() => setIsMobileMenuOpen(true)}
+                    className="fixed top-4 left-4 z-[60] bg-[#1e3a8a] text-white p-2.5 rounded-lg shadow-lg hover:bg-[#1e3a8a]/90 transition-colors"
+                    aria-label="Ouvrir le menu"
+                >
+                    <Menu size={24} />
+                </button>
+
+                {/* Mobile Sheet */}
+                <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+                    <SheetContent side="left" className="w-[280px] p-0 bg-white">
+                        <SheetHeader className="sr-only">
+                            <SheetTitle>Menu de navigation</SheetTitle>
+                        </SheetHeader>
+                        <MobileMenuContent />
+                    </SheetContent>
+                </Sheet>
+            </>
+        );
+    }
+
+    // Desktop View - Original Sidebar
     return (
         <div
             className={`flex flex-col h-full bg-white shadow-md transition-all duration-300 ${isExpanded ? 'w-64' : 'w-20'} relative`}
@@ -246,7 +371,7 @@ const Sidebar: React.FC = () => {
                     disabled={isNavigating}
                 >
                     <span className={`${isExpanded ? 'mr-3' : 'mx-auto'}`}><Power size={20} /></span>
-                    {isExpanded && <span>Logout</span>}
+                    {isExpanded && <span>Déconnexion</span>}
                 </button>
             </div>
         </div>

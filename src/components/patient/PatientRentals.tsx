@@ -1,15 +1,59 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Package, AlertCircle, Calendar, CreditCard, FileText, User, Settings, Edit2 } from 'lucide-react';
+import { Package, AlertCircle, CreditCard, FileText, Settings, Edit2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { format, differenceInDays } from 'date-fns';
+import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { AddRentalForm } from '@/components/employee/patient-details-forms/AddRentalForm';
 
+interface MedicalDevice {
+  id: string;
+  name?: string;
+  serialNumber?: string;
+  deviceCode?: string;
+}
+
+interface RentalConfiguration {
+  rentalRate?: number;
+  billingCycle?: string;
+  cnamEligible?: boolean;
+  isGlobalOpenEnded?: boolean;
+}
+
+interface Payment {
+  id: string;
+  amount: number;
+}
+
+interface CNAMBon {
+  id: string;
+}
+
+interface UserInfo {
+  id: string;
+  firstName?: string;
+  lastName?: string;
+}
+
+interface Rental {
+  id: string;
+  rentalCode?: string;
+  invoiceNumber?: string;
+  startDate?: string;
+  endDate?: string;
+  status: string;
+  medicalDevice?: MedicalDevice;
+  configuration?: RentalConfiguration;
+  payments?: Payment[];
+  cnamBons?: CNAMBon[];
+  createdBy?: UserInfo;
+  assignedTo?: UserInfo;
+}
+
 interface PatientRentalsProps {
-  rentals: any[];
+  rentals: Rental[];
   isLoading?: boolean;
   patientId?: string;
 }
@@ -71,15 +115,9 @@ export const PatientRentals = ({ rentals = [], isLoading = false, patientId }: P
     }
   };
 
-  const formatAmount = (amount: any) => {
+  const formatAmount = (amount: number | string | null | undefined) => {
     const num = Number(amount);
     return isNaN(num) ? '0.00' : num.toFixed(2);
-  };
-
-  const calculateDuration = (startDate: string, endDate: string | null) => {
-    const start = new Date(startDate);
-    const end = endDate ? new Date(endDate) : new Date();
-    return differenceInDays(end, start);
   };
 
   return (
@@ -268,7 +306,7 @@ export const PatientRentals = ({ rentals = [], isLoading = false, patientId }: P
                       <div className="text-xs text-slate-500">Total Paiements</div>
                       <div className="text-lg font-bold text-green-700">
                         {formatAmount(rentals.reduce((sum, r) =>
-                          sum + (r.payments?.reduce((pSum: number, p: any) => pSum + (Number(p.amount) || 0), 0) || 0), 0
+                          sum + (r.payments?.reduce((pSum: number, p: Payment) => pSum + (Number(p.amount) || 0), 0) || 0), 0
                         ))} DT
                       </div>
                     </div>
@@ -280,7 +318,7 @@ export const PatientRentals = ({ rentals = [], isLoading = false, patientId }: P
             <div className="flex flex-col items-center justify-center py-12 text-gray-500">
               <AlertCircle className="h-12 w-12 mb-4 opacity-50" />
               <p className="text-lg font-medium">Aucune location</p>
-              <p className="text-sm">Ce patient n'a pas encore loué d'appareil médical</p>
+              <p className="text-sm">Ce patient n&apos;a pas encore loué d&apos;appareil médical</p>
             </div>
           )}
         </CardContent>

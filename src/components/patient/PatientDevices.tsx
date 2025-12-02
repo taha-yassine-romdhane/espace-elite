@@ -13,8 +13,19 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
+interface Device {
+  id: string;
+  name?: string;
+  brand?: string;
+  serialNumber?: string;
+  deviceCode?: string;
+  source?: string;
+  dateAcquired?: string;
+  status?: string;
+}
+
 interface PatientDevicesProps {
-  devices: any[];
+  devices: Device[];
   isLoading?: boolean;
 }
 

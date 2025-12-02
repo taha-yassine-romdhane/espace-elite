@@ -12,8 +12,59 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
+interface DeviceInfo {
+  name?: string;
+  deviceCode?: string;
+  serialNumber?: string;
+  brand?: string;
+  model?: string;
+  stockLocationName?: string;
+  returnedToLocationName?: string;
+}
+
+interface RentalPeriod {
+  startDate: string;
+  replacementDate: string;
+  daysUsed: number;
+}
+
+interface OldConfiguration {
+  rentalRate?: number;
+  billingCycle?: string;
+  cnamEligible?: boolean;
+}
+
+interface ReplacedBy {
+  role?: string;
+}
+
+interface HistoryDetails {
+  action?: string;
+  description?: string;
+  oldDevice?: DeviceInfo;
+  newDevice?: DeviceInfo;
+  rentalPeriodWithOldDevice?: RentalPeriod;
+  replacementReason?: string;
+  oldConfiguration?: OldConfiguration;
+  rentalCode?: string;
+  replacedBy?: ReplacedBy;
+}
+
+interface PerformedBy {
+  name?: string;
+}
+
+interface HistoryItem {
+  id?: string;
+  createdAt: string;
+  actionType: string;
+  description?: string;
+  details?: HistoryDetails;
+  performedBy?: PerformedBy;
+}
+
 interface PatientHistoryProps {
-  history: any[];
+  history: HistoryItem[];
   isLoading?: boolean;
 }
 
@@ -64,7 +115,7 @@ export const PatientHistory = ({ history = [], isLoading = false }: PatientHisto
     return actionLabels[actionType] || actionType;
   };
 
-  const renderDeviceReplacementDetails = (details: any) => {
+  const renderDeviceReplacementDetails = (details: HistoryDetails | undefined) => {
     if (!details || details.action !== 'DEVICE_REPLACEMENT') return null;
 
     return (
@@ -88,7 +139,7 @@ export const PatientHistory = ({ history = [], isLoading = false }: PatientHisto
                 <p><span className="font-medium">Modèle:</span> {details.oldDevice.model}</p>
               )}
               {details.oldDevice?.stockLocationName && (
-                <p><span className="font-medium">Emplacement d'origine:</span> {details.oldDevice.stockLocationName}</p>
+                <p><span className="font-medium">Emplacement d&apos;origine:</span> {details.oldDevice.stockLocationName}</p>
               )}
               {details.oldDevice?.returnedToLocationName && (
                 <p className="text-green-700 font-medium">
@@ -125,7 +176,7 @@ export const PatientHistory = ({ history = [], isLoading = false }: PatientHisto
         {/* Rental Period with Old Device */}
         {details.rentalPeriodWithOldDevice && (
           <div className="bg-blue-50 p-3 rounded">
-            <h4 className="font-semibold text-blue-700 mb-2">Période avec l'ancien appareil</h4>
+            <h4 className="font-semibold text-blue-700 mb-2">Période avec l&apos;ancien appareil</h4>
             <div className="space-y-1 text-gray-700">
               <p><span className="font-medium">Début:</span> {new Date(details.rentalPeriodWithOldDevice.startDate).toLocaleDateString('fr-FR')}</p>
               <p><span className="font-medium">Remplacement:</span> {new Date(details.rentalPeriodWithOldDevice.replacementDate).toLocaleDateString('fr-FR')}</p>
@@ -163,14 +214,14 @@ export const PatientHistory = ({ history = [], isLoading = false }: PatientHisto
             <p><span className="font-medium">Code de location:</span> {details.rentalCode}</p>
           )}
           {details.replacedBy?.role && (
-            <p><span className="font-medium">Rôle de l'utilisateur:</span> {details.replacedBy.role === 'EMPLOYEE' ? 'Employé' : 'Administrateur'}</p>
+            <p><span className="font-medium">Rôle de l&apos;utilisateur:</span> {details.replacedBy.role === 'EMPLOYEE' ? 'Employé' : 'Administrateur'}</p>
           )}
         </div>
       </div>
     );
   };
 
-  const getDescription = (item: any) => {
+  const getDescription = (item: HistoryItem) => {
     // Check if this is a device replacement
     if (item.details?.action === 'DEVICE_REPLACEMENT') {
       return 'Remplacement d\'appareil médical';
@@ -188,7 +239,7 @@ export const PatientHistory = ({ history = [], isLoading = false }: PatientHisto
     );
   };
 
-  const hasExpandableDetails = (item: any) => {
+  const hasExpandableDetails = (item: HistoryItem) => {
     return item.details?.action === 'DEVICE_REPLACEMENT';
   };
 

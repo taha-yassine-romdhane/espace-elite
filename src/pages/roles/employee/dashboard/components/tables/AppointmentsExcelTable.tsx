@@ -410,30 +410,26 @@ export default function EmployeeAppointmentsExcelTable() {
     <div className="space-y-4">
 
       {/* Filters */}
-      <div className="space-y-3 bg-gray-50 p-4 rounded-lg border">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex-1 min-w-[200px]">
-            <div className="relative">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Rechercher par patient, lieu, type..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8"
-              />
-            </div>
-          </div>
+      <div className="space-y-3 bg-gray-50 p-3 md:p-4 rounded-lg border">
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Rechercher par patient, lieu, type..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-8"
+          />
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="text-xs font-medium text-muted-foreground">Filtres:</span>
-
+        {/* Filter dropdowns */}
+        <div className="grid grid-cols-2 md:flex md:flex-wrap items-center gap-2 md:gap-3">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[160px] h-9">
+            <SelectTrigger className="w-full md:w-[140px] h-9 text-xs md:text-sm">
               <SelectValue placeholder="Statut" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="ALL">Tous les statuts</SelectItem>
+              <SelectItem value="ALL">Tous statuts</SelectItem>
               {STATUSES.map(status => (
                 <SelectItem key={status} value={status}>{getStatusLabel(status)}</SelectItem>
               ))}
@@ -441,11 +437,11 @@ export default function EmployeeAppointmentsExcelTable() {
           </Select>
 
           <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-[180px] h-9">
+            <SelectTrigger className="w-full md:w-[140px] h-9 text-xs md:text-sm">
               <SelectValue placeholder="Type" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="ALL">Tous les types</SelectItem>
+              <SelectItem value="ALL">Tous types</SelectItem>
               {APPOINTMENT_TYPES.map(type => (
                 <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
               ))}
@@ -453,7 +449,7 @@ export default function EmployeeAppointmentsExcelTable() {
           </Select>
 
           <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="w-[160px] h-9">
+            <SelectTrigger className="w-full md:w-[140px] h-9 text-xs md:text-sm">
               <SelectValue placeholder="Priorité" />
             </SelectTrigger>
             <SelectContent>
@@ -474,10 +470,11 @@ export default function EmployeeAppointmentsExcelTable() {
                 setPriorityFilter('ALL');
                 setSearchTerm('');
               }}
-              className="h-9"
+              className="h-9 text-xs md:text-sm"
             >
               <X className="h-4 w-4 mr-1" />
-              Réinitialiser
+              <span className="hidden sm:inline">Réinitialiser</span>
+              <span className="sm:hidden">Reset</span>
             </Button>
           )}
         </div>
@@ -540,11 +537,11 @@ export default function EmployeeAppointmentsExcelTable() {
       </div>
 
       {/* Pagination */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Afficher</span>
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-xs sm:text-sm">
+          <span className="text-muted-foreground hidden sm:inline">Afficher</span>
           <Select value={itemsPerPage.toString()} onValueChange={(val) => setItemsPerPage(Number(val))}>
-            <SelectTrigger className="w-[100px]">
+            <SelectTrigger className="w-[70px] sm:w-[80px] h-8">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -553,8 +550,8 @@ export default function EmployeeAppointmentsExcelTable() {
               <SelectItem value="100">100</SelectItem>
             </SelectContent>
           </Select>
-          <span className="text-sm text-muted-foreground">
-            {startIndex + 1}-{Math.min(endIndex, filteredAppointments.length)} sur {filteredAppointments.length}
+          <span className="text-muted-foreground">
+            {startIndex + 1}-{Math.min(endIndex, filteredAppointments.length)} / {filteredAppointments.length}
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -563,17 +560,19 @@ export default function EmployeeAppointmentsExcelTable() {
             disabled={currentPage === 1}
             size="sm"
             variant="outline"
+            className="h-8 w-8 p-0"
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="text-sm">
-            Page {currentPage} sur {totalPages || 1}
+          <span className="text-xs sm:text-sm min-w-[80px] text-center">
+            {currentPage} / {totalPages || 1}
           </span>
           <Button
             onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
             disabled={currentPage === totalPages}
             size="sm"
             variant="outline"
+            className="h-8 w-8 p-0"
           >
             <ChevronRight className="h-4 w-4" />
           </Button>

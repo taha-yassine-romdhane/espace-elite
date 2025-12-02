@@ -96,9 +96,21 @@ export function PatientDocuments({ patientId, diagnostics = [], sales = [], rent
     enabled: !!patientId,
   });
 
+  interface DocumentData {
+    url: string;
+    type: string;
+    fileName: string;
+    fileSize: number;
+    category: string;
+    description: string | null;
+    diagnosticId?: string;
+    saleId?: string;
+    rentalId?: string;
+  }
+
   // Create document mutation
   const createDocumentMutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: DocumentData) => {
       const response = await fetch(`/api/patients/${patientId}/documents`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -119,7 +131,7 @@ export function PatientDocuments({ patientId, diagnostics = [], sales = [], rent
       setSelectedSaleId('');
       setSelectedRentalId('');
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: 'Erreur',
         description: error.message || 'Erreur lors de l\'ajout du document',
@@ -147,7 +159,7 @@ export function PatientDocuments({ patientId, diagnostics = [], sales = [], rent
       });
       setFileToDelete(null);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: 'Erreur',
         description: error.message || 'Erreur lors de la suppression du document',
@@ -190,12 +202,19 @@ export function PatientDocuments({ patientId, diagnostics = [], sales = [], rent
     });
   };
 
+  interface UploadedFile {
+    url: string;
+    type?: string;
+    name: string;
+    size: number;
+  }
+
   // Handle file upload completion
-  const handleUploadComplete = (res: any) => {
+  const handleUploadComplete = (res: UploadedFile[]) => {
     if (res && res.length > 0) {
       const uploadedFile = res[0];
 
-      const documentData: any = {
+      const documentData: DocumentData = {
         url: uploadedFile.url,
         type: uploadedFile.type || 'application/octet-stream',
         fileName: uploadedFile.name,

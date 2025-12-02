@@ -16,7 +16,6 @@ import {
   CreditCard,
   Shield
 } from 'lucide-react';
-import { useRouter } from 'next/router';
 
 interface PatientPrintDialogProps {
   open: boolean;
@@ -99,7 +98,6 @@ export const PatientPrintDialog: React.FC<PatientPrintDialogProps> = ({
   patientId,
   patientName
 }) => {
-  const router = useRouter();
   const [selectedReport, setSelectedReport] = useState<ReportType>('complete');
   const [includeImages, setIncludeImages] = useState(true);
   const [includeHistory, setIncludeHistory] = useState(false);
@@ -215,7 +213,7 @@ export const PatientPrintDialog: React.FC<PatientPrintDialogProps> = ({
 
           {/* Options */}
           <div className="space-y-3 border-t pt-4">
-            <Label className="text-base font-semibold">Options d'Impression</Label>
+            <Label className="text-base font-semibold">Options d&apos;Impression</Label>
 
             <div className="flex items-center space-x-2">
               <Checkbox
@@ -241,7 +239,7 @@ export const PatientPrintDialog: React.FC<PatientPrintDialogProps> = ({
                 htmlFor="include-history"
                 className="text-sm font-normal cursor-pointer"
               >
-                Inclure l'historique des modifications
+                Inclure l&apos;historique des modifications
               </Label>
             </div>
           </div>

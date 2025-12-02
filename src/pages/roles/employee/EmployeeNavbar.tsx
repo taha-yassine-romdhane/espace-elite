@@ -9,8 +9,6 @@ import {
     Settings,
     LogOut,
     ChevronDown,
-    Menu,
-    X,
     Calendar,
     HelpCircle,
     Link,
@@ -33,8 +31,8 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 
 interface NavbarProps {
-    onSidebarToggle?: () => void;
-    sidebarExpanded?: boolean;
+    // Props kept for backwards compatibility but no longer used
+    // Mobile sidebar is now handled by the sidebar component itself
 }
 
 interface Notification {
@@ -54,7 +52,7 @@ interface Notification {
 type NotificationType = 'FOLLOW_UP' | 'MAINTENANCE' | 'APPOINTMENT' | 'PAYMENT_DUE' | 'TRANSFER' | 'OTHER';
 type NotificationStatus = 'PENDING' | 'COMPLETED' | 'DISMISSED' | 'READ';
 
-const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true }) => {
+const Navbar: React.FC<NavbarProps> = () => {
     const { data: session } = useSession();
     const router = useRouter();
     const { toast } = useToast();
@@ -509,18 +507,9 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
         <div className="bg-white shadow-md z-10">
             <div className="max-w-full px-4 sm:px-6 tablet:px-8 lg:px-8">
                 <div className="flex justify-between h-16">
-                    {/* Left side - Toggle button and page title */}
-                    <div className="flex items-center">
-                        {onSidebarToggle && (
-                            <button
-                                onClick={onSidebarToggle}
-                                className="p-2 rounded-md text-gray-500 hover:text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#16a34a] lg:hidden"
-                            >
-                                <span className="sr-only">Open sidebar</span>
-                                {sidebarExpanded ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-                            </button>
-                        )}
-                        <h1 className="text-xl font-semibold text-[#16a34a] ml-2 lg:ml-0">
+                    {/* Left side - Page title */}
+                    <div className="flex items-center ml-14 md:ml-0">
+                        <h1 className="text-xl font-semibold text-[#16a34a]">
                             {getPageTitle()}
                         </h1>
                     </div>

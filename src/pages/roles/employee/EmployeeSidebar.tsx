@@ -19,8 +19,25 @@ import {
     Calendar,
     MapPin,
     ListTodo,
+    Menu,
+    Zap,
+    Stethoscope,
+    Building2,
+    FileText,
+    ChevronDown,
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+} from "@/components/ui/sheet";
+import { CreateAppointmentDialog } from "@/components/appointments/CreateAppointmentDialog";
+import { CreateDiagnosticDialog } from "@/components/diagnostics/CreateDiagnosticDialog";
+import { CompleteDiagnosticDialog } from "@/components/diagnostics/CompleteDiagnosticDialog";
+import { CreateSaleDialog } from "@/components/sales/CreateSaleDialog";
+import { RentalCreationDialog } from "@/components/dialogs/RentalCreationDialog";
 
 type MenuItem = {
     id: string;
@@ -35,6 +52,27 @@ const Sidebar: React.FC = () => {
     const [isExpanded, setIsExpanded] = useState(true);
     const [isNavigating, setIsNavigating] = useState(false);
     const [lastNavigationTime, setLastNavigationTime] = useState(0);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
+
+    // Quick actions states
+    const [quickActionsExpanded, setQuickActionsExpanded] = useState(true);
+    const [appointmentDialogOpen, setAppointmentDialogOpen] = useState(false);
+    const [diagnosticDialogOpen, setDiagnosticDialogOpen] = useState(false);
+    const [completeDiagnosticDialogOpen, setCompleteDiagnosticDialogOpen] = useState(false);
+    const [saleDialogOpen, setSaleDialogOpen] = useState(false);
+    const [rentalDialogOpen, setRentalDialogOpen] = useState(false);
+
+    // Detect mobile screen
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 768);
+        };
+
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
 
     // Fetch company logo from settings
     const { data: settings } = useQuery({
@@ -113,9 +151,196 @@ const Sidebar: React.FC = () => {
         }
 
         setLastNavigationTime(now);
+        setIsMobileMenuOpen(false); // Close mobile menu on navigation
         router.push(path);
     }, [lastNavigationTime, isNavigating, router]);
 
+    // Quick action handler - closes menu and opens dialog
+    const handleQuickAction = (openDialog: () => void) => {
+        setIsMobileMenuOpen(false);
+        // Small delay to let the sheet close smoothly
+        setTimeout(() => {
+            openDialog();
+        }, 150);
+    };
+
+    // Mobile Menu Content
+    const MobileMenuContent = () => (
+        <div className="flex flex-col h-full">
+            {/* Logo */}
+            <div className="p-4 border-b border-gray-100 flex justify-center items-center">
+                {companyLogo ? (
+                    <Image
+                        src={companyLogo}
+                        alt="Logo de l'entreprise"
+                        width={120}
+                        height={48}
+                        priority
+                        className="object-contain h-auto"
+                        unoptimized={companyLogo.startsWith('/uploads-public/') || companyLogo.startsWith('/imports/')}
+                    />
+                ) : (
+                    <div className="text-center text-xs text-gray-400 italic">
+                        Logo non téléchargé
+                    </div>
+                )}
+            </div>
+
+            {/* Navigation */}
+            <nav className="flex-1 overflow-y-auto py-2">
+                {/* Quick Actions Section */}
+                <div className="px-2 mb-2">
+                    <button
+                        onClick={() => setQuickActionsExpanded(!quickActionsExpanded)}
+                        className="flex items-center justify-between w-full px-3 py-2 text-sm font-semibold text-green-700 bg-green-50 rounded-lg"
+                    >
+                        <div className="flex items-center">
+                            <Zap size={18} className="mr-2" />
+                            <span>Actions Rapides</span>
+                        </div>
+                        <ChevronDown
+                            size={18}
+                            className={cn(
+                                "transition-transform duration-200",
+                                quickActionsExpanded ? "rotate-180" : ""
+                            )}
+                        />
+                    </button>
+
+                    {quickActionsExpanded && (
+                        <div className="mt-1 space-y-1 pl-2">
+                            <button
+                                onClick={() => handleQuickAction(() => setAppointmentDialogOpen(true))}
+                                className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-600 rounded-lg transition-colors"
+                            >
+                                <Calendar size={18} className="mr-3 text-green-600" />
+                                <span>Nouveau Rendez-vous</span>
+                            </button>
+                            <button
+                                onClick={() => handleQuickAction(() => setDiagnosticDialogOpen(true))}
+                                className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-600 rounded-lg transition-colors"
+                            >
+                                <Stethoscope size={18} className="mr-3 text-green-600" />
+                                <span>Commencer Diagnostic</span>
+                            </button>
+                            <button
+                                onClick={() => handleQuickAction(() => setCompleteDiagnosticDialogOpen(true))}
+                                className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"
+                            >
+                                <FileText size={18} className="mr-3 text-blue-600" />
+                                <span>Compléter Résultats</span>
+                            </button>
+                            <button
+                                onClick={() => handleQuickAction(() => setSaleDialogOpen(true))}
+                                className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-600 rounded-lg transition-colors"
+                            >
+                                <ShoppingCart size={18} className="mr-3 text-green-600" />
+                                <span>Commencer une Vente</span>
+                            </button>
+                            <button
+                                onClick={() => handleQuickAction(() => setRentalDialogOpen(true))}
+                                className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-600 rounded-lg transition-colors"
+                            >
+                                <Building2 size={18} className="mr-3 text-green-600" />
+                                <span>Commencer une Location</span>
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+                {/* Divider */}
+                <div className="mx-4 my-2 border-t border-gray-200"></div>
+
+                {/* Menu Items */}
+                <ul className="space-y-1 px-2">
+                    {defaultMenuItems.map((item) => (
+                        <li key={item.id}>
+                            <div
+                                onClick={() => handleNavigation(item.path)}
+                                className={cn(
+                                    "flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 cursor-pointer",
+                                    router.pathname.startsWith(item.path)
+                                        ? "bg-green-600 text-white shadow-sm"
+                                        : "text-gray-700 hover:bg-green-50 hover:text-green-600"
+                                )}
+                            >
+                                <span className="mr-3">{item.icon}</span>
+                                <span className="flex-1">{item.label}</span>
+                            </div>
+                        </li>
+                    ))}
+                </ul>
+            </nav>
+
+            {/* Footer */}
+            <div className="p-2 border-t border-gray-100">
+                <button
+                    onClick={() => {
+                        if (!isNavigating) {
+                            setIsMobileMenuOpen(false);
+                            const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+                            signOut({ callbackUrl: `${baseUrl}/welcome` });
+                        }
+                    }}
+                    className="flex items-center w-full px-3 py-2.5 text-sm font-medium rounded-lg transition-colors text-gray-700 hover:bg-green-50 hover:text-green-600"
+                    disabled={isNavigating}
+                >
+                    <span className="mr-3"><Power size={20} /></span>
+                    <span>Se déconnecter</span>
+                </button>
+            </div>
+        </div>
+    );
+
+    // Mobile View - Hamburger Button + Sheet
+    if (isMobile) {
+        return (
+            <>
+                {/* Fixed Mobile Menu Button */}
+                <button
+                    onClick={() => setIsMobileMenuOpen(true)}
+                    className="fixed top-4 left-4 z-[60] bg-green-600 text-white p-2.5 rounded-lg shadow-lg hover:bg-green-700 transition-colors"
+                    aria-label="Ouvrir le menu"
+                >
+                    <Menu size={24} />
+                </button>
+
+                {/* Mobile Sheet */}
+                <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+                    <SheetContent side="left" className="w-[280px] p-0 bg-white">
+                        <SheetHeader className="sr-only">
+                            <SheetTitle>Menu de navigation</SheetTitle>
+                        </SheetHeader>
+                        <MobileMenuContent />
+                    </SheetContent>
+                </Sheet>
+
+                {/* Quick Action Dialogs */}
+                <CreateAppointmentDialog
+                    open={appointmentDialogOpen}
+                    onOpenChange={setAppointmentDialogOpen}
+                />
+                <CreateDiagnosticDialog
+                    open={diagnosticDialogOpen}
+                    onOpenChange={setDiagnosticDialogOpen}
+                />
+                <CompleteDiagnosticDialog
+                    open={completeDiagnosticDialogOpen}
+                    onOpenChange={setCompleteDiagnosticDialogOpen}
+                />
+                <CreateSaleDialog
+                    open={saleDialogOpen}
+                    onOpenChange={setSaleDialogOpen}
+                />
+                <RentalCreationDialog
+                    open={rentalDialogOpen}
+                    onOpenChange={setRentalDialogOpen}
+                />
+            </>
+        );
+    }
+
+    // Desktop View - Original Sidebar
     return (
         <div
             className={`flex flex-col h-full bg-white shadow-md transition-all duration-300 ${isExpanded ? 'w-64' : 'w-20'} relative`}

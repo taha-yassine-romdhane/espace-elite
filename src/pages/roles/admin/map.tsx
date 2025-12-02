@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { useQuery } from '@tanstack/react-query';
-import { MapPin, Users, Filter, Search, Building2, Activity, Package } from 'lucide-react';
+import { MapPin, Users, Filter, Search, Building2, Activity, Package, Key, ShoppingCart, Stethoscope, Calendar, ClipboardList } from 'lucide-react';
 
 const MapComponent = dynamic(() => import('@/components/MapComponent'), {
   ssr: false,
@@ -27,7 +27,15 @@ interface Patient {
   lastVisit?: string;
   hasDevices?: boolean;
   hasDiagnostics?: boolean;
+  hasAppointments?: boolean;
+  hasManualTasks?: boolean;
+  devices?: Array<{ status: string }>;
+  diagnostics?: Array<{ id: string }>;
+  appointments?: Array<{ id: string }>;
+  manualTasks?: Array<{ id: string }>;
 }
+
+type ActivityFilter = 'all' | 'rentals' | 'sales' | 'diagnostics_only' | 'appointments' | 'manual_tasks';
 
 const tunisiaRegions = {
   'Tunis': { lat: 36.8065, lng: 10.1815 },
@@ -61,6 +69,7 @@ const MapPreview: React.FC = () => {
   const [selectedRegion, setSelectedRegion] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [activityFilter, setActivityFilter] = useState<ActivityFilter>('all');
 
   // Fetch company settings
   const { data: companySettings } = useQuery({
@@ -107,8 +116,34 @@ const MapPreview: React.FC = () => {
       );
     }
 
+    // Apply activity filter
+    if (activityFilter !== 'all') {
+      filtered = filtered.filter(patient => {
+        const hasRentals = patient.devices?.some(d => d.status === 'RENTED') || false;
+        const hasSales = patient.devices?.some(d => d.status === 'SOLD') || false;
+        const hasDiagnostics = (patient.diagnostics?.length || 0) > 0;
+        const hasAppointments = (patient.appointments?.length || 0) > 0;
+        const hasManualTasks = (patient.manualTasks?.length || 0) > 0;
+
+        switch (activityFilter) {
+          case 'rentals':
+            return hasRentals;
+          case 'sales':
+            return hasSales;
+          case 'diagnostics_only':
+            return hasDiagnostics && !hasRentals && !hasSales;
+          case 'appointments':
+            return hasAppointments;
+          case 'manual_tasks':
+            return hasManualTasks;
+          default:
+            return true;
+        }
+      });
+    }
+
     return filtered;
-  }, [patients, selectedRegion, searchTerm]);
+  }, [patients, selectedRegion, searchTerm, activityFilter]);
 
   const stats = useMemo(() => {
     const withDevices = filteredPatients.filter(p => p.hasDevices).length;
@@ -116,6 +151,39 @@ const MapPreview: React.FC = () => {
     const activeRegions = new Set(filteredPatients.map(p => p.region)).size;
     return { withDevices, withDiagnostics, activeRegions };
   }, [filteredPatients]);
+
+  // Calculate counts for each filter (based on region/search filtered patients, not activity filter)
+  const filterCounts = useMemo(() => {
+    // Apply only region and search filters (not activity filter)
+    let baseFiltered = patients;
+
+    if (selectedRegion !== 'all') {
+      baseFiltered = baseFiltered.filter(patient => patient.region === selectedRegion);
+    }
+
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      baseFiltered = baseFiltered.filter(patient =>
+        patient.name.toLowerCase().includes(term) ||
+        patient.delegation.toLowerCase().includes(term) ||
+        patient.address?.toLowerCase().includes(term)
+      );
+    }
+
+    const all = baseFiltered.length;
+    const rentals = baseFiltered.filter(p => p.devices?.some(d => d.status === 'RENTED')).length;
+    const sales = baseFiltered.filter(p => p.devices?.some(d => d.status === 'SOLD')).length;
+    const diagnosticsOnly = baseFiltered.filter(p => {
+      const hasRentals = p.devices?.some(d => d.status === 'RENTED') || false;
+      const hasSales = p.devices?.some(d => d.status === 'SOLD') || false;
+      const hasDiagnostics = (p.diagnostics?.length || 0) > 0;
+      return hasDiagnostics && !hasRentals && !hasSales;
+    }).length;
+    const appointments = baseFiltered.filter(p => (p.appointments?.length || 0) > 0).length;
+    const manualTasks = baseFiltered.filter(p => (p.manualTasks?.length || 0) > 0).length;
+
+    return { all, rentals, sales, diagnosticsOnly, appointments, manualTasks };
+  }, [patients, selectedRegion, searchTerm]);
 
   const getRegionStats = (region: string) => {
     return patients.filter(patient => patient.region === region).length;
@@ -170,37 +238,140 @@ const MapPreview: React.FC = () => {
 
       {/* Filters Bar */}
       <div className="bg-white rounded-xl shadow-sm border p-4">
-        <div className="flex flex-col md:flex-row gap-4">
-          {/* Search */}
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Rechercher un patient, délégation, adresse..."
-              className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col md:flex-row gap-4">
+            {/* Search */}
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Rechercher un patient, délégation, adresse..."
+                className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+
+            {/* Region Filter */}
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-slate-400" />
+              <select
+                className="px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white min-w-[180px]"
+                value={selectedRegion}
+                onChange={(e) => setSelectedRegion(e.target.value)}
+              >
+                <option value="all">Toutes les régions</option>
+                {Object.keys(tunisiaRegions).map(region => {
+                  const count = getRegionStats(region);
+                  return count > 0 ? (
+                    <option key={region} value={region}>
+                      {region} ({count})
+                    </option>
+                  ) : null;
+                })}
+              </select>
+            </div>
           </div>
 
-          {/* Region Filter */}
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-slate-400" />
-            <select
-              className="px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white min-w-[180px]"
-              value={selectedRegion}
-              onChange={(e) => setSelectedRegion(e.target.value)}
+          {/* Activity Filter Buttons */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm text-slate-500 font-medium mr-2">Filtrer par:</span>
+            <button
+              onClick={() => setActivityFilter('all')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                activityFilter === 'all'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
             >
-              <option value="all">Toutes les régions</option>
-              {Object.keys(tunisiaRegions).map(region => {
-                const count = getRegionStats(region);
-                return count > 0 ? (
-                  <option key={region} value={region}>
-                    {region} ({count})
-                  </option>
-                ) : null;
-              })}
-            </select>
+              <Users className="h-4 w-4" />
+              Tous
+              <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                activityFilter === 'all' ? 'bg-blue-500 text-white' : 'bg-slate-200 text-slate-600'
+              }`}>
+                {filterCounts.all}
+              </span>
+            </button>
+            <button
+              onClick={() => setActivityFilter('rentals')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                activityFilter === 'rentals'
+                  ? 'bg-purple-600 text-white shadow-md'
+                  : 'bg-slate-100 text-slate-700 hover:bg-purple-100'
+              }`}
+            >
+              <Key className="h-4 w-4" />
+              Locations
+              <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                activityFilter === 'rentals' ? 'bg-purple-500 text-white' : 'bg-purple-100 text-purple-700'
+              }`}>
+                {filterCounts.rentals}
+              </span>
+            </button>
+            <button
+              onClick={() => setActivityFilter('sales')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                activityFilter === 'sales'
+                  ? 'bg-green-600 text-white shadow-md'
+                  : 'bg-slate-100 text-slate-700 hover:bg-green-100'
+              }`}
+            >
+              <ShoppingCart className="h-4 w-4" />
+              Ventes
+              <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                activityFilter === 'sales' ? 'bg-green-500 text-white' : 'bg-green-100 text-green-700'
+              }`}>
+                {filterCounts.sales}
+              </span>
+            </button>
+            <button
+              onClick={() => setActivityFilter('diagnostics_only')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                activityFilter === 'diagnostics_only'
+                  ? 'bg-orange-600 text-white shadow-md'
+                  : 'bg-slate-100 text-slate-700 hover:bg-orange-100'
+              }`}
+            >
+              <Stethoscope className="h-4 w-4" />
+              Diagnostics uniquement
+              <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                activityFilter === 'diagnostics_only' ? 'bg-orange-500 text-white' : 'bg-orange-100 text-orange-700'
+              }`}>
+                {filterCounts.diagnosticsOnly}
+              </span>
+            </button>
+            <button
+              onClick={() => setActivityFilter('appointments')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                activityFilter === 'appointments'
+                  ? 'bg-cyan-600 text-white shadow-md'
+                  : 'bg-slate-100 text-slate-700 hover:bg-cyan-100'
+              }`}
+            >
+              <Calendar className="h-4 w-4" />
+              RDV
+              <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                activityFilter === 'appointments' ? 'bg-cyan-500 text-white' : 'bg-cyan-100 text-cyan-700'
+              }`}>
+                {filterCounts.appointments}
+              </span>
+            </button>
+            <button
+              onClick={() => setActivityFilter('manual_tasks')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                activityFilter === 'manual_tasks'
+                  ? 'bg-pink-600 text-white shadow-md'
+                  : 'bg-slate-100 text-slate-700 hover:bg-pink-100'
+              }`}
+            >
+              <ClipboardList className="h-4 w-4" />
+              Tâches
+              <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                activityFilter === 'manual_tasks' ? 'bg-pink-500 text-white' : 'bg-pink-100 text-pink-700'
+              }`}>
+                {filterCounts.manualTasks}
+              </span>
+            </button>
           </div>
         </div>
       </div>
@@ -219,10 +390,10 @@ const MapPreview: React.FC = () => {
         )}
 
         {/* Compact Legend */}
-        <div className="absolute bottom-4 left-4 bg-white/95 backdrop-blur-sm rounded-lg shadow-lg border p-3 z-[1000] max-w-[260px]">
+        <div className="absolute bottom-4 left-4 bg-white/95 backdrop-blur-sm rounded-lg shadow-lg border p-3 z-[1000] max-w-[280px]">
           <h4 className="font-semibold text-xs text-slate-800 mb-2 flex items-center gap-1.5">
             <MapPin className="h-3.5 w-3.5 text-blue-600" />
-            Légende
+            Légende des couleurs
           </h4>
 
           {/* HQ */}
@@ -233,40 +404,29 @@ const MapPreview: React.FC = () => {
             <span className="text-[11px] text-slate-600">Siège {companySettings?.companyName || 'Entreprise'}</span>
           </div>
 
-          {/* Status Legend */}
-          <div className="space-y-1.5 pb-2 mb-2 border-b border-slate-100">
-            <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wide">Statut visite</p>
-            <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
-                <span className="text-[10px] text-slate-600">Récente (&lt;30j)</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-amber-500"></div>
-                <span className="text-[10px] text-slate-600">Modérée (30-90j)</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                <span className="text-[10px] text-slate-600">Ancienne (&gt;90j)</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-slate-400"></div>
-                <span className="text-[10px] text-slate-600">Nouvelle</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Special Categories */}
+          {/* Patient Categories */}
           <div className="space-y-1.5">
-            <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wide">Catégories</p>
-            <div className="flex flex-wrap gap-2">
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-purple-500 ring-2 ring-purple-300"></div>
-                <span className="text-[10px] text-slate-600">Équipement</span>
+            <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wide mb-1">Type de patient</p>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded-full bg-purple-500 ring-2 ring-purple-300"></div>
+                <span className="text-[11px] text-slate-700 font-medium">Location</span>
+                <span className="text-[10px] text-slate-500">- Patient avec location active</span>
               </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-orange-500 ring-2 ring-orange-300"></div>
-                <span className="text-[10px] text-slate-600">Diagnostic</span>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded-full bg-emerald-500 ring-2 ring-emerald-300"></div>
+                <span className="text-[11px] text-slate-700 font-medium">Vente</span>
+                <span className="text-[10px] text-slate-500">- Patient avec vente</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded-full bg-amber-500 ring-2 ring-amber-300"></div>
+                <span className="text-[11px] text-slate-700 font-medium">Diagnostic</span>
+                <span className="text-[10px] text-slate-500">- Non appareillé</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded-full bg-slate-400 ring-2 ring-white"></div>
+                <span className="text-[11px] text-slate-700 font-medium">Nouveau</span>
+                <span className="text-[10px] text-slate-500">- Sans activité</span>
               </div>
             </div>
           </div>

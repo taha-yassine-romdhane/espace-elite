@@ -9,8 +9,6 @@ import {
     Settings,
     LogOut,
     ChevronDown,
-    Menu,
-    X,
     Calendar,
     HelpCircle,
     Link,
@@ -22,7 +20,8 @@ import {
     Stethoscope,
     Eye,
     EyeOff,
-    Search
+    Search,
+    X
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import axios from 'axios';
@@ -37,8 +36,8 @@ import { useToast } from "@/components/ui/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface NavbarProps {
-    onSidebarToggle?: () => void;
-    sidebarExpanded?: boolean;
+    // Props kept for backwards compatibility but no longer used
+    // Mobile sidebar is now handled by the sidebar component itself
 }
 
 interface Notification {
@@ -58,7 +57,7 @@ interface Notification {
 type NotificationType = 'FOLLOW_UP' | 'MAINTENANCE' | 'APPOINTMENT' | 'PAYMENT_DUE' | 'TRANSFER' | 'OTHER';
 type NotificationStatus = 'PENDING' | 'COMPLETED' | 'DISMISSED' | 'READ';
 
-const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true }) => {
+const Navbar: React.FC<NavbarProps> = () => {
     const { data: session } = useSession();
     const router = useRouter();
     const { toast } = useToast();
@@ -224,7 +223,6 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
             '/roles/admin/dashboard': 'Tableau de Bord',
             '/roles/admin/tasks': 'Gestion des Tâches',
             '/roles/admin/info-step': 'Info des Steps',
-            '/roles/admin/notifications': 'Notifications',
             '/roles/admin/users': 'Utilisateurs',
             '/roles/admin/espace-technicien': 'Espace Technicien',
             '/roles/admin/renseignement': 'Renseignement',
@@ -578,15 +576,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
             <div className="px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between items-center h-16">
                     {/* Left Section */}
-                    <div className="flex items-center space-x-4">
-                        {/* Mobile Sidebar Toggle */}
-                        <button
-                            onClick={onSidebarToggle}
-                            className="lg:hidden p-2 rounded-lg text-gray-600 hover:text-[#1e3a8a] hover:bg-gray-50 transition-colors"
-                        >
-                            {sidebarExpanded ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-                        </button>
-
+                    <div className="flex items-center space-x-4 ml-14 md:ml-0">
                         {/* Page Title & Breadcrumb */}
                         <div className="flex flex-col">
                             <h1 className="text-lg font-semibold text-[#1e3a8a] leading-tight">
@@ -739,17 +729,6 @@ const Navbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true
                                                 </div>
                                             ))
                                         )}
-                                    </div>
-                                    <div className="px-4 py-2 border-t border-gray-100">
-                                        <button
-                                            onClick={() => {
-                                                router.push('/roles/admin/notifications');
-                                                setIsNotificationsOpen(false);
-                                            }}
-                                            className="text-sm text-[#1e3a8a] font-medium hover:underline w-full text-left"
-                                        >
-                                            Voir toutes les notifications
-                                        </button>
                                     </div>
                                 </div>
                             )}

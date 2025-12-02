@@ -2,8 +2,16 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Activity, Ruler, Weight, FileText } from 'lucide-react';
 
+interface Patient {
+  id: string;
+  taille?: number;
+  poids?: number;
+  imc?: number;
+  remarques?: string;
+}
+
 interface PatientMedicalInfoProps {
-  patient: any;
+  patient: Patient;
 }
 
 export const PatientMedicalInfo = ({ patient }: PatientMedicalInfoProps) => {

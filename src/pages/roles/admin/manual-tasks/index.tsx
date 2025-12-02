@@ -12,6 +12,7 @@ import { Check, X, Edit2, Plus, Trash2, Search, ChevronLeft, ChevronRight, Clipb
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import Link from 'next/link';
+import { CreateManualTaskDialog } from "@/components/employee/CreateManualTaskDialog";
 
 interface Employee {
   id: string;
@@ -48,6 +49,16 @@ interface ManualTask {
   completedAt?: Date | string;
   createdAt: Date | string;
   updatedAt: Date | string;
+}
+
+interface AppointmentData {
+  patientId: string;
+  appointmentType: string;
+  scheduledDate: Date;
+  location: string;
+  priority: string;
+  status: string;
+  notes: string;
 }
 
 const TASK_TYPES = [
@@ -208,12 +219,7 @@ export default function AdminManualTasksPage() {
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editedTask, setEditedTask] = useState<ManualTask | null>(null);
-  const [isAddingNew, setIsAddingNew] = useState(false);
-  const [newTask, setNewTask] = useState<Partial<ManualTask>>({
-    taskType: 'CONSULTATION',
-    priority: 'MEDIUM',
-    status: 'PENDING',
-  });
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<ManualTask | null>(null);
   const [appointmentDialogOpen, setAppointmentDialogOpen] = useState(false);
@@ -297,27 +303,6 @@ export default function AdminManualTasksPage() {
     setCurrentPage(1);
   }, [searchTerm, statusFilter, typeFilter, priorityFilter]);
 
-  // Create mutation
-  const createMutation = useMutation({
-    mutationFn: async (data: Partial<ManualTask>) => {
-      const response = await fetch("/api/manual-tasks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) throw new Error("Failed to create task");
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["manualTasks"] });
-      toast({ title: "Succès", description: "Tâche créée avec succès" });
-      handleCancelNew();
-    },
-    onError: () => {
-      toast({ title: "Erreur", description: "Erreur lors de la création", variant: "destructive" });
-    },
-  });
-
   // Update mutation
   const updateMutation = useMutation({
     mutationFn: async (data: ManualTask) => {
@@ -358,7 +343,7 @@ export default function AdminManualTasksPage() {
 
   // Create appointment mutation
   const createAppointmentMutation = useMutation({
-    mutationFn: async (appointment: any) => {
+    mutationFn: async (appointment: AppointmentData) => {
       const response = await fetch('/api/appointments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -427,34 +412,10 @@ export default function AdminManualTasksPage() {
     setTaskToDelete(null);
   };
 
-  const handleAddNew = () => setIsAddingNew(true);
-
-  const handleCancelNew = () => {
-    setIsAddingNew(false);
-    setNewTask({
-      taskType: 'CONSULTATION',
-      priority: 'MEDIUM',
-      status: 'PENDING',
-    });
-  };
-
-  const handleSaveNew = async () => {
-    if (!newTask.patientId || !newTask.assignedToId) {
-      toast({ title: "Erreur", description: "Patient et employé sont requis", variant: "destructive" });
-      return;
-    }
-
-    await createMutation.mutateAsync(newTask);
-  };
-
-  const updateEditedField = (field: keyof ManualTask, value: any) => {
+  const updateEditedField = (field: keyof ManualTask, value: ManualTask[keyof ManualTask]) => {
     if (editedTask) {
       setEditedTask({ ...editedTask, [field]: value });
     }
-  };
-
-  const updateNewField = (field: keyof ManualTask, value: any) => {
-    setNewTask(prev => ({ ...prev, [field]: value }));
   };
 
   const handleOpenAppointmentDialog = (task: ManualTask) => {
@@ -545,7 +506,7 @@ export default function AdminManualTasksPage() {
                 <SelectValue placeholder="Employé" />
               </SelectTrigger>
               <SelectContent>
-                {employees.map((emp: any) => (
+                {employees.map((emp: Employee) => (
                   <SelectItem key={emp.id} value={emp.id}>
                     {emp.firstName} {emp.lastName}
                   </SelectItem>
@@ -665,107 +626,6 @@ export default function AdminManualTasksPage() {
     }
   };
 
-  const renderNewRow = () => {
-    const selectedPatient = patients.find((p: Patient) => p.id === newTask.patientId);
-
-    return (
-      <tr className="bg-blue-50 border-b">
-        <td className="px-2 py-2">
-          <span className="text-xs text-gray-500 italic">Auto-généré</span>
-        </td>
-        <td className="px-2 py-2">
-          <Select
-            value={newTask.taskType || 'CONSULTATION'}
-            onValueChange={(val) => updateNewField('taskType', val)}
-          >
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {TASK_TYPES.map(type => (
-                <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </td>
-        <td className="px-2 py-2">
-          <div className="flex flex-col gap-1">
-            <PatientSelectionDialog
-              patients={patients}
-              selectedPatientId={newTask.patientId}
-              onSelect={(patientId) => updateNewField('patientId', patientId)}
-            />
-            {selectedPatient?.patientCode && (
-              <span className="text-xs font-mono text-gray-500">{selectedPatient.patientCode}</span>
-            )}
-          </div>
-        </td>
-        <td className="px-2 py-2">
-          <span className="text-xs text-gray-600">{selectedPatient?.telephone || '-'}</span>
-        </td>
-        <td className="px-2 py-2">
-          <Select
-            value={newTask.assignedToId || ''}
-            onValueChange={(val) => updateNewField('assignedToId', val)}
-          >
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue placeholder="Sélectionner" />
-            </SelectTrigger>
-            <SelectContent>
-              {employees.map((emp: any) => (
-                <SelectItem key={emp.id} value={emp.id}>
-                  {emp.firstName} {emp.lastName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </td>
-        <td className="px-2 py-2">
-          <Select
-            value={newTask.priority || 'MEDIUM'}
-            onValueChange={(val) => updateNewField('priority', val)}
-          >
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PRIORITIES.map(priority => (
-                <SelectItem key={priority.value} value={priority.value}>{priority.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </td>
-        <td className="px-2 py-2">
-          <Input
-            value={newTask.adminNotes || ''}
-            onChange={(e) => updateNewField('adminNotes', e.target.value)}
-            placeholder="Notes admin"
-            className="h-8 text-xs"
-          />
-        </td>
-        <td className="px-2 py-2">
-          <span className="text-xs text-gray-500">-</span>
-        </td>
-        <td className="px-2 py-2">
-          <Badge className="text-xs bg-yellow-100 text-yellow-800">En attente</Badge>
-        </td>
-        <td className="px-2 py-2">
-          <span className="text-xs text-gray-500">-</span>
-        </td>
-        <td className="px-2 py-2 sticky right-0 bg-blue-50">
-          <div className="flex gap-1 justify-center">
-            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={handleSaveNew}>
-              <Check className="h-4 w-4 text-green-600" />
-            </Button>
-            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={handleCancelNew}>
-              <X className="h-4 w-4 text-red-600" />
-            </Button>
-          </div>
-        </td>
-      </tr>
-    );
-  };
-
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex justify-between items-center">
@@ -794,7 +654,7 @@ export default function AdminManualTasksPage() {
               />
             </div>
           </div>
-          <Button onClick={handleAddNew} disabled={isAddingNew}>
+          <Button onClick={() => setIsCreateDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Ajouter
           </Button>
@@ -878,8 +738,6 @@ export default function AdminManualTasksPage() {
               </tr>
             </thead>
             <tbody>
-              {isAddingNew && renderNewRow()}
-
               {paginatedTasks.map((task: ManualTask) => {
                 const isEditing = editingId === task.id;
                 return (
@@ -1162,6 +1020,12 @@ export default function AdminManualTasksPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Create Manual Task Dialog */}
+      <CreateManualTaskDialog
+        open={isCreateDialogOpen}
+        onOpenChange={setIsCreateDialogOpen}
+      />
     </div>
   );
 }

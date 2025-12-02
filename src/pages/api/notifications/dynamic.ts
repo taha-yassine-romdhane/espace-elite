@@ -202,8 +202,8 @@ export default async function handler(
             clientName: appointment.patient ? `${appointment.patient.firstName} ${appointment.patient.lastName}` : appointment.company?.companyName || '',
             clientType: appointment.patient ? 'patient' : 'company',
             clientId: appointment.patientId || appointment.companyId || '',
-            actionUrl: `/roles/admin/appointments/${appointment.id}`,
-            actionLabel: 'Voir le rendez-vous',
+            actionUrl: appointment.patientId ? `/roles/admin/renseignement/patient/${appointment.patientId}` : '#',
+            actionLabel: 'Voir le patient',
             dueDate: appointment.scheduledDate,
             metadata: { 
               assignedTo: appointment.assignedTo ? `${appointment.assignedTo.firstName} ${appointment.assignedTo.lastName}` : null,

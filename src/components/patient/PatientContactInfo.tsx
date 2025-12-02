@@ -2,8 +2,16 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Phone, MapPin } from 'lucide-react';
 
+interface Patient {
+  id: string;
+  telephone?: string;
+  telephone2?: string;
+  email?: string;
+  adresseComplete?: string;
+}
+
 interface PatientContactInfoProps {
-  patient: any;
+  patient: Patient;
 }
 
 export const PatientContactInfo = ({ patient }: PatientContactInfoProps) => {

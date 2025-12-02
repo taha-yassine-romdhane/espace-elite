@@ -6,7 +6,6 @@ import AdminLayout from './AdminLayout';
 import {
   Users,
   Package,
-  Bell,
   ShoppingCart,
   Settings,
   ClipboardList,
@@ -77,15 +76,7 @@ export default function AdminDashboard() {
       path: '/roles/admin/appareils',
       category: 'Équipements'
     },
-    { 
-      icon: <Bell size={24} />, 
-      title: 'Alertes Système', 
-      description: 'Notifications critiques et maintenance', 
-      bgColor: 'bg-gradient-to-br from-amber-500 to-orange-500', 
-      path: '/roles/admin/notifications',
-      category: 'Surveillance'
-    },
-    { 
+    {
       icon: <Settings size={24} />, 
       title: 'Configuration et paramètres', 
       description: 'Paramètres système et sécurité', 

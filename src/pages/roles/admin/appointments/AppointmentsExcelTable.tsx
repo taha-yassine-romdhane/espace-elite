@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -405,13 +404,13 @@ export default function AppointmentsExcelTable() {
     await createMutation.mutateAsync(newAppointment);
   };
 
-  const updateEditedField = (field: keyof Appointment, value: any) => {
+  const updateEditedField = (field: keyof Appointment, value: Appointment[keyof Appointment]) => {
     if (editedAppointment) {
       setEditedAppointment({ ...editedAppointment, [field]: value });
     }
   };
 
-  const updateNewField = (field: keyof Appointment, value: any) => {
+  const updateNewField = (field: keyof Appointment, value: Appointment[keyof Appointment]) => {
     setNewAppointment(prev => ({ ...prev, [field]: value }));
   };
 
@@ -462,7 +461,7 @@ export default function AppointmentsExcelTable() {
             <Input
               type="datetime-local"
               value={editScheduledDateValue}
-              onChange={(e) => updateEditedField('scheduledDate', e.target.value ? new Date(e.target.value) : null)}
+              onChange={(e) => updateEditedField('scheduledDate', e.target.value ? new Date(e.target.value) : undefined)}
               className="h-8 text-xs"
             />
           );
@@ -515,14 +514,14 @@ export default function AppointmentsExcelTable() {
           return (
             <Select
               value={editedAppointment.assignedToId || 'none'}
-              onValueChange={(val) => updateEditedField('assignedToId', val === 'none' ? null : val)}
+              onValueChange={(val) => updateEditedField('assignedToId', val === 'none' ? undefined : val)}
             >
               <SelectTrigger className="h-8 text-xs">
                 <SelectValue placeholder="Technicien" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Aucun</SelectItem>
-                {employees.map((emp: any) => (
+                {employees.map((emp: Employee) => (
                   <SelectItem key={emp.id} value={emp.id}>
                     {emp.firstName} {emp.lastName}
                   </SelectItem>
@@ -637,7 +636,7 @@ export default function AppointmentsExcelTable() {
         <Input
           type="datetime-local"
           value={newAppointment.scheduledDate ? new Date(newAppointment.scheduledDate).toISOString().slice(0, 16) : ''}
-          onChange={(e) => updateNewField('scheduledDate', e.target.value ? new Date(e.target.value) : null)}
+          onChange={(e) => updateNewField('scheduledDate', e.target.value ? new Date(e.target.value) : undefined)}
           className="h-8 text-xs"
         />
       </td>
@@ -652,7 +651,7 @@ export default function AppointmentsExcelTable() {
       <td className="px-2 py-2">
         <Select
           value={newAppointment.priority || 'NORMAL'}
-          onValueChange={(val) => updateNewField('priority', val as any)}
+          onValueChange={(val) => updateNewField('priority', val as Appointment['priority'])}
         >
           <SelectTrigger className="h-8 text-xs">
             <SelectValue />
@@ -667,7 +666,7 @@ export default function AppointmentsExcelTable() {
       <td className="px-2 py-2">
         <Select
           value={newAppointment.status || 'SCHEDULED'}
-          onValueChange={(val) => updateNewField('status', val as any)}
+          onValueChange={(val) => updateNewField('status', val as Appointment['status'])}
         >
           <SelectTrigger className="h-8 text-xs">
             <SelectValue />
@@ -689,7 +688,7 @@ export default function AppointmentsExcelTable() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="none">Aucun</SelectItem>
-            {employees.map((emp: any) => (
+            {employees.map((emp: Employee) => (
               <SelectItem key={emp.id} value={emp.id}>
                 {emp.firstName} {emp.lastName}
               </SelectItem>

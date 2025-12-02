@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ShoppingCart, AlertCircle, Package, CreditCard, FileText, Eye, Edit2 } from 'lucide-react';
+import { ShoppingCart, AlertCircle, Package, CreditCard, FileText, Edit2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
@@ -8,16 +8,47 @@ import { fr } from 'date-fns/locale';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AddSaleForm } from '@/components/employee/patient-details-forms/AddSaleForm';
 
+interface SaleItem {
+  id: string;
+  productName?: string;
+  quantity?: number;
+  unitPrice?: number;
+  total?: number;
+}
+
+interface Payment {
+  id: string;
+  amount: number;
+}
+
+interface CNAMBon {
+  id: string;
+  bonAmount?: number;
+}
+
+interface Sale {
+  id: string;
+  saleCode?: string;
+  saleDate?: string | Date;
+  status?: string;
+  totalAmount?: number;
+  paymentMethod?: string;
+  notes?: string;
+  items?: SaleItem[];
+  payments?: Payment[];
+  cnamBons?: CNAMBon[];
+}
+
 interface PatientSalesProps {
-  sales: any[];
-  saleItems?: any[];
+  sales: Sale[];
+  saleItems?: SaleItem[];
   isLoading?: boolean;
   patientId?: string;
 }
 
-export const PatientSales = ({ sales = [], saleItems = [], isLoading = false, patientId }: PatientSalesProps) => {
+export const PatientSales = ({ sales = [], isLoading = false, patientId }: PatientSalesProps) => {
   const [showItemsDialog, setShowItemsDialog] = useState(false);
-  const [selectedSale, setSelectedSale] = useState<any>(null);
+  const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [showManageDialog, setShowManageDialog] = useState(false);
 
   const handleManageSuccess = () => {
@@ -51,7 +82,7 @@ export const PatientSales = ({ sales = [], saleItems = [], isLoading = false, pa
     }
   };
 
-  const formatAmount = (amount: any) => {
+  const formatAmount = (amount: number | string | null | undefined) => {
     const num = Number(amount);
     return isNaN(num) ? '0.00' : num.toFixed(2);
   };
@@ -117,7 +148,7 @@ export const PatientSales = ({ sales = [], saleItems = [], isLoading = false, pa
     }
   };
 
-  const handleViewItems = (sale: any) => {
+  const handleViewItems = (sale: Sale) => {
     setSelectedSale(sale);
     setShowItemsDialog(true);
   };
@@ -275,7 +306,7 @@ export const PatientSales = ({ sales = [], saleItems = [], isLoading = false, pa
                                 <div className="flex items-center gap-1">
                                   <CreditCard className="h-3 w-3 text-green-600" />
                                   <span className="text-xs font-medium text-green-700">
-                                    {formatAmount(sale.payments.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0))} DT
+                                    {formatAmount(sale.payments.reduce((sum: number, p: Payment) => sum + (Number(p.amount) || 0), 0))} DT
                                   </span>
                                 </div>
                                 <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
@@ -298,7 +329,7 @@ export const PatientSales = ({ sales = [], saleItems = [], isLoading = false, pa
                               {sale.cnamBons.length}
                             </Badge>
                             <div className="text-xs text-slate-600">
-                              {formatAmount(sale.cnamBons.reduce((sum: number, bon: any) => sum + (Number(bon.bonAmount) || 0), 0))} DT
+                              {formatAmount(sale.cnamBons.reduce((sum: number, bon: CNAMBon) => sum + (Number(bon.bonAmount) || 0), 0))} DT
                             </div>
                           </div>
                         ) : (
@@ -321,7 +352,7 @@ export const PatientSales = ({ sales = [], saleItems = [], isLoading = false, pa
             <div className="flex flex-col items-center justify-center py-12 text-gray-500">
               <AlertCircle className="h-12 w-12 mb-4 opacity-50" />
               <p className="text-lg font-medium">Aucune vente</p>
-              <p className="text-sm">Ce patient n'a pas encore effectué d'achat</p>
+              <p className="text-sm">Ce patient n&apos;a pas encore effectué d&apos;achat</p>
             </div>
           )}
         </CardContent>
@@ -353,7 +384,7 @@ export const PatientSales = ({ sales = [], saleItems = [], isLoading = false, pa
                     </tr>
                   </thead>
                   <tbody>
-                    {selectedSale.items.map((item: any, idx: number) => (
+                    {selectedSale.items.map((item: SaleItem, idx: number) => (
                       <tr key={item.id || idx} className="border-b border-slate-100 hover:bg-slate-50">
                         <td className="px-3 py-2 text-sm font-medium border-r border-slate-100">
                           {item.product?.name || item.medicalDevice?.name || 'Article'}

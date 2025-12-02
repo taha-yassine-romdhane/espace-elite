@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check, X, Search, ChevronLeft, ChevronRight, ClipboardCheck, CheckCircle, Calendar, User } from "lucide-react";
+import { Check, X, Search, ChevronLeft, ChevronRight, ClipboardCheck, CheckCircle, Calendar, User, Filter, ChevronDown, Phone } from "lucide-react";
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Textarea } from "@/components/ui/textarea";
@@ -135,6 +135,7 @@ export default function EmployeeManualTasksPage() {
   const [statusFilter, setStatusFilter] = useState<string>('PENDING'); // Default to pending tasks
   const [typeFilter, setTypeFilter] = useState<string>('ALL');
   const [priorityFilter, setPriorityFilter] = useState<string>('ALL');
+  const [showFilters, setShowFilters] = useState(false); // Mobile filter toggle
 
   // Fetch manual tasks (only assigned to this employee)
   const { data: tasks = [] } = useQuery({
@@ -287,45 +288,62 @@ export default function EmployeeManualTasksPage() {
     });
   };
 
+  // Check if any filter is active
+  const hasActiveFilters = statusFilter !== 'PENDING' || typeFilter !== 'ALL' || priorityFilter !== 'ALL' || searchTerm;
+
   return (
-    <div className="px-4 py-6 space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="px-3 md:px-4 py-4 md:py-6 space-y-4 md:space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <ClipboardCheck className="h-8 w-8" />
+          <h1 className="text-xl md:text-3xl font-bold flex items-center gap-2">
+            <ClipboardCheck className="h-6 w-6 md:h-8 md:w-8" />
             Mes Tâches
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-xs md:text-sm text-gray-500 mt-1">
             {filteredTasks.length} tâche{filteredTasks.length > 1 ? 's' : ''} assignée{filteredTasks.length > 1 ? 's' : ''}
           </p>
         </div>
+
+        {/* Mobile Filter Toggle Button */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowFilters(!showFilters)}
+          className="md:hidden flex items-center gap-2 self-start"
+        >
+          <Filter className="h-4 w-4" />
+          <span>Filtres</span>
+          {hasActiveFilters && (
+            <Badge className="h-5 w-5 p-0 flex items-center justify-center bg-green-600 text-white text-xs">
+              !
+            </Badge>
+          )}
+          <ChevronDown className={`h-4 w-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+        </Button>
       </div>
 
-      {/* Filters */}
-      <div className="space-y-3 bg-gray-50 p-4 rounded-lg border">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex-1 min-w-[200px]">
-            <div className="relative">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Rechercher par patient, téléphone..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8"
-              />
-            </div>
-          </div>
+      {/* Filters - Collapsible on mobile */}
+      <div className={`space-y-3 bg-gray-50 p-3 md:p-4 rounded-lg border ${showFilters ? 'block' : 'hidden md:block'}`}>
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Rechercher par patient, téléphone..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-8"
+          />
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="text-xs font-medium text-muted-foreground">Filtres:</span>
-
+        {/* Filter dropdowns - Grid on mobile */}
+        <div className="grid grid-cols-2 md:flex md:flex-wrap items-center gap-2 md:gap-3">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[160px] h-9">
+            <SelectTrigger className="w-full md:w-[140px] h-9 text-xs md:text-sm">
               <SelectValue placeholder="Statut" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="ALL">Tous les statuts</SelectItem>
+              <SelectItem value="ALL">Tous statuts</SelectItem>
               {STATUSES.map(status => (
                 <SelectItem key={status} value={status}>{getStatusLabel(status)}</SelectItem>
               ))}
@@ -333,11 +351,11 @@ export default function EmployeeManualTasksPage() {
           </Select>
 
           <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-[180px] h-9">
+            <SelectTrigger className="w-full md:w-[140px] h-9 text-xs md:text-sm">
               <SelectValue placeholder="Type" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="ALL">Tous les types</SelectItem>
+              <SelectItem value="ALL">Tous types</SelectItem>
               {TASK_TYPES.map(type => (
                 <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
               ))}
@@ -345,18 +363,18 @@ export default function EmployeeManualTasksPage() {
           </Select>
 
           <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="w-[160px] h-9">
+            <SelectTrigger className="w-full md:w-[140px] h-9 text-xs md:text-sm">
               <SelectValue placeholder="Priorité" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="ALL">Toutes priorités</SelectItem>
+              <SelectItem value="ALL">Toutes</SelectItem>
               {PRIORITIES.map(priority => (
                 <SelectItem key={priority.value} value={priority.value}>{priority.label}</SelectItem>
               ))}
             </SelectContent>
           </Select>
 
-          {(statusFilter !== 'PENDING' || typeFilter !== 'ALL' || priorityFilter !== 'ALL' || searchTerm) && (
+          {hasActiveFilters && (
             <Button
               variant="ghost"
               size="sm"
@@ -366,17 +384,146 @@ export default function EmployeeManualTasksPage() {
                 setPriorityFilter('ALL');
                 setSearchTerm('');
               }}
-              className="h-9"
+              className="h-9 text-xs md:text-sm col-span-1"
             >
               <X className="h-4 w-4 mr-1" />
-              Réinitialiser
+              Reset
             </Button>
           )}
         </div>
       </div>
 
-      {/* Table */}
-      <div className="border rounded-lg overflow-hidden">
+      {/* Mobile Card View */}
+      <div className="md:hidden space-y-3">
+        {paginatedTasks.map((task: ManualTask) => {
+          const isCompleting = completingId === task.id;
+          return (
+            <div
+              key={task.id}
+              className={`bg-white border rounded-lg p-3 space-y-3 ${isCompleting ? 'ring-2 ring-green-500 bg-green-50' : ''}`}
+            >
+              {/* Header Row */}
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant="outline" className={`text-xs ${getTaskTypeColor(task.taskType)}`}>
+                    {TASK_TYPES_LABELS[task.taskType] || task.taskType}
+                  </Badge>
+                  <Badge variant="outline" className={`text-xs ${getPriorityColor(task.priority)}`}>
+                    {getPriorityLabel(task.priority)}
+                  </Badge>
+                </div>
+                <Badge className={`text-xs ${getStatusColor(task.status)}`}>
+                  {getStatusLabel(task.status)}
+                </Badge>
+              </div>
+
+              {/* Patient Info */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4 text-gray-400" />
+                  {task.patient ? (
+                    <Link
+                      href={`/roles/employee/renseignement/patient/${task.patientId}`}
+                      className="text-sm font-medium text-blue-600 hover:underline"
+                    >
+                      {`${task.patient.firstName} ${task.patient.lastName}`}
+                    </Link>
+                  ) : (
+                    <span className="text-sm text-gray-500">-</span>
+                  )}
+                </div>
+                {task.patient?.telephone && (
+                  <a href={`tel:${task.patient.telephone}`} className="flex items-center gap-1 text-xs text-gray-500">
+                    <Phone className="h-3 w-3" />
+                    {task.patient.telephone}
+                  </a>
+                )}
+              </div>
+
+              {/* Notes */}
+              {task.adminNotes && (
+                <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
+                  <span className="font-medium">Note admin:</span> {task.adminNotes}
+                </div>
+              )}
+
+              {/* Employee Notes Input (when completing) */}
+              {isCompleting && (
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-700">Mes notes:</label>
+                  <Textarea
+                    value={employeeNotes}
+                    onChange={(e) => setEmployeeNotes(e.target.value)}
+                    placeholder="Ajouter vos notes..."
+                    className="h-16 text-sm"
+                  />
+                </div>
+              )}
+
+              {/* Footer with date and actions */}
+              <div className="flex items-center justify-between pt-2 border-t">
+                <span className="text-xs text-gray-400">
+                  {format(new Date(task.createdAt), 'dd/MM/yyyy', { locale: fr })}
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => handleOpenAppointmentDialog(task)}
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs text-blue-600 border-blue-200"
+                  >
+                    <Calendar className="h-3 w-3 mr-1" />
+                    RDV
+                  </Button>
+
+                  {task.status === 'PENDING' && (
+                    <>
+                      {isCompleting ? (
+                        <div className="flex gap-1">
+                          <Button
+                            onClick={() => handleCompleteTask(task)}
+                            size="sm"
+                            className="h-8 text-xs bg-green-600 hover:bg-green-700"
+                          >
+                            <Check className="h-3 w-3 mr-1" />
+                            Valider
+                          </Button>
+                          <Button
+                            onClick={handleCancelComplete}
+                            size="sm"
+                            variant="outline"
+                            className="h-8 text-xs"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          onClick={() => handleStartComplete(task)}
+                          size="sm"
+                          className="h-8 text-xs bg-green-600 hover:bg-green-700"
+                        >
+                          <CheckCircle className="h-3 w-3 mr-1" />
+                          Terminer
+                        </Button>
+                      )}
+                    </>
+                  )}
+                  {task.status === 'COMPLETED' && (
+                    <span className="text-xs text-green-600 font-medium flex items-center gap-1 px-2">
+                      <CheckCircle className="h-3 w-3" />
+                      Terminé
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Desktop Table View */}
+      <div className="hidden md:block border rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-100 border-b sticky top-0">
@@ -533,11 +680,11 @@ export default function EmployeeManualTasksPage() {
 
       {/* Pagination */}
       {filteredTasks.length > 0 && (
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Afficher</span>
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-xs sm:text-sm">
+            <span className="text-muted-foreground hidden sm:inline">Afficher</span>
             <Select value={itemsPerPage.toString()} onValueChange={(val) => setItemsPerPage(Number(val))}>
-              <SelectTrigger className="w-[100px]">
+              <SelectTrigger className="w-[70px] sm:w-[80px] h-8">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -546,8 +693,8 @@ export default function EmployeeManualTasksPage() {
                 <SelectItem value="100">100</SelectItem>
               </SelectContent>
             </Select>
-            <span className="text-sm text-muted-foreground">
-              {startIndex + 1}-{Math.min(endIndex, filteredTasks.length)} sur {filteredTasks.length}
+            <span className="text-muted-foreground">
+              {startIndex + 1}-{Math.min(endIndex, filteredTasks.length)} / {filteredTasks.length}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -556,17 +703,19 @@ export default function EmployeeManualTasksPage() {
               disabled={currentPage === 1}
               size="sm"
               variant="outline"
+              className="h-8 w-8 p-0"
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="text-sm">
-              Page {currentPage} sur {totalPages || 1}
+            <span className="text-xs sm:text-sm min-w-[80px] text-center">
+              {currentPage} / {totalPages || 1}
             </span>
             <Button
               onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
               size="sm"
               variant="outline"
+              className="h-8 w-8 p-0"
             >
               <ChevronRight className="h-4 w-4" />
             </Button>

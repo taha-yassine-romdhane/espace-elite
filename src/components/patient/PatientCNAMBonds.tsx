@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { FileText, AlertCircle, Calendar, Plus, Save, X, Edit2, Trash2, Shield } from 'lucide-react';
+import { FileText, AlertCircle, Plus, Save, X, Edit2, Trash2 } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -18,14 +18,30 @@ import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/components/ui/use-toast';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 
+interface NomenclatureItem {
+  id: string;
+  bonType: string;
+  monthlyRate: number;
+}
+
+interface RentalItem {
+  id: string;
+  rentalCode?: string;
+}
+
+interface SaleItem {
+  id: string;
+  saleCode?: string;
+}
+
 interface CNAMBond {
   id: string;
   bonNumber?: string;
   dossierNumber?: string;
   bonType: string;
-  bonAmount: any;
-  devicePrice: any;
-  complementAmount: any;
+  bonAmount: number | string | null;
+  devicePrice: number | string | null;
+  complementAmount: number | string | null;
   status: string;
   category: string;
   currentStep?: number;
@@ -237,7 +253,7 @@ export const PatientCNAMBonds = ({ cnamBonds = [], isLoading = false, patientId 
     if (!editData) return;
 
     // Find CNAM rate from nomenclature
-    const nomenclatureItem = nomenclature.find((n: any) => n.bonType === selectedBondType);
+    const nomenclatureItem = nomenclature.find((n: NomenclatureItem) => n.bonType === selectedBondType);
     const cnamRate = nomenclatureItem?.monthlyRate || 0;
 
     const coveredMonths = editData.coveredMonths || 1;
@@ -313,7 +329,7 @@ export const PatientCNAMBonds = ({ cnamBonds = [], isLoading = false, patientId 
       : 'bg-green-100 text-green-700';
   };
 
-  const formatAmount = (amount: any) => {
+  const formatAmount = (amount: number | string | null | undefined) => {
     if (!amount) return '0.00';
     const num = typeof amount === 'string' ? parseFloat(amount) : amount;
     return num.toFixed(2);
@@ -441,7 +457,7 @@ export const PatientCNAMBonds = ({ cnamBonds = [], isLoading = false, patientId 
                             setEditData({ ...editData, rentalId: undefined, saleId: undefined, deviceMonthlyRate: 0 });
                           } else if (value.startsWith('rental-')) {
                             const rentalId = value.replace('rental-', '');
-                            const selectedRental = rentals.find((r: any) => r.id === rentalId);
+                            const selectedRental = rentals.find((r: RentalItem) => r.id === rentalId);
                             const deviceRate = selectedRental?.configuration?.rentalRate || 0;
 
                             const coveredMonths = editData.coveredMonths || 1;
@@ -461,7 +477,7 @@ export const PatientCNAMBonds = ({ cnamBonds = [], isLoading = false, patientId 
                             });
                           } else if (value.startsWith('sale-')) {
                             const saleId = value.replace('sale-', '');
-                            const selectedSale = sales.find((s: any) => s.id === saleId);
+                            const selectedSale = sales.find((s: SaleItem) => s.id === saleId);
                             const devicePrice = selectedSale?.totalAmount || selectedSale?.devicePrice || 0;
 
                             const cnamRate = editData.cnamMonthlyRate || 0;
@@ -486,12 +502,12 @@ export const PatientCNAMBonds = ({ cnamBonds = [], isLoading = false, patientId 
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="none">Aucune source</SelectItem>
-                          {rentals.map((rental: any) => (
+                          {rentals.map((rental: RentalItem) => (
                             <SelectItem key={rental.id} value={`rental-${rental.id}`}>
                               {rental.rentalCode}
                             </SelectItem>
                           ))}
-                          {sales.map((sale: any) => (
+                          {sales.map((sale: SaleItem) => (
                             <SelectItem key={sale.id} value={`sale-${sale.id}`}>
                               {sale.saleCode}
                             </SelectItem>
@@ -644,7 +660,6 @@ export const PatientCNAMBonds = ({ cnamBonds = [], isLoading = false, patientId 
               {/* Existing Rows */}
               {sortedBonds.map((bond) => {
                 const isEditing = editingId === bond.id;
-                const createdDate = new Date(bond.createdAt);
 
                 if (isEditing && editData) {
                   return (
@@ -673,7 +688,7 @@ export const PatientCNAMBonds = ({ cnamBonds = [], isLoading = false, patientId 
                                 setEditData({ ...editData, rentalId: undefined, saleId: undefined, deviceMonthlyRate: 0 });
                               } else if (value.startsWith('rental-')) {
                                 const rentalId = value.replace('rental-', '');
-                                const selectedRental = rentals.find((r: any) => r.id === rentalId);
+                                const selectedRental = rentals.find((r: RentalItem) => r.id === rentalId);
                                 const deviceRate = selectedRental?.configuration?.rentalRate || 0;
 
                                 const coveredMonths = editData.coveredMonths || 1;
@@ -693,7 +708,7 @@ export const PatientCNAMBonds = ({ cnamBonds = [], isLoading = false, patientId 
                                 });
                               } else if (value.startsWith('sale-')) {
                                 const saleId = value.replace('sale-', '');
-                                const selectedSale = sales.find((s: any) => s.id === saleId);
+                                const selectedSale = sales.find((s: SaleItem) => s.id === saleId);
                                 const devicePrice = selectedSale?.totalAmount || selectedSale?.devicePrice || 0;
 
                                 const cnamRate = editData.cnamMonthlyRate || 0;
@@ -718,12 +733,12 @@ export const PatientCNAMBonds = ({ cnamBonds = [], isLoading = false, patientId 
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="none">Aucune source</SelectItem>
-                              {rentals.map((rental: any) => (
+                              {rentals.map((rental: RentalItem) => (
                                 <SelectItem key={rental.id} value={`rental-${rental.id}`}>
                                   {rental.rentalCode}
                                 </SelectItem>
                               ))}
-                              {sales.map((sale: any) => (
+                              {sales.map((sale: SaleItem) => (
                                 <SelectItem key={sale.id} value={`sale-${sale.id}`}>
                                   {sale.saleCode}
                                 </SelectItem>

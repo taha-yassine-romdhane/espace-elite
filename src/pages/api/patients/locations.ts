@@ -74,11 +74,20 @@ function getPatientSelectFields() {
       orderBy: {
         scheduledDate: 'desc' as any
       },
-      take: 1,
       select: {
+        id: true,
         scheduledDate: true,
         status: true,
         location: true
+      }
+    },
+    manualTasks: {
+      select: {
+        id: true,
+        taskType: true,
+        status: true,
+        priority: true,
+        createdAt: true
       }
     },
     technician: {
@@ -140,15 +149,6 @@ function getPatientSelectFields() {
       }
     },
     diagnostics: {
-      where: {
-        followUpRequired: true,
-        followUpDate: {
-          gte: new Date() // Only current/future follow-ups
-        },
-        status: {
-          in: ['PENDING' as any, 'COMPLETED' as any] // Active diagnostics
-        }
-      },
       select: {
         id: true,
         diagnosticDate: true,
@@ -174,7 +174,7 @@ function getPatientSelectFields() {
         }
       },
       orderBy: {
-        followUpDate: 'asc' as any
+        diagnosticDate: 'desc' as any
       }
     }
   };
@@ -321,13 +321,17 @@ function transformPatientsData(patients: any[]) {
         : null,
       lastVisitStatus: patient.appointments[0]?.status || null,
       lastVisitLocation: patient.appointments[0]?.location || null,
-      technician: patient.technician 
+      technician: patient.technician
         ? `${patient.technician.firstName} ${patient.technician.lastName}`
         : null,
       devices: devices,
       hasDevices: devices.length > 0,
       diagnostics: diagnosticDevices,
-      hasDiagnostics: diagnosticDevices.length > 0
+      hasDiagnostics: diagnosticDevices.length > 0,
+      appointments: patient.appointments || [],
+      hasAppointments: (patient.appointments?.length || 0) > 0,
+      manualTasks: patient.manualTasks || [],
+      hasManualTasks: (patient.manualTasks?.length || 0) > 0
     };
   });
 }

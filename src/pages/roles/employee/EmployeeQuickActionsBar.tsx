@@ -28,7 +28,8 @@ const EmployeeQuickActionsBar: React.FC = () => {
 
   return (
     <>
-      <div className="bg-white border-b border-gray-200 shadow-sm">
+      {/* Hidden on mobile - quick actions are in the mobile sidebar menu */}
+      <div className="hidden md:block bg-white border-b border-gray-200 shadow-sm">
         <div className="px-6 py-3">
           <div className="flex gap-3 items-center">
             <Button

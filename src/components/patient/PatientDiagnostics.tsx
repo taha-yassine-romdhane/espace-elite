@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Activity, AlertCircle, FileText, Plus, Edit } from 'lucide-react';
+import { Activity, AlertCircle, FileText, Edit } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -15,16 +15,44 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { useRouter } from 'next/router';
 import { AddDiagnosticForm } from '@/components/employee/patient-details-forms/AddDiagnosticForm';
 
-interface PatientDiagnosticsProps {
-  diagnostics: any[];
-  isLoading?: boolean;
-  patientId?: string;
-  patientName?: string;
+interface MedicalDevice {
+  id: string;
+  name?: string;
+  brand?: string;
+  serialNumber?: string;
 }
 
-export const PatientDiagnostics = ({ diagnostics = [], isLoading = false, patientId, patientName }: PatientDiagnosticsProps) => {
+interface DiagnosticResult {
+  iah?: number;
+  idValue?: number;
+}
+
+interface PerformedBy {
+  id: string;
+  firstName?: string;
+  lastName?: string;
+}
+
+interface Diagnostic {
+  id: string;
+  diagnosticCode?: string;
+  diagnosticDate: string;
+  status?: string;
+  notes?: string;
+  description?: string;
+  medicalDevice?: MedicalDevice;
+  result?: DiagnosticResult;
+  performedBy?: PerformedBy;
+}
+
+interface PatientDiagnosticsProps {
+  diagnostics: Diagnostic[];
+  isLoading?: boolean;
+  patientId?: string;
+}
+
+export const PatientDiagnostics = ({ diagnostics = [], isLoading = false, patientId }: PatientDiagnosticsProps) => {
   const router = useRouter();
-  const [selectedDiagnostic, setSelectedDiagnostic] = useState<any>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
 
   const handleAddDiagnostic = () => {
@@ -36,7 +64,7 @@ export const PatientDiagnostics = ({ diagnostics = [], isLoading = false, patien
     // Data will be automatically refreshed by React Query invalidation
   };
 
-  const handleEditDiagnostic = (diagnostic: any) => {
+  const handleEditDiagnostic = (diagnostic: Diagnostic) => {
     // Navigate to diagnostics page with diagnostic to edit
     router.push(`/roles/employee/diagnostics?diagnosticId=${diagnostic.id}`);
   };
@@ -61,34 +89,6 @@ export const PatientDiagnostics = ({ diagnostics = [], isLoading = false, patien
       'IN_PROGRESS': 'En cours',
     };
     return statusLabels[status] || status;
-  };
-
-  const getSeverityLabel = (severity: string) => {
-    const severityLabels: Record<string, string> = {
-      'NORMAL': 'Normal',
-      'LIGHT': 'Léger',
-      'MODERATE': 'Modéré',
-      'SEVERE': 'Sévère',
-      'VERY_SEVERE': 'Très sévère',
-    };
-    return severityLabels[severity] || severity;
-  };
-
-  const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case 'NORMAL':
-        return 'bg-green-100 text-green-800 border-green-200';
-      case 'LIGHT':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'MODERATE':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'SEVERE':
-        return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'VERY_SEVERE':
-        return 'bg-red-100 text-red-800 border-red-200';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
   };
 
   // Calculate severity from IAH value

@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check, X, Edit2, Plus, Trash2, Search, ChevronLeft, ChevronRight, Calendar as CalendarIcon, User, MapPin, Clock, AlertCircle, Stethoscope, ShoppingCart, KeyRound } from "lucide-react";
+import { Check, X, Edit2, Plus, Trash2, Search, ChevronLeft, ChevronRight, Calendar as CalendarIcon, User, Stethoscope, ShoppingCart, KeyRound } from "lucide-react";
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import {
@@ -241,7 +241,7 @@ export default function AppointmentsPage() {
   const [priorityFilter, setPriorityFilter] = useState<string>('ALL');
 
   // Fetch appointments
-  const { data: appointments = [], isLoading } = useQuery({
+  const { data: appointments = [] } = useQuery({
     queryKey: ["appointments"],
     queryFn: async () => {
       const response = await fetch("/api/appointments");
@@ -425,7 +425,7 @@ export default function AppointmentsPage() {
     await createMutation.mutateAsync(newAppointment);
   };
 
-  const updateEditedField = (field: keyof Appointment, value: any) => {
+  const updateEditedField = (field: keyof Appointment, value: Appointment[keyof Appointment]) => {
     if (editedAppointment) {
       setEditedAppointment({ ...editedAppointment, [field]: value });
     }
@@ -453,7 +453,7 @@ export default function AppointmentsPage() {
     }
   };
 
-  const handleOtherAction = (appointment: Appointment) => {
+  const handleOtherAction = () => {
     // TODO: Implement other types action
     toast({ title: "Info", description: "Action - À implémenter" });
   };
@@ -500,7 +500,7 @@ export default function AppointmentsPage() {
       default:
         return (
           <Button
-            onClick={() => handleOtherAction(appointment)}
+            onClick={() => handleOtherAction()}
             size="icon"
             variant="ghost"
             className="h-7 w-7 text-gray-600 hover:bg-gray-50"
@@ -512,7 +512,7 @@ export default function AppointmentsPage() {
     }
   };
 
-  const updateNewField = (field: keyof Appointment, value: any) => {
+  const updateNewField = (field: keyof Appointment, value: Appointment[keyof Appointment]) => {
     setNewAppointment(prev => ({ ...prev, [field]: value }));
   };
 
@@ -563,7 +563,7 @@ export default function AppointmentsPage() {
             <Input
               type="datetime-local"
               value={editScheduledDateValue}
-              onChange={(e) => updateEditedField('scheduledDate', e.target.value ? new Date(e.target.value) : null)}
+              onChange={(e) => updateEditedField('scheduledDate', e.target.value ? new Date(e.target.value) : undefined)}
               className="h-8 text-xs"
             />
           );
@@ -616,14 +616,14 @@ export default function AppointmentsPage() {
           return (
             <Select
               value={editedAppointment.assignedToId || 'none'}
-              onValueChange={(val) => updateEditedField('assignedToId', val === 'none' ? null : val)}
+              onValueChange={(val) => updateEditedField('assignedToId', val === 'none' ? undefined : val)}
             >
               <SelectTrigger className="h-8 text-xs">
                 <SelectValue placeholder="Technicien" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Aucun</SelectItem>
-                {employees.map((emp: any) => (
+                {employees.map((emp: Employee) => (
                   <SelectItem key={emp.id} value={emp.id}>
                     {emp.firstName} {emp.lastName}
                   </SelectItem>
@@ -746,7 +746,7 @@ export default function AppointmentsPage() {
         <Input
           type="datetime-local"
           value={newAppointment.scheduledDate ? new Date(newAppointment.scheduledDate).toISOString().slice(0, 16) : ''}
-          onChange={(e) => updateNewField('scheduledDate', e.target.value ? new Date(e.target.value) : null)}
+          onChange={(e) => updateNewField('scheduledDate', e.target.value ? new Date(e.target.value) : undefined)}
           className="h-8 text-xs"
         />
       </td>
@@ -761,7 +761,7 @@ export default function AppointmentsPage() {
       <td className="px-2 py-2">
         <Select
           value={newAppointment.priority || 'NORMAL'}
-          onValueChange={(val) => updateNewField('priority', val as any)}
+          onValueChange={(val) => updateNewField('priority', val as Appointment['priority'])}
         >
           <SelectTrigger className="h-8 text-xs">
             <SelectValue />
@@ -776,7 +776,7 @@ export default function AppointmentsPage() {
       <td className="px-2 py-2">
         <Select
           value={newAppointment.status || 'SCHEDULED'}
-          onValueChange={(val) => updateNewField('status', val as any)}
+          onValueChange={(val) => updateNewField('status', val as Appointment['status'])}
         >
           <SelectTrigger className="h-8 text-xs">
             <SelectValue />
@@ -798,7 +798,7 @@ export default function AppointmentsPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="none">Aucun</SelectItem>
-            {employees.map((emp: any) => (
+            {employees.map((emp: Employee) => (
               <SelectItem key={emp.id} value={emp.id}>
                 {emp.firstName} {emp.lastName}
               </SelectItem>

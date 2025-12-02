@@ -39,10 +39,9 @@ interface PatientAppointmentsProps {
   manualTasks?: ManualTask[];
   isLoading?: boolean;
   patientId?: string;
-  patientName?: string;
 }
 
-export const PatientAppointments = ({ manualTasks = [], isLoading = false, patientId, patientName }: PatientAppointmentsProps) => {
+export const PatientAppointments = ({ manualTasks = [], isLoading = false, patientId }: PatientAppointmentsProps) => {
   const [showAddDialog, setShowAddDialog] = useState(false);
 
   const handleAddSuccess = () => {

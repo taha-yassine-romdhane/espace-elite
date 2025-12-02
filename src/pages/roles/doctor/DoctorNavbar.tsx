@@ -9,8 +9,6 @@ import {
     Settings,
     LogOut,
     ChevronDown,
-    Menu,
-    X,
     Calendar,
     HelpCircle,
     Link,
@@ -24,8 +22,8 @@ import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 interface NavbarProps {
-    onSidebarToggle?: () => void;
-    sidebarExpanded?: boolean;
+    // Props kept for backwards compatibility but no longer used
+    // Mobile sidebar is now handled by the sidebar component itself
 }
 
 interface Notification {
@@ -43,7 +41,7 @@ interface Notification {
 type NotificationType = 'FOLLOW_UP' | 'MAINTENANCE' | 'APPOINTMENT' | 'PAYMENT_DUE' | 'TRANSFER' | 'OTHER';
 type NotificationStatus = 'PENDING' | 'COMPLETED' | 'DISMISSED' | 'READ';
 
-const DoctorNavbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded = true }) => {
+const DoctorNavbar: React.FC<NavbarProps> = () => {
     const { data: session } = useSession();
     const router = useRouter();
     const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -217,15 +215,7 @@ const DoctorNavbar: React.FC<NavbarProps> = ({ onSidebarToggle, sidebarExpanded 
             <div className="px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between items-center h-16">
                     {/* Left Section */}
-                    <div className="flex items-center space-x-4">
-                        {/* Mobile Sidebar Toggle */}
-                        <button
-                            onClick={onSidebarToggle}
-                            className="lg:hidden p-2 rounded-lg text-gray-600 hover:text-red-700 hover:bg-red-50 transition-colors"
-                        >
-                            {sidebarExpanded ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-                        </button>
-
+                    <div className="flex items-center space-x-4 ml-14 md:ml-0">
                         {/* Page Title & Breadcrumb */}
                         <div className="flex flex-col">
                             <h1 className="text-lg font-semibold text-red-700 leading-tight flex items-center">

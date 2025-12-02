@@ -38,6 +38,8 @@ interface Patient {
   hasDevices?: boolean;
   diagnostics?: DiagnosticDevice[];
   hasDiagnostics?: boolean;
+  hasRentals?: boolean;
+  hasSales?: boolean;
 }
 
 interface CompanySettings {
@@ -74,48 +76,64 @@ const getDaysSinceVisit = (lastVisit: string | null | undefined): number => {
 };
 
 const getMarkerColor = (patient: Patient): string => {
-  const days = getDaysSinceVisit(patient.lastVisit);
+  // Check for rentals vs sales from devices array
+  const hasRentals = patient.devices?.some(d => d.status === 'RENTED') || false;
+  const hasSales = patient.devices?.some(d => d.status === 'SOLD') || false;
+  const hasDiagnosticsOnly = patient.hasDiagnostics && !hasRentals && !hasSales;
 
-  if (patient.hasDiagnostics) {
-    if (days < 0) return '#F59E0B';
-    if (days < 30) return '#D97706';
-    if (days < 90) return '#B45309';
-    return '#92400E';
+  // Priority: 1. Rentals (Purple) > 2. Sales (Green) > 3. Diagnostics only (Orange) > 4. No activity (Gray)
+  if (hasRentals) {
+    return '#8B5CF6'; // Purple for rentals
   }
 
-  if (patient.hasDevices) {
-    if (days < 0) return '#8B5CF6';
-    if (days < 30) return '#059669';
-    if (days < 90) return '#D97706';
-    return '#DC2626';
+  if (hasSales) {
+    return '#10B981'; // Green for sales
   }
 
-  if (days < 0) return '#6B7280';
-  if (days < 30) return '#10B981';
-  if (days < 90) return '#F59E0B';
-  return '#EF4444';
+  if (hasDiagnosticsOnly) {
+    return '#F59E0B'; // Orange for diagnostics only (non-appareillé)
+  }
+
+  // No activity - gray
+  return '#6B7280';
 };
 
 const getStatusBadge = (patient: Patient): { text: string; bg: string; color: string } => {
-  const days = getDaysSinceVisit(patient.lastVisit);
+  // Check for rentals vs sales from devices array
+  const hasRentals = patient.devices?.some(d => d.status === 'RENTED') || false;
+  const hasSales = patient.devices?.some(d => d.status === 'SOLD') || false;
+  const hasDiagnosticsOnly = patient.hasDiagnostics && !hasRentals && !hasSales;
 
-  if (patient.hasDiagnostics) {
+  if (hasRentals) {
+    return { text: 'Location', bg: '#EDE9FE', color: '#6D28D9' };
+  }
+  if (hasSales) {
+    return { text: 'Vente', bg: '#D1FAE5', color: '#065F46' };
+  }
+  if (hasDiagnosticsOnly) {
     return { text: 'Diagnostic', bg: '#FEF3C7', color: '#92400E' };
   }
-  if (patient.hasDevices) {
-    return { text: 'Équipement', bg: '#EDE9FE', color: '#6D28D9' };
-  }
-  if (days < 0) return { text: 'Nouveau', bg: '#F3F4F6', color: '#374151' };
-  if (days < 30) return { text: 'Récent', bg: '#D1FAE5', color: '#065F46' };
-  if (days < 90) return { text: 'Modéré', bg: '#FEF3C7', color: '#92400E' };
-  return { text: 'Ancien', bg: '#FEE2E2', color: '#991B1B' };
+  return { text: 'Nouveau', bg: '#F3F4F6', color: '#374151' };
 };
 
 // Compact popup content generator
-const createPopupContent = (patient: Patient): string => {
+const createPopupContent = (patient: Patient, companyLat?: number | null, companyLng?: number | null): string => {
   const status = getStatusBadge(patient);
   const deviceCount = patient.devices?.length || 0;
   const diagCount = patient.diagnostics?.length || 0;
+
+  // Google Maps directions URL
+  const getGoogleMapsDirectionsUrl = () => {
+    const destination = `${patient.latitude},${patient.longitude}`;
+    if (companyLat && companyLng) {
+      // If company location exists, use it as origin
+      return `https://www.google.com/maps/dir/${companyLat},${companyLng}/${destination}`;
+    }
+    // Otherwise just show destination (user's current location will be used as origin)
+    return `https://www.google.com/maps/dir/?api=1&destination=${destination}`;
+  };
+
+  const directionsUrl = getGoogleMapsDirectionsUrl();
 
   return `
     <div style="width:320px;font-family:system-ui,-apple-system,sans-serif;font-size:13px;">
@@ -204,13 +222,21 @@ const createPopupContent = (patient: Patient): string => {
         </div>
       ` : ''}
 
-      <!-- Action Button -->
-      <div style="padding:10px 12px;background:#fff;border-top:1px solid #e2e8f0;border-radius:0 0 8px 8px;">
+      <!-- Action Buttons -->
+      <div style="padding:10px 12px;background:#fff;border-top:1px solid #e2e8f0;border-radius:0 0 8px 8px;display:flex;gap:8px;">
         <a href="/roles/admin/renseignement/patient/${patient.id}"
-           style="display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:8px;background:linear-gradient(135deg,#1e3a8a,#3b82f6);color:#fff;border-radius:6px;text-decoration:none;font-weight:500;font-size:12px;transition:opacity 0.2s;"
+           style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:8px;background:linear-gradient(135deg,#1e3a8a,#3b82f6);color:#fff;border-radius:6px;text-decoration:none;font-weight:500;font-size:11px;transition:opacity 0.2s;"
            onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-          Voir le profil complet
+          Profil
+        </a>
+        <a href="${directionsUrl}"
+           target="_blank"
+           rel="noopener noreferrer"
+           style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:8px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border-radius:6px;text-decoration:none;font-weight:500;font-size:11px;transition:opacity 0.2s;"
+           onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+          Itinéraire
         </a>
       </div>
     </div>
@@ -243,7 +269,17 @@ const MapComponent: React.FC<MapProps> = ({ patients, companySettings }) => {
   const createMarkerIcon = useCallback((patient: Patient, config: ReturnType<typeof getMarkerConfig>) => {
     const initials = getInitials(patient.name);
     const color = getMarkerColor(patient);
-    const borderColor = patient.hasDiagnostics ? '#F59E0B' : patient.hasDevices ? '#7c3aed' : 'white';
+
+    // Border color matches the marker type
+    const hasRentals = patient.devices?.some(d => d.status === 'RENTED') || false;
+    const hasSales = patient.devices?.some(d => d.status === 'SOLD') || false;
+    const hasDiagnosticsOnly = patient.hasDiagnostics && !hasRentals && !hasSales;
+
+    let borderColor = 'white';
+    if (hasRentals) borderColor = '#7c3aed'; // Purple border for rentals
+    else if (hasSales) borderColor = '#059669'; // Green border for sales
+    else if (hasDiagnosticsOnly) borderColor = '#D97706'; // Orange border for diagnostics
+
     const borderWidth = Math.max(2, config.size * 0.1);
 
     return L.divIcon({
@@ -376,8 +412,10 @@ const MapComponent: React.FC<MapProps> = ({ patients, companySettings }) => {
       const icon = createMarkerIcon(patient, config);
       const marker = L.marker([patient.latitude, patient.longitude], { icon });
 
-      // Lazy load popup content on first open
-      marker.bindPopup(() => createPopupContent(patient), {
+      // Lazy load popup content on first open (pass company coordinates for directions)
+      const hqLat = companySettings?.companyLatitude;
+      const hqLng = companySettings?.companyLongitude;
+      marker.bindPopup(() => createPopupContent(patient, hqLat, hqLng), {
         maxWidth: 340,
         className: 'patient-popup',
       });
@@ -413,7 +451,7 @@ const MapComponent: React.FC<MapProps> = ({ patients, companySettings }) => {
     return () => {
       map.off('zoomend', handleZoom);
     };
-  }, [patients, getMarkerConfig, createMarkerIcon]);
+  }, [patients, getMarkerConfig, createMarkerIcon, companySettings]);
 
   return <div ref={mapRef} style={{ height: '100%', width: '100%' }} />;
 };

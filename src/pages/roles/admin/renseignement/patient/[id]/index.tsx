@@ -12,6 +12,67 @@ import PatientForm from '@/components/forms/PatientForm';
 import { RenseignementFormData } from '@/types/renseignement';
 import { BeneficiaryType } from '@prisma/client';
 
+// CNAM Bond type
+interface CNAMBon {
+  id: string;
+  bonNumber?: string;
+  startDate?: string;
+  endDate?: string;
+  status?: string;
+}
+
+// Rental with CNAM bonds
+interface RentalWithCNAM {
+  id: string;
+  rentalCode?: string;
+  cnamBons?: CNAMBon[];
+}
+
+// Sale with CNAM bonds
+interface SaleWithCNAM {
+  id: string;
+  saleCode?: string;
+  cnamBons?: CNAMBon[];
+}
+
+// Patient data as returned by the API
+interface PatientData {
+  id: string;
+  patientCode?: string;
+  nom: string;
+  telephone?: string;
+  telephoneSecondaire?: string;
+  adresse?: string;
+  governorate?: string;
+  delegation?: string;
+  cin?: string;
+  identifiantCNAM?: string;
+  dateNaissance?: string;
+  taille?: number;
+  poids?: number;
+  antecedant?: string;
+  beneficiaire?: BeneficiaryType;
+  caisseAffiliation?: string;
+  cnam?: boolean;
+  generalNote?: string;
+  isActive?: boolean;
+  doctorId?: string;
+  doctor?: { id: string; name: string };
+  technicianId?: string;
+  technician?: { id: string; name: string };
+  supervisorId?: string;
+  supervisor?: { id: string; name: string };
+  assignedToId?: string;
+  files?: { url: string; type: string }[];
+  manualTasks?: unknown[];
+  appointments?: unknown[];
+  diagnostics?: unknown[];
+  sales?: SaleWithCNAM[];
+  rentals?: RentalWithCNAM[];
+  payments?: unknown[];
+  history?: unknown[];
+}
+
 // Import custom components
 import {
   PatientBasicInfo,
@@ -41,7 +102,7 @@ export default function PatientDetailsPage() {
   const [toastId, setToastId] = useState<string | number | null>(null);
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [editedNote, setEditedNote] = useState('');
-  const { toast, dismiss } = useToast();
+  const { toast } = useToast();
   const [editFormData, setEditFormData] = useState<RenseignementFormData>({
     type: 'Patient',
     nomComplet: '',
@@ -84,7 +145,7 @@ export default function PatientDetailsPage() {
   });
 
   // Check for missing patient information fields
-  const checkMissingFields = (patient: any) => {
+  const checkMissingFields = (patient: PatientData) => {
     const missingFields: string[] = [];
 
     // Informations de base
@@ -373,7 +434,7 @@ export default function PatientDetailsPage() {
         <div className="max-w-5xl mx-auto bg-white rounded-lg shadow p-8">
           <h2 className="text-xl font-semibold mb-4">Patient non trouvé</h2>
           <p className="text-gray-700 mb-4">
-            Le patient que vous recherchez n'existe pas ou a été supprimé.
+            Le patient que vous recherchez n&apos;existe pas ou a été supprimé.
           </p>
           <Button
             variant="outline"
@@ -655,15 +716,15 @@ export default function PatientDetailsPage() {
         {/* 7. CNAM Bonds Section */}
         <PatientCNAMBonds
           cnamBonds={[
-            ...(patient.rentals?.flatMap((rental: any) =>
-              (rental.cnamBons || []).map((bon: any) => ({
+            ...(patient.rentals?.flatMap((rental: RentalWithCNAM) =>
+              (rental.cnamBons || []).map((bon: CNAMBon) => ({
                 ...bon,
                 sourceType: 'Location',
                 sourceCode: rental.rentalCode
               }))
             ) || []),
-            ...(patient.sales?.flatMap((sale: any) =>
-              (sale.cnamBons || []).map((bon: any) => ({
+            ...(patient.sales?.flatMap((sale: SaleWithCNAM) =>
+              (sale.cnamBons || []).map((bon: CNAMBon) => ({
                 ...bon,
                 sourceType: 'Vente',
                 sourceCode: sale.saleCode
