@@ -12,6 +12,9 @@ interface Patient {
   sexe?: string;
   profession?: string;
   centreAffiliation?: string;
+  identifiantCNAM?: string;
+  beneficiaire?: string;
+  caisseAffiliation?: string;
 }
 
 interface PatientBasicInfoProps {
@@ -21,7 +24,7 @@ interface PatientBasicInfoProps {
 export const PatientBasicInfo = ({ patient }: PatientBasicInfoProps) => {
   if (!patient) return null;
 
-  const formatDate = (date: string | null) => {
+  const formatDate = (date: string | null | undefined) => {
     if (!date) return null;
     try {
       return new Date(date).toLocaleDateString('fr-FR', {
@@ -35,7 +38,7 @@ export const PatientBasicInfo = ({ patient }: PatientBasicInfoProps) => {
   };
 
   // Helper function to translate beneficiary type
-  const translateBeneficiaryType = (type: string | null) => {
+  const translateBeneficiaryType = (type: string | null | undefined) => {
     if (!type) return null;
     const translations: Record<string, string> = {
       'ASSURE_SOCIAL': 'Assuré Social',
@@ -48,7 +51,7 @@ export const PatientBasicInfo = ({ patient }: PatientBasicInfoProps) => {
   };
 
   // Helper function to translate affiliation type
-  const translateAffiliation = (affiliation: string | null) => {
+  const translateAffiliation = (affiliation: string | null | undefined) => {
     if (!affiliation) return null;
     const translations: Record<string, string> = {
       'CNSS': 'CNSS (Caisse Nationale de Sécurité Sociale)',

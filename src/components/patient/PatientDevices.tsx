@@ -22,6 +22,11 @@ interface Device {
   source?: string;
   dateAcquired?: string;
   status?: string;
+  type?: string;
+  saleCode?: string;
+  rentalCode?: string;
+  saleDate?: string;
+  startDate?: string;
 }
 
 interface PatientDevicesProps {
@@ -30,18 +35,18 @@ interface PatientDevicesProps {
 }
 
 export const PatientDevices = ({ devices = [], isLoading = false }: PatientDevicesProps) => {
-  const getSourceLabel = (source: string) => {
+  const getSourceLabel = (source: string | undefined) => {
     switch (source) {
       case 'sale':
         return 'Achat';
       case 'rental':
         return 'Location';
       default:
-        return source;
+        return source || '-';
     }
   };
 
-  const getSourceColor = (source: string) => {
+  const getSourceColor = (source: string | undefined) => {
     switch (source) {
       case 'sale':
         return 'bg-green-100 text-green-800 border-green-200';
@@ -132,7 +137,7 @@ export const PatientDevices = ({ devices = [], isLoading = false }: PatientDevic
                     </TableCell>
                     <TableCell className="text-sm">
                       {device.saleDate || device.startDate
-                        ? format(new Date(device.saleDate || device.startDate), 'dd/MM/yyyy', { locale: fr })
+                        ? format(new Date((device.saleDate || device.startDate)!), 'dd/MM/yyyy', { locale: fr })
                         : '-'}
                     </TableCell>
                   </TableRow>

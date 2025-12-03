@@ -15,6 +15,23 @@ const MapComponent = dynamic(() => import('@/components/MapComponent'), {
   ),
 });
 
+interface Device {
+  id: string;
+  name: string;
+  serialNumber?: string | null;
+  status: 'RENTED' | 'SOLD' | 'ASSIGNED';
+  startDate?: string;
+  endDate?: string | null;
+}
+
+interface DiagnosticDevice {
+  id: string;
+  deviceName: string;
+  status: 'PENDING' | 'COMPLETED' | 'CANCELLED';
+  diagnosticDate: string;
+  followUpDate?: string | null;
+}
+
 interface Patient {
   id: string;
   name: string;
@@ -24,13 +41,20 @@ interface Patient {
   longitude: number;
   address?: string;
   phone?: string;
-  lastVisit?: string;
+  phoneTwo?: string | null;
+  cin?: string | null;
+  age?: number | null;
+  createdAt?: string;
+  lastVisit?: string | null;
+  technician?: string | null;
   hasDevices?: boolean;
   hasDiagnostics?: boolean;
+  hasRentals?: boolean;
+  hasSales?: boolean;
   hasAppointments?: boolean;
   hasManualTasks?: boolean;
-  devices?: Array<{ status: string }>;
-  diagnostics?: Array<{ id: string }>;
+  devices?: Device[];
+  diagnostics?: DiagnosticDevice[];
   appointments?: Array<{ id: string }>;
   manualTasks?: Array<{ id: string }>;
 }

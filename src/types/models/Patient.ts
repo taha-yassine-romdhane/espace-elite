@@ -46,6 +46,7 @@ export interface Patient {
   governorate?: string | null;
   delegation?: string | null;
   detailedAddress?: string | null;
+  address?: string | null;
   addressCoordinates?: { lat: number; lng: number } | null;
 
   // Relations

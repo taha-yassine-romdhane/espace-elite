@@ -34,11 +34,23 @@ interface Payment {
   id: string;
   paymentCode?: string;
   date: string;
+  paymentDate?: string;
+  createdAt?: string;
   amount: number;
   method?: string;
   status?: string;
   reference?: string;
   receiptNumber?: string;
+  source?: string;
+  chequeNumber?: string;
+  bankName?: string;
+  referenceNumber?: string;
+  cnamBonNumber?: string;
+  cnamBonType?: string;
+  cnamCardNumber?: string;
+  periodStartDate?: string;
+  periodEndDate?: string;
+  notes?: string;
   paymentDetails?: PaymentDetail[];
   receivedBy?: ReceivedBy;
   rental?: RelatedRental;
@@ -59,7 +71,7 @@ export const PatientPayments = ({ payments = [], isLoading = false, patientId }:
     // Data will be automatically refreshed by React Query invalidation
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string | undefined) => {
     switch (status) {
       case 'PAID':
       case 'COMPLETED':
@@ -76,7 +88,7 @@ export const PatientPayments = ({ payments = [], isLoading = false, patientId }:
     }
   };
 
-  const getStatusLabel = (status: string) => {
+  const getStatusLabel = (status: string | undefined) => {
     switch (status) {
       case 'PAID':
         return 'Payé';
@@ -91,11 +103,11 @@ export const PatientPayments = ({ payments = [], isLoading = false, patientId }:
       case 'PARTIAL':
         return 'Partiel';
       default:
-        return status;
+        return status || 'N/A';
     }
   };
 
-  const getMethodLabel = (method: string) => {
+  const getMethodLabel = (method: string | undefined) => {
     switch (method) {
       case 'CASH':
         return 'Espèces';
@@ -108,11 +120,11 @@ export const PatientPayments = ({ payments = [], isLoading = false, patientId }:
       case 'MIXED':
         return 'Mixte';
       default:
-        return method;
+        return method || 'N/A';
     }
   };
 
-  const getMethodIcon = (method: string) => {
+  const getMethodIcon = (method: string | undefined) => {
     switch (method) {
       case 'CASH':
         return <Banknote className="h-4 w-4" />;
@@ -127,7 +139,7 @@ export const PatientPayments = ({ payments = [], isLoading = false, patientId }:
     }
   };
 
-  const getSourceLabel = (source: string) => {
+  const getSourceLabel = (source: string | undefined) => {
     switch (source) {
       case 'SALE':
         return 'Vente';
@@ -142,7 +154,7 @@ export const PatientPayments = ({ payments = [], isLoading = false, patientId }:
     }
   };
 
-  const getSourceColor = (source: string) => {
+  const getSourceColor = (source: string | undefined) => {
     switch (source) {
       case 'SALE':
         return 'bg-green-50 text-green-700 border-green-200';

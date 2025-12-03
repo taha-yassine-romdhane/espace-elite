@@ -61,7 +61,7 @@ export function PatientInformation({ patient }: PatientInformationProps) {
             {patient.dateOfBirth && (
               <div className="flex items-center gap-1 text-gray-600 mt-1">
                 <Calendar className="h-4 w-4" />
-                <span>{formatDate(patient.dateOfBirth.toISOString())} ({calculateAge(patient.dateOfBirth.toISOString())})</span>
+                <span>{formatDate(typeof patient.dateOfBirth === 'string' ? patient.dateOfBirth : patient.dateOfBirth.toISOString())} ({calculateAge(typeof patient.dateOfBirth === 'string' ? patient.dateOfBirth : patient.dateOfBirth.toISOString())})</span>
               </div>
             )}
           </div>

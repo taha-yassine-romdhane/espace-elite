@@ -8,6 +8,7 @@ interface Patient {
   poids?: number;
   imc?: number;
   remarques?: string;
+  antecedant?: string;
 }
 
 interface PatientMedicalInfoProps {

@@ -6,12 +6,14 @@ interface Staff {
   id: string;
   firstName?: string;
   lastName?: string;
+  name?: string;
 }
 
 interface Medecin {
   id: string;
   nom?: string;
   prenom?: string;
+  name?: string;
 }
 
 interface Patient {
@@ -19,6 +21,8 @@ interface Patient {
   createdBy?: Staff;
   assignedTo?: Staff;
   medecin?: Medecin;
+  doctor?: Staff;
+  technician?: Staff;
 }
 
 interface PatientStaffInfoProps {

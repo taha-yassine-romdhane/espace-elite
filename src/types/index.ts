@@ -22,7 +22,7 @@ export * from './models/Location';
 export * from './models/Appointment';
 export * from './models/MedicalRecord';
 export * from './models/Task';
-export * from './models/DiagnosticResult';
+// DiagnosticResult is already exported from Diagnostic.ts
 export * from './models/Technician';
 export * from './models/Rental';
 export * from './models/Payment';
@@ -33,4 +33,4 @@ export * from './models/Doctor';
 export * from './models/Notification';
 export * from './models/AuthState';
 export * from './models/Sale';
-export * from './models/SaleItem';
+// SaleItem is already exported from Sale.ts

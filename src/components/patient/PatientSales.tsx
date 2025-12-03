@@ -8,17 +8,35 @@ import { fr } from 'date-fns/locale';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { CreateSaleDialogAdmin } from '@/components/sales/CreateSaleDialogAdmin';
 
+interface Product {
+  name?: string;
+  description?: string;
+}
+
+interface MedicalDevice {
+  name?: string;
+  serialNumber?: string;
+  deviceCode?: string;
+  type?: string;
+}
+
 interface SaleItem {
   id: string;
   productName?: string;
   quantity?: number;
   unitPrice?: number;
   total?: number;
+  discount?: number;
+  itemTotal?: number;
+  product?: Product;
+  medicalDevice?: MedicalDevice;
 }
 
 interface Payment {
   id: string;
   amount: number;
+  method?: string;
+  status?: string;
 }
 
 interface CNAMBon {
@@ -26,17 +44,27 @@ interface CNAMBon {
   bonAmount?: number;
 }
 
+interface PersonRef {
+  firstName?: string;
+  lastName?: string;
+}
+
 interface Sale {
   id: string;
   saleCode?: string;
+  invoiceNumber?: string;
   saleDate?: string | Date;
   status?: string;
   totalAmount?: number;
+  discount?: number;
+  finalAmount?: number;
   paymentMethod?: string;
   notes?: string;
   items?: SaleItem[];
   payments?: Payment[];
   cnamBons?: CNAMBon[];
+  assignedTo?: PersonRef;
+  processedBy?: PersonRef;
 }
 
 interface PatientInfo {
@@ -65,7 +93,7 @@ export const PatientSales = ({ sales = [], isLoading = false, patientId, patient
     // Data will be automatically refreshed by React Query invalidation
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string | undefined) => {
     switch (status) {
       case 'COMPLETED':
         return 'bg-green-100 text-green-700 border-green-200';
@@ -78,7 +106,7 @@ export const PatientSales = ({ sales = [], isLoading = false, patientId, patient
     }
   };
 
-  const getStatusLabel = (status: string) => {
+  const getStatusLabel = (status: string | undefined) => {
     switch (status) {
       case 'COMPLETED':
         return 'Terminé';
@@ -87,7 +115,7 @@ export const PatientSales = ({ sales = [], isLoading = false, patientId, patient
       case 'CANCELLED':
         return 'Annulé';
       default:
-        return status;
+        return status || 'N/A';
     }
   };
 
@@ -96,7 +124,7 @@ export const PatientSales = ({ sales = [], isLoading = false, patientId, patient
     return isNaN(num) ? '0.00' : num.toFixed(2);
   };
 
-  const getMethodLabel = (method: string) => {
+  const getMethodLabel = (method: string | undefined) => {
     switch (method) {
       case 'CASH':
         return 'Espèces';
@@ -117,11 +145,11 @@ export const PatientSales = ({ sales = [], isLoading = false, patientId, patient
       case 'MIXED':
         return 'Mixte';
       default:
-        return method;
+        return method || 'N/A';
     }
   };
 
-  const getPaymentStatusLabel = (status: string) => {
+  const getPaymentStatusLabel = (status: string | undefined) => {
     switch (status) {
       case 'PAID':
         return 'Payé';
@@ -136,11 +164,11 @@ export const PatientSales = ({ sales = [], isLoading = false, patientId, patient
       case 'FAILED':
         return 'Échoué';
       default:
-        return status;
+        return status || 'N/A';
     }
   };
 
-  const getPaymentStatusColor = (status: string) => {
+  const getPaymentStatusColor = (status: string | undefined) => {
     switch (status) {
       case 'PAID':
       case 'COMPLETED':

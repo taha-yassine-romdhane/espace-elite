@@ -6,8 +6,10 @@ interface Patient {
   id: string;
   telephone?: string;
   telephone2?: string;
+  telephoneSecondaire?: string;
   email?: string;
   adresseComplete?: string;
+  adresse?: string;
 }
 
 interface PatientContactInfoProps {
@@ -18,7 +20,7 @@ export const PatientContactInfo = ({ patient }: PatientContactInfoProps) => {
   if (!patient) return null;
 
   // Function to capitalize first letter of each word and lowercase the rest
-  const formatAddress = (address: string) => {
+  const formatAddress = (address: string | undefined) => {
     if (!address) return null;
     return address
       .toLowerCase()
