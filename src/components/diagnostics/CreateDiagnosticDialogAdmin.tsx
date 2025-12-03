@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Stethoscope, User, Calendar, ChevronRight, ChevronLeft, Search, Phone, UserCog } from "lucide-react";
+import { Stethoscope, User, Calendar, ChevronRight, ChevronLeft, Search, Phone, UserCog, Check } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -32,20 +32,44 @@ interface Employee {
   role: string;
 }
 
+interface PreselectedPatient {
+  id: string;
+  firstName: string;
+  lastName: string;
+  name?: string;
+  patientCode?: string;
+  telephone?: string;
+}
+
 interface CreateDiagnosticDialogAdminProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  preselectedPatient?: PreselectedPatient;
 }
 
-export function CreateDiagnosticDialogAdmin({ open, onOpenChange }: CreateDiagnosticDialogAdminProps) {
+export function CreateDiagnosticDialogAdmin({ open, onOpenChange, preselectedPatient }: CreateDiagnosticDialogAdminProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: session } = useSession();
 
-  const [step, setStep] = useState(1);
+  // Determine if we should skip patient selection step
+  const hasPreselectedPatient = !!preselectedPatient;
+  const initialStep = hasPreselectedPatient ? 2 : 1;
+
+  // Create preselected patient object
+  const preselectedPatientData: Patient | null = preselectedPatient ? {
+    id: preselectedPatient.id,
+    firstName: preselectedPatient.firstName,
+    lastName: preselectedPatient.lastName,
+    name: preselectedPatient.name || `${preselectedPatient.firstName} ${preselectedPatient.lastName}`,
+    patientCode: preselectedPatient.patientCode,
+    telephone: preselectedPatient.telephone
+  } : null;
+
+  const [step, setStep] = useState(initialStep);
   const [searchQuery, setSearchQuery] = useState('');
   const [employeeSearchQuery, setEmployeeSearchQuery] = useState('');
-  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(preselectedPatientData);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [diagnosticData, setDiagnosticData] = useState({
     medicalDeviceId: '',
@@ -152,8 +176,9 @@ export function CreateDiagnosticDialogAdmin({ open, onOpenChange }: CreateDiagno
   });
 
   const handleClose = () => {
-    setStep(1);
-    setSelectedPatient(null);
+    setStep(initialStep);
+    // Only reset patient if no preselected patient
+    setSelectedPatient(hasPreselectedPatient ? preselectedPatientData : null);
     setSelectedEmployee(null);
     setSearchQuery('');
     setEmployeeSearchQuery('');
@@ -184,6 +209,10 @@ export function CreateDiagnosticDialogAdmin({ open, onOpenChange }: CreateDiagno
 
   const handleBack = () => {
     if (step === 2) {
+      // Don't go back to step 1 if patient is preselected
+      if (hasPreselectedPatient) {
+        return;
+      }
       setStep(1);
       setSelectedEmployee(null);
     } else if (step === 3) {
@@ -251,9 +280,9 @@ export function CreateDiagnosticDialogAdmin({ open, onOpenChange }: CreateDiagno
 
         {/* Step Indicator */}
         <div className="flex items-center gap-2 mb-6">
-          <div className={`flex items-center gap-2 ${step === 1 ? 'text-blue-600 font-medium' : 'text-gray-400'}`}>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === 1 ? 'bg-blue-100 text-blue-600' : 'bg-gray-100'}`}>
-              1
+          <div className={`flex items-center gap-2 ${step === 1 ? 'text-blue-600 font-medium' : (step > 1 || hasPreselectedPatient) ? 'text-green-600' : 'text-gray-400'}`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === 1 ? 'bg-blue-100 text-blue-600' : (step > 1 || hasPreselectedPatient) ? 'bg-green-100 text-green-600' : 'bg-gray-100'}`}>
+              {(step > 1 || hasPreselectedPatient) ? <Check className="h-4 w-4" /> : '1'}
             </div>
             <span className="text-sm">Patient</span>
           </div>
@@ -465,9 +494,9 @@ export function CreateDiagnosticDialogAdmin({ open, onOpenChange }: CreateDiagno
         <div className="flex justify-between items-center pt-6 border-t mt-6 px-2">
           <Button
             variant="outline"
-            onClick={step === 1 ? handleClose : handleBack}
+            onClick={(step === 1 || (hasPreselectedPatient && step === 2)) ? handleClose : handleBack}
           >
-            {step === 1 ? (
+            {(step === 1 || (hasPreselectedPatient && step === 2)) ? (
               <>Annuler</>
             ) : (
               <>

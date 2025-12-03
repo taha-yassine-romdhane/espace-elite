@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ShoppingCart, AlertCircle, Package, CreditCard, FileText, Edit2 } from 'lucide-react';
+import { ShoppingCart, AlertCircle, Package, CreditCard, FileText, Plus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { AddSaleForm } from '@/components/employee/patient-details-forms/AddSaleForm';
+import { CreateSaleDialogAdmin } from '@/components/sales/CreateSaleDialogAdmin';
 
 interface SaleItem {
   id: string;
@@ -39,20 +39,29 @@ interface Sale {
   cnamBons?: CNAMBon[];
 }
 
+interface PatientInfo {
+  id: string;
+  firstName: string;
+  lastName: string;
+  patientCode?: string;
+  telephone?: string;
+}
+
 interface PatientSalesProps {
   sales: Sale[];
   saleItems?: SaleItem[];
   isLoading?: boolean;
   patientId?: string;
+  patient?: PatientInfo;
 }
 
-export const PatientSales = ({ sales = [], isLoading = false, patientId }: PatientSalesProps) => {
+export const PatientSales = ({ sales = [], isLoading = false, patientId, patient }: PatientSalesProps) => {
   const [showItemsDialog, setShowItemsDialog] = useState(false);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
-  const [showManageDialog, setShowManageDialog] = useState(false);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
 
-  const handleManageSuccess = () => {
-    setShowManageDialog(false);
+  const handleCreateSuccess = () => {
+    setShowCreateDialog(false);
     // Data will be automatically refreshed by React Query invalidation
   };
 
@@ -171,11 +180,11 @@ export const PatientSales = ({ sales = [], isLoading = false, patientId }: Patie
             <Button
               variant="default"
               size="sm"
-              onClick={() => setShowManageDialog(true)}
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
+              onClick={() => setShowCreateDialog(true)}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
             >
-              <Edit2 className="h-4 w-4" />
-              Gérer
+              <Plus className="h-4 w-4" />
+              Nouvelle Vente
             </Button>
           </div>
         </CardHeader>
@@ -476,24 +485,14 @@ export const PatientSales = ({ sales = [], isLoading = false, patientId }: Patie
         </DialogContent>
       </Dialog>
 
-      {/* Manage Sales Dialog */}
-      <Dialog open={showManageDialog} onOpenChange={setShowManageDialog}>
-        <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-green-700">
-              <ShoppingCart className="h-5 w-5 text-green-600" />
-              Gérer les Ventes
-            </DialogTitle>
-          </DialogHeader>
-          {patientId && (
-            <AddSaleForm
-              patientId={patientId}
-              sales={sales}
-              onSuccess={handleManageSuccess}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Create Sale Dialog with Stepper */}
+      {patient && (
+        <CreateSaleDialogAdmin
+          open={showCreateDialog}
+          onOpenChange={setShowCreateDialog}
+          preselectedPatient={patient}
+        />
+      )}
     </div>
   );
 };

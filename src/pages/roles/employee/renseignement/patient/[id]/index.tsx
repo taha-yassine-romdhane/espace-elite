@@ -469,7 +469,13 @@ export default function PatientDetailsPage() {
           manualTasks={patient.manualTasks || []}
           isLoading={false}
           patientId={patient.id}
-          patientName={patient.nom}
+          patient={{
+            id: patient.id,
+            firstName: patient.nom?.split(' ')[0] || '',
+            lastName: patient.nom?.split(' ').slice(1).join(' ') || '',
+            patientCode: patient.patientCode,
+            telephone: patient.telephone
+          }}
         />
 
         {/* 2. RDV Section */}
@@ -477,6 +483,13 @@ export default function PatientDetailsPage() {
           appointments={patient.appointments || []}
           isLoading={false}
           patientId={patient.id}
+          patient={{
+            id: patient.id,
+            firstName: patient.nom?.split(' ')[0] || '',
+            lastName: patient.nom?.split(' ').slice(1).join(' ') || '',
+            patientCode: patient.patientCode,
+            telephone: patient.telephone
+          }}
         />
 
         {/* 3. Diagnostics Section (Polygraphie) */}
@@ -484,7 +497,13 @@ export default function PatientDetailsPage() {
           diagnostics={patient.diagnostics || []}
           isLoading={false}
           patientId={patient.id}
-          patientName={patient.nom}
+          patient={{
+            id: patient.id,
+            firstName: patient.nom?.split(' ')[0] || '',
+            lastName: patient.nom?.split(' ').slice(1).join(' ') || '',
+            patientCode: patient.patientCode,
+            telephone: patient.telephone
+          }}
         />
 
         {/* 4. Sales Section (Vente) */}
@@ -493,6 +512,13 @@ export default function PatientDetailsPage() {
           saleItems={patient.saleItems || []}
           isLoading={false}
           patientId={patient.id}
+          patient={{
+            id: patient.id,
+            firstName: patient.nom?.split(' ')[0] || '',
+            lastName: patient.nom?.split(' ').slice(1).join(' ') || '',
+            patientCode: patient.patientCode,
+            telephone: patient.telephone
+          }}
         />
 
         {/* 5. Rentals Section (Location) */}
@@ -500,6 +526,13 @@ export default function PatientDetailsPage() {
           rentals={patient.rentals || []}
           isLoading={false}
           patientId={patient.id}
+          patient={{
+            id: patient.id,
+            firstName: patient.nom?.split(' ')[0] || '',
+            lastName: patient.nom?.split(' ').slice(1).join(' ') || '',
+            patientCode: patient.patientCode,
+            telephone: patient.telephone
+          }}
         />
 
         {/* 6. Payments Section (Paiement) */}

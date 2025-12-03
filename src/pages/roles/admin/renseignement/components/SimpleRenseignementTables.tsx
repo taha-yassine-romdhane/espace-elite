@@ -318,8 +318,6 @@ export default function SimpleRenseignementTables({
                     <th className="px-3 py-3 text-center text-xs font-semibold text-slate-700 border-r border-slate-200 min-w-[90px]">Tâches</th>
                     <th className="px-3 py-3 text-center text-xs font-semibold text-slate-700 border-r border-slate-200 min-w-[90px]">Paiements</th>
                     <th className="px-3 py-3 text-center text-xs font-semibold text-slate-700 border-r border-slate-200 min-w-[90px]">Bons CNAM</th>
-                    <th className="px-3 py-3 text-center text-xs font-semibold text-slate-700 border-r border-slate-200 min-w-[90px]">Notifications</th>
-                    <th className="px-3 py-3 text-center text-xs font-semibold text-slate-700 border-r border-slate-200 min-w-[90px]">Historique</th>
                     <th className="px-3 py-3 text-center text-xs font-semibold text-slate-700 sticky right-0 bg-slate-50 shadow-[-2px_0_4px_rgba(0,0,0,0.05)] min-w-[120px]">Actions</th>
                   </tr>
                 </thead>
@@ -540,28 +538,6 @@ export default function SimpleRenseignementTables({
                               </Badge>
                             ))}
                           </div>
-                        ) : (
-                          <span className="text-slate-400 text-xs">-</span>
-                        )}
-                      </td>
-
-                      {/* Notifications */}
-                      <td className="px-3 py-2.5 text-center border-r border-slate-100">
-                        {patient.notifications && patient.notifications.length > 0 ? (
-                          <Badge variant="default" className="bg-yellow-100 text-yellow-700 border-yellow-200 text-xs">
-                            {patient.notifications.length}
-                          </Badge>
-                        ) : (
-                          <span className="text-slate-400 text-xs">-</span>
-                        )}
-                      </td>
-
-                      {/* Patient History */}
-                      <td className="px-3 py-2.5 text-center border-r border-slate-100">
-                        {patient.PatientHistory && patient.PatientHistory.length > 0 ? (
-                          <Badge variant="default" className="bg-pink-100 text-pink-700 border-pink-200 text-xs">
-                            {patient.PatientHistory.length}
-                          </Badge>
                         ) : (
                           <span className="text-slate-400 text-xs">-</span>
                         )}

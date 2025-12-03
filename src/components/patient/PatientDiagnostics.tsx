@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Activity, AlertCircle, FileText, Edit } from 'lucide-react';
+import { Activity, AlertCircle, FileText, Edit, Plus } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -11,9 +11,8 @@ import {
 } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useRouter } from 'next/router';
-import { AddDiagnosticForm } from '@/components/employee/patient-details-forms/AddDiagnosticForm';
+import { CreateDiagnosticDialogAdmin } from '@/components/diagnostics/CreateDiagnosticDialogAdmin';
 
 interface MedicalDevice {
   id: string;
@@ -45,22 +44,31 @@ interface Diagnostic {
   performedBy?: PerformedBy;
 }
 
+interface PatientInfo {
+  id: string;
+  firstName: string;
+  lastName: string;
+  patientCode?: string;
+  telephone?: string;
+}
+
 interface PatientDiagnosticsProps {
   diagnostics: Diagnostic[];
   isLoading?: boolean;
   patientId?: string;
+  patient?: PatientInfo;
 }
 
-export const PatientDiagnostics = ({ diagnostics = [], isLoading = false, patientId }: PatientDiagnosticsProps) => {
+export const PatientDiagnostics = ({ diagnostics = [], isLoading = false, patientId, patient }: PatientDiagnosticsProps) => {
   const router = useRouter();
-  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
 
   const handleAddDiagnostic = () => {
-    setShowAddDialog(true);
+    setShowCreateDialog(true);
   };
 
-  const handleAddSuccess = () => {
-    setShowAddDialog(false);
+  const handleCreateSuccess = () => {
+    setShowCreateDialog(false);
     // Data will be automatically refreshed by React Query invalidation
   };
 
@@ -108,10 +116,6 @@ export const PatientDiagnostics = ({ diagnostics = [], isLoading = false, patien
     }
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   return (
     <Card>
       <CardHeader>
@@ -125,26 +129,15 @@ export const PatientDiagnostics = ({ diagnostics = [], isLoading = false, patien
               Historique des polygraphies réalisées pour ce patient
             </CardDescription>
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handlePrint}
-              className="flex items-center gap-2 print:hidden"
-            >
-              <FileText className="h-4 w-4" />
-              Imprimer
-            </Button>
-            <Button
-              variant="default"
-              size="sm"
-              onClick={handleAddDiagnostic}
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
-            >
-              <Edit className="h-4 w-4" />
-              Gérer
-            </Button>
-          </div>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={handleAddDiagnostic}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+          >
+            <Plus className="h-4 w-4" />
+            Nouveau Diagnostic
+          </Button>
         </div>
       </CardHeader>
       <CardContent>
@@ -275,24 +268,14 @@ export const PatientDiagnostics = ({ diagnostics = [], isLoading = false, patien
         )}
       </CardContent>
 
-      {/* Manage Diagnostics Dialog */}
-      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-green-700">
-              <Activity className="h-5 w-5 text-green-600" />
-              Gérer les Polygraphies
-            </DialogTitle>
-          </DialogHeader>
-          {patientId && (
-            <AddDiagnosticForm
-              patientId={patientId}
-              diagnostics={diagnostics}
-              onSuccess={handleAddSuccess}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Create Diagnostic Dialog with Stepper */}
+      {patient && (
+        <CreateDiagnosticDialogAdmin
+          open={showCreateDialog}
+          onOpenChange={setShowCreateDialog}
+          preselectedPatient={patient}
+        />
+      )}
     </Card>
   );
 };

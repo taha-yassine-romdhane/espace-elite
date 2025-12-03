@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ClipboardCheck, AlertCircle, Clock, User, UserCheck, Edit2 } from 'lucide-react';
+import { ClipboardCheck, AlertCircle, Clock, User, UserCheck, Plus } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -11,8 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { AddAppointmentForm } from '@/components/employee/patient-details-forms/AddAppointmentForm';
+import { CreateManualTaskDialog } from '@/components/employee/CreateManualTaskDialog';
 
 interface ManualTask {
   id: string;
@@ -35,17 +34,26 @@ interface ManualTask {
   };
 }
 
+interface PatientInfo {
+  id: string;
+  firstName: string;
+  lastName: string;
+  patientCode?: string;
+  telephone?: string;
+}
+
 interface PatientAppointmentsProps {
   manualTasks?: ManualTask[];
   isLoading?: boolean;
   patientId?: string;
+  patient?: PatientInfo;
 }
 
-export const PatientAppointments = ({ manualTasks = [], isLoading = false, patientId }: PatientAppointmentsProps) => {
-  const [showAddDialog, setShowAddDialog] = useState(false);
+export const PatientAppointments = ({ manualTasks = [], isLoading = false, patientId, patient }: PatientAppointmentsProps) => {
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
 
-  const handleAddSuccess = () => {
-    setShowAddDialog(false);
+  const handleCreateSuccess = () => {
+    setShowCreateDialog(false);
     // Data will be automatically refreshed by React Query invalidation
   };
   const getStatusColor = (status: string) => {
@@ -134,11 +142,11 @@ export const PatientAppointments = ({ manualTasks = [], isLoading = false, patie
           <Button
             variant="default"
             size="sm"
-            onClick={() => setShowAddDialog(true)}
-            className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
+            onClick={() => setShowCreateDialog(true)}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
           >
-            <Edit2 className="h-4 w-4" />
-            Gérer
+            <Plus className="h-4 w-4" />
+            Nouvelle Tâche
           </Button>
         </div>
       </CardHeader>
@@ -364,24 +372,14 @@ export const PatientAppointments = ({ manualTasks = [], isLoading = false, patie
         )}
       </CardContent>
 
-      {/* Manage Appointments Dialog */}
-      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-green-700">
-              <ClipboardCheck className="h-5 w-5 text-green-600" />
-              Gérer les Tâches Manuelles
-            </DialogTitle>
-          </DialogHeader>
-          {patientId && (
-            <AddAppointmentForm
-              patientId={patientId}
-              manualTasks={manualTasks}
-              onSuccess={handleAddSuccess}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Create Manual Task Dialog */}
+      {patient && (
+        <CreateManualTaskDialog
+          open={showCreateDialog}
+          onOpenChange={setShowCreateDialog}
+          preselectedPatient={patient}
+        />
+      )}
     </Card>
   );
 };

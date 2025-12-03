@@ -24,9 +24,19 @@ import { SalePaymentDialog } from './SalePaymentDialog';
 import { SaleCNAMBonDialog } from './SaleCNAMBonDialog';
 import { SaleProductParameterDialog } from './SaleProductParameterDialog';
 
+interface PreselectedPatient {
+  id: string;
+  firstName: string;
+  lastName: string;
+  name?: string;
+  patientCode?: string;
+  telephone?: string;
+}
+
 interface CreateSaleDialogAdminProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  preselectedPatient?: PreselectedPatient;
 }
 
 interface Client {
@@ -90,16 +100,32 @@ interface SalePayment {
   };
 }
 
-export function CreateSaleDialogAdmin({ open, onOpenChange }: CreateSaleDialogAdminProps) {
+export function CreateSaleDialogAdmin({ open, onOpenChange, preselectedPatient }: CreateSaleDialogAdminProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: session } = useSession();
 
-  const [step, setStep] = useState(1);
+  // Determine if we should skip client selection step
+  const hasPreselectedPatient = !!preselectedPatient;
+  const initialStep = hasPreselectedPatient ? 2 : 1;
+
+  // Create preselected client from preselectedPatient
+  const preselectedClient: Client | null = preselectedPatient ? {
+    id: preselectedPatient.id,
+    type: 'PATIENT' as const,
+    name: preselectedPatient.name || `${preselectedPatient.firstName} ${preselectedPatient.lastName}`,
+    firstName: preselectedPatient.firstName,
+    lastName: preselectedPatient.lastName,
+    code: preselectedPatient.patientCode,
+    patientCode: preselectedPatient.patientCode,
+    telephone: preselectedPatient.telephone
+  } : null;
+
+  const [step, setStep] = useState(initialStep);
   const [clientType, setClientType] = useState<'PATIENT' | 'COMPANY'>('PATIENT');
   const [clientSearch, setClientSearch] = useState('');
   const [employeeSearch, setEmployeeSearch] = useState('');
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(preselectedClient);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [articles, setArticles] = useState<SaleArticle[]>([]);
   const [payments, setPayments] = useState<SalePayment[]>([]);
@@ -229,11 +255,12 @@ export function CreateSaleDialogAdmin({ open, onOpenChange }: CreateSaleDialogAd
   });
 
   const handleClose = () => {
-    setStep(1);
+    setStep(initialStep);
     setClientType('PATIENT');
     setClientSearch('');
     setEmployeeSearch('');
-    setSelectedClient(null);
+    // Only reset client if no preselected patient
+    setSelectedClient(hasPreselectedPatient ? preselectedClient : null);
     setSelectedEmployee(null);
     setArticles([]);
     setPayments([]);
@@ -272,6 +299,10 @@ export function CreateSaleDialogAdmin({ open, onOpenChange }: CreateSaleDialogAd
   };
 
   const handleBack = () => {
+    // Don't go back to step 1 if patient is preselected
+    if (hasPreselectedPatient && step === 2) {
+      return;
+    }
     setStep(step - 1);
   };
 
@@ -355,14 +386,14 @@ export function CreateSaleDialogAdmin({ open, onOpenChange }: CreateSaleDialogAd
           {/* Left Sidebar - Steps */}
           <div className="w-64 border-r bg-gray-50 p-4 space-y-2">
             {/* Step 1: Client */}
-            <div className={`p-3 rounded-lg ${step === 1 ? 'bg-blue-600 text-white' : step > 1 ? 'bg-blue-100 text-blue-700' : 'bg-white text-gray-400'}`}>
+            <div className={`p-3 rounded-lg ${step === 1 ? 'bg-blue-600 text-white' : (step > 1 || hasPreselectedPatient) ? 'bg-blue-100 text-blue-700' : 'bg-white text-gray-400'}`}>
               <div className="flex items-center gap-2">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === 1 ? 'bg-blue-700' : step > 1 ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
-                  {step > 1 ? <Check className="h-4 w-4" /> : '1'}
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === 1 ? 'bg-blue-700' : (step > 1 || hasPreselectedPatient) ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
+                  {(step > 1 || hasPreselectedPatient) ? <Check className="h-4 w-4" /> : '1'}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium">Client</div>
-                  {step > 1 && selectedClient && (
+                  {(step > 1 || hasPreselectedPatient) && selectedClient && (
                     <div className="text-xs truncate">{selectedClient.name}</div>
                   )}
                 </div>
@@ -750,8 +781,8 @@ export function CreateSaleDialogAdmin({ open, onOpenChange }: CreateSaleDialogAd
 
         {/* Footer */}
         <div className="flex justify-between items-center px-6 py-4 border-t bg-gray-50">
-          <Button variant="outline" onClick={step === 1 ? handleClose : handleBack}>
-            {step === 1 ? 'Annuler' : <><ChevronLeft className="h-4 w-4 mr-2" />Retour</>}
+          <Button variant="outline" onClick={(step === 1 || (hasPreselectedPatient && step === 2)) ? handleClose : handleBack}>
+            {(step === 1 || (hasPreselectedPatient && step === 2)) ? 'Annuler' : <><ChevronLeft className="h-4 w-4 mr-2" />Retour</>}
           </Button>
           {step < 5 ? (
             <Button onClick={handleNext} className="bg-blue-600 hover:bg-blue-700">Suivant<ChevronRight className="h-4 w-4 ml-2" /></Button>

@@ -137,19 +137,32 @@ function PatientSelectionDialog({ patients, selectedPatientId, onSelect }: Patie
   );
 }
 
+interface PreselectedPatient {
+  id: string;
+  firstName: string;
+  lastName: string;
+  patientCode?: string;
+  telephone?: string;
+}
+
 interface CreateManualTaskDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  preselectedPatient?: PreselectedPatient;
 }
 
-export function CreateManualTaskDialog({ open, onOpenChange }: CreateManualTaskDialogProps) {
+export function CreateManualTaskDialog({ open, onOpenChange, preselectedPatient }: CreateManualTaskDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Determine if patient is preselected
+  const hasPreselectedPatient = !!preselectedPatient;
 
   const [taskData, setTaskData] = useState<Partial<ManualTask>>({
     taskType: 'CONSULTATION',
     priority: 'MEDIUM',
     status: 'PENDING',
+    patientId: preselectedPatient?.id,
   });
 
   // Fetch employees
@@ -200,6 +213,7 @@ export function CreateManualTaskDialog({ open, onOpenChange }: CreateManualTaskD
       taskType: 'CONSULTATION',
       priority: 'MEDIUM',
       status: 'PENDING',
+      patientId: preselectedPatient?.id,
     });
     onOpenChange(false);
   };
@@ -255,20 +269,44 @@ export function CreateManualTaskDialog({ open, onOpenChange }: CreateManualTaskD
           {/* Patient Selection */}
           <div className="space-y-2">
             <label className="text-sm font-medium">Patient *</label>
-            <PatientSelectionDialog
-              patients={patients}
-              selectedPatientId={taskData.patientId}
-              onSelect={(patientId) => setTaskData({ ...taskData, patientId })}
-            />
-            {selectedPatient?.patientCode && (
-              <p className="text-xs text-muted-foreground font-mono">
-                Code: {selectedPatient.patientCode}
-              </p>
-            )}
-            {selectedPatient?.telephone && (
-              <p className="text-xs text-muted-foreground">
-                Tél: {selectedPatient.telephone}
-              </p>
+            {hasPreselectedPatient ? (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4 text-blue-600" />
+                  <span className="font-medium text-blue-900">
+                    {preselectedPatient.firstName} {preselectedPatient.lastName}
+                  </span>
+                </div>
+                {preselectedPatient.patientCode && (
+                  <p className="text-xs text-blue-600 font-mono mt-1">
+                    Code: {preselectedPatient.patientCode}
+                  </p>
+                )}
+                {preselectedPatient.telephone && (
+                  <p className="text-xs text-blue-600 mt-1 flex items-center gap-1">
+                    <Phone className="h-3 w-3" />
+                    {preselectedPatient.telephone}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <>
+                <PatientSelectionDialog
+                  patients={patients}
+                  selectedPatientId={taskData.patientId}
+                  onSelect={(patientId) => setTaskData({ ...taskData, patientId })}
+                />
+                {selectedPatient?.patientCode && (
+                  <p className="text-xs text-muted-foreground font-mono">
+                    Code: {selectedPatient.patientCode}
+                  </p>
+                )}
+                {selectedPatient?.telephone && (
+                  <p className="text-xs text-muted-foreground">
+                    Tél: {selectedPatient.telephone}
+                  </p>
+                )}
+              </>
             )}
           </div>
 

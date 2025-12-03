@@ -41,10 +41,20 @@ import {
   UserCog
 } from 'lucide-react';
 
+interface PreselectedPatient {
+  id: string;
+  firstName: string;
+  lastName: string;
+  name?: string;
+  patientCode?: string;
+  telephone?: string;
+}
+
 interface RentalCreationDialogAdminProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: (rentalId: string) => void;
+  preselectedPatient?: PreselectedPatient;
 }
 
 interface SelectedAccessory {
@@ -65,22 +75,28 @@ interface Employee {
   email: string;
 }
 
-export function RentalCreationDialogAdmin({ open, onOpenChange, onSuccess }: RentalCreationDialogAdminProps) {
+export function RentalCreationDialogAdmin({ open, onOpenChange, onSuccess, preselectedPatient }: RentalCreationDialogAdminProps) {
   const { toast } = useToast();
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data: session } = useSession();
 
-  // Step state (5 steps for admin)
-  const [step, setStep] = useState(1);
+  // Determine if we should skip patient selection step
+  const hasPreselectedPatient = !!preselectedPatient;
+  const initialStep = hasPreselectedPatient ? 2 : 1;
 
-  // Form state
+  // Step state (5 steps for admin, but start at step 2 if patient is preselected)
+  const [step, setStep] = useState(initialStep);
+
+  // Form state - initialize with preselected patient if provided
   const [patientSearch, setPatientSearch] = useState('');
   const [employeeSearch, setEmployeeSearch] = useState('');
-  const [patientId, setPatientId] = useState<string>('');
-  const [patientName, setPatientName] = useState<string>('');
-  const [patientCode, setPatientCode] = useState<string>('');
-  const [patientPhone, setPatientPhone] = useState<string>('');
+  const [patientId, setPatientId] = useState<string>(preselectedPatient?.id || '');
+  const [patientName, setPatientName] = useState<string>(
+    preselectedPatient?.name || (preselectedPatient ? `${preselectedPatient.firstName} ${preselectedPatient.lastName}` : '')
+  );
+  const [patientCode, setPatientCode] = useState<string>(preselectedPatient?.patientCode || '');
+  const [patientPhone, setPatientPhone] = useState<string>(preselectedPatient?.telephone || '');
   const [employeeId, setEmployeeId] = useState<string>('');
   const [employeeName, setEmployeeName] = useState<string>('');
   const [employeeEmail, setEmployeeEmail] = useState<string>('');
@@ -216,13 +232,22 @@ export function RentalCreationDialogAdmin({ open, onOpenChange, onSuccess }: Ren
   });
 
   const handleReset = () => {
-    setStep(1);
+    setStep(initialStep);
     setPatientSearch('');
     setEmployeeSearch('');
-    setPatientId('');
-    setPatientName('');
-    setPatientCode('');
-    setPatientPhone('');
+    // Only reset patient data if no preselected patient
+    if (!hasPreselectedPatient) {
+      setPatientId('');
+      setPatientName('');
+      setPatientCode('');
+      setPatientPhone('');
+    } else {
+      // Re-initialize with preselected patient data
+      setPatientId(preselectedPatient?.id || '');
+      setPatientName(preselectedPatient?.name || (preselectedPatient ? `${preselectedPatient.firstName} ${preselectedPatient.lastName}` : ''));
+      setPatientCode(preselectedPatient?.patientCode || '');
+      setPatientPhone(preselectedPatient?.telephone || '');
+    }
     setEmployeeId('');
     setEmployeeName('');
     setEmployeeEmail('');
@@ -313,6 +338,10 @@ export function RentalCreationDialogAdmin({ open, onOpenChange, onSuccess }: Ren
   };
 
   const handleBack = () => {
+    // Don't go back to step 1 if patient is preselected
+    if (hasPreselectedPatient && step === 2) {
+      return;
+    }
     setStep(step - 1);
   };
 
@@ -383,14 +412,14 @@ export function RentalCreationDialogAdmin({ open, onOpenChange, onSuccess }: Ren
             {/* Left Sidebar */}
             <div className="w-64 border-r bg-gray-50 p-4 space-y-2">
               {/* Step 1: Patient */}
-              <div className={`p-3 rounded-lg ${step === 1 ? 'bg-blue-600 text-white' : step > 1 ? 'bg-blue-100 text-blue-700' : 'bg-white text-gray-400'}`}>
+              <div className={`p-3 rounded-lg ${step === 1 ? 'bg-blue-600 text-white' : (step > 1 || hasPreselectedPatient) ? 'bg-blue-100 text-blue-700' : 'bg-white text-gray-400'}`}>
                 <div className="flex items-center gap-2">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === 1 ? 'bg-blue-700' : step > 1 ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
-                    {step > 1 ? <Check className="h-4 w-4" /> : '1'}
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === 1 ? 'bg-blue-700' : (step > 1 || hasPreselectedPatient) ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
+                    {(step > 1 || hasPreselectedPatient) ? <Check className="h-4 w-4" /> : '1'}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium">Patient</div>
-                    {step > 1 && patientName && <div className="text-xs truncate">{patientName}</div>}
+                    {(step > 1 || hasPreselectedPatient) && patientName && <div className="text-xs truncate">{patientName}</div>}
                   </div>
                 </div>
               </div>
@@ -611,8 +640,8 @@ export function RentalCreationDialogAdmin({ open, onOpenChange, onSuccess }: Ren
 
           {/* Footer */}
           <div className="flex justify-between items-center px-6 py-4 border-t bg-gray-50">
-            <Button variant="outline" onClick={step === 1 ? handleClose : handleBack} disabled={isSubmitting}>
-              {step === 1 ? 'Annuler' : <><ChevronLeft className="h-4 w-4 mr-2" />Retour</>}
+            <Button variant="outline" onClick={(step === 1 || (hasPreselectedPatient && step === 2)) ? handleClose : handleBack} disabled={isSubmitting}>
+              {(step === 1 || (hasPreselectedPatient && step === 2)) ? 'Annuler' : <><ChevronLeft className="h-4 w-4 mr-2" />Retour</>}
             </Button>
             {step < 5 ? (
               <Button onClick={handleNext} className="bg-blue-600 hover:bg-blue-700" disabled={isSubmitting}>Suivant<ChevronRight className="h-4 w-4 ml-2" /></Button>

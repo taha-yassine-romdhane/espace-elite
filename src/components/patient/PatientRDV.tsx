@@ -11,6 +11,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { CreateAppointmentDialogAdmin } from '@/components/appointments/CreateAppointmentDialogAdmin';
 
 interface Appointment {
   id: string;
@@ -35,10 +36,19 @@ interface Appointment {
   createdAt: string | Date;
 }
 
+interface PatientInfo {
+  id: string;
+  firstName: string;
+  lastName: string;
+  patientCode?: string;
+  telephone?: string;
+}
+
 interface PatientRDVProps {
   appointments?: Appointment[];
   isLoading?: boolean;
   patientId?: string;
+  patient?: PatientInfo;
 }
 
 const APPOINTMENT_TYPES = {
@@ -64,12 +74,13 @@ const STATUS_LABELS = {
   CANCELLED: 'Annulé',
 };
 
-export const PatientRDV = ({ appointments = [], isLoading = false, patientId }: PatientRDVProps) => {
+export const PatientRDV = ({ appointments = [], isLoading = false, patientId, patient }: PatientRDVProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [editData, setEditData] = useState<Partial<Appointment> | null>(null);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
 
   // Create mutation
   const createMutation = useMutation({
@@ -252,16 +263,16 @@ export const PatientRDV = ({ appointments = [], isLoading = false, patientId }: 
               Gérer les rendez-vous du patient
             </CardDescription>
           </div>
-          {patientId && (
+          {patient && (
             <Button
               variant="default"
               size="sm"
-              onClick={handleAddNew}
-              disabled={isAddingNew || editingId !== null}
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
+              onClick={() => setShowCreateDialog(true)}
+              disabled={editingId !== null}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
             >
               <Plus className="h-4 w-4" />
-              Ajouter
+              Nouveau RDV
             </Button>
           )}
         </div>
@@ -282,110 +293,6 @@ export const PatientRDV = ({ appointments = [], isLoading = false, patientId }: 
               </TableRow>
             </TableHeader>
             <TableBody>
-              {/* Add New Row */}
-              {isAddingNew && editData && (
-                <TableRow className="bg-green-50">
-                  {/* Date & Heure */}
-                  <TableCell>
-                    <Input
-                      type="datetime-local"
-                      value={typeof editData.scheduledDate === 'string' ? editData.scheduledDate : editData.scheduledDate instanceof Date ? format(editData.scheduledDate, "yyyy-MM-dd'T'HH:mm") : ''}
-                      onChange={(e) => setEditData({ ...editData, scheduledDate: e.target.value })}
-                      className="text-xs h-7"
-                    />
-                  </TableCell>
-
-                  {/* Type */}
-                  <TableCell>
-                    <Select
-                      value={editData.appointmentType || 'CONSULTATION'}
-                      onValueChange={(value) => setEditData({ ...editData, appointmentType: value })}
-                    >
-                      <SelectTrigger className="text-xs h-7">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.entries(APPOINTMENT_TYPES).map(([value, label]) => (
-                          <SelectItem key={value} value={value}>{label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-
-                  {/* Lieu */}
-                  <TableCell>
-                    <Input
-                      type="text"
-                      placeholder="Lieu"
-                      value={editData.location || ''}
-                      onChange={(e) => setEditData({ ...editData, location: e.target.value })}
-                      className="text-xs h-7"
-                    />
-                  </TableCell>
-
-                  {/* Priorité */}
-                  <TableCell>
-                    <Select
-                      value={editData.priority || 'NORMAL'}
-                      onValueChange={(value) => setEditData({ ...editData, priority: value })}
-                    >
-                      <SelectTrigger className="text-xs h-7">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.entries(PRIORITY_LABELS).map(([value, label]) => (
-                          <SelectItem key={value} value={value}>{label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-
-                  {/* Statut */}
-                  <TableCell>
-                    <Select
-                      value={editData.status || 'SCHEDULED'}
-                      onValueChange={(value) => setEditData({ ...editData, status: value })}
-                    >
-                      <SelectTrigger className="text-xs h-7">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                          <SelectItem key={value} value={value}>{label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-
-                  {/* Assigné à */}
-                  <TableCell>
-                    <div className="text-xs text-gray-400">Auto-assigné</div>
-                  </TableCell>
-
-                  {/* Notes */}
-                  <TableCell>
-                    <Textarea
-                      value={editData.notes || ''}
-                      onChange={(e) => setEditData({ ...editData, notes: e.target.value })}
-                      className="text-xs min-h-[60px]"
-                      placeholder="Notes..."
-                    />
-                  </TableCell>
-
-                  {/* Actions */}
-                  <TableCell>
-                    <div className="flex gap-1">
-                      <Button size="sm" onClick={handleSaveNew} className="h-7 bg-green-600 hover:bg-green-700">
-                        <Save className="h-3 w-3" />
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={handleCancel} className="h-7">
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )}
-
               {/* Existing Rows */}
               {sortedAppointments.map((appointment) => {
                 const isEditing = editingId === appointment.id;
@@ -589,7 +496,7 @@ export const PatientRDV = ({ appointments = [], isLoading = false, patientId }: 
                 );
               })}
 
-              {!isAddingNew && sortedAppointments.length === 0 && (
+              {sortedAppointments.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={8} className="text-center py-8 text-gray-500">
                     <AlertCircle className="h-10 w-10 mx-auto mb-2 text-gray-300" />
@@ -629,6 +536,15 @@ export const PatientRDV = ({ appointments = [], isLoading = false, patientId }: 
           </div>
         )}
       </CardContent>
+
+      {/* Create Appointment Dialog with Stepper */}
+      {patient && (
+        <CreateAppointmentDialogAdmin
+          open={showCreateDialog}
+          onOpenChange={setShowCreateDialog}
+          preselectedPatient={patient}
+        />
+      )}
     </Card>
   );
 };

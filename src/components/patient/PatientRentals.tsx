@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Package, AlertCircle, CreditCard, FileText, Settings, Edit2 } from 'lucide-react';
+import { Package, AlertCircle, CreditCard, FileText, Settings, Edit2, Plus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { AddRentalForm } from '@/components/employee/patient-details-forms/AddRentalForm';
+import { RentalCreationDialogAdmin } from '@/components/dialogs/RentalCreationDialogAdmin';
 
 interface MedicalDevice {
   id: string;
@@ -52,17 +51,26 @@ interface Rental {
   assignedTo?: UserInfo;
 }
 
+interface PatientInfo {
+  id: string;
+  firstName: string;
+  lastName: string;
+  patientCode?: string;
+  telephone?: string;
+}
+
 interface PatientRentalsProps {
   rentals: Rental[];
   isLoading?: boolean;
   patientId?: string;
+  patient?: PatientInfo;
 }
 
-export const PatientRentals = ({ rentals = [], isLoading = false, patientId }: PatientRentalsProps) => {
-  const [showManageDialog, setShowManageDialog] = useState(false);
+export const PatientRentals = ({ rentals = [], isLoading = false, patientId, patient }: PatientRentalsProps) => {
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
 
-  const handleManageSuccess = () => {
-    setShowManageDialog(false);
+  const handleCreateSuccess = () => {
+    setShowCreateDialog(false);
     // Data will be automatically refreshed by React Query invalidation
   };
 
@@ -137,11 +145,11 @@ export const PatientRentals = ({ rentals = [], isLoading = false, patientId }: P
             <Button
               variant="default"
               size="sm"
-              onClick={() => setShowManageDialog(true)}
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
+              onClick={() => setShowCreateDialog(true)}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
             >
-              <Edit2 className="h-4 w-4" />
-              Gérer
+              <Plus className="h-4 w-4" />
+              Nouvelle Location
             </Button>
           </div>
         </CardHeader>
@@ -324,24 +332,15 @@ export const PatientRentals = ({ rentals = [], isLoading = false, patientId }: P
         </CardContent>
       </Card>
 
-      {/* Manage Rentals Dialog */}
-      <Dialog open={showManageDialog} onOpenChange={setShowManageDialog}>
-        <DialogContent className="max-w-[95vw] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-green-700">
-              <Package className="h-5 w-5 text-green-600" />
-              Gérer les Locations
-            </DialogTitle>
-          </DialogHeader>
-          {patientId && (
-            <AddRentalForm
-              patientId={patientId}
-              rentals={rentals}
-              onSuccess={handleManageSuccess}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Create Rental Dialog with Stepper */}
+      {patient && (
+        <RentalCreationDialogAdmin
+          open={showCreateDialog}
+          onOpenChange={setShowCreateDialog}
+          preselectedPatient={patient}
+          onSuccess={handleCreateSuccess}
+        />
+      )}
     </div>
   );
 };

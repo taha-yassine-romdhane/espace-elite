@@ -32,9 +32,19 @@ interface Employee {
   lastName: string;
 }
 
+interface PreselectedPatient {
+  id: string;
+  firstName: string;
+  lastName: string;
+  name?: string;
+  patientCode?: string;
+  telephone?: string;
+}
+
 interface CreateAppointmentDialogAdminProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  preselectedPatient?: PreselectedPatient;
 }
 
 const STEPS = [
@@ -58,14 +68,28 @@ const PRIORITIES = [
   { value: 'URGENT', label: 'Urgent', color: 'bg-red-100 text-red-700 border-red-200' }
 ];
 
-export function CreateAppointmentDialogAdmin({ open, onOpenChange }: CreateAppointmentDialogAdminProps) {
+export function CreateAppointmentDialogAdmin({ open, onOpenChange, preselectedPatient }: CreateAppointmentDialogAdminProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: session } = useSession();
 
-  const [step, setStep] = useState(1);
+  // Determine if we should skip patient selection step
+  const hasPreselectedPatient = !!preselectedPatient;
+  const initialStep = hasPreselectedPatient ? 2 : 1;
+
+  // Create preselected patient object
+  const preselectedPatientData: Patient | null = preselectedPatient ? {
+    id: preselectedPatient.id,
+    firstName: preselectedPatient.firstName,
+    lastName: preselectedPatient.lastName,
+    name: preselectedPatient.name || `${preselectedPatient.firstName} ${preselectedPatient.lastName}`,
+    patientCode: preselectedPatient.patientCode,
+    telephone: preselectedPatient.telephone
+  } : null;
+
+  const [step, setStep] = useState(initialStep);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(preselectedPatientData);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
   const [appointmentData, setAppointmentData] = useState({
     appointmentType: 'CONSULTATION',
@@ -138,8 +162,9 @@ export function CreateAppointmentDialogAdmin({ open, onOpenChange }: CreateAppoi
   });
 
   const handleClose = () => {
-    setStep(1);
-    setSelectedPatient(null);
+    setStep(initialStep);
+    // Only reset patient if no preselected patient
+    setSelectedPatient(hasPreselectedPatient ? preselectedPatientData : null);
     setSearchQuery('');
     setSelectedEmployeeId('');
     setAppointmentData({
@@ -159,6 +184,10 @@ export function CreateAppointmentDialogAdmin({ open, onOpenChange }: CreateAppoi
   };
 
   const handleBack = () => {
+    // Don't go back to step 1 if patient is preselected
+    if (hasPreselectedPatient) {
+      return;
+    }
     setStep(1);
   };
 
@@ -424,9 +453,9 @@ export function CreateAppointmentDialogAdmin({ open, onOpenChange }: CreateAppoi
             <div className="flex-shrink-0 flex justify-between items-center p-4 border-t bg-gray-50">
               <Button
                 variant="outline"
-                onClick={step === 1 ? handleClose : handleBack}
+                onClick={(step === 1 || hasPreselectedPatient) ? handleClose : handleBack}
               >
-                {step === 1 ? (
+                {(step === 1 || hasPreselectedPatient) ? (
                   <>Annuler</>
                 ) : (
                   <>
