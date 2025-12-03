@@ -68,8 +68,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const basename = path.basename(originalName, ext);
     const uniqueName = `${timestamp}-${basename}${ext}`;
 
-    // Define paths - use public/uploads-public folder (separate from sensitive documents)
-    const uploadsDir = path.join(process.cwd(), 'public', 'uploads-public');
+    // Define paths - use persistent storage outside of app directory
+    const uploadsDir = '/var/espace-elite-files/uploads-public';
     const filePath = path.join(uploadsDir, uniqueName);
 
     console.log('Public upload details:', {
@@ -103,8 +103,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       throw new Error(`Failed to save file: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 
-    // Construct the file URL
-    const fileUrl = `/uploads-public/${uniqueName}`;
+    // Construct the file URL - serve via API route
+    const fileUrl = `/api/files/serve-public/${uniqueName}`;
 
     return res.status(200).json({
       success: true,

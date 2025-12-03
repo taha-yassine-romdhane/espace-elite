@@ -362,7 +362,7 @@ export function GeneralSettings() {
                                     alt="Company Logo"
                                     fill
                                     className="object-contain"
-                                    unoptimized={currentLogo.startsWith('/uploads-public/') || currentLogo.startsWith('/imports/')}
+                                    unoptimized={currentLogo.startsWith('/api/files/serve-public/') || currentLogo.startsWith('/uploads-public/') || currentLogo.startsWith('/imports/')}
                                     onError={(e) => {
                                       console.error('Image load error:', currentLogo);
                                       toast({

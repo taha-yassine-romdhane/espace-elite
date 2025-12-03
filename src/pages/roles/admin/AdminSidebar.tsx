@@ -173,7 +173,7 @@ const Sidebar: React.FC = () => {
                         height={48}
                         priority
                         className="object-contain h-auto"
-                        unoptimized={companyLogo.startsWith('/uploads-public/') || companyLogo.startsWith('/imports/')}
+                        unoptimized={companyLogo.startsWith('/api/files/serve-public/') || companyLogo.startsWith('/uploads-public/') || companyLogo.startsWith('/imports/')}
                     />
                 ) : (
                     <div className="text-center text-xs text-gray-400 italic">
@@ -281,7 +281,7 @@ const Sidebar: React.FC = () => {
                                 height={60}
                                 priority
                                 className="object-contain h-auto"
-                                unoptimized={companyLogo.startsWith('/uploads-public/') || companyLogo.startsWith('/imports/')}
+                                unoptimized={companyLogo.startsWith('/api/files/serve-public/') || companyLogo.startsWith('/uploads-public/') || companyLogo.startsWith('/imports/')}
                             />
                         ) : (
                             <div className="text-center text-xs text-gray-400 italic px-2">
@@ -299,7 +299,7 @@ const Sidebar: React.FC = () => {
                                 height={40}
                                 priority
                                 className="object-contain"
-                                unoptimized={companyLogo.startsWith('/uploads-public/') || companyLogo.startsWith('/imports/')}
+                                unoptimized={companyLogo.startsWith('/api/files/serve-public/') || companyLogo.startsWith('/uploads-public/') || companyLogo.startsWith('/imports/')}
                             />
                         ) : (
                             <div className="text-[10px] text-gray-400 italic text-center leading-tight">

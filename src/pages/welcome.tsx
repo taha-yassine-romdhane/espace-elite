@@ -37,10 +37,10 @@ export default function Welcome() {
     retry: 1,
   });
 
-  // SECURITY: Welcome page should ONLY use public logos from /uploads-public/
-  // Never use /imports/ or /api/files/ paths on public pages (those require auth)
+  // SECURITY: Welcome page should ONLY use public logos from /api/files/serve-public/
+  // Never use /imports/ or authenticated /api/files/ paths on public pages
   const rawLogo = settings?.companyLogo;
-  const companyLogo = rawLogo?.startsWith('/uploads-public/') ? rawLogo : null;
+  const companyLogo = rawLogo?.startsWith('/api/files/serve-public/') || rawLogo?.startsWith('/uploads-public/') ? rawLogo : null;
   const companyName = settings?.companyName || "Entreprise";
 
   // Debug logging
