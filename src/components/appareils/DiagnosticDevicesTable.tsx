@@ -167,8 +167,9 @@ export function DiagnosticDevicesTable({
   };
 
   const getLocationName = (device: Product) => {
-    if (device.isReserved && device.patient?.address) {
-      return device.patient.address;
+    if (device.isReserved && device.patient) {
+      const patientAddress = (device.patient as any).detailedAddress || (device.patient as any).adresse;
+      if (patientAddress) return patientAddress;
     }
     if (device.stockLocation?.name) {
       return device.stockLocation.name;

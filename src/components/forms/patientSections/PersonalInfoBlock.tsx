@@ -155,16 +155,17 @@ export default function PersonalInfoBlock({
       }
     });
 
-    // If we have existing files, update them separately
-    if (patient.files && patient.files.length > 0) {
-      console.log('Setting existing files:', patient.files);
-      form.setValue('existingFiles', patient.files);
+    // If we have existing files, update them separately (cast to any since files may exist at runtime)
+    const patientFiles = (patient as any).files;
+    if (patientFiles && patientFiles.length > 0) {
+      console.log('Setting existing files:', patientFiles);
+      form.setValue('existingFiles', patientFiles);
 
       // Notify parent about existing files
       const syntheticEvent = {
         target: {
           name: 'existingFiles',
-          value: patient.files
+          value: patientFiles
         }
       };
       onInputChange(syntheticEvent as unknown as React.ChangeEvent<HTMLInputElement>);

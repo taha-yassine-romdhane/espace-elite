@@ -68,7 +68,8 @@ const ProductForm: React.FC<ProductFormProps> = ({
     }
   };
 
-  const showRepairFields = formData.stock === StockLocationType.HORS_SERVICE;
+  // HORS_SERVICE doesn't exist in StockLocationType - repair fields shown based on status instead
+  const showRepairFields = (formData.status as any) === 'IN_REPAIR' || (formData.status as any) === 'OUT_OF_SERVICE';
 
   return (
     <div className="space-y-4 p-4">
@@ -175,19 +176,17 @@ const ProductForm: React.FC<ProductFormProps> = ({
             value={formData.stock}
             onValueChange={(value) => {
               handleSelectChange('stock', value);
-              // Reset repair status when changing stock
-              if (value !== StockLocationType.HORS_SERVICE) {
-                handleSelectChange('status', ProductStatus.ACTIVE);
-              }
+              // Reset status to ACTIVE when changing stock
+              handleSelectChange('status', ProductStatus.ACTIVE);
             }}
           >
             <SelectTrigger>
               <SelectValue placeholder="Sélectionner un stock" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={StockLocationType.VENTE}>Vente</SelectItem>
-              <SelectItem value={StockLocationType.LOCATION}>Location</SelectItem>
-              <SelectItem value={StockLocationType.HORS_SERVICE}>Hors Service</SelectItem>
+              <SelectItem value={StockLocationType.PHYSICAL}>Stock Physique</SelectItem>
+              <SelectItem value={StockLocationType.VIRTUAL}>Stock Virtuel</SelectItem>
+              <SelectItem value={StockLocationType.ARCHIVE}>Archive</SelectItem>
             </SelectContent>
           </Select>
         </div>

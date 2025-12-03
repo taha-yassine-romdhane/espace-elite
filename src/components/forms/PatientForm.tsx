@@ -239,11 +239,12 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
   // Handle patient selection from search
   const handlePatientSelect = (patient: Patient) => {
     console.log('Patient selected:', patient);
-    
-    // Handle files if they exist
-    if (patient.files && Array.isArray(patient.files) && patient.files.length > 0) {
+
+    // Handle files if they exist (cast to any since files may exist at runtime)
+    const patientFiles = (patient as any).files;
+    if (patientFiles && Array.isArray(patientFiles) && patientFiles.length > 0) {
       try {
-        const mappedFiles: ExistingFile[] = patient.files.map((file: ExistingFile) => ({
+        const mappedFiles: ExistingFile[] = patientFiles.map((file: ExistingFile) => ({
           url: file.url || '',
           type: file.type || 'application/octet-stream',
           name: file.name || 'file',
@@ -275,10 +276,16 @@ export default function PatientForm({ formData, onInputChange, onFileChange, onB
     form.setValue('nomComplet', `${patient.firstName} ${patient.lastName}`);
     form.setValue('telephonePrincipale', patient.telephone);
     if (patient.telephoneTwo) form.setValue('telephoneSecondaire', patient.telephoneTwo);
-    if (patient.address) form.setValue('adresseComplete', patient.address);
-    if (patient.addressCoordinates) form.setValue('adresseCoordinates', JSON.stringify(patient.addressCoordinates));
+    const patientAddress = (patient as any).address || (patient as any).detailedAddress || (patient as any).adresse;
+    if (patientAddress) form.setValue('adresseComplete', patientAddress);
+    if ((patient as any).addressCoordinates) form.setValue('adresseCoordinates', JSON.stringify((patient as any).addressCoordinates));
     if (patient.cin) form.setValue('cin', patient.cin);
-    if (patient.dateOfBirth) form.setValue('dateNaissance', patient.dateOfBirth.toISOString().split('T')[0]);
+    if (patient.dateOfBirth) {
+      const dob = patient.dateOfBirth instanceof Date
+        ? patient.dateOfBirth.toISOString().split('T')[0]
+        : String(patient.dateOfBirth).split('T')[0];
+      form.setValue('dateNaissance', dob);
+    }
     
     // Set medical information
     if (patient.antecedant) form.setValue('antecedant', patient.antecedant);

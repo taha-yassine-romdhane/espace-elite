@@ -15,7 +15,8 @@
       "Bash(node scripts/investigate-sales-vs-rentals.js:*)",
       "Bash(node scripts/deep-verify-sales.js:*)",
       "Bash(node scripts/fix-all-import-issues.js:*)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Bash(docker compose:*)"
     ],
     "deny": []
   }
